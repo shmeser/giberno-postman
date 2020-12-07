@@ -1,2 +1,2 @@
-# giberno-dev-server
+# giberno-server
 
