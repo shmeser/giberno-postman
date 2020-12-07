@@ -44,6 +44,12 @@ deploy:
     - echo SUPERUSER_PASS="$SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo ENVIRONMENT="$ENVIRONMENT" | tr -d '\r' >> .env
 
+    - echo TELEGRAM_BOT_TOKEN="$DEV_TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
+    - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
+
+    - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
+    - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
+
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
     - sudo ln -s "$(pwd -P)"/devops/develop/docker-compose.yml "$(pwd -P)"
 
@@ -76,7 +82,13 @@ deploy_stage:
     - echo ST_POSTGRES_PASSWORD="$ST_POSTGRES_PASSWORD" | tr -d '\r' >> .env
 
     - echo ST_SUPERUSER_PASS="$ST_SUPERUSER_PASS" | tr -d '\r' >> .env
-    - echo ENVIRONMENT="$ST_ENVIRONMENT" | tr -d '\r' >> .env
+    - echo ST_ENVIRONMENT="$ST_ENVIRONMENT" | tr -d '\r' >> .env
+
+    - echo TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
+    - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
+
+    - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
+    - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
     - sudo ln -s "$(pwd -P)"/devops/stage/docker-compose.yml "$(pwd -P)"
@@ -110,6 +122,12 @@ deploy_release:
 
     - echo RL_SUPERUSER_PASS="$RL_SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo RL_ENVIRONMENT="$RL_ENVIRONMENT" | tr -d '\r' >> .env
+
+    - echo TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
+    - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
+
+    - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
+    - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
     - sudo ln -s "$(pwd -P)"/devops/release/docker-compose.yml "$(pwd -P)"
