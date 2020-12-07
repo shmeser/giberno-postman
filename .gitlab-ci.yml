@@ -34,14 +34,13 @@ deploy:
     - sudo nginx -t & sudo service nginx reload
     - touch .env
 
+    - echo API_PORT="$API_PORT" | tr -d '\r' >> .env
+    - echo DB_PORT="$DB_PORT" | tr -d '\r' >> .env
+
     - echo POSTGRES_DB="$POSTGRES_DB" | tr -d '\r' > .env
     - echo POSTGRES_USER="$POSTGRES_USER" | tr -d '\r' >> .env
     - echo POSTGRES_PASSWORD="$POSTGRES_PASSWORD" | tr -d '\r' >> .env
-    - echo DB_PORT="$DB_PORT" | tr -d '\r' >> .env
-    - echo DAPHNE_PORT="$DAPHNE_PORT" | tr -d '\r' >> .env
-    - echo NGINX_PORT="$NGINX_PORT" | tr -d '\r' >> .env
-    - echo HOST_IP="$HOST_IP" | tr -d '\r' >> .env
-    - echo HOST_DOMAIN="$HOST_DOMAIN" | tr -d '\r' >> .env
+
     - echo SUPERUSER_PASS="$SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo ENVIRONMENT="$ENVIRONMENT" | tr -d '\r' >> .env
 
@@ -69,14 +68,13 @@ deploy_stage:
     - sudo nginx -t & sudo service nginx reload
     - touch .env
 
+    - echo ST_API_PORT="$ST_API_PORT" | tr -d '\r' >> .env
+    - echo ST_DB_PORT="$ST_DB_PORT" | tr -d '\r' >> .env
+
     - echo ST_POSTGRES_DB="$ST_POSTGRES_DB" | tr -d '\r' > .env
     - echo ST_POSTGRES_USER="$ST_POSTGRES_USER" | tr -d '\r' >> .env
     - echo ST_POSTGRES_PASSWORD="$ST_POSTGRES_PASSWORD" | tr -d '\r' >> .env
-    - echo ST_DB_PORT="$ST_DB_PORT" | tr -d '\r' >> .env
-    - echo ST_DAPHNE_PORT="$ST_DAPHNE_PORT" | tr -d '\r' >> .env
-    - echo ST_NGINX_PORT="$ST_NGINX_PORT" | tr -d '\r' >> .env
-    - echo ST_HOST_IP="$ST_HOST_IP" | tr -d '\r' >> .env
-    - echo ST_HOST_DOMAIN="$ST_HOST_DOMAIN" | tr -d '\r' >> .env
+
     - echo ST_SUPERUSER_PASS="$ST_SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo ENVIRONMENT="$ST_ENVIRONMENT" | tr -d '\r' >> .env
 
@@ -103,13 +101,13 @@ deploy_release:
     - sudo nginx -t & sudo service nginx reload
     - touch .env
 
+    - echo RL_API_PORT="$RL_API_PORT" | tr -d '\r' >> .env
+    - echo RL_DB_PORT="$RL_DB_PORT" | tr -d '\r' >> .env
+
     - echo RL_POSTGRES_DB="$RL_POSTGRES_DB" | tr -d '\r' > .env
     - echo RL_POSTGRES_USER="$RL_POSTGRES_USER" | tr -d '\r' >> .env
     - echo RL_POSTGRES_PASSWORD="$RL_POSTGRES_PASSWORD" | tr -d '\r' >> .env
-    - echo RL_DAPHNE_PORT="$RL_DAPHNE_PORT" | tr -d '\r' >> .env
-    - echo RL_NGINX_PORT="$RL_NGINX_PORT" | tr -d '\r' >> .env
-    - echo HOST_IP="$HOST_IP" | tr -d '\r' >> .env
-    - echo RL_HOST_DOMAIN="$RL_HOST_DOMAIN" | tr -d '\r' >> .env
+
     - echo RL_SUPERUSER_PASS="$RL_SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo RL_ENVIRONMENT="$RL_ENVIRONMENT" | tr -d '\r' >> .env
 

@@ -19,27 +19,22 @@ services:
       POSTGRES_USER: ${RL_POSTGRES_USER}
       POSTGRES_PASSWORD: ${RL_POSTGRES_PASSWORD}
     volumes:
-      - ./data/db:/var/lib/postgresql/data
-  daphne:
+      - ./data/postgisdb:/var/lib/postgresql/data
+  api:
     image: registry.appcraft.team:5005/giberno/giberno-server
     restart: always
-    command: bash -c "python3 manage.py migrate && python3 manage.py seed && python3 manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p ${RL_DAPHNE_PORT} giberno.asgi:application"
+    command: bash -c "python3 manage.py migrate && python3 manage.py seed && python3 manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p ${RL_API_PORT} giberno.asgi:application"
     environment:
-      DB_HOST: db
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
-      MACHINE_HOST: 127.0.0.1
-      HOST_IP: ${RL_HOST_IP}
-      HOST_PORT: ${RL_DAPHNE_PORT}
-      NGINX_PORT: ${RL_NGINX_PORT}
-      HOST_DOMAIN: ${RL_HOST_DOMAIN}
+      DB_HOST: db
       DB_NAME: ${RL_POSTGRES_DB}
       DB_USER: ${RL_POSTGRES_USER}
       DB_PASSWORD: ${RL_POSTGRES_PASSWORD}
       SUPERUSER_PASS: ${RL_SUPERUSER_PASS}
       ENVIRONMENT: ${RL_ENVIRONMENT}
     ports:
-      - "127.0.0.1:${RL_DAPHNE_PORT}:${RL_DAPHNE_PORT}"
+      - "127.0.0.1:${RL_API_PORT}:${RL_API_PORT}"
     networks:
       - giberno_release
     depends_on:
@@ -51,14 +46,9 @@ services:
     image: registry.appcraft.team:5005/giberno/giberno-server
     command: celery -A giberno worker -l info
     environment:
-      DB_HOST: db
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
-      MACHINE_HOST: 127.0.0.1
-      HOST_IP: ${RL_HOST_IP}
-      HOST_PORT: ${RL_DAPHNE_PORT}
-      NGINX_PORT: ${RL_NGINX_PORT}
-      HOST_DOMAIN: ${RL_HOST_DOMAIN}
+      DB_HOST: db
       DB_NAME: ${RL_POSTGRES_DB}
       DB_USER: ${RL_POSTGRES_USER}
       DB_PASSWORD: ${RL_POSTGRES_PASSWORD}
@@ -75,14 +65,9 @@ services:
     image: registry.appcraft.team:5005/giberno/giberno-server
     command: celery -A giberno beat -l info
     environment:
-      DB_HOST: db
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
-      MACHINE_HOST: 127.0.0.1
-      HOST_IP: ${RL_HOST_IP}
-      HOST_PORT: ${RL_DAPHNE_PORT}
-      NGINX_PORT: ${RL_NGINX_PORT}
-      HOST_DOMAIN: ${RL_HOST_DOMAIN}
+      DB_HOST: db
       DB_NAME: ${RL_POSTGRES_DB}
       DB_USER: ${RL_POSTGRES_USER}
       DB_PASSWORD: ${RL_POSTGRES_PASSWORD}
