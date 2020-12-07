@@ -1,0 +1,127 @@
+image: docker:latest
+services:
+  - docker:dind
+
+stages:
+  - build
+  - deploy
+  - deploy_stage
+  - deploy_release
+
+variables:
+  DOCKER_DRIVER: overlay2
+
+before_script:
+  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.appcraft.team:5005
+
+build:
+  stage: build
+  script:
+    - docker build -t registry.appcraft.team:5005/giberno/giberno-server .
+    - docker push registry.appcraft.team:5005/giberno/giberno-server
+  only:
+    - develop
+    - stage
+    - release
+
+deploy:
+  stage: deploy
+  before_script:
+    - sudo rm -f /etc/nginx/sites-enabled/giberno-server_develop.conf
+    - cp -r ./devops /srv/giberno-server_develop
+    - cd /srv/giberno-server_develop
+    - sudo ln -s "$(pwd -P)"/devops/develop/giberno-server_develop.conf /etc/nginx/sites-enabled
+    - sudo nginx -t & sudo service nginx reload
+    - touch .env
+
+    - echo POSTGRES_DB="$POSTGRES_DB" | tr -d '\r' > .env
+    - echo POSTGRES_USER="$POSTGRES_USER" | tr -d '\r' >> .env
+    - echo POSTGRES_PASSWORD="$POSTGRES_PASSWORD" | tr -d '\r' >> .env
+    - echo DB_PORT="$DB_PORT" | tr -d '\r' >> .env
+    - echo DAPHNE_PORT="$DAPHNE_PORT" | tr -d '\r' >> .env
+    - echo NGINX_PORT="$NGINX_PORT" | tr -d '\r' >> .env
+    - echo HOST_IP="$HOST_IP" | tr -d '\r' >> .env
+    - echo HOST_DOMAIN="$HOST_DOMAIN" | tr -d '\r' >> .env
+    - echo SUPERUSER_PASS="$SUPERUSER_PASS" | tr -d '\r' >> .env
+    - echo ENVIRONMENT="$ENVIRONMENT" | tr -d '\r' >> .env
+
+    - sudo rm -f "$(pwd -P)"/docker-compose.yml
+    - sudo ln -s "$(pwd -P)"/devops/develop/docker-compose.yml "$(pwd -P)"
+
+  script:
+    - docker-compose stop
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.appcraft.team:5005
+    - docker pull registry.appcraft.team:5005/giberno/giberno-server:latest
+    - docker-compose up -d
+  only:
+    - develop
+  tags:
+    - giberno-develop
+
+
+deploy_stage:
+  stage: deploy_stage
+  before_script:
+    - sudo rm -f /etc/nginx/sites-enabled/giberno-server_stage.conf
+    - cp -r ./devops /srv/giberno-server_stage
+    - cd /srv/giberno-server_stage
+    - sudo ln -s "$(pwd -P)"/devops/stage/giberno-server_stage.conf /etc/nginx/sites-enabled
+    - sudo nginx -t & sudo service nginx reload
+    - touch .env
+
+    - echo ST_POSTGRES_DB="$ST_POSTGRES_DB" | tr -d '\r' > .env
+    - echo ST_POSTGRES_USER="$ST_POSTGRES_USER" | tr -d '\r' >> .env
+    - echo ST_POSTGRES_PASSWORD="$ST_POSTGRES_PASSWORD" | tr -d '\r' >> .env
+    - echo ST_DB_PORT="$ST_DB_PORT" | tr -d '\r' >> .env
+    - echo ST_DAPHNE_PORT="$ST_DAPHNE_PORT" | tr -d '\r' >> .env
+    - echo ST_NGINX_PORT="$ST_NGINX_PORT" | tr -d '\r' >> .env
+    - echo ST_HOST_IP="$ST_HOST_IP" | tr -d '\r' >> .env
+    - echo ST_HOST_DOMAIN="$ST_HOST_DOMAIN" | tr -d '\r' >> .env
+    - echo ST_SUPERUSER_PASS="$ST_SUPERUSER_PASS" | tr -d '\r' >> .env
+    - echo ENVIRONMENT="$ST_ENVIRONMENT" | tr -d '\r' >> .env
+
+    - sudo rm -f "$(pwd -P)"/docker-compose.yml
+    - sudo ln -s "$(pwd -P)"/devops/stage/docker-compose.yml "$(pwd -P)"
+
+  script:
+    - docker-compose stop
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.appcraft.team:5005
+    - docker pull registry.appcraft.team:5005/giberno/giberno-server:latest
+    - docker-compose up -d
+  only:
+    - stage
+  tags:
+    - giberno-stage
+
+deploy_release:
+  stage: deploy_release
+  before_script:
+    - sudo rm -f /etc/nginx/sites-enabled/giberno-server_release.conf
+    - cp -r ./devops /srv/giberno-server_release
+    - cd /srv/giberno-server_release
+    - sudo ln -s "$(pwd -P)"/devops/release/giberno-server_release.conf /etc/nginx/sites-enabled
+    - sudo nginx -t & sudo service nginx reload
+    - touch .env
+
+    - echo RL_POSTGRES_DB="$RL_POSTGRES_DB" | tr -d '\r' > .env
+    - echo RL_POSTGRES_USER="$RL_POSTGRES_USER" | tr -d '\r' >> .env
+    - echo RL_POSTGRES_PASSWORD="$RL_POSTGRES_PASSWORD" | tr -d '\r' >> .env
+    - echo RL_DAPHNE_PORT="$RL_DAPHNE_PORT" | tr -d '\r' >> .env
+    - echo RL_NGINX_PORT="$RL_NGINX_PORT" | tr -d '\r' >> .env
+    - echo HOST_IP="$HOST_IP" | tr -d '\r' >> .env
+    - echo RL_HOST_DOMAIN="$RL_HOST_DOMAIN" | tr -d '\r' >> .env
+    - echo RL_SUPERUSER_PASS="$RL_SUPERUSER_PASS" | tr -d '\r' >> .env
+    - echo RL_ENVIRONMENT="$RL_ENVIRONMENT" | tr -d '\r' >> .env
+
+    - sudo rm -f "$(pwd -P)"/docker-compose.yml
+    - sudo ln -s "$(pwd -P)"/devops/release/docker-compose.yml "$(pwd -P)"
+
+  script:
+    - docker-compose stop
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.appcraft.team:5005
+    - docker pull registry.appcraft.team:5005/giberno/giberno-server:latest
+    - docker-compose up -d
+  only:
+    - release
+  tags:
+    - giberno-release

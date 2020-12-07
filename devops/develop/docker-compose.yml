@@ -1,0 +1,95 @@
+version: '3.5'
+
+networks:
+  giberno_develop:
+
+services:
+  redis:
+    image: redis:latest
+    restart: always
+    networks:
+      - giberno_develop
+  db:
+    image: postgis/postgis:13-3.0
+    restart: always
+    networks:
+      - giberno_develop
+    ports:
+      - "${DB_PORT}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+  daphne:
+    image: registry.appcraft.team:5005/giberno/giberno-server
+    restart: always
+    command: bash -c "python3 manage.py migrate && python3 manage.py seed && python3 manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p ${DAPHNE_PORT} giberno.asgi:application"
+    environment:
+      DB_HOST: db
+      REDIS_HOST: redis
+      CELERY_BROKER: redis://redis:6379/0
+      MACHINE_HOST: 127.0.0.1
+      HOST_IP: ${HOST_IP}
+      HOST_PORT: ${DAPHNE_PORT}
+      NGINX_PORT: ${NGINX_PORT}
+      HOST_DOMAIN: ${HOST_DOMAIN}
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      SUPERUSER_PASS: ${SUPERUSER_PASS}
+      ENVIRONMENT: ${ENVIRONMENT}
+    ports:
+      - "127.0.0.1:${DAPHNE_PORT}:${DAPHNE_PORT}"
+    networks:
+      - giberno_develop
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./files:/code/files
+  celery:
+    image: registry.appcraft.team:5005/giberno/giberno-server
+    command: celery -A giberno worker -l info
+    environment:
+      DB_HOST: db
+      REDIS_HOST: redis
+      CELERY_BROKER: redis://redis:6379/0
+      MACHINE_HOST: 127.0.0.1
+      HOST_IP: ${HOST_IP}
+      HOST_DOMAIN: ${HOST_DOMAIN}
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      SUPERUSER_PASS: ${SUPERUSER_PASS}
+      ENVIRONMENT: ${ENVIRONMENT}
+    depends_on:
+      - db
+      - redis
+    networks:
+      - giberno_develop
+    volumes:
+      - ./files:/code/files
+  celery-beat:
+    image: registry.appcraft.team:5005/giberno/giberno-server
+    command: celery -A giberno beat -l info
+    environment:
+      DB_HOST: db
+      REDIS_HOST: redis
+      CELERY_BROKER: redis://redis:6379/0
+      MACHINE_HOST: 127.0.0.1
+      HOST_IP: ${HOST_IP}
+      HOST_DOMAIN: ${HOST_DOMAIN}
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      SUPERUSER_PASS: ${SUPERUSER_PASS}
+      ENVIRONMENT: ${ENVIRONMENT}
+    depends_on:
+      - db
+      - redis
+    networks:
+      - giberno_develop
+    volumes:
+      - ./files:/code/files
