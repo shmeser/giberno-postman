@@ -2,11 +2,11 @@ from enum import IntEnum
 
 
 class RESTErrors(IntEnum):
-    NOT_AUTHORIZED = 401
     BAD_REQUEST = 400
-    INTERNAL_SERVER_ERROR = 500
+    NOT_AUTHORIZED = 401
     ACCESS_DENIED = 403
     NOT_FOUND = 404
+    INTERNAL_SERVER_ERROR = 500
 
 
 class SocketErrors(IntEnum):

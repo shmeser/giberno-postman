@@ -303,6 +303,13 @@ celerybeat-schedule.bak
 celerybeat-schedule.dat
 celerybeat-schedule.dir
 
+### Django ###
+*.log
+*.pot
+*.pyc
+__pycache__/
+db.sqlite3
+
 # ENVIRONMENT
 .env
 .venv

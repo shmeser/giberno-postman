@@ -1,13 +1,17 @@
-# from django.http import JsonResponse
-# from djangorestframework_camel_case.util import camelize, underscoreize
-# from drf_yasg.utils import swagger_auto_schema
-# from rest_framework import status
-# from rest_framework.decorators import api_view, permission_classes
-# from rest_framework.permissions import AllowAny, IsAuthenticated
-# from rest_framework.response import Response
-# from rest_framework.views import APIView
-#
-# from backend.errors.errors import Errors
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.shortcuts import render
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from djangorestframework_camel_case.util import camelize, underscoreize
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+# from backend.errors.enums import RESTErrors
 # from backend.errors.http_exception import HttpException
 # from backend.utils import get_body_in_request, milliseconds_to_datetime
 # from media.mappers import RequestToMediaEntity
@@ -17,8 +21,8 @@
 # from users.permissions import FilledProfilePermission
 # from users.repositories import UsersRepository
 # from users.serializers import UserSerializer, UserPatchSerializer
-#
-#
+
+
 # class User(APIView):
 #     permission_classes = (IsAuthenticated,)
 #     serializer_class = UserSerializer
@@ -113,3 +117,98 @@
 #         calories = UsersRepository().calculate_calories(sex, data)
 #         return Response(camelize({'daily_calories_intake': calories}), status=status.HTTP_200_OK)
 #     return Response(camelize({'daily_calories_intake': 0}), status=status.HTTP_200_OK)
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+
+from app_users.controllers import FirebaseController
+from app_users.entities import TokenEntity
+from app_users.mappers import TokensMapper
+from app_users.models import JwtToken
+from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository
+from backend.errors.http_exception import HttpException
+from backend.utils import get_request_headers, timestamp_to_datetime, get_request_body
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def firebase_web_auth(request):
+    return render(request, 'app_users/v1_0/index.html')
+
+
+@api_view(['GET'])
+@login_required
+def social_web_auth(request):
+    return render(request, 'app_users/v1_0/home.html', context={'user': request.user})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def login(request):
+    return render(request, 'app_users/v1_0/login.html')
+
+
+class AuthFirebase(APIView):
+    permission_classes = (AllowAny,)
+
+    @classmethod
+    def post(cls, request):
+        """
+        1)  Если пришел неавторизованный запрос, создаем пользователя, генерируем ему uuid, привязываем ему соц сеть
+        2)  Если авториз. запрос от анонимного юзера, создаем нового пользователя (если такогового нет еще),
+            привязываем ему соцсеть, переносим всю статистику анонимного пользователя новому пользователю с соцсетью,
+            удаляем jwt анона и всю его статистику
+        3)  Если авторизованный запрос от анонимного юзера, а при попытке создания нового соц юзера уже таковой есть,
+            то отдаем этого пользователя без переноса статистики
+        4)  Если авторизованный запрос от юзера с соцсетью, и привязывается к другому соц юзеру, то выдаем ошибку
+        """
+
+        headers = get_request_headers(request)
+
+        firebase_token: TokenEntity = TokensMapper.firebase(get_request_body(request))
+        decoded_token = FirebaseController.verify_token(firebase_token.token)
+
+        user, created = AuthRepository.get_or_create_social_user(
+            uuid=decoded_token.get('uuid'),
+            social_type=decoded_token.get('firebase').get('sign_in_provider'),
+            access_token=firebase_token.token,
+            access_token_expiration=timestamp_to_datetime(decoded_token.get('exp', None), milliseconds=False)
+            if decoded_token.get('exp', None) is not None else None,
+            phone=decoded_token.get('phone_number', None),
+            email=decoded_token.get('email', None)
+        )
+
+        if request.user and not request.user.is_anonymous:  # Если отсылался заголовок Authorization
+            """ Если запрос пришел от соц юзера, и привязывается к другому соц юзеру, отдаем ошибку"""
+            if request.user.uid is not None and user.id != request.user.id:
+                raise HttpException(detail='Нельзя привязать соцсеть к аккаунту с соцсетью',
+                                    status_code=status.HTTP_403_FORBIDDEN)
+
+        JwtRepository().remove_old(user)  # TODO пригодится для запрета входа с нескольких устройств
+        jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
+
+        return JsonResponse({
+            'jwtToken': jwt_pair.access_token,
+            'email': user.socialmodel.email
+        })
+
+
+class AuthRefreshToken(APIView):
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        serializer = TokenRefreshSerializer(data=request.data)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+            jwt_pair = JwtRepository().refresh(serializer.initial_data.get('refresh'),
+                                               serializer.validated_data.get('access'))
+            if jwt_pair is None:
+                raise HttpException(detail="JWT-токен не найден, обновление невозможно",
+                                    status_code=status.HTTP_401_UNAUTHORIZED)
+
+        except TokenError as e:
+            raise InvalidToken(e.args[0])
+
+        return JsonResponse({
+            'accessToken': jwt_pair.access_token,
+            'refreshToken': jwt_pair.refresh_token,
+        })

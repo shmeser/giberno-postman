@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'celery',
     'constance',
+    'social_django',
     'backend.apps.BackendConfig',
     'app_seeds.apps.AppSeedsConfig',
     'app_bot.apps.AppBotConfig',
@@ -112,13 +113,13 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=3),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=365),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 
     'AUTH_HEADER_TYPES': ('Bearer', 'JWT'),
 
     'USER_ID_FIELD': 'id',
-    'PAYLOAD_ID_FIELD': 'user_id',
+    'PAYLOAD_ID_FIELD': 'uuid',
 }
 
 LANGUAGE_CODE = 'en-us'
