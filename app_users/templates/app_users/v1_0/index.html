@@ -139,8 +139,8 @@
             dataType: 'json',
             success: function (data) {
                 console.log(`${url} success data`, data);
-                if (data && data.jwtToken) {
-                    $('#jwt-token').val(data.jwtToken);
+                if (data && data.accessToken) {
+                    $('#jwt-token').val(data.accessToken);
                 }
             },
             error: error => {
