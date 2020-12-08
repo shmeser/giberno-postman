@@ -19,11 +19,11 @@ class JwtTokenEntity:
 
 
 class SocialEntity:
-    def __init__(self, user, social_type, access_token, access_token_expiration, phone, email) -> None:
+    def __init__(self, user, uid, social_type, access_token, access_token_expiration, phone, email) -> None:
         self.user = user
         self.phone = phone
         self.email = email
-        self.social_id = user.uid
+        self.social_id = uid
         self.social_type = social_type
         self.access_token = access_token
         self.access_token_expiration = access_token_expiration

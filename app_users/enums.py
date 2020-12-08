@@ -17,3 +17,7 @@ class AccountType(IntEnum):
     MANAGER = 1
     SECURITY = 2
     SELF_EMPLOYED = 3
+
+    @classmethod
+    def has_value(cls, value):
+        return value in cls._value2member_map_

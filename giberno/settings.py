@@ -119,7 +119,7 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer', 'JWT'),
 
     'USER_ID_FIELD': 'id',
-    'PAYLOAD_ID_FIELD': 'uuid',
+    'PAYLOAD_ID_FIELD': 'uid',
 }
 
 LANGUAGE_CODE = 'en-us'

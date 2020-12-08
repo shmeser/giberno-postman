@@ -15,7 +15,7 @@ class UserProfile(AbstractUser, BaseModel):
     REQUIRED_FIELDS = []
 
     username = models.CharField(max_length=255, null=True, blank=True)
-    email = models.EmailField(unique=True, blank=True)
+    email = models.EmailField(unique=True, blank=True, null=True)
     phone = models.CharField(max_length=16, blank=True)
 
     first_name = models.CharField(max_length=255, null=True, blank=True)
@@ -42,6 +42,7 @@ class UserProfile(AbstractUser, BaseModel):
         blank=True,
         verbose_name='Приглашение на регистрацию от', on_delete=models.SET_NULL
     )
+    reg_reference_code = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
         return f'ID:{self.id} - {self.username} {self.first_name} {self.middle_name} {self.middle_name}'
@@ -53,7 +54,7 @@ class UserProfile(AbstractUser, BaseModel):
 
 
 class SocialModel(BaseModel):
-    user = models.OneToOneField(UserProfile, on_delete=models.CASCADE)
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, blank=True, null=True)
     type = models.CharField(max_length=255)
     phone = models.CharField(max_length=255, blank=False, null=True)
     email = models.CharField(max_length=255, blank=False, null=True)

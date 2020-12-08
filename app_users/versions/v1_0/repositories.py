@@ -1,30 +1,67 @@
+from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app_users.entities import JwtTokenEntity, SocialEntity
+from app_users.entities import JwtTokenEntity
+from app_users.enums import AccountType
 from app_users.models import SocialModel, UserProfile, JwtToken
 from backend.errors.exceptions import EntityDoesNotExistException
+from backend.errors.http_exception import HttpException
 
 
 class AuthRepository:
 
     @staticmethod
-    def get_or_create_social_user(uuid, social_type, access_token=None, access_token_expiration=None, phone=None,
-                                  email=None):
-        user, created = UserProfile.objects.get_or_create(uuid=uuid)
-        if created:
-            soc = SocialEntity(
-                user,
-                social_type,
-                access_token,
-                access_token_expiration,
-                phone,
-                email
-            ).get_kwargs()
-            # Создаем модель способа авторизации
-            SocialModelRepository.create(**soc)
+    def get_or_create_social_user(uid, social_type, access_token=None, access_token_expiration=None, phone=None,
+                                  email=None, account_type=None, reference_code=None, **kwargs):
 
-            # Создаем модель настроек
-            # TODO
+        # Проверка реферального кода
+        reference_user = None
+        if reference_code:
+            try:
+                reference_user = UserProfile.objects.get(uuid__icontains=reference_code)
+            except UserProfile.DoesNotExist:
+                raise HttpException(detail='Невалидный реферальный код', status_code=status.HTTP_400_BAD_REQUEST)
+
+        # Создаем способ авторизации
+        social, created = SocialModel.objects.get_or_create(social_id=uid, type=social_type, defaults={
+            'access_token': access_token,
+            'access_token_expiration': access_token_expiration,
+            'phone': phone,
+            'email': email
+        })
+
+        # Получаем или создаем пользователя
+        defaults = {
+            'reg_reference': reference_user,
+            'reg_reference_code': reference_code
+        }
+        identities = kwargs.get('identities', None)
+        if identities:
+            defaults['phone'] = identities['phone'][0] if 'phone' in identities and identities['phone'] else None
+            defaults['email'] = identities['email'][0] if 'email' in identities and identities['email'] else None
+
+        # Проверка типа аккаунта, отсылаемого при авторизации
+        if account_type is not None and AccountType.has_value(account_type):
+            defaults['account_type'] = account_type
+
+        # Проверка типа аккаунта, отсылаемого при авторизации
+        if account_type is not None and AccountType.has_value(account_type):
+            defaults['account_type'] = account_type
+
+        user, created = UserProfile.objects.get_or_create(socialmodel=social, defaults=defaults)
+
+        if created:
+            social.user = user
+            social.save()
+
+        if user.account_type != account_type:
+            raise HttpException(
+                detail='Данным способом уже зарегистрирован пользователь с другой ролью',
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        # Создаем модель настроек
+        # TODO
         return user, created
 
 
