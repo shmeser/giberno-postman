@@ -3,6 +3,7 @@ import sys
 
 from django.utils.timezone import now
 
+from app_users.models import UserProfile
 from backend.utils import timestamp_to_datetime
 
 
@@ -17,23 +18,20 @@ class AdminSeeder:
     # TRUNCATE TABLE
     @staticmethod
     def truncate_table():
-        UserProfileModel.objects.all().delete()
+        UserProfile.objects.all().delete()
         sys.stdout.write("Truncate auth_user table ... [OK]\n")
 
     # CREATE SUPERUSER
     @staticmethod
     def create_superuser():
-        if UserProfileModel.objects.filter(username='admin').count():
+        if UserProfile.objects.filter(username='admin').count():
             sys.stdout.write('User admin already exists!\n')
             return False
         else:
-            u = UserProfileModel(
+            u = UserProfile(
                 is_superuser=True,
                 username='admin',
-                first_name='firstName',
-                last_name='lastName',
-                name='firstName lastName',
-                email='superadmin@admin.com',
+                email='superadmin@giberno.ru',
                 is_staff=True,
                 is_active=True,
                 birth_date=timestamp_to_datetime(0),

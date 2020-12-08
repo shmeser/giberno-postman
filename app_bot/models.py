@@ -1,8 +1,10 @@
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 
+from backend.models import BaseModel
 
-class BotChat(models.Model):
+
+class BotChat(BaseModel):
     chat_id = models.IntegerField()
     type = models.CharField(max_length=255, blank=True, null=True)
     username = models.CharField(max_length=255, blank=True, null=True)
@@ -14,9 +16,6 @@ class BotChat(models.Model):
 
     notification_types = ArrayField(models.CharField(max_length=32), size=10, blank=True, null=True)
 
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
-
     def __str__(self):
         return f'{self.username}'
 
@@ -26,7 +25,7 @@ class BotChat(models.Model):
         verbose_name_plural = 'Чаты телеграм-бота'
 
 
-class BotMessage(models.Model):
+class BotMessage(BaseModel):
     chat = models.ForeignKey(BotChat, on_delete=models.SET_NULL, blank=True, null=True)
     message_id = models.IntegerField(blank=True, null=True)
     from_id = models.IntegerField(blank=True, null=True)
@@ -37,8 +36,6 @@ class BotMessage(models.Model):
     language_code = models.CharField(max_length=16, blank=True, null=True)
     date = models.DateTimeField(null=True, blank=True)
     text = models.CharField(max_length=4096, blank=True, null=True)
-
-    created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f'{self.text}'

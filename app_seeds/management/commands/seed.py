@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
 # python manage.py seed --mode=refresh
-from app_seeds.users_seeder import AuthUserSeeder
+from app_seeds.users_seeder import AdminSeeder
 
 """ Clear all data and creates addresses """
 MODE_REFRESH = 'refresh'
@@ -22,6 +22,6 @@ class Command(BaseCommand):
             refresh = True
 
         # SEED DATA
-        AuthUserSeeder().create(refresh)
+        AdminSeeder().create(refresh)
 
         self.stdout.write("[DONE]\n")

@@ -22,10 +22,11 @@ INSTALLED_APPS = [
     'fcm_django',
     'drf_yasg',
     'celery',
+    'constance',
     'backend.apps.BackendConfig',
     'app_seeds.apps.AppSeedsConfig',
     'app_bot.apps.AppBotConfig',
-    'constance',
+    'app_users.apps.AppUsersConfig',
 ]
 
 CHANNEL_LAYERS = {
@@ -53,7 +54,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_globals.middleware.Global',
-    # 'authorization.middleware.LogsMiddleware'
 ]
 
 GEOIP_PATH = os.path.join('backend')
@@ -105,15 +105,15 @@ REST_FRAMEWORK = {
 }
 
 CELERY_BEAT_SCHEDULE = {
-    'check_subscription': {
-        'task': 'subscriptions.tasks.check_subscription',
-        'schedule': crontab(hour='*', minute='0', day_of_week='*')
-    },
+    # 'check_subscription': {
+    #     'task': 'subscriptions.tasks.check_subscription',
+    #     'schedule': crontab(hour='*', minute='0', day_of_week='*')
+    # },
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=3650),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=3650),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=3),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=365),
 
     'AUTH_HEADER_TYPES': ('Bearer', 'JWT'),
 
@@ -142,7 +142,7 @@ STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'static'),
 )
 
-# AUTH_USER_MODEL = 'users.UserProfileModel'
+AUTH_USER_MODEL = 'app_users.UserProfile'
 
 AVATAR_SIZE = 500, 500
 
@@ -221,10 +221,10 @@ LOGGING = {
         },
     },
     'handlers': {
-        # 'telegram_log': {
-        #     'level': 'ERROR',
-        #     'class': 'app_bot.controllers.BotLogger',
-        # },
+        'telegram_log': {
+            'level': 'ERROR',
+            'class': 'app_bot.controllers.BotLogger',
+        },
         'file_log': {
             'level': 'DEBUG',
             'filename': 'files/logs/log.txt',
@@ -236,8 +236,7 @@ LOGGING = {
     },
     'loggers': {
         'django.request': {
-            # 'handlers': ['telegram_log', 'file_log'],
-            'handlers': ['file_log'],
+            'handlers': ['telegram_log', 'file_log'],
             'propagate': True,
         },
     },
