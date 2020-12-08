@@ -9,6 +9,7 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 
 from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity
+from app_users.enums import AccountType
 from app_users.mappers import TokensMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository
@@ -164,7 +165,7 @@ class AuthFirebase(APIView):
             if decoded_token.get('exp', None) is not None else None,
             phone=decoded_token.get('phone_number', None),
             email=decoded_token.get('email', None),
-            account_type=body.get('account_type', None),
+            account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
             reference_code=body.get('reference_code', None),
             **decoded_token.get('firebase', None)
         )

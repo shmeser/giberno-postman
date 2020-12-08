@@ -44,10 +44,6 @@ class AuthRepository:
         if account_type is not None and AccountType.has_value(account_type):
             defaults['account_type'] = account_type
 
-        # Проверка типа аккаунта, отсылаемого при авторизации
-        if account_type is not None and AccountType.has_value(account_type):
-            defaults['account_type'] = account_type
-
         user, created = UserProfile.objects.get_or_create(socialmodel=social, defaults=defaults)
 
         if created:
