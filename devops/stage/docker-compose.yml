@@ -30,6 +30,7 @@ services:
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
       DB_HOST: db
+      DB_PORT: ${ST_DB_PORT}
       DB_NAME: ${ST_POSTGRES_DB}
       DB_USER: ${ST_POSTGRES_USER}
       DB_PASSWORD: ${ST_POSTGRES_PASSWORD}
@@ -55,6 +56,7 @@ services:
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
       DB_HOST: db
+      DB_PORT: ${ST_DB_PORT}
       DB_NAME: ${ST_POSTGRES_DB}
       DB_USER: ${ST_POSTGRES_USER}
       DB_PASSWORD: ${ST_POSTGRES_PASSWORD}
@@ -76,6 +78,7 @@ services:
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
       DB_HOST: db
+      DB_PORT: ${ST_DB_PORT}
       DB_NAME: ${ST_POSTGRES_DB}
       DB_USER: ${ST_POSTGRES_USER}
       DB_PASSWORD: ${ST_POSTGRES_PASSWORD}
