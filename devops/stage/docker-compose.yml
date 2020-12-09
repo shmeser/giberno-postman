@@ -29,6 +29,7 @@ services:
     environment:
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
+      HOST_DOMAIN: ${ST_HOST_DOMAIN}
       DB_HOST: db
       DB_PORT: ${ST_DB_PORT}
       DB_NAME: ${ST_POSTGRES_DB}
