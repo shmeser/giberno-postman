@@ -8,6 +8,12 @@ from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException
 
 
+class UsersRepository(object):
+    @staticmethod
+    def get_reference_user(reference_code):
+        return UserProfile.objects.filter(uuid__icontains=reference_code, deleted=False).first()
+
+
 class AuthRepository:
 
     @staticmethod
@@ -17,9 +23,8 @@ class AuthRepository:
         # Проверка реферального кода
         reference_user = None
         if reference_code:
-            try:
-                reference_user = UserProfile.objects.get(uuid__icontains=reference_code)
-            except UserProfile.DoesNotExist:
+            reference_user = UsersRepository.get_reference_user(reference_code)
+            if reference_user is None:
                 raise HttpException(detail='Невалидный реферальный код', status_code=status.HTTP_400_BAD_REQUEST)
 
         # Создаем способ авторизации

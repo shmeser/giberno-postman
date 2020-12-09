@@ -4,6 +4,7 @@ from django.shortcuts import render
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 
@@ -11,7 +12,7 @@ from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity
 from app_users.mappers import TokensMapper
 from app_users.models import JwtToken
-from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository
+from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer
 from backend.errors.http_exception import HttpException
 from backend.utils import get_request_headers, timestamp_to_datetime, get_request_body
@@ -90,4 +91,21 @@ class AuthRefreshToken(APIView):
         return JsonResponse({
             'accessToken': jwt_pair.access_token,
             'refreshToken': jwt_pair.refresh_token,
+        })
+
+
+class ReferenceCode(APIView):
+
+    @staticmethod
+    def post(request):
+        body = get_request_body(request)
+        reference_user = UsersRepository.get_reference_user(body.get('reference_code', None))
+        if reference_user is None:
+            raise HttpException(detail='Невалидный реферальный код', status_code=status.HTTP_400_BAD_REQUEST)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+    @staticmethod
+    def get(request):
+        return JsonResponse({
+            "referenceCode": format(request.user.uuid.fields[5], 'x')
         })

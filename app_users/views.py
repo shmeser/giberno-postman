@@ -2,7 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
 from app_users.versions.v1_0 import views as v1_0
@@ -48,6 +48,30 @@ class AuthRefreshToken(APIView):
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.AuthRefreshToken().post(request)
+
+        raise HttpException(status_code=status.HTTP_404_NOT_FOUND, detail="Метод не найден")
+
+
+class ReferenceCode(APIView):
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        elif self.request.method == "POST":
+            return [AllowAny()]
+        return [permission() for permission in self.permission_classes]
+
+    @staticmethod
+    def post(request):
+        if request.version in ['users_1_0']:
+            return v1_0.ReferenceCode.post(request)
+
+        raise HttpException(status_code=status.HTTP_404_NOT_FOUND, detail="Метод не найден")
+
+    @staticmethod
+    def get(request):
+        if request.version in ['users_1_0']:
+            return v1_0.ReferenceCode.get(request)
 
         raise HttpException(status_code=status.HTTP_404_NOT_FOUND, detail="Метод не найден")
 
