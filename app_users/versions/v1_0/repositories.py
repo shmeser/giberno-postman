@@ -12,7 +12,7 @@ class AuthRepository:
 
     @staticmethod
     def get_or_create_social_user(uid, social_type, access_token=None, access_token_expiration=None, phone=None,
-                                  email=None, account_type=None, reference_code=None, **kwargs):
+                                  email=None, account_type=AccountType.SELF_EMPLOYED, reference_code=None, **kwargs):
 
         # Проверка реферального кода
         reference_user = None
