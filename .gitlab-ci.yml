@@ -4,6 +4,8 @@ services:
 
 stages:
   - build
+  - build_stage
+  - build_release
   - deploy
   - deploy_stage
   - deploy_release
@@ -21,8 +23,8 @@ build:
     - docker push registry.appcraft.team:5005/giberno/giberno-server
   only:
     - develop
-    - stage
-    - release
+  tags:
+    - giberno-develop
 
 deploy:
   stage: deploy
@@ -63,6 +65,15 @@ deploy:
   tags:
     - giberno-develop
 
+build_stage:
+  stage: build_stage
+  script:
+    - docker build -t registry.appcraft.team:5005/giberno/giberno-server .
+    - docker push registry.appcraft.team:5005/giberno/giberno-server
+  only:
+    - stage
+  tags:
+    - giberno-stage
 
 deploy_stage:
   stage: deploy_stage
@@ -102,6 +113,16 @@ deploy_stage:
     - stage
   tags:
     - giberno-stage
+
+build_release:
+  stage: build_release
+  script:
+    - docker build -t registry.appcraft.team:5005/giberno/giberno-server .
+    - docker push registry.appcraft.team:5005/giberno/giberno-server
+  only:
+    - release
+  tags:
+    - giberno-release
 
 deploy_release:
   stage: deploy_release
