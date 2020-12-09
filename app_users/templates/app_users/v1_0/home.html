@@ -30,6 +30,15 @@
                 <p>Provider url: <a href="https://instagram.com/{{ ass.username }}">link</a></p>
             {% endif %}
             <!-- End here -->
+             {% if ass.provider == 'vk-oauth2' %}
+                <div class="col-md-6 text-center"><img src="{{ ass.extra_data.user.profile_picture }}" alt=""
+                                                       width="150"
+                                                       height="150" style="border-radius: 50%"></div>
+                <div class="col-md-6 social-container my-2">
+                <p>Signed in via: {{ ass.provider }} </p>
+                <p> Name: {{ ass.extra_data.user.full_name }} </p>
+                <p>Provider url: <a href="https://instagram.com/{{ ass.username }}">link</a></p>
+            {% endif %}
         {% endfor %}
         <div class="col-sm-12 mt-2 text-center">
             <button class="btn btn-danger">

@@ -71,6 +71,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # 'social_django.context_processors.backends',
             ],
         },
     },
@@ -184,8 +185,7 @@ IN_APP_GOOGLE_BUNDLE_ID = os.getenv('IN_APP_GOOGLE_BUNDLE_ID', 'test')
 
 # social-auth start
 AUTHENTICATION_BACKENDS = [
-    'social_core.backends.apple.AppleIdAuth',
-    'social_core.backends.google.GoogleOAuth2',
+    'social_core.backends.vk.VKOAuth2',
     'django.contrib.auth.backends.ModelBackend'
 ]
 
@@ -194,13 +194,17 @@ LOGIN_REDIRECT_URL = 'web'
 LOGOUT_URL = 'web'
 LOGOUT_REDIRECT_URL = 'login'
 
+SOCIAL_AUTH_VK_OAUTH2_KEY = '7693503'
+SOCIAL_AUTH_VK_OAUTH2_SECRET = 'kwAirsk5Y36eU3sp5Ken'
+SOCIAL_AUTH_VK_OAUTH2_SCOPE = ['email']
+
 SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_details',
     'social_core.pipeline.social_auth.social_uid',
     'social_core.pipeline.social_auth.social_user',
 )
 
-SOCIAL_AUTH_REDIRECT_IS_HTTPS = True  # Нужно True, так как facebook не позволяет указывать незащищенные url
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = False  # Нужно True, так как facebook не позволяет указывать незащищенные url
 
 # social-auth end
 

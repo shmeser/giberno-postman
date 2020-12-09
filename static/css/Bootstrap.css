@@ -1,0 +1,420 @@
+.flex {
+    display: flex;
+}
+
+.inline-flex {
+    display: inline-flex;
+}
+
+.flex-column {
+    flex-flow: column;
+}
+
+.flex-row {
+    flex-flow: row;
+}
+
+.flex-wrap {
+    flex-wrap: wrap;
+}
+
+.flex-center {
+    justify-content: center;
+    align-items: center;
+}
+
+.ai-center {
+    align-items: center;
+}
+
+.ai-start {
+    align-items: flex-start;
+}
+
+.ai-end {
+    align-items: flex-end;
+}
+
+.as-center {
+    align-self: center;
+}
+
+.jc-center {
+    justify-content: center;
+}
+
+.jc-end {
+    justify-content: flex-end;
+}
+
+.jc-start {
+    justify-content: flex-start;
+}
+
+.jc-around {
+    justify-content: space-around;
+}
+
+.jc-between {
+    justify-content: space-between;
+}
+
+.color-lightgray {
+    color: #DADADA;
+}
+
+.color-darkgray {
+    color: #898989;
+}
+
+.color-lightblue {
+    color: #48d2e7;
+}
+
+.bg-gray {
+    background: #ababab;
+}
+
+.bg-lightgray {
+    background: #DADADA;
+}
+
+.bg-white {
+    background: #FFFFFF;
+}
+
+.color-red {
+    color: red;
+}
+
+.fs-10 {
+    font-size: 10px;
+}
+
+.fs-12 {
+    font-size: 12px;
+}
+
+.fs-14 {
+    font-size: 14px;
+}
+
+.fs-16 {
+    font-size: 16px;
+}
+
+
+.fs-14i {
+    font-size: 14px !important;
+}
+
+.fs-18 {
+    font-size: 18px;
+}
+
+.fs-24 {
+    font-size: 24px;
+}
+
+.fs-36 {
+    font-size: 36px;
+}
+
+.fs-67 {
+    font-size: 67px;
+}
+
+.lh-24 {
+    line-height: 24px;
+}
+
+.fw-normal {
+    font-weight: normal;
+}
+
+.fw-500 {
+    font-weight: 500;
+}
+
+.fw-600 {
+    font-weight: 600;
+}
+
+.mr-10 {
+    margin-right: 10px;
+}
+
+.mb-10 {
+    margin-bottom: 10px;
+}
+
+.mb-20 {
+    margin-bottom: 20px;
+}
+
+.mb-30 {
+    margin-bottom: 30px;
+}
+
+.mb-80 {
+    margin-bottom: 80px;
+}
+
+.mt-10 {
+    margin-top: 10px;
+}
+
+.mt-20 {
+    margin-top: 20px;
+}
+
+.mt-30 {
+    margin-top: 30px;
+}
+
+.mt-200 {
+    margin-top: 200px;
+}
+
+.mt-300 {
+    margin-top: 300px;
+}
+
+.pl-10 {
+    padding-left: 10px;
+}
+
+.pl-30 {
+    padding-left: 30px;
+}
+
+.p-none {
+    padding: 0;
+}
+
+.pr-10 {
+    padding-right: 10px;
+}
+
+.pl-16 {
+    padding-left: 16px;
+}
+
+.ph-10 {
+    padding: 10px 0;
+}
+
+.ph-20 {
+    padding: 20px 0;
+}
+
+.p-10 {
+    padding: 10px;
+}
+
+.p-20 {
+    padding: 20px;
+}
+
+.p-30 {
+    padding: 30px;
+}
+
+.pt-30 {
+    padding-top: 30px;
+}
+
+.pb-30 {
+    padding-bottom: 30px;
+}
+
+.pw-10 {
+    padding: 0 10px;
+}
+
+.pw-20 {
+    padding: 0 20px;
+}
+
+.pw-30 {
+    padding: 0 30px;
+}
+
+.m-0-auto {
+    margin: 0 auto;
+}
+
+.text-danger {
+    color: red;
+}
+
+.text-decor-none {
+    text-decoration: none;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.color-white {
+    color: white;
+}
+
+.color-inherit {
+    color: inherit;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.z-0 {
+    z-index: 0;
+}
+
+.z-1 {
+    z-index: 1;
+}
+
+.bc-u {
+    background-color: unset;
+}
+
+.p-r {
+    position: relative;
+}
+
+.p-a {
+    position: absolute;
+}
+
+.p-a_tl-0 {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.h-40px {
+    height: 40px;
+}
+
+.h-100 {
+    height: 100%;
+}
+
+.h-250px {
+    height: 250px;
+}
+
+.w-auto {
+    width: auto;
+}
+
+.w-100 {
+    width: 100%;
+}
+
+.w-50 {
+    width: 50%;
+}
+
+.w-40 {
+    width: 40%;
+}
+
+.w-280px {
+    width: 280px !important;
+}
+
+.w-120px {
+    width: 120px !important;
+
+}
+.w-50px {
+    width: 50px !important;
+}
+
+.w-100px {
+    width: 100px !important;
+}
+
+.w-200px {
+    width: 200px !important;
+}
+
+.w-300px {
+    width: 300px !important;
+}
+
+.w-315px {
+    width: 315px !important;
+}
+
+.w-320px {
+    width: 320px !important;
+}
+
+.w-600px {
+    width: 600px;
+}
+
+.flex-auto {
+    flex: 1 1 auto;
+}
+
+.flex-order-0 {
+    order: 0;
+}
+
+.flex-order-1 {
+    order: 1;
+}
+
+.flex-order-2 {
+    order: 2;
+}
+
+.flex-self-center {
+    align-self: center;
+}
+
+.flex-self-start {
+    align-self: flex-start;
+}
+
+.flex-self-end {
+    align-self: flex-end;
+}
+
+.b-gray-4 {
+    border: 1px solid #d8d8d8;
+    border-radius: 4px;
+}
+
+.d-none {
+    display: none;
+}
+
+.o-hidden {
+    overflow: hidden;
+}
+
+.oy-scroll {
+    overflow-y: auto;
+}
+
+.lh-14 {
+    line-height: 1.4em;
+}
+
+.mh-300px {
+    max-height: 300px;
+}
+
+.mh-400px {
+    max-height: 400px;
+}
+
+.p-s {
+    position: sticky;
+}

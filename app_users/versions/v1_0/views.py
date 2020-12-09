@@ -7,6 +7,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from social_django.utils import load_backend, load_strategy
 
 from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity
@@ -14,6 +15,7 @@ from app_users.mappers import TokensMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer
+from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.utils import get_request_headers, timestamp_to_datetime, get_request_body
 
@@ -65,6 +67,35 @@ class AuthFirebase(APIView):
         return JsonResponse({
             'accessToken': jwt_pair.access_token,
             'refreshToken': jwt_pair.refresh_token
+        })
+
+
+class AuthVk(APIView):
+    def __init__(self, request, *args, **kwargs):
+        super().__init__()
+        self.headers = get_request_headers(request)
+
+    def post(self, request):
+        body = get_request_body(request)
+        vk_token: TokenEntity = TokensMapper.vk(body)
+        backend = load_backend(load_strategy(request), 'vk', 'social/login')
+        social_user = backend.do_auth(access_token=vk_token, user=request.user or None)
+
+        if social_user and request.user:
+            """ Привязали соцсеть, получаем jwt для текущего пользователя """
+            user = request.user
+        elif social_user and not request.user:
+            """ Регистрация нового пользователя через соцсеть """
+            user = social_user
+        else:
+            raise HttpException(detail='Ошибка входа через соцсеть', status_code=RESTErrors.INVALID_ACCESS_TOKEN)
+
+        JwtRepository().remove_old(user)  # TODO пригодится для запрета входа с нескольких устройств
+        jwt_pair: JwtToken = JwtRepository().create_jwt_pair(user)
+
+        return JsonResponse({
+            'accessToken': jwt_pair.access_token,
+            'refreshToken': jwt_pair.refresh_token,
         })
 
 
