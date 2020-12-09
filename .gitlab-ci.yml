@@ -34,6 +34,7 @@ deploy:
     - cd /srv/giberno-server_develop
     - sudo ln -s "$(pwd -P)"/devops/develop/giberno-server_develop.conf /etc/nginx/sites-enabled
     - sudo nginx -t & sudo service nginx reload
+    - sudo chmod +x ./devops/gdrive
     - touch .env
 
     - echo POSTGRES_DB="$POSTGRES_DB" | tr -d '\r' > .env
@@ -84,6 +85,7 @@ deploy_stage:
     - cd /srv/giberno-server_stage
     - sudo ln -s "$(pwd -P)"/devops/stage/giberno-server_stage.conf /etc/nginx/sites-enabled
     - sudo nginx -t & sudo service nginx reload
+    - sudo chmod +x ./devops/gdrive
     - touch .env
 
     - echo ST_POSTGRES_DB="$ST_POSTGRES_DB" | tr -d '\r' > .env
