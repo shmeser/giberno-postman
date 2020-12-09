@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Auth Firebase</title>
+    <style>
+        .wrapper {
+            display: flex;
+            width: 100%;
+            flex-flow: column;
+        }
+
+        .ff-column {
+            display: flex;
+            flex-flow: column;
+        }
+
+        div {
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+<h1>Firebase Authorization</h1>
+<div class="wrapper">
+    <div class="social-signin-block">
+        <button class="phone-sign-in">Phone</button>
+        <button class="google-sign-in">Google</button>
+        <button class="apple-sign-in">Apple</button>
+    </div>
+
+    <div class="send-phone-block">
+        <input type="text" id="phone" placeholder="+79001234567" autofocus required>
+        <button class="btn-send-sms j-send-phone">Send Phone</button>
+    </div>
+
+    <div class="send-code-block">
+        <input type="text" id="code" placeholder="Code from SMS">
+        <button class="j-send-code">Send Code</button>
+    </div>
+
+    <div class="ff-column results-block">
+        <div class="ff-column">
+            <label>Firebase token:</label>
+            <textarea rows="5" cols="150" id="firebase-token" placeholder="Firebase token"></textarea>
+        </div>
+        <div class="ff-column">
+            <label>JWT token:</label>
+            <textarea rows="5" cols="150" id="jwt-token" placeholder="JWT token"></textarea>
+        </div>
+    </div>
+    <div class="recaptcha-container" id="recaptcha-container"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/5.9.3/firebase.js"></script>
+<script src="https://apis.google.com/js/platform.js" async defer></script>
+<script>
+    const url = '/v1.0/auth/firebase';
+    // Initialize Firebase
+    const config = {
+        apiKey: "AIzaSyCZ1sHNx8nWZjMikatbhiQKwHh0A5XU_2s",
+        authDomain: "testingfirebase-f2fa4.firebaseapp.com",
+        databaseURL: "https://testingfirebase-f2fa4.firebaseio.com",
+        projectId: "testingfirebase-f2fa4",
+        storageBucket: "testingfirebase-f2fa4.appspot.com",
+        messagingSenderId: "404816145776",
+        appId: "1:404816145776:web:610bc21ba7529325f033b5",
+        measurementId: "G-CX8C4SNDXM"
+    };
+
+    firebase.initializeApp(config);
+
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+        'size': 'invisible',
+        'callback': function (response) {
+            // обновление рекапчи после использования
+            window.recaptchaVerifier.render().then(function (widgetId) {
+                grecaptcha.reset(widgetId);
+            });
+        }
+    });
+
+    /* ----------------------------------- */
+    $('.send-phone-block').hide();
+    $('.send-code-block').hide();
+    $('.results-block').hide();
+
+    /* ----------------------------------- */
+    $('.phone-sign-in').click(function () {
+        clear();
+        $('.send-phone-block').show();
+    });
+
+    $('.j-send-phone').click(sendPhone);
+    $('input#phone').keyup(function (e) {
+        if (e.keyCode == 13) {
+            sendPhone(e);
+        }
+    });
+
+    $('.j-send-code').click(sendCode);
+    $('input#code').keyup(function (e) {
+        if (e.keyCode === 13) {
+            sendCode(e);
+        }
+    });
+
+    /* ----------------------------------- */
+    $('.google-sign-in').click(google);
+    $('.apple-sign-in').click(apple);
+
+    function clear() {
+        $('.results-block').hide();
+        $('#jwt-token').val('');
+        $('#firebase-token').val('');
+    }
+
+    function clearPhoneAuth() {
+        $('#phone').val('');
+        $('#code').val('');
+    }
+
+    function getJwt(idToken) {
+        $.ajax({
+            url: url,
+            type: 'POST',
+            processData: false,
+            data: JSON.stringify({
+                "firebaseToken": idToken
+            }),
+            headers: {
+                "Content-Type": "application/json"
+            },
+            dataType: 'json',
+            success: function (data) {
+                console.log(`${url} success data`, data);
+                if (data && data.accessToken) {
+                    $('#jwt-token').val(data.accessToken);
+                }
+            },
+            error: error => {
+                alert('Авторизация проавлилась. Смотри консоль.');
+                console.log(`${url} error`, error);
+            }
+        });
+    }
+
+    function sendPhone() {
+        const phoneNumber = $('#phone').val().replace(/[\s-\(\)]/gi, '');
+        if (!phoneNumber || phoneNumber.length < 11) {
+            alert('Невалидный телефон');
+            return false;
+        }
+        firebase.auth().signInWithPhoneNumber(phoneNumber, window.recaptchaVerifier)
+            .then(function (confirmationResult) {
+                // SMS sent. Prompt user to type the code from the message, then sign the
+                // user in with confirmationResult.confirm(code).
+                window.confirmationResult = confirmationResult;
+                $('.send-phone-block').hide();
+                $('.send-code-block').show();
+                $('input#code').focus();
+            }).catch(function (error) {
+            // Error; SMS not sent
+            alert('SMS не отправлено. Попробуйте снова');
+            console.log('firebase signin error', error);
+        });
+    }
+
+    function sendCode() {
+        const code = $('#code').val();
+        confirmationResult.confirm(code).then(function (result) {
+            // User signed in successfully.
+            const user = result.user;
+            console.log('Confirm success, user data:', user);
+            $('.send-code-block').hide();
+            $('.results-block').show();
+            firebase.auth().currentUser.getIdToken(/* forceRefresh */ true).then(function (idToken) {
+                $('#firebase-token').val(idToken);
+                clearPhoneAuth();
+                getJwt(idToken);
+            }).catch(function (error) {
+                alert('Ошибка авторизации');
+                console.log('sendToken error: ', error);
+            });
+        }).catch(function (error) {
+            // User couldn't sign in (bad verification code?)
+            alert('Ошибка авторизации. Возможно, введен неверный код');
+            console.log('Confirm error: ', error);
+        });
+    }
+
+    function google() {
+        clear();
+        $('.send-phone-block').hide();
+        $('.send-code-block').hide();
+        const provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider).then(function (result) {
+            // This gives you a Google Access Token. You can use it to access the Google API.
+            console.log('Google SignIn Result');
+            console.log(result);
+            const idToken = result.user.ra;
+            $('.results-block').show();
+            $('#firebase-token').val(idToken);
+            getJwt(idToken);
+        }).catch(function (error) {
+            // Handle Errors here.
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            // The email of the user's account used.
+            const email = error.email;
+            // The firebase.auth.AuthCredential type that was used.
+            const credential = error.credential;
+            console.log(errorCode, errorMessage, email, credential);
+        });
+    }
+
+    function apple() {
+        clear();
+        $('.send-phone-block').hide();
+        $('.send-code-block').hide();
+        const provider = new firebase.auth.OAuthProvider('apple.com');
+        provider.addScope('email');
+        provider.addScope('name');
+        firebase.auth().signInWithPopup(provider).then(function (result) {
+            // This gives you a Google Access Token. You can use it to access the Google API.
+            console.log('Apple SignIn Result');
+            console.log(result);
+            const idToken = result.user.ra;
+            $('.results-block').show();
+            $('#firebase-token').val(idToken);
+            getJwt(idToken);
+        }).catch(function (error) {
+            // Handle Errors here.
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            // The email of the user's account used.
+            const email = error.email;
+            // The firebase.auth.AuthCredential type that was used.
+            const credential = error.credential;
+            console.log(errorCode, errorMessage, email, credential);
+        });
+    }
+
+</script>
+</body>
+
+</html>
