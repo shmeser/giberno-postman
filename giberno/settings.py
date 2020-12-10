@@ -202,6 +202,9 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_details',
     'social_core.pipeline.social_auth.social_uid',
     'social_core.pipeline.social_auth.social_user',
+    # custom pipelines
+    'app_users.pipelines.exchange_access_token',
+    'app_users.pipelines.get_or_create_user',
 )
 
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = False  # Нужно True, так как facebook не позволяет указывать незащищенные url

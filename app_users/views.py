@@ -1,4 +1,6 @@
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.shortcuts import render
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -14,6 +16,26 @@ def firebase_web_auth(request):
     if request.version in ['users_1_0']:
         return v1_0.firebase_web_auth(request._request)
     raise HttpException(status_code=status.HTTP_404_NOT_FOUND, detail="Метод не найден")
+
+
+@login_required
+def social_web_auth(request):
+    return render(request, 'app_users/home.html', context={'user': request.user})
+
+
+def login(request):
+    return render(request, 'app_users/login.html')
+
+
+class AuthVk(APIView):
+    permission_classes = (AllowAny,)
+
+    @staticmethod
+    def post(request):
+        if request.version in ['users_1_0']:
+            return v1_0.AuthVk(request).post(request)
+
+        raise HttpException(status_code=status.HTTP_404_NOT_FOUND, detail="Метод не найден")
 
 
 class AuthFirebase(APIView):

@@ -1,11 +1,12 @@
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app_users.entities import JwtTokenEntity
+from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType
 from app_users.models import SocialModel, UserProfile, JwtToken
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException
+from backend.repositories import BaseRepository
 
 
 class UsersRepository(object):
@@ -17,8 +18,8 @@ class UsersRepository(object):
 class AuthRepository:
 
     @staticmethod
-    def get_or_create_social_user(uid, social_type, access_token=None, access_token_expiration=None, phone=None,
-                                  email=None, account_type=AccountType.SELF_EMPLOYED, reference_code=None, **kwargs):
+    def get_or_create_social_user(social_data: SocialEntity, account_type=AccountType.SELF_EMPLOYED,
+                                  reference_code=None):
 
         # Проверка реферального кода
         reference_user = None
@@ -28,22 +29,21 @@ class AuthRepository:
                 raise HttpException(detail='Невалидный реферальный код', status_code=status.HTTP_400_BAD_REQUEST)
 
         # Создаем способ авторизации
-        social, created = SocialModel.objects.get_or_create(social_id=uid, type=social_type, defaults={
-            'access_token': access_token,
-            'access_token_expiration': access_token_expiration,
-            'phone': phone,
-            'email': email
-        })
+        social, created = SocialModel.objects.get_or_create(
+            social_id=social_data.social_id, type=social_data.social_type, defaults=social_data.get_kwargs()
+        )
 
         # Получаем или создаем пользователя
         defaults = {
             'reg_reference': reference_user,
-            'reg_reference_code': reference_code
+            'reg_reference_code': reference_code,
+            'phone': social_data.phone,
+            'email': social_data.email,
+            'first_name': social_data.first_name,
+            'last_name': social_data.last_name,
+            'middle_name': social_data.middle_name,
+            'username': social_data.username,
         }
-        identities = kwargs.get('identities', None)
-        if identities:
-            defaults['phone'] = identities['phone'][0] if 'phone' in identities and identities['phone'] else None
-            defaults['email'] = identities['email'][0] if 'email' in identities and identities['email'] else None
 
         # Проверка типа аккаунта, отсылаемого при авторизации
         if account_type is not None and AccountType.has_value(account_type):
@@ -66,10 +66,16 @@ class AuthRepository:
         return user, created
 
 
-class SocialModelRepository:
+class SocialModelRepository(BaseRepository):
+    def __init__(self) -> None:
+        super().__init__(SocialModel)
+
     @staticmethod
     def create(**kwargs):
         return SocialModel.objects.create(**kwargs)
+
+    def filter_by_kwargs(self, **kwargs):
+        return super().filter_by_kwargs(kwargs)
 
 
 class JwtRepository:

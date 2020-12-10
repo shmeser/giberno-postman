@@ -1,4 +1,3 @@
-from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
 from rest_framework import status
@@ -10,29 +9,20 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from social_django.utils import load_backend, load_strategy
 
 from app_users.controllers import FirebaseController
-from app_users.entities import TokenEntity
-from app_users.mappers import TokensMapper
+from app_users.entities import TokenEntity, SocialEntity
+from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
-from backend.utils import get_request_headers, timestamp_to_datetime, get_request_body
+from backend.utils import get_request_headers, get_request_body
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def firebase_web_auth(request):
-    return render(request, 'app_users/v1_0/index.html')
-
-
-@login_required
-def social_web_auth(request):
-    return render(request, 'app_users/v1_0/home.html', context={'user': request.user})
-
-
-def login(request):
-    return render(request, 'app_users/v1_0/login.html')
+    return render(request, 'app_users/index.html')
 
 
 class AuthFirebase(APIView):
@@ -40,20 +30,17 @@ class AuthFirebase(APIView):
     def post(cls, request):
         headers = get_request_headers(request)
         body = get_request_body(request)
+
         firebase_token: TokenEntity = TokensMapper.firebase(body)
         decoded_token = FirebaseController.verify_token(firebase_token.token)
 
+        social_data: SocialEntity = SocialDataMapper.firebase(decoded_token)
+        social_data.access_token = firebase_token.token
+
         user, created = AuthRepository.get_or_create_social_user(
-            uid=decoded_token.get('uid'),
-            social_type=decoded_token.get('firebase').get('sign_in_provider'),
-            access_token=firebase_token.token,
-            access_token_expiration=timestamp_to_datetime(decoded_token.get('exp', None), milliseconds=False)
-            if decoded_token.get('exp', None) is not None else None,
-            phone=decoded_token.get('phone_number', None),
-            email=decoded_token.get('email', None),
+            social_data,
             # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
-            reference_code=body.get('reference_code', None),
-            **decoded_token.get('firebase', None)
+            reference_code=body.get('reference_code', None)
         )
 
         # if request.user and not request.user.is_anonymous:  # Если отсылался заголовок Authorization
