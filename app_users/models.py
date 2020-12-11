@@ -62,6 +62,7 @@ class SocialModel(BaseModel):
     username = models.CharField(max_length=255, blank=False, null=True)
     phone = models.CharField(max_length=255, blank=False, null=True)
     email = models.CharField(max_length=255, blank=False, null=True)
+    firebase_id = models.CharField(max_length=255, blank=False, null=True)
     social_id = models.CharField(max_length=255, blank=False, null=True)
     access_token = models.CharField(max_length=2048, blank=False, null=True)
     access_token_expiration = models.DateTimeField(null=True, blank=True)

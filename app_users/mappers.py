@@ -23,25 +23,26 @@ class TokensMapper:
 class SocialDataMapper:
     @staticmethod
     def firebase(data):
-
         entity = SocialEntity()
 
-        entity.social_id = data.get('uid', None)
+        entity.firebase_id = data.get('uid', None)
+
         entity.social_type = data.get('firebase').get('sign_in_provider', 'firebase')
         entity.access_token_expiration = timestamp_to_datetime(
             data.get('exp', None), milliseconds=False
         ) if data.get('exp', None) is not None else None
-        identities = data.get('identities', None)
         entity.phone = data.get('phone_number', None)
         entity.email = data.get('email', None)
+        entity.username = data.get('name', None)
+        identities = data.get('firebase').get('identities', None) if 'firebase' in data else None
         if identities:
-            entity.phone = identities['phone'][0] if 'phone' in identities and identities['phone'] else None
+            entity.social_id = identities[entity.social_type][0] if entity.social_type in identities and identities[
+                entity.social_type] else None
             entity.email = identities['email'][0] if 'email' in identities and identities['email'] else None
             entity.first_name = identities['first_name'][0] if 'first_name' in identities and identities[
                 'first_name'] else None
             entity.last_name = identities['last_name'][0] if 'last_name' in identities and identities[
                 'last_name'] else None
-            entity.username = identities['username'][0] if 'username' in identities and identities['username'] else None
 
         return entity
 
@@ -55,15 +56,11 @@ class SocialDataMapper:
         entity.access_token_expiration = timestamp_to_datetime(
             data.get('expires_in', None), milliseconds=False
         ) if data.get('expires_in', None) is not None else None
-        identities = data.get('identities', None)
         entity.phone = data.get('phone_number', None)
         entity.email = data.get('email', None)
         entity.first_name = data.get('first_name', None)
         entity.last_name = data.get('last_name', None)
         entity.middle_name = data.get('middle_name', None)
         entity.username = data.get('screen_name', None)
-        if identities:
-            entity.phone = identities['phone'][0] if 'phone' in identities and identities['phone'] else None
-            entity.email = identities['email'][0] if 'email' in identities and identities['email'] else None
 
         return entity

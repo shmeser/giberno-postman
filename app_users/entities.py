@@ -33,6 +33,7 @@ class SocialEntity:
             last_name=None,
             middle_name=None,
             username=None,
+            firebase_id=None,
             social_id=None,
             social_type=None,
             access_token=None,
@@ -46,6 +47,7 @@ class SocialEntity:
         self.username = username
         self.phone = phone
         self.email = email
+        self.firebase_id = firebase_id
         self.social_id = social_id
         self.social_type = social_type
         self.access_token = access_token
@@ -59,6 +61,7 @@ class SocialEntity:
             'username': self.username,
             'phone': self.phone,
             'email': self.email,
+            'firebase_id': self.firebase_id,
             'social_id': self.social_id,
             'type': self.social_type,
             'access_token': self.access_token,
