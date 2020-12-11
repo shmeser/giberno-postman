@@ -1,5 +1,4 @@
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
 from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -88,6 +87,15 @@ class Users(APIView):
     @staticmethod
     def get(request):
         if request.version in ['users_1_0']:
-            pass
-        return JsonResponse({
-        })
+            return v1_0.Users.get(request)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+
+
+class MyProfile(APIView):
+    @staticmethod
+    def get(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfile.get(request)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")

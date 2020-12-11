@@ -135,3 +135,15 @@ class ReferenceCode(APIView):
         return JsonResponse({
             "referenceCode": format(request.user.uuid.fields[5], 'x')
         })
+
+
+class MyProfile(APIView):
+    @staticmethod
+    def get(request):
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class Users(APIView):
+    @staticmethod
+    def get(request):
+        return Response(None, status=status.HTTP_204_NO_CONTENT)

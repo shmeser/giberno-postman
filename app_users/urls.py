@@ -1,6 +1,6 @@
 from django.urls import path
 
-from app_users.views import Users, AuthFirebase, AuthRefreshToken, firebase_web_auth, ReferenceCode, AuthVk
+from app_users.views import AuthFirebase, AuthRefreshToken, firebase_web_auth, ReferenceCode, AuthVk, Users, MyProfile
 
 urlpatterns = [
     path('auth/firebase/web', firebase_web_auth),
@@ -10,4 +10,5 @@ urlpatterns = [
     path('auth/vk', AuthVk.as_view()),
 
     path('users', Users.as_view()),
+    path('users/profile', MyProfile.as_view()),
 ]

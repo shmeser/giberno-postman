@@ -103,7 +103,9 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'UNAUTHENTICATED_USER': None,
-    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning'
+    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
+
+    'EXCEPTION_HANDLER': 'backend.errors.handlers.custom_exception_handler'
 }
 
 CELERY_BEAT_SCHEDULE = {

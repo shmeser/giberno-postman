@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import IntEnum, Enum
 
 
 class RESTErrors(IntEnum):
@@ -8,6 +8,10 @@ class RESTErrors(IntEnum):
     NOT_FOUND = 404
     CUSTOM_DETAILED_ERROR = 499
     INTERNAL_SERVER_ERROR = 500
+
+
+class ErrorsCodes(Enum):
+    SOCIAL_ALREADY_IN_USE = 'Данным способом уже зарегистрирован другой пользователь'
 
 
 class SocketErrors(IntEnum):

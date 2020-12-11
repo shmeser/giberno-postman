@@ -3,7 +3,7 @@ from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from backend.errors.enums import Errors
+from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mappers import RequestToFilters, RequestToOrderParams, RequestToPaginationMapper
 from backend.permissions import AbbleToPerform
