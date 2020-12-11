@@ -51,6 +51,9 @@ deploy:
     - echo TELEGRAM_BOT_TOKEN="$DEV_TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
     - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
 
+    - echo DEV_VK_APP_ID="$DEV_VK_APP_ID" | tr -d '\r' >> .env
+    - echo DEV_VK_APP_SECRET="$DEV_VK_APP_SECRET" | tr -d '\r' >> .env
+
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
     - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
 
@@ -102,6 +105,9 @@ deploy_stage:
     - echo TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
     - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
 
+    - echo DEV_VK_APP_ID="$DEV_VK_APP_ID" | tr -d '\r' >> .env
+    - echo DEV_VK_APP_SECRET="$DEV_VK_APP_SECRET" | tr -d '\r' >> .env
+
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
     - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
 
@@ -151,6 +157,8 @@ deploy_release:
 
     - echo TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
     - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
+    - echo VK_APP_ID="$VK_APP_ID" | tr -d '\r' >> .env
+    - echo VK_APP_SECRET="$VK_APP_SECRET" | tr -d '\r' >> .env
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
     - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
