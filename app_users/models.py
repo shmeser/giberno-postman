@@ -16,7 +16,7 @@ class UserProfile(AbstractUser, BaseModel):
 
     username = models.CharField(max_length=255, null=True, blank=True)
     email = models.EmailField(unique=True, blank=True, null=True)
-    phone = models.CharField(max_length=16, blank=True)
+    phone = models.CharField(max_length=16, blank=True, null=True)
 
     first_name = models.CharField(max_length=255, null=True, blank=True)
     middle_name = models.CharField(max_length=255, null=True, blank=True)
@@ -56,6 +56,10 @@ class UserProfile(AbstractUser, BaseModel):
 class SocialModel(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, blank=True, null=True)
     type = models.CharField(max_length=255)
+    first_name = models.CharField(max_length=255, blank=False, null=True)
+    last_name = models.CharField(max_length=255, blank=False, null=True)
+    middle_name = models.CharField(max_length=255, blank=False, null=True)
+    username = models.CharField(max_length=255, blank=False, null=True)
     phone = models.CharField(max_length=255, blank=False, null=True)
     email = models.CharField(max_length=255, blank=False, null=True)
     social_id = models.CharField(max_length=255, blank=False, null=True)

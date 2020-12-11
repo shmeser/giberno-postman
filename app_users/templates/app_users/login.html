@@ -1,6 +1,6 @@
 <!-- templates/login.html -->
 
-{% extends 'app_users/v1_0/base.html' %}
+{% extends 'app_users/base.html' %}
 {% block title %} Sign in {% endblock %}
 {% block content %}
     <div class="row">
@@ -9,7 +9,7 @@
                 <a href="{% url 'social:begin' 'instagram' %}">Login with Instagram</a>
             </button>
             <button class="btn btn-primary mb-2">
-                <a href="{% url 'social:begin' 'facebook' %}">Login with Facebook
+                <a href="{% url 'social:begin' 'vk-oauth2' %}">Login with VK
                 </a>
             </button>
         </div>

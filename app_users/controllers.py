@@ -18,17 +18,17 @@ class FirebaseController:
             decoded_token = firebase_auth.verify_id_token(firebase_token)
             if decoded_token is None:
                 raise HttpException(
-                    detail=RESTErrors.INVALID_ACCESS_TOKEN.name,
-                    status_code=RESTErrors.INVALID_ACCESS_TOKEN
+                    detail='Невалидный access_token',
+                    status_code=RESTErrors.NOT_AUTHORIZED
                 )
-        except ValueError:
+        except ValueError as e:
             raise HttpException(
-                detail=RESTErrors.INVALID_ACCESS_TOKEN.name,
-                status_code=RESTErrors.INVALID_ACCESS_TOKEN
+                detail=str(e),
+                status_code=RESTErrors.NOT_AUTHORIZED
             )
         except ExpiredIdTokenError as e:
-            raise HttpException(detail=e, status_code=RESTErrors.INVALID_ACCESS_TOKEN)
+            raise HttpException(detail=e, status_code=RESTErrors.NOT_AUTHORIZED)
         except Exception as e:
-            raise HttpException(detail=e, status_code=RESTErrors.INVALID_ACCESS_TOKEN)
+            raise HttpException(detail=e, status_code=RESTErrors.NOT_AUTHORIZED)
 
         return decoded_token

@@ -41,6 +41,8 @@ services:
       TELEGRAM_BOT_PASSWORD: ${TELEGRAM_BOT_PASSWORD}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY}
       SERVER_KEY: ${SERVER_KEY}
+      VK_APP_ID: ${DEV_VK_APP_ID}
+      VK_APP_SECRET: ${DEV_VK_APP_SECRET}
     ports:
       - "127.0.0.1:${API_PORT}:${API_PORT}"
     networks:
