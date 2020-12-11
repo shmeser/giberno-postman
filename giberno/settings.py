@@ -194,9 +194,10 @@ LOGIN_REDIRECT_URL = 'web'
 LOGOUT_URL = 'web'
 LOGOUT_REDIRECT_URL = 'login'
 
-SOCIAL_AUTH_VK_OAUTH2_KEY = '7693503'
-SOCIAL_AUTH_VK_OAUTH2_SECRET = 'kwAirsk5Y36eU3sp5Ken'
-SOCIAL_AUTH_VK_OAUTH2_SCOPE = ['email']
+# VK
+SOCIAL_AUTH_VK_OAUTH2_KEY = os.getenv('VK_APP_ID', '')  # WEB AUTH
+SOCIAL_AUTH_VK_OAUTH2_SECRET = os.getenv('VK_APP_SECRET', '')  # WEB AUTH
+SOCIAL_AUTH_VK_OAUTH2_SCOPE = ['email', 'phone']
 
 SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_details',

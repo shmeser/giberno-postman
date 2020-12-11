@@ -6,6 +6,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from social_core.exceptions import AuthTokenRevoked
 from social_django.utils import load_backend, load_strategy
 
 from app_users.controllers import FirebaseController
@@ -46,7 +47,7 @@ class AuthFirebase(APIView):
         # if request.user and not request.user.is_anonymous:  # Если отсылался заголовок Authorization
         #     """ Если запрос пришел от соц юзера, и привязывается к другому соц юзеру, отдаем ошибку"""
         #     raise HttpException(detail='Нельзя привязать соцсеть к аккаунту с соцсетью',
-        #                         status_code=status.HTTP_403_FORBIDDEN)
+        #                         status_code=RESTErrors.FORBIDDEN)
 
         JwtRepository().remove_old(user)  # TODO пригодится для запрета входа с нескольких устройств
         jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
@@ -65,8 +66,13 @@ class AuthVk(APIView):
     def post(self, request):
         body = get_request_body(request)
         vk_token: TokenEntity = TokensMapper.vk(body)
-        backend = load_backend(load_strategy(request), 'vk', 'social/login')
-        social_user = backend.do_auth(access_token=vk_token, user=request.user or None)
+        backend = load_backend(load_strategy(request), 'vk-oauth2', 'social/login')
+        try:
+            social_user = backend.do_auth(access_token=vk_token.token, user=request.user or None, **{
+                'reference_code': body.get('reference_code', None)
+            })
+        except AuthTokenRevoked as e:
+            raise HttpException(detail=str(e), status_code=RESTErrors.NOT_AUTHORIZED)
 
         if social_user and request.user:
             """ Привязали соцсеть, получаем jwt для текущего пользователя """
@@ -75,7 +81,7 @@ class AuthVk(APIView):
             """ Регистрация нового пользователя через соцсеть """
             user = social_user
         else:
-            raise HttpException(detail='Ошибка входа через соцсеть', status_code=RESTErrors.INVALID_ACCESS_TOKEN)
+            raise HttpException(detail='Ошибка входа через соцсеть', status_code=RESTErrors.NOT_AUTHORIZED)
 
         JwtRepository().remove_old(user)  # TODO пригодится для запрета входа с нескольких устройств
         jwt_pair: JwtToken = JwtRepository().create_jwt_pair(user)
@@ -100,8 +106,10 @@ class AuthRefreshToken(APIView):
                 serializer.validated_data.get('access_token')
             )
             if jwt_pair is None:
-                raise HttpException(detail="JWT-токен не найден, обновление невозможно",
-                                    status_code=status.HTTP_401_UNAUTHORIZED)
+                raise HttpException(
+                    detail="JWT-токен не найден, обновление невозможно",
+                    status_code=RESTErrors.NOT_AUTHORIZED
+                )
 
         except TokenError as e:
             raise InvalidToken(e.args[0])
@@ -119,7 +127,7 @@ class ReferenceCode(APIView):
         body = get_request_body(request)
         reference_user = UsersRepository.get_reference_user(body.get('reference_code', None))
         if reference_user is None:
-            raise HttpException(detail='Невалидный реферальный код', status_code=status.HTTP_400_BAD_REQUEST)
+            raise HttpException(detail='Невалидный реферальный код', status_code=RESTErrors.BAD_REQUEST)
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
     @staticmethod

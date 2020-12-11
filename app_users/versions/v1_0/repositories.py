@@ -1,9 +1,9 @@
-from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType
 from app_users.models import SocialModel, UserProfile, JwtToken
+from backend.errors.enums import RESTErrors
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException
 from backend.repositories import BaseRepository
@@ -26,7 +26,7 @@ class AuthRepository:
         if reference_code:
             reference_user = UsersRepository.get_reference_user(reference_code)
             if reference_user is None:
-                raise HttpException(detail='Невалидный реферальный код', status_code=status.HTTP_400_BAD_REQUEST)
+                raise HttpException(detail='Невалидный реферальный код', status_code=RESTErrors.BAD_REQUEST)
 
         # Создаем способ авторизации
         social, created = SocialModel.objects.get_or_create(
@@ -58,7 +58,7 @@ class AuthRepository:
         if user.account_type != account_type:
             raise HttpException(
                 detail='Данным способом уже зарегистрирован пользователь с другой ролью',
-                status_code=status.HTTP_403_FORBIDDEN
+                status_code=RESTErrors.FORBIDDEN
             )
 
         # Создаем модель настроек
