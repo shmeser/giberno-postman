@@ -29,7 +29,6 @@ services:
       CELERY_BROKER: redis://redis:6379/0
       HOST_DOMAIN: ${RL_HOST_DOMAIN}
       DB_HOST: db
-      DB_PORT: ${RL_DB_PORT}
       DB_NAME: ${RL_POSTGRES_DB}
       DB_USER: ${RL_POSTGRES_USER}
       DB_PASSWORD: ${RL_POSTGRES_PASSWORD}
@@ -57,7 +56,6 @@ services:
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
       DB_HOST: db
-      DB_PORT: ${RL_DB_PORT}
       DB_NAME: ${RL_POSTGRES_DB}
       DB_USER: ${RL_POSTGRES_USER}
       DB_PASSWORD: ${RL_POSTGRES_PASSWORD}
@@ -79,7 +77,6 @@ services:
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
       DB_HOST: db
-      DB_PORT: ${RL_DB_PORT}
       DB_NAME: ${RL_POSTGRES_DB}
       DB_USER: ${RL_POSTGRES_USER}
       DB_PASSWORD: ${RL_POSTGRES_PASSWORD}
