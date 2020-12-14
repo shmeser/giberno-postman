@@ -195,6 +195,21 @@ def datetime_to_timestamp(date_time, milliseconds=True):
         return None
 
 
+def create_admin_serializer(cls):
+    meta_model = cls.Meta.model
+
+    class AdminSerializer(cls):
+        class Meta:
+            model = meta_model
+            exclude = ['deleted']
+
+    return AdminSerializer
+
+
+def user_is_admin(user):
+    return 'admins' in user.groups.values_list('name', flat=True)
+
+
 def chunks_func(list_data, n):
     """Дробим список на части по n элементов"""
     for i in range(0, len(list_data), n):

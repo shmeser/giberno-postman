@@ -11,13 +11,15 @@ class BaseMapper:
     @classmethod
     def validate(cls, data, field):
         if data.get(field) is None:
-            raise HttpException(detail='Empty field: ' + field,
-                                status_code=RESTErrors.BAD_REQUEST.value)
+            raise HttpException(
+                detail='Empty field: ' + field,
+                status_code=RESTErrors.BAD_REQUEST.value
+            )
 
 
-class RequestToPaginationMapper:
+class RequestMapper:
     @classmethod
-    def map(cls, request):
+    def pagination(cls, request):
         pagination: Pagination = Pagination()
 
         if request.GET.get('offset') is None:
@@ -38,17 +40,15 @@ class RequestToPaginationMapper:
 
         return pagination
 
-
-class RequestToFilters:
     @classmethod
-    def map(cls, request, params: dict, date_params: dict):
+    def filters(cls, request, params: dict, date_params: dict, default_filters: dict):
         if not params and not date_params:
             return
 
         # копируем, чтобы не изменять сам request.query_params
         filter_values = underscoreize(request.query_params.copy())
         if not filter_values:
-            return
+            return default_filters
 
         for param in date_params:
             if param in filter_values:
@@ -62,12 +62,10 @@ class RequestToFilters:
         """
         all_params = {**params, **date_params}
         kwargs = {all_params[param]: filter_values.get(param) for param in all_params if filter_values.get(param)}
-        return kwargs
+        return {**kwargs, **default_filters}
 
-
-class RequestToOrderParams:
     @classmethod
-    def map(cls, request, params: dict):
+    def order(cls, request, params: dict):
         if not params:
             return list()
 

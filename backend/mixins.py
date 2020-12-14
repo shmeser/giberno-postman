@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
-from backend.mappers import RequestToFilters, RequestToOrderParams, RequestToPaginationMapper
+from backend.mappers import RequestMapper
 from backend.permissions import AbbleToPerform
 from backend.repositories import BaseRepository
 from backend.utils import create_admin_serializer, get_request_body, user_is_admin
@@ -34,7 +34,7 @@ class CRUDAPIView(APIView):
     urlpattern_record_id_name = 'record_id'
     filter_params = dict()
     order_params = dict()
-    date_filter_params = dict()  # словарь, в котором будут указанны фитльтры в формате timestamp.
+    date_filter_params = dict()  # словарь, в котором будут указанны фильтры в формате timestamp.
     permission_classes = [AbbleToPerform]
     # есть возможность указать http методы которые будут обрабатываться.
     allowed_http_methods = []
@@ -45,18 +45,19 @@ class CRUDAPIView(APIView):
     # необходимо присвоить используемое имя.
     owner_field_name: str = 'owner'
     default_order_params = []
+    default_filters = {}
 
     def __init__(self, **kwargs):
+        super().__init__()
         if self.allowed_http_methods:
             self.http_method_names = self.allowed_http_methods
 
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        pagination = RequestToPaginationMapper.map(request)
-        filters = RequestToFilters().map(request, self.filter_params,
-                                         self.date_filter_params) or dict()
+        pagination = RequestMapper.pagination(request)
+        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params) or dict()
         queryset = self.get_queryset(request=request, **kwargs)
-        order_params = RequestToOrderParams.map(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
 
         if record_id:
             if user_is_admin(request.user) and request.user.is_superuser:
@@ -112,7 +113,7 @@ class CRUDAPIView(APIView):
             record.is_valid(raise_exception=True)
         except HttpException:
             raise HttpException(detail='One or more fields passed as an ID were not found.',
-                                status_code=Errors.NOT_FOUND)
+                                status_code=RESTErrors.NOT_FOUND)
         record.save()
         return Response(camelize(record.data), status=status.HTTP_200_OK)
 
@@ -126,8 +127,9 @@ class CRUDAPIView(APIView):
         try:
             record.is_valid(raise_exception=True)
         except HttpException:  # 404 NOT_FOUND из BaseRepository
-            raise HttpException(detail='One or more fields passed as an ID were not found.',
-                                status_code=Errors.NOT_FOUND)
+            raise HttpException(
+                detail='One or more fields passed as an ID were not found.',
+                status_code=RESTErrors.NOT_FOUND)
         record.save()
         return Response(camelize(record.data), status=status.HTTP_200_OK)
 

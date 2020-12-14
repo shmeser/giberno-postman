@@ -10,5 +10,6 @@ urlpatterns = [
     path('auth/vk', AuthVk.as_view()),
 
     path('users', Users.as_view()),
+    path('users/<int:record_id>', Users.as_view()),
     path('users/profile', MyProfile.as_view()),
 ]

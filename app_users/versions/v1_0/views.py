@@ -1,5 +1,6 @@
 from django.http import JsonResponse
 from django.shortcuts import render
+from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -13,10 +14,12 @@ from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
-from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository
-from app_users.versions.v1_0.serializers import RefreshTokenSerializer
+from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository
+from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, FillProfileSerializer
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
+from backend.mappers import RequestMapper
+from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers, get_request_body
 
 
@@ -137,13 +140,75 @@ class ReferenceCode(APIView):
         })
 
 
-class MyProfile(APIView):
-    @staticmethod
-    def get(request):
-        return Response(None, status=status.HTTP_204_NO_CONTENT)
+class MyProfile(CRUDAPIView):
+    serializer_class = ProfileSerializer
+    repository_class = ProfileRepository
+    allowed_http_methods = ['get']
+
+    def __init__(self):
+        super().__init__()
+        self.serializer_class = ProfileSerializer
+
+    def get(self, request, **kwargs):
+        serialized = self.serializer_class(request.user, many=False)
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def put(self, request, **kwargs):
+        body = get_request_body(request)
+        serialized = FillProfileSerializer(request.user, data=body)
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def patch(self, request, **kwargs):
+        body = get_request_body(request)
+        serialized = self.serializer_class(request.user, data=body)
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class Users(APIView):
-    @staticmethod
-    def get(request):
-        return Response(None, status=status.HTTP_204_NO_CONTENT)
+class Users(CRUDAPIView):
+    serializer_class = ProfileSerializer
+    repository_class = ProfileRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'username': 'username__istartswith',
+    }
+
+    default_order_params = []
+
+    default_filters = {
+        'is_staff': False
+    }
+
+    order_params = {
+        'username': 'username',
+    }
+
+    def __init__(self):
+        super().__init__()
+        self.serializer_class = ProfileSerializer
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        pagination = RequestMapper.pagination(request)
+        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
+                                          self.default_filters) or dict()
+        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+
+        if record_id:
+            self.serializer_class = ProfileSerializer
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+            serialized = self.serializer_class(dataset)
+        else:
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params
+            )
+            serialized = self.serializer_class(dataset, many=True)
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)

@@ -12,6 +12,7 @@ class RESTErrors(IntEnum):
 
 class ErrorsCodes(Enum):
     SOCIAL_ALREADY_IN_USE = 'Данным способом уже зарегистрирован другой пользователь'
+    PROFILE_NOT_FILLED = 'Профиль не заполнен'
 
 
 class SocketErrors(IntEnum):

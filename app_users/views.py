@@ -85,9 +85,9 @@ class ReferenceCode(APIView):
 
 class Users(APIView):
     @staticmethod
-    def get(request):
+    def get(request, **kwargs):
         if request.version in ['users_1_0']:
-            return v1_0.Users.get(request)
+            return v1_0.Users().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
 
@@ -96,6 +96,18 @@ class MyProfile(APIView):
     @staticmethod
     def get(request):
         if request.version in ['users_1_0']:
-            return v1_0.MyProfile.get(request)
-
+            return v1_0.MyProfile().get(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+
+    @staticmethod
+    def patch(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfile().patch(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+
+    @staticmethod
+    def put(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfile().put(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+
