@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from backend.errors.enums import RESTErrors
+from backend.utils import get_request_body
 
 
 class FrontendAppView(View):
@@ -46,7 +47,7 @@ class AgreementView(APIView):
     @staticmethod
     def get(request):
         try:
-            with open(os.path.join(settings.REACT_APP_DIR, 'public', 'user-agreement.pdf'), 'rb') as f:
+            with open(os.path.join(settings.REACT_APP_DIR, 'public', 'agreement.pdf'), 'rb') as f:
                 return HttpResponse(f.read(), content_type='application/pdf')
         except FileNotFoundError:
             logging.exception('Production build of app not found')
@@ -58,6 +59,10 @@ class AgreementView(APIView):
 
     @staticmethod
     def post(request):
+        body = get_request_body(request)
+        if 'read' in body and body['read']:
+            request.user.agreement_accepted = True
+            request.user.save()
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -86,6 +91,10 @@ class PolicyView(APIView):
 
     @staticmethod
     def post(request):
+        body = get_request_body(request)
+        if 'read' in body and body['read']:
+            request.user.policy_accepted = True
+            request.user.save()
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -108,8 +117,12 @@ class TermsView(APIView):
                 """
                 Не найден файл условий использования
                 """,
-                status=404)
+                status=RESTErrors.NOT_FOUND)
 
     @staticmethod
     def post(request):
+        body = get_request_body(request)
+        if 'read' in body and body['read']:
+            request.user.terms_accepted = True
+            request.user.save()
         return Response(None, status=status.HTTP_204_NO_CONTENT)
