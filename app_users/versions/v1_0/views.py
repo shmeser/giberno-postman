@@ -16,9 +16,8 @@ from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, FillProfileSerializer
-from backend.entity import Error
-from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException, CustomException
+from backend.errors.enums import RESTErrors
+from backend.errors.http_exception import HttpException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers, get_request_body
@@ -152,13 +151,6 @@ class MyProfile(CRUDAPIView):
 
     def get(self, request, **kwargs):
         serialized = self.serializer_class(request.user, many=False)
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
-
-    def put(self, request, **kwargs):
-        body = get_request_body(request)
-        serialized = FillProfileSerializer(request.user, data=body)
-        serialized.is_valid(raise_exception=True)
-        serialized.save()
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):

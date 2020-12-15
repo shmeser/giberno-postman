@@ -39,11 +39,14 @@ class CRUDSerializer(serializers.ModelSerializer):
                 self._errors = {}
 
         if self._errors and raise_exception:
+            # Обрабатываем список ошибок валидаторов ValidationError
             raise CustomException(errors=[
                 dict(
-                    Error(ErrorsCodes[e[0].code]) if e[0].code in ErrorsCodes else Error(
+                    Error(ErrorsCodes[e[0].code]) if ErrorsCodes.has_key(e[0].code) else Error(
                         **{
-                            'code': e[0].code,
+                            'code': ErrorsCodes.EMAIL_IS_USED.name
+                            if e[0].code == 'unique' and k == 'email'  # Конкретная проверка на уникальность имейла в бд
+                            else ErrorsCodes.VALIDATION_ERROR.name,
                             'detail': e[0],
                         }
                     )
