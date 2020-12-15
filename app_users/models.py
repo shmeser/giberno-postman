@@ -44,6 +44,10 @@ class UserProfile(AbstractUser, BaseModel):
     )
     reg_reference_code = models.CharField(max_length=255, null=True, blank=True)
 
+    policy_accepted = models.BooleanField(default=False)
+    agreement_accepted = models.BooleanField(default=False)
+    terms_accepted = models.BooleanField(default=False)
+
     def __str__(self):
         return f'ID:{self.id} - {self.username} {self.first_name} {self.middle_name} {self.middle_name}'
 

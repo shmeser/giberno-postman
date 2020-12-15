@@ -8,7 +8,7 @@ from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import SocialModelRepository, AuthRepository
 # from backend.utils import CP
 from backend.entity import Error
-from backend.errors.enums import ErrorsCodes as err
+from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exception import CustomException
 
 
@@ -47,7 +47,7 @@ def get_or_create_user(backend, user: UserProfile = None, *args, **kwargs):
         else:
             if social.user.id != user.id:
                 raise CustomException(errors=[
-                    dict(Error(err.SOCIAL_ALREADY_IN_USE))
+                    dict(Error(ErrorsCodes.SOCIAL_ALREADY_IN_USE))
                 ])
             # Обновляем access_token
             social.access_token = kwargs.get('response').get('access_token')

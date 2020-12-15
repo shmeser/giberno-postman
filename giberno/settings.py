@@ -138,12 +138,15 @@ STATIC_URL = '/static/'
 LOGS_URL = '/logs/'
 MEDIA_URL = '/media/'
 
+REACT_APP_DIR = os.path.join(BASE_DIR, 'frontend')
+
 STATIC_ROOT = os.path.join(BASE_DIR, 'files', 'static')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'files', 'media')
 LOGS_ROOT = os.path.join(BASE_DIR, 'files', 'logs')
 
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'static'),
+    os.path.join(REACT_APP_DIR, 'build', 'static'),
 )
 
 AUTH_USER_MODEL = 'app_users.UserProfile'

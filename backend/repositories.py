@@ -21,10 +21,12 @@ class BaseRepository:
         try:
             return self.Model.objects.get(id=record_id)
         except self.Model.DoesNotExist:
-            raise HttpException(status_code=RESTErrors.NOT_FOUND.value,
-                                detail='Объект %s с ID=%d не найден' % (self.Model._meta.verbose_name, record_id))
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail='Объект %s с ID=%d не найден' % (self.Model._meta.verbose_name, record_id)
+            )
 
-    def filter_by_kwargs(self, kwargs, paginator=None, order_by=list()):
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         try:
             if order_by:
                 records = self.Model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
