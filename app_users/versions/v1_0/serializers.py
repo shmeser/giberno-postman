@@ -1,9 +1,13 @@
+from django_globals import globals
 from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import ProfileRepository
+from backend.entity import Error
+from backend.errors.enums import ErrorsCodes
+from backend.errors.http_exception import CustomException
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 
@@ -36,19 +40,31 @@ class RefreshTokenSerializer(serializers.Serializer):
 
 class ProfileSerializer(CRUDSerializer):
     repository = ProfileRepository
-
     birth_date = DateTimeField()
-
     languages = serializers.SerializerMethodField(read_only=True)
     countries = serializers.SerializerMethodField(read_only=True)
 
-    def validate_weight(self, weight):
-        if weight is None:
-            return weight
-        if weight <= 20:
-            raise HttpException(detail='weight должен быть больше 20кг', status_code=Errors.BAD_REQUEST.value)
-        else:
-            return weight
+    def validate_phone(self, phone):
+        raise serializers.ValidationError(detail=ErrorsCodes.PHONE_IS_USED.value, code=ErrorsCodes.PHONE_IS_USED.name)
+        with_same_phone = False
+        if phone:
+            with_same_phone = ProfileRepository().filter_by_kwargs({
+                'phone': phone,
+            }).exclude(id=globals.request.user.id).exists()
+        if with_same_phone:
+            raise CustomException([dict(Error(ErrorsCodes.PHONE_IS_USED))])
+        return phone
+
+    def validate_email(self, email):
+        raise serializers.ValidationError('Инвалидный имеил')
+        with_same_phone = False
+        if phone:
+            with_same_phone = ProfileRepository().filter_by_kwargs({
+                'phone': phone,
+            }).exclude(id=globals.request.user.id).exists()
+        if with_same_phone:
+            raise CustomException([dict(Error(ErrorsCodes.PHONE_IS_USED))])
+        return phone
 
     def get_languages(self, product):
         # return g.request.user.vegetarianism
@@ -70,7 +86,6 @@ class ProfileSerializer(CRUDSerializer):
             'email',
             'languages',
             'countries',
-
         ]
 
 

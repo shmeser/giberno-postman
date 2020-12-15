@@ -1,10 +1,12 @@
 from djangorestframework_camel_case.util import camelize
 from rest_framework import serializers, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from backend.entity import Error
+from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.http_exception import HttpException, CustomException
 from backend.mappers import RequestMapper
 from backend.permissions import AbbleToPerform
 from backend.repositories import BaseRepository
@@ -19,6 +21,36 @@ class CRUDSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         return self.repository().update(instance.id, **validated_data)
+
+    def is_valid(self, raise_exception=False):
+        # Переопределяем метод для использования кастомной ошибки
+        assert hasattr(self, 'initial_data'), (
+            'Cannot call `.is_valid()` as no `data=` keyword argument was '
+            'passed when instantiating the serializer instance.'
+        )
+
+        if not hasattr(self, '_validated_data'):
+            try:
+                self._validated_data = self.run_validation(self.initial_data)
+            except ValidationError as exc:
+                self._validated_data = {}
+                self._errors = exc.detail
+            else:
+                self._errors = {}
+
+        if self._errors and raise_exception:
+            raise CustomException(errors=[
+                dict(
+                    Error(ErrorsCodes[e[0].code]) if e[0].code in ErrorsCodes else Error(
+                        **{
+                            'code': e[0].code,
+                            'detail': e[0],
+                        }
+                    )
+                ) for k, e in self.errors.items()
+            ])
+
+        return not bool(self._errors)
 
 
 class MasterRepository(BaseRepository):

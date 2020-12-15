@@ -16,8 +16,9 @@ from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, FillProfileSerializer
-from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from backend.entity import Error
+from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.http_exception import HttpException, CustomException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers, get_request_body
