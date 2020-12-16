@@ -10,6 +10,7 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from social_core.exceptions import AuthTokenRevoked
 from social_django.utils import load_backend, load_strategy
 
+from app_media.forms import FileForm
 from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
 from app_users.mappers import TokensMapper, SocialDataMapper
@@ -159,6 +160,21 @@ class MyProfile(CRUDAPIView):
         serialized.is_valid(raise_exception=True)
         serialized.save()
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class MyProfileUploads(APIView):
+    def post(self, request, **kwargs):
+        form = FileForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded = PostFileMapper.map(form, post)
+            if uploaded is None:
+                return JsonResponse({'error': 'invalid data'}, status=Errors.VALIDATION_ERROR.value)
+            else:
+                result = PostsRepository(me).get_my_post(kwargs.get('id'))
+                post_serializer = PostsSerializer(result, many=False, context={
+                    'locale': int(request.META.get('HTTP_LOCALE', LocaleType.RUSSIAN)),
+                    'user': me})
+                return Response(camelize(post_serializer.data), status=status.HTTP_200_OK)
 
 
 class Users(CRUDAPIView):

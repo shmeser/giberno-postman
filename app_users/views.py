@@ -104,3 +104,11 @@ class MyProfile(APIView):
         if request.version in ['users_1_0']:
             return v1_0.MyProfile().patch(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+
+
+class MyProfileUploads(APIView):
+    @staticmethod
+    def post(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileUploads().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
