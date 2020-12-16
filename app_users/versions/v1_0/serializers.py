@@ -38,9 +38,15 @@ class RefreshTokenSerializer(serializers.Serializer):
 
 class ProfileSerializer(CRUDSerializer):
     repository = ProfileRepository
+
     birth_date = DateTimeField()
+    avatar = serializers.SerializerMethodField(read_only=True)
+    documents = serializers.SerializerMethodField(read_only=True)
     languages = serializers.SerializerMethodField(read_only=True)
-    countries = serializers.SerializerMethodField(read_only=True)
+
+    nationalities = serializers.SerializerMethodField(read_only=True)
+    country = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
 
     def validate_phone(self, phone):
         with_same_phone = False
@@ -54,18 +60,30 @@ class ProfileSerializer(CRUDSerializer):
             )
         return phone
 
-    def get_languages(self, profile):
-        # return g.request.user.
+    def get_avatar(self, profile):
+        return None
+
+    def get_documents(self, profile):
         return []
 
-    def get_countries(self, profile):
-        # return g.request.user.
+    def get_languages(self, profile):
         return []
+
+    def get_nationalities(self, profile):
+        return []
+
+    def get_country(self, profile):
+        return None
+
+    def get_city(self, profile):
+        return None
 
     class Meta:
         model = UserProfile
         fields = [
             'id',
+            'avatar',
+            'documents',
             'first_name',
             'last_name',
             'middle_name',
@@ -73,10 +91,12 @@ class ProfileSerializer(CRUDSerializer):
             'phone',
             'email',
             'languages',
-            'countries',
+            'nationalities',
             'policy_accepted',
             'terms_accepted',
             'agreement_accepted',
+            'country',
+            'city',
         ]
 
 
@@ -85,6 +105,8 @@ class FillProfileSerializer(ProfileSerializer):
         model = UserProfile
         fields = [
             'id',
+            'avatar',
+            'documents',
             'first_name',
             'last_name',
             'middle_name',
@@ -92,10 +114,12 @@ class FillProfileSerializer(ProfileSerializer):
             'phone',
             'email',
             'languages',
-            'countries',
+            'nationality',
             'policy_accepted',
             'terms_accepted',
             'agreement_accepted',
+            'country',
+            'city',
         ]
 
         extra_kwargs = {

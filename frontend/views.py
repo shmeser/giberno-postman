@@ -10,7 +10,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from backend.errors.enums import RESTErrors
-from backend.utils import get_request_body
+
+
+# from backend.utils import get_request_body
 
 
 class FrontendAppView(View):
@@ -59,10 +61,8 @@ class AgreementView(APIView):
 
     @staticmethod
     def post(request):
-        body = get_request_body(request)
-        if 'read' in body and body['read']:
-            request.user.agreement_accepted = True
-            request.user.save()
+        request.user.agreement_accepted = True
+        request.user.save()
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -91,10 +91,8 @@ class PolicyView(APIView):
 
     @staticmethod
     def post(request):
-        body = get_request_body(request)
-        if 'read' in body and body['read']:
-            request.user.policy_accepted = True
-            request.user.save()
+        request.user.policy_accepted = True
+        request.user.save()
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -121,8 +119,36 @@ class TermsView(APIView):
 
     @staticmethod
     def post(request):
-        body = get_request_body(request)
-        if 'read' in body and body['read']:
-            request.user.terms_accepted = True
-            request.user.save()
+        request.user.terms_accepted = True
+        request.user.save()
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class DocumentsView(APIView):
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [AllowAny()]
+        elif self.request.method == "POST":
+            return [IsAuthenticated()]
+        return [permission() for permission in self.permission_classes]
+
+    @staticmethod
+    def get(request):
+        try:
+            with open(os.path.join(settings.REACT_APP_DIR, 'public', 'documents.pdf'), 'rb') as f:
+                return HttpResponse(f.read(), content_type='application/pdf')
+        except FileNotFoundError:
+            logging.exception('Production build of app not found')
+            return HttpResponse(
+                """
+                Не найден файл документов
+                """,
+                status=RESTErrors.NOT_FOUND)
+
+    @staticmethod
+    def post(request):
+        request.user.terms_accepted = True
+        request.user.policy_accepted = True
+        request.user.agreement_accepted = True
+        request.user.save()
         return Response(None, status=status.HTTP_204_NO_CONTENT)
