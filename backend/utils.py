@@ -8,8 +8,10 @@ import pytz
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 
+from app_media.enums import MediaFormat
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
+from giberno.settings import VIDEO_MIME_TYPES, DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, AUDIO_MIME_TYPES
 
 
 def get_request_headers(request):
@@ -220,6 +222,21 @@ def chunks(list_data, n):
     return list(chunks_func(list_data, n))
 
 
+def get_media_format(mime_type=None):
+    if mime_type in DOCUMENT_MIME_TYPES:
+        return MediaFormat.DOCUMENT.value
+    if mime_type in IMAGE_MIME_TYPES:
+        return MediaFormat.IMAGE.value
+    if mime_type in AUDIO_MIME_TYPES:
+        return MediaFormat.AUDIO.value
+    if mime_type in VIDEO_MIME_TYPES:
+        return MediaFormat.VIDEO.value
+    return MediaFormat.UNKNOWN.value
+
+
+# ####
+
+
 def assign_swagger_decorator(app_name, view_names, responses: dict = None):
     from drf_yasg.utils import swagger_auto_schema
 
@@ -243,10 +260,6 @@ def assign_swagger_decorator(app_name, view_names, responses: dict = None):
                     raise NotImplementedError('Serializer class not found in view.')
             decorator = swagger_auto_schema(tags=[view_class.__name__], responses=lresponses)
             decorator(view_method)
-
-
-def custom_jwt_get_secret_key(user):
-    return user.secret_key
 
 
 def read_csv(file_name):

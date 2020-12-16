@@ -1,6 +1,3 @@
-import re
-
-from django.db.models import Q
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_users.entities import JwtTokenEntity, SocialEntity
@@ -13,7 +10,7 @@ from backend.mixins import MasterRepository
 from backend.repositories import BaseRepository
 
 
-class UsersRepository(object):
+class UsersRepository:
     @staticmethod
     def get_reference_user(reference_code):
         return UserProfile.objects.filter(uuid__icontains=reference_code, deleted=False).first()
@@ -161,108 +158,9 @@ class ProfileRepository(MasterRepository):
 
     def get_by_id(self, record_id):
         try:
-            return self.Model.objects.get(id=record_id, is_staff=False)
-        except self.Model.DoesNotExist:
+            return self.model.objects.get(id=record_id, is_staff=False)
+        except self.model.DoesNotExist:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail='Объект %s с ID=%d не найден' % (self.Model._meta.verbose_name, record_id)
             )
-
-    def update_or_create(self, **kwargs):
-        try:
-            shop_networks = kwargs.pop('networks')
-            nutrients = kwargs.pop('nutrients')
-            possible_nutrients = kwargs.pop('possible_nutrients')
-            image_url = kwargs.pop('image')
-            category = kwargs.pop('category')
-
-            product = super().update_or_create(**kwargs)
-            product.shop_networks.clear()
-            product.nutrients.clear()
-            product.possible_nutrients.clear()
-
-            if shop_networks:
-                product.shop_networks.add(
-                    *ShopNetworksRepository().filter_by_kwargs({'external_id__in': shop_networks}))
-            if nutrients:
-                product.nutrients.add(*NutrientsRepository().filter_by_kwargs({'external_id__in': nutrients}))
-            if possible_nutrients:
-                product.possible_nutrients.add(
-                    *NutrientsRepository().filter_by_kwargs({'external_id__in': possible_nutrients}))
-            if category is not None:
-                try:
-                    product.category = CategoriesRepository().get_by_external_id(category[0])
-                except HttpException:
-                    pass
-
-            if product.nutrients.filter(title__icontains='соль'):
-                product.is_salt = True
-
-            if product.nutrients.filter(title__icontains='сахар'):
-                product.is_sugar = True
-
-            # product's diet should be True only if all fields of its nutrients is also True
-            # `product.nutrients.values_list('lacto', flat=True)` can't be empty because at least it has default value.
-            product.lacto = all(product.nutrients.values_list('lacto', flat=True))
-            product.ovo = all(product.nutrients.values_list('ovo', flat=True))
-            product.vegan = all(product.nutrients.values_list('vegan', flat=True))
-            if not product.lacto or not product.ovo:
-                product.lacto_ovo = False
-
-            if image_url:
-                if product.image is None:
-                    self.__assign_image_to_product(product=product, image_url=image_url)
-                else:
-                    # to avoid re-assignment of the same image
-                    if product.image.file_url != image_url:
-                        self.__assign_image_to_product(product=product, image_url=image_url)
-            else:
-                product.image = MediaRepository().get_random_placeholder()
-            product.save()
-
-        except Exception as e:
-            print(f'[ADDED ERROR], ex_id={kwargs.get("external_id")} {str(e)}')
-
-    def filter_by_title(self, product_title, additional_filters):
-        title_filters = (
-                Q(barcode__istartswith=product_title) |
-                # Полнотекстовый поиск с векторами postgres (для работы нужен обязательно 'django.contrib.postgres')
-                Q(title__search=product_title.strip()) |
-                Q(title__iregex=f"(^|[\\s\\.''\"]){product_title}([\\s\\.''\"]|(\\Z|.*\\s))")
-        )
-
-        return self.Model.objects.filter(
-            title_filters, **additional_filters, nutrients__isnull=False
-        ).distinct()
-
-    def order_by_title(self, products, requested_title):
-        rating_storage = []
-        splitted_requested_title = requested_title.split()
-        requested_title = requested_title.lower()
-
-        for product in products:
-            cleared_product_title = re.sub(r'\.|\'|\"|\,|\;|\:', '', product.title.lower())
-            splitted_product_title = cleared_product_title.split(' ')
-
-            for product_title_word in splitted_product_title:
-                if len(splitted_requested_title) > 1:
-                    if cleared_product_title == requested_title:
-                        index = 0
-                    elif cleared_product_title.startswith(requested_title):
-                        index = 1
-                    elif requested_title in cleared_product_title:
-                        index = 2
-                    else:
-                        index = 3
-                    rating_storage.append({'index': index, 'product': product})
-                    break
-                else:
-                    if requested_title.lower() == product_title_word.lower():
-                        rating_storage.append({
-                            'index': splitted_product_title.index(requested_title),
-                            'product': product
-                        })
-                        break
-
-        rating_storage.sort(key=lambda x: x.get('index'))
-        return [i.get('product') for i in rating_storage]

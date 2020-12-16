@@ -9,11 +9,14 @@ from backend.utils import choices
 
 class MediaModel(BaseModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
+
     owner_id = models.IntegerField(blank=True, null=True)
     owner_content_type_id = models.IntegerField(blank=True, null=True)
     owner_content_type = models.CharField(max_length=255, blank=True, null=True)
 
     title = models.CharField(max_length=255, blank=True, null=True)
+
+    mime_type = models.CharField(max_length=255, blank=True, null=True)
 
     file = models.FileField(upload_to='files/media', blank=True, null=True)
     preview = models.FileField(upload_to='files/media', null=True, blank=True)
@@ -23,7 +26,7 @@ class MediaModel(BaseModel):
     width = models.IntegerField(default=None, blank=True, null=True)
     height = models.IntegerField(blank=True, null=True)
     duration = models.BigIntegerField(default=None, blank=True, null=True)
-    bytes = models.IntegerField(blank=True, null=True)
+    size = models.BigIntegerField(blank=True, null=True)
 
     def __str__(self):
         return f'{self.id} - {self.owner_content_type} - {self.file.name}'

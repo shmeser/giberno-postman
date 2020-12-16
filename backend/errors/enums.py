@@ -18,6 +18,10 @@ class ErrorsCodes(Enum):
 
     VALIDATION_ERROR = 'Ошибка валидации'
 
+    EMPTY_REQUIRED_FIELDS = 'Не все обязательные поля отправлены'
+
+    UNSUPPORTED_FILE_FORMAT = 'Неподдерживаемый формат файла'
+
     @classmethod
     def has_value(cls, value):
         return value in cls._value2member_map_
