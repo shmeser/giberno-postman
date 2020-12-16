@@ -96,34 +96,6 @@ class PolicyView(APIView):
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
-class TermsView(APIView):
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [AllowAny()]
-        elif self.request.method == "POST":
-            return [IsAuthenticated()]
-        return [permission() for permission in self.permission_classes]
-
-    @staticmethod
-    def get(request):
-        try:
-            with open(os.path.join(settings.REACT_APP_DIR, 'public', 'terms.pdf'), 'rb') as f:
-                return HttpResponse(f.read(), content_type='application/pdf')
-        except FileNotFoundError:
-            logging.exception('Production build of app not found')
-            return HttpResponse(
-                """
-                Не найден файл условий использования
-                """,
-                status=RESTErrors.NOT_FOUND)
-
-    @staticmethod
-    def post(request):
-        request.user.terms_accepted = True
-        request.user.save()
-        return Response(None, status=status.HTTP_204_NO_CONTENT)
-
-
 class DocumentsView(APIView):
     def get_permissions(self):
         if self.request.method == "GET":
