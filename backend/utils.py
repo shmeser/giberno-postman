@@ -234,10 +234,10 @@ def get_media_format(mime_type=None):
         return MediaFormat.DOCUMENT.value
     if mime_type in IMAGE_MIME_TYPES:
         return MediaFormat.IMAGE.value
-    if mime_type in AUDIO_MIME_TYPES:
-        return MediaFormat.AUDIO.value
-    if mime_type in VIDEO_MIME_TYPES:
-        return MediaFormat.VIDEO.value
+    # if mime_type in AUDIO_MIME_TYPES:
+    #     return MediaFormat.AUDIO.value
+    # if mime_type in VIDEO_MIME_TYPES:
+    #     return MediaFormat.VIDEO.value
     return MediaFormat.UNKNOWN.value
 
 
