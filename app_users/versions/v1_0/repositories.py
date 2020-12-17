@@ -39,7 +39,6 @@ class AuthRepository:
             'reg_reference': reference_user,
             'reg_reference_code': reference_code,
             'phone': social_data.phone,
-            'email': social_data.email,
             'first_name': social_data.first_name,
             'last_name': social_data.last_name,
             'middle_name': social_data.middle_name,
@@ -55,6 +54,11 @@ class AuthRepository:
         if created:
             social.user = user
             social.save()
+            user.email = social_data.email
+        else:
+            if not user.email:
+                user.email = social_data.email
+        user.save()
 
         if user.account_type != account_type:
             raise HttpException(

@@ -2,16 +2,20 @@ import csv
 import datetime
 import importlib
 import json
+from copy import copy
+from io import BytesIO
 from json import JSONDecodeError
 
 import pytz
+from PIL import Image
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 
 from app_media.enums import MediaFormat
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
-from giberno.settings import VIDEO_MIME_TYPES, DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, AUDIO_MIME_TYPES
+from giberno.settings import VIDEO_MIME_TYPES, DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, AUDIO_MIME_TYPES, IMAGE_WIDTH_MAX, \
+    IMAGE_HEIGHT_MAX, IMAGE_PREVIEW_WIDTH_MAX, IMAGE_PREVIEW_HEIGHT_MAX
 
 
 def get_request_headers(request):
@@ -232,6 +236,48 @@ def get_media_format(mime_type=None):
     if mime_type in VIDEO_MIME_TYPES:
         return MediaFormat.VIDEO.value
     return MediaFormat.UNKNOWN.value
+
+
+def resize_image(in_memory_file):
+    try:
+        blob = BytesIO()
+        preview_blob = BytesIO()
+        img = Image.open(in_memory_file)
+        img_format = img.format
+        img_width = img.width or None
+        img_height = img.height or None
+
+        convert_to = 'RGB'
+        if str(img_format).lower() in ['png', 'gif', 'tiff', 'bmp']:
+            convert_to = 'RGBA'
+        img = img.convert(convert_to)
+
+        """ Изменяем размер, если выходит за установленные пределы """
+        if img.width > IMAGE_WIDTH_MAX or img.height > IMAGE_HEIGHT_MAX:
+            img_width = IMAGE_WIDTH_MAX
+            img_height = IMAGE_HEIGHT_MAX
+            img.thumbnail(size=(IMAGE_WIDTH_MAX, IMAGE_HEIGHT_MAX))
+        """ Сохраняем в байтах """
+        img.save(blob, img_format)
+
+        result = copy(in_memory_file)  # копируем объект загруженного в память файла
+        # перезаписываем данные
+        result.file = blob
+        result.size = blob.__sizeof__()
+
+        """Создаем превью для изображения"""
+        preview = copy(in_memory_file)
+        """ Изменяем размер, если выходит за установленные пределы """
+        if img.width > IMAGE_PREVIEW_WIDTH_MAX or img.height > IMAGE_PREVIEW_HEIGHT_MAX:
+            img.thumbnail(size=(IMAGE_PREVIEW_WIDTH_MAX, IMAGE_PREVIEW_HEIGHT_MAX))
+        """ Сохраняем в байтах """
+        img.save(preview_blob, img_format)
+        preview.file = preview_blob
+
+        return result, preview, img_width, img_height, result.size
+    except Exception as e:
+        CP(bg='red').bold(e)
+        return None, None, None, None, None
 
 
 # ####

@@ -9,7 +9,7 @@ from app_media.forms import FileForm
 from backend.entity import Pagination, File, Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
-from backend.utils import timestamp_to_datetime as m_t_d, get_media_format
+from backend.utils import timestamp_to_datetime as m_t_d, get_media_format, resize_image
 
 
 class BaseMapper:
@@ -112,7 +112,8 @@ class RequestMapper:
                 file_entity.format = get_media_format(file_entity.mime_type)
                 file_entity.size = form_file.size
 
-                file_entity.title = form.cleaned_data['title'] if 'title' in form.cleaned_data and form.cleaned_data['title'] else form_file.name
+                file_entity.title = form.cleaned_data['title'] if 'title' in form.cleaned_data and form.cleaned_data[
+                    'title'] else form_file.name
                 file_entity.type = form.cleaned_data.get('type', MediaType.OTHER)
 
                 name = str(uuid.uuid4())
@@ -127,9 +128,8 @@ class RequestMapper:
                 file_entity.mime_type = form_file.content_type
 
                 if file_entity.format == MediaFormat.IMAGE:
-                    # width
-                    # height
-                    pass
+                    file_entity.file, file_entity.preview, file_entity.width, file_entity.height, file_entity.size = \
+                        resize_image(form_file)
                 if file_entity.format == MediaFormat.AUDIO:
                     # duration
                     pass
@@ -143,7 +143,11 @@ class RequestMapper:
                     raise CustomException(errors=[
                         dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT))
                     ])
-                entities.append(file_entity)
+
+                # Не создаем пустые записи, если файл не удалось обработать
+                if file_entity.file is not None:
+                    entities.append(file_entity)
+
             return entities
         else:
             # TODO подробные ошибки валидации формы

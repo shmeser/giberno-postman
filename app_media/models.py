@@ -18,8 +18,8 @@ class MediaModel(BaseModel):
 
     mime_type = models.CharField(max_length=255, blank=True, null=True)
 
-    file = models.FileField(upload_to='files/media', blank=True, null=True)
-    preview = models.FileField(upload_to='files/media', null=True, blank=True)
+    file = models.FileField(blank=True, null=True)
+    preview = models.FileField(upload_to='preview', null=True, blank=True)
     format = models.IntegerField(choices=choices(MediaFormat), blank=True, null=True, verbose_name="Тип файла")
     type = models.IntegerField(choices=choices(MediaType), blank=True, null=True, verbose_name="Принадлежность")
 
