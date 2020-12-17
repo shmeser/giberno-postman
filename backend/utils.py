@@ -5,9 +5,12 @@ import json
 from copy import copy
 from io import BytesIO
 from json import JSONDecodeError
+from tempfile import NamedTemporaryFile, TemporaryFile
 
 import pytz
 from PIL import Image
+from django.core.files import File
+from django.core.files.uploadedfile import TemporaryUploadedFile, InMemoryUploadedFile
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 
@@ -238,41 +241,76 @@ def get_media_format(mime_type=None):
     return MediaFormat.UNKNOWN.value
 
 
-def resize_image(in_memory_file):
+def resize_image(uploaded_file):
     try:
+        # копируем объект загруженного в память файла
+
+        img = Image.open(uploaded_file)
         blob = BytesIO()
-        preview_blob = BytesIO()
-        img = Image.open(in_memory_file)
-        img_format = img.format
+
+        img_format = str(img.format).lower()
         img_width = img.width or None
         img_height = img.height or None
 
         convert_to = 'RGB'
-        if str(img_format).lower() in ['png', 'gif', 'tiff', 'bmp']:
+        if img_format in ['png', 'gif', 'tiff', 'bmp']:
             convert_to = 'RGBA'
+
         img = img.convert(convert_to)
 
         """ Изменяем размер, если выходит за установленные пределы """
         if img.width > IMAGE_WIDTH_MAX or img.height > IMAGE_HEIGHT_MAX:
-            img_width = IMAGE_WIDTH_MAX
-            img_height = IMAGE_HEIGHT_MAX
             img.thumbnail(size=(IMAGE_WIDTH_MAX, IMAGE_HEIGHT_MAX))
-        """ Сохраняем в байтах """
-        img.save(blob, img_format)
+            img_width = img.width
+            img_height = img.height
 
-        result = copy(in_memory_file)  # копируем объект загруженного в память файла
-        # перезаписываем данные
-        result.file = blob
-        result.size = blob.__sizeof__()
+        img.save(blob, img_format)
+        if isinstance(uploaded_file, TemporaryUploadedFile):
+            result = TemporaryUploadedFile(
+                size=blob.__sizeof__(),
+                content_type=uploaded_file.content_type,
+                name=uploaded_file.name,
+                charset=uploaded_file.charset
+            )
+            img.save(result, img_format)
+        else:
+            result = InMemoryUploadedFile(
+                size=blob.__sizeof__(),
+                file=blob,
+                field_name=uploaded_file.field_name,
+                name=uploaded_file.name,
+                charset=uploaded_file.charset,
+                content_type=uploaded_file.content_type
+            )
 
         """Создаем превью для изображения"""
-        preview = copy(in_memory_file)
-        """ Изменяем размер, если выходит за установленные пределы """
-        if img.width > IMAGE_PREVIEW_WIDTH_MAX or img.height > IMAGE_PREVIEW_HEIGHT_MAX:
-            img.thumbnail(size=(IMAGE_PREVIEW_WIDTH_MAX, IMAGE_PREVIEW_HEIGHT_MAX))
-        """ Сохраняем в байтах """
-        img.save(preview_blob, img_format)
-        preview.file = preview_blob
+
+        preview_img = Image.open(uploaded_file)
+        preview_img = preview_img.convert(convert_to)
+        preview_blob = BytesIO()
+
+        # Изменяем размер, если выходит за установленные пределы
+        if preview_img.width > IMAGE_PREVIEW_WIDTH_MAX or preview_img.height > IMAGE_PREVIEW_HEIGHT_MAX:
+            preview_img.thumbnail(size=(IMAGE_PREVIEW_WIDTH_MAX, IMAGE_PREVIEW_HEIGHT_MAX))
+
+        preview_img.save(preview_blob, img_format)
+        if isinstance(uploaded_file, TemporaryUploadedFile):
+            preview = TemporaryUploadedFile(
+                size=preview_blob.__sizeof__(),
+                content_type=uploaded_file.content_type,
+                name=uploaded_file.name,
+                charset=uploaded_file.charset
+            )
+            preview_img.save(preview, img_format)
+        else:
+            preview = InMemoryUploadedFile(
+                size=preview_blob.__sizeof__(),
+                file=preview_blob,
+                field_name=uploaded_file.field_name,
+                name=uploaded_file.name,
+                charset=uploaded_file.charset,
+                content_type=uploaded_file.content_type
+            )
 
         return result, preview, img_width, img_height, result.size
     except Exception as e:
