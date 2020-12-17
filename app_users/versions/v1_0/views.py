@@ -167,7 +167,7 @@ class MyProfileUploads(APIView):
     def post(self, request):
         uploaded_files = RequestMapper.file_entities(request, request.user)
         MediaRepository().bulk_create(uploaded_files)
-        return Response(None, status=status.HTTP_200_OK)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 class Users(CRUDAPIView):

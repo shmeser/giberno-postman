@@ -285,27 +285,23 @@ def resize_image(uploaded_file):
 
         """Создаем превью для изображения"""
 
-        preview_img = Image.open(uploaded_file)
-        preview_img = preview_img.convert(convert_to)
-        preview_blob = BytesIO()
-
         # Изменяем размер, если выходит за установленные пределы
-        if preview_img.width > IMAGE_PREVIEW_WIDTH_MAX or preview_img.height > IMAGE_PREVIEW_HEIGHT_MAX:
-            preview_img.thumbnail(size=(IMAGE_PREVIEW_WIDTH_MAX, IMAGE_PREVIEW_HEIGHT_MAX))
+        if img.width > IMAGE_PREVIEW_WIDTH_MAX or img.height > IMAGE_PREVIEW_HEIGHT_MAX:
+            img.thumbnail(size=(IMAGE_PREVIEW_WIDTH_MAX, IMAGE_PREVIEW_HEIGHT_MAX))
 
-        preview_img.save(preview_blob, img_format)
+        img.save(blob, img_format)
         if isinstance(uploaded_file, TemporaryUploadedFile):
             preview = TemporaryUploadedFile(
-                size=preview_blob.__sizeof__(),
+                size=blob.__sizeof__(),
                 content_type=uploaded_file.content_type,
                 name=uploaded_file.name,
                 charset=uploaded_file.charset
             )
-            preview_img.save(preview, img_format)
+            img.save(preview, img_format)
         else:
             preview = InMemoryUploadedFile(
-                size=preview_blob.__sizeof__(),
-                file=preview_blob,
+                size=blob.__sizeof__(),
+                file=blob,
                 field_name=uploaded_file.field_name,
                 name=uploaded_file.name,
                 charset=uploaded_file.charset,

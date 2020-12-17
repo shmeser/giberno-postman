@@ -100,10 +100,11 @@ class RequestMapper:
 
         if form.is_valid():
             for form_file in form.files.getlist('file'):
-                file_entity = File()
-
                 owner_content_type = ContentType.objects.get_for_model(owner)
 
+                file_entity = File()
+
+                file_entity.uuid = uuid.uuid4()
                 file_entity.owner_content_type_id = owner_content_type.id
                 file_entity.owner_content_type = owner_content_type.model
                 file_entity.owner_id = owner.id
@@ -116,7 +117,7 @@ class RequestMapper:
                     'title'] else form_file.name
                 file_entity.type = form.cleaned_data.get('type', MediaType.OTHER)
 
-                name = str(uuid.uuid4())
+                name = str(file_entity.uuid)
                 parts = form_file.name.split('.')
                 if parts.__len__() > 1:
                     extension = '.' + parts[-1].lower()

@@ -37,6 +37,7 @@ class Error(BaseEntity):
 
 class File(BaseEntity):
     def __init__(self, **kwargs):
+        self.uuid = None
         self.owner_id = None
         self.owner_content_type_id = None
         self.owner_content_type = None
