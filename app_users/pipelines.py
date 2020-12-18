@@ -5,7 +5,7 @@ from django.utils.timezone import now
 from app_users.entities import SocialEntity
 from app_users.mappers import SocialDataMapper
 from app_users.models import UserProfile
-from app_users.versions.v1_0.repositories import SocialModelRepository, AuthRepository
+from app_users.versions.v1_0.repositories import SocialsRepository, AuthRepository
 # from backend.utils import CP
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
@@ -36,11 +36,13 @@ def get_or_create_user(backend, user: UserProfile = None, *args, **kwargs):
         else:
             social_data = SocialEntity()
 
-        social = SocialModelRepository().filter_by_kwargs(type=backend.name, social_id=social_data.social_id).first()
+        social = SocialsRepository().filter_by_kwargs({
+            'type': backend.name, 'social_id': social_data.social_id
+        }).first()
 
         if not social:
             # Создаем модель способа авторизации
-            SocialModelRepository().create(
+            SocialsRepository().create(
                 user=user,
                 **social_data.get_kwargs()
             )
@@ -69,7 +71,9 @@ def get_or_create_user(backend, user: UserProfile = None, *args, **kwargs):
         else:
             social_data = SocialEntity()
 
-        social = SocialModelRepository().filter_by_kwargs(type=backend.name, social_id=social_data.social_id).first()
+        social = SocialsRepository().filter_by_kwargs({
+            'type': backend.name, 'social_id': social_data.social_id
+        }).first()
 
         if social:
             """ Если соцсеть привязана к чьему-либо аккаунту, то берем этот аккаунт """

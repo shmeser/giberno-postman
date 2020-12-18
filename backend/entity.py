@@ -33,3 +33,32 @@ class Error(BaseEntity):
         for attr in dir(self):
             if not attr.startswith(('__', 'get_')):
                 yield attr, getattr(self, attr, '')
+
+
+class File(BaseEntity):
+    def __init__(self, **kwargs):
+        self.uuid = None
+        self.owner_id = None
+        self.owner_content_type_id = None
+        self.owner_content_type = None
+
+        self.title = None
+
+        self.mime_type = None
+
+        self.file = None
+        self.preview = None
+        self.format = None
+        self.type = None
+
+        self.width = None
+        self.height = None
+        self.duration = None
+        self.size = None
+
+        super().__init__(**kwargs)
+
+    def __iter__(self):
+        for attr in dir(self):
+            if not attr.startswith(('__', 'get_')):
+                yield attr, getattr(self, attr, '')

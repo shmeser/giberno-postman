@@ -2,14 +2,24 @@ import csv
 import datetime
 import importlib
 import json
+import re
+from copy import copy
+from io import BytesIO
 from json import JSONDecodeError
+from tempfile import NamedTemporaryFile, TemporaryFile
 
 import pytz
+from PIL import Image
+from django.core.files import File
+from django.core.files.uploadedfile import TemporaryUploadedFile, InMemoryUploadedFile
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 
+from app_media.enums import MediaFormat
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
+from giberno.settings import VIDEO_MIME_TYPES, DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, AUDIO_MIME_TYPES, IMAGE_WIDTH_MAX, \
+    IMAGE_HEIGHT_MAX, IMAGE_PREVIEW_WIDTH_MAX, IMAGE_PREVIEW_HEIGHT_MAX
 
 
 def get_request_headers(request):
@@ -220,6 +230,100 @@ def chunks(list_data, n):
     return list(chunks_func(list_data, n))
 
 
+def get_media_format(mime_type=None):
+    if mime_type in DOCUMENT_MIME_TYPES:
+        return MediaFormat.DOCUMENT.value
+    if mime_type in IMAGE_MIME_TYPES:
+        return MediaFormat.IMAGE.value
+    # if mime_type in AUDIO_MIME_TYPES:
+    #     return MediaFormat.AUDIO.value
+    # if mime_type in VIDEO_MIME_TYPES:
+    #     return MediaFormat.VIDEO.value
+    return MediaFormat.UNKNOWN.value
+
+
+def resize_image(uploaded_file):
+    try:
+        # копируем объект загруженного в память файла
+
+        img = Image.open(uploaded_file)
+        blob = BytesIO()
+
+        img_format = str(img.format).lower()
+        img_width = img.width or None
+        img_height = img.height or None
+
+        convert_to = 'RGB'
+        if img_format in ['png', 'gif', 'tiff', 'bmp']:
+            convert_to = 'RGBA'
+
+        img = img.convert(convert_to)
+
+        """ Изменяем размер, если выходит за установленные пределы """
+        if img.width > IMAGE_WIDTH_MAX or img.height > IMAGE_HEIGHT_MAX:
+            img.thumbnail(size=(IMAGE_WIDTH_MAX, IMAGE_HEIGHT_MAX))
+            img_width = img.width
+            img_height = img.height
+
+        img.save(blob, img_format)
+        if isinstance(uploaded_file, TemporaryUploadedFile):
+            result = TemporaryUploadedFile(
+                size=blob.__sizeof__(),
+                content_type=uploaded_file.content_type,
+                name=uploaded_file.name,
+                charset=uploaded_file.charset
+            )
+            img.save(result, img_format)
+        else:
+            result = InMemoryUploadedFile(
+                size=blob.__sizeof__(),
+                file=blob,
+                field_name=uploaded_file.field_name,
+                name=uploaded_file.name,
+                charset=uploaded_file.charset,
+                content_type=uploaded_file.content_type
+            )
+
+        """Создаем превью для изображения"""
+
+        # Изменяем размер, если выходит за установленные пределы
+        if img.width > IMAGE_PREVIEW_WIDTH_MAX or img.height > IMAGE_PREVIEW_HEIGHT_MAX:
+            img.thumbnail(size=(IMAGE_PREVIEW_WIDTH_MAX, IMAGE_PREVIEW_HEIGHT_MAX))
+
+        img.save(blob, img_format)
+        if isinstance(uploaded_file, TemporaryUploadedFile):
+            preview = TemporaryUploadedFile(
+                size=blob.__sizeof__(),
+                content_type=uploaded_file.content_type,
+                name=uploaded_file.name,
+                charset=uploaded_file.charset
+            )
+            img.save(preview, img_format)
+        else:
+            preview = InMemoryUploadedFile(
+                size=blob.__sizeof__(),
+                file=blob,
+                field_name=uploaded_file.field_name,
+                name=uploaded_file.name,
+                charset=uploaded_file.charset,
+                content_type=uploaded_file.content_type
+            )
+
+        return result, preview, img_width, img_height, result.size
+    except Exception as e:
+        CP(bg='red').bold(e)
+        return None, None, None, None, None
+
+
+def has_latin(text: str = None):
+    if text and isinstance(text, str):
+        return bool(re.search('[a-zA-Z]', text))
+    return False
+
+
+# ####
+
+
 def assign_swagger_decorator(app_name, view_names, responses: dict = None):
     from drf_yasg.utils import swagger_auto_schema
 
@@ -243,10 +347,6 @@ def assign_swagger_decorator(app_name, view_names, responses: dict = None):
                     raise NotImplementedError('Serializer class not found in view.')
             decorator = swagger_auto_schema(tags=[view_class.__name__], responses=lresponses)
             decorator(view_method)
-
-
-def custom_jwt_get_secret_key(user):
-    return user.secret_key
 
 
 def read_csv(file_name):

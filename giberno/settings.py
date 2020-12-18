@@ -1,8 +1,9 @@
 import datetime
 import os
+from datetime import timedelta, datetime
 
 from celery.schedules import crontab
-from datetime import timedelta, datetime
+
 from giberno.environment.environments import Environment
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'TeStSeCrEtKeY')
@@ -28,6 +29,7 @@ INSTALLED_APPS = [
     'app_seeds.apps.AppSeedsConfig',
     'app_bot.apps.AppBotConfig',
     'app_users.apps.AppUsersConfig',
+    'app_media.apps.AppMediaConfig',
 ]
 
 CHANNEL_LAYERS = {
@@ -71,7 +73,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                # 'social_django.context_processors.backends',
             ],
         },
     },
@@ -151,23 +152,38 @@ STATICFILES_DIRS = (
 
 AUTH_USER_MODEL = 'app_users.UserProfile'
 
-AVATAR_SIZE = 500, 500
+IMAGE_RESIZE_QUALITY = 80
 
-AVATAR_FILE_TYPES = [
-    'image/jpeg',
-    'image/pjpeg',
-    'image/png',
-    'image/bmp',
-    'image/x-windows-bmp'
+IMAGE_WIDTH_MAX = 2000
+IMAGE_HEIGHT_MAX = 2000
+
+IMAGE_PREVIEW_WIDTH_MAX = 500
+IMAGE_PREVIEW_HEIGHT_MAX = 500
+
+DOCUMENT_MIME_TYPES = [
+    'application/msword',
+    'application/pdf',
+    'text/richtext',
+    'text/plain',
+    'application/excel',
+    'application/vnd.ms-excel',
 ]
-
-DOCUMENT_FILE_TYPES = [
+IMAGE_MIME_TYPES = [
+    'image/x-ms-bmp',
+    'image/gif',
     'image/jpeg',
-    'image/pjpeg',
     'image/png',
-    'image/bmp',
-    'image/x-windows-bmp',
-    'application/pdf'
+    'image/tiff',
+]
+AUDIO_MIME_TYPES = [
+    'audio/mpeg',
+    'audio/x-wav',
+]
+VIDEO_MIME_TYPES = [
+    'video/x-msvideo',
+    'video/quicktime',
+    'video/mp4',
+    'video/mpeg'
 ]
 
 RAPIDAPI_KEY = os.getenv('X_RAPIDAPI_KEY')

@@ -2,7 +2,8 @@ from enum import IntEnum
 
 
 class MediaFormat(IntEnum):
-    DOC = 1
+    UNKNOWN = 0
+    DOCUMENT = 1
     IMAGE = 2
     VIDEO = 3
     AUDIO = 4

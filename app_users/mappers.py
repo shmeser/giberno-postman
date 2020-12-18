@@ -1,7 +1,7 @@
 from app_users.entities import TokenEntity, SocialEntity
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
-from backend.utils import timestamp_to_datetime
+from backend.utils import timestamp_to_datetime, has_latin
 
 
 class TokensMapper:
@@ -36,6 +36,7 @@ class SocialDataMapper:
         entity.username = data.get('name', None)
         identities = data.get('firebase').get('identities', None) if 'firebase' in data else None
         if identities:
+            # TODO проверить Apple и Facebook
             entity.social_id = identities[entity.social_type][0] if entity.social_type in identities and identities[
                 entity.social_type] else None
             entity.email = identities['email'][0] if 'email' in identities and identities['email'] else None
@@ -43,6 +44,11 @@ class SocialDataMapper:
                 'first_name'] else None
             entity.last_name = identities['last_name'][0] if 'last_name' in identities and identities[
                 'last_name'] else None
+
+        # Проверка ФИО на латиницу, если используется, то не подставляем данные
+        entity.first_name = None if has_latin(entity.first_name) else entity.first_name
+        entity.last_name = None if has_latin(entity.last_name) else entity.last_name
+        entity.middle_name = None if has_latin(entity.middle_name) else entity.middle_name
 
         return entity
 
@@ -62,5 +68,10 @@ class SocialDataMapper:
         entity.last_name = data.get('last_name', None)
         entity.middle_name = data.get('middle_name', None)
         entity.username = data.get('screen_name', None)
+
+        # Проверка ФИО на латиницу, если используется, то не подставляем данные
+        entity.first_name = None if has_latin(entity.first_name) else entity.first_name
+        entity.last_name = None if has_latin(entity.last_name) else entity.last_name
+        entity.middle_name = None if has_latin(entity.middle_name) else entity.middle_name
 
         return entity
