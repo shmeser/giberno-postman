@@ -71,16 +71,13 @@ class AuthRepository:
         return user, created
 
 
-class SocialModelRepository(BaseRepository):
+class SocialsRepository(BaseRepository):
     def __init__(self) -> None:
         super().__init__(SocialModel)
 
     @staticmethod
     def create(**kwargs):
         return SocialModel.objects.create(**kwargs)
-
-    def filter_by_kwargs(self, **kwargs):
-        return super().filter_by_kwargs(kwargs)
 
 
 class JwtRepository:
@@ -166,5 +163,5 @@ class ProfileRepository(MasterRepository):
         except self.model.DoesNotExist:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
-                detail='Объект %s с ID=%d не найден' % (self.Model._meta.verbose_name, record_id)
+                detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
             )

@@ -24,4 +24,4 @@ class MediaRepository(MasterRepository):
                 self.model(**dict(file))
             )
 
-        self.model.objects.bulk_create(media_models)
+        return self.model.objects.bulk_create(media_models)

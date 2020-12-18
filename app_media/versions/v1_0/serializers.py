@@ -3,9 +3,15 @@ from rest_framework import serializers
 from app_media.models import MediaModel
 
 
-class MediaSerializer(serializers.Serializer):
+class MediaSerializer(serializers.ModelSerializer):
     class Meta:
         model = MediaModel
         fields = [
-            '__all__'
+            'uuid',
+            'title',
+            'file',
+            'preview',
+            'format',
+            'type',
+            'mime_type'
         ]

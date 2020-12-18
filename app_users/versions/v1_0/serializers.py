@@ -1,9 +1,13 @@
+from django.contrib.contenttypes.models import ContentType
 from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app_users.models import UserProfile
-from app_users.versions.v1_0.repositories import ProfileRepository
+from app_media.enums import MediaType, MediaFormat
+from app_media.versions.v1_0.repositories import MediaRepository
+from app_media.versions.v1_0.serializers import MediaSerializer
+from app_users.models import UserProfile, SocialModel
+from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 
@@ -37,10 +41,12 @@ class RefreshTokenSerializer(serializers.Serializer):
 class ProfileSerializer(CRUDSerializer):
     repository = ProfileRepository
 
-    birth_date = DateTimeField()
+    birth_date = DateTimeField(required=False)
     avatar = serializers.SerializerMethodField(read_only=True)
     documents = serializers.SerializerMethodField(read_only=True)
     languages = serializers.SerializerMethodField(read_only=True)
+
+    socials = serializers.SerializerMethodField(read_only=True)
 
     nationalities = serializers.SerializerMethodField(read_only=True)
     country = serializers.SerializerMethodField()
@@ -58,11 +64,38 @@ class ProfileSerializer(CRUDSerializer):
     #         )
     #     return phone
 
-    def get_avatar(self, profile):
+    def get_avatar(self, profile: UserProfile):
+        avatar = MediaRepository().filter_by_kwargs({
+            'owner_id': profile.id,
+            'owner_content_type_id': ContentType.objects.get_for_model(profile).id,
+            'type': MediaType.AVATAR.value,
+            'format': MediaFormat.IMAGE.value
+        }, order_by=['-created_at']).first()
+        if avatar:
+            return MediaSerializer(avatar, many=False).data
         return None
 
     def get_documents(self, profile):
-        return []
+        documents = MediaRepository().filter_by_kwargs({
+            'owner_id': profile.id,
+            'owner_content_type_id': ContentType.objects.get_for_model(profile).id,
+            'type__in': [
+                MediaType.PASSPORT.value,
+                MediaType.INN.value,
+                MediaType.SNILS.value,
+                MediaType.MEDICAL_BOOK.value,
+                MediaType.DRIVER_LICENCE.value,
+            ],
+            'format__in': [MediaFormat.IMAGE.value, MediaFormat.DOCUMENT.value]
+        }, order_by=['-created_at'])
+
+        return MediaSerializer(documents, many=True).data
+
+    def get_socials(self, profile):
+        socials = SocialsRepository().filter_by_kwargs({
+        }, order_by=['-created_at'])
+
+        return SocialSerializer(socials, many=True).data
 
     def get_languages(self, profile):
         return []
@@ -88,43 +121,63 @@ class ProfileSerializer(CRUDSerializer):
             'birth_date',
             'phone',
             'email',
+            'socials',
             'languages',
             'nationalities',
             'policy_accepted',
             'agreement_accepted',
             'country',
             'city',
+            'edited'
         ]
-        extra_kwargs = {
-            'phone': {'read_only': True},
-        }
+        
+        extra_kwargs = {}
 
 
-class FillProfileSerializer(ProfileSerializer):
+class SocialSerializer(CRUDSerializer):
+    repository = SocialsRepository
+
+    created_at = DateTimeField()
+
     class Meta:
-        model = UserProfile
+        model = SocialModel
         fields = [
             'id',
-            'avatar',
-            'documents',
+            'type',
             'first_name',
             'last_name',
             'middle_name',
-            'birth_date',
+            'username',
             'phone',
             'email',
-            'languages',
-            'nationality',
-            'policy_accepted',
-            'agreement_accepted',
-            'country',
-            'city',
+            'created_at'
         ]
 
-        extra_kwargs = {
-            'phone': {'read_only': True},
-            'first_name': {'required': True},
-            'last_name': {'required': False},
-            'middle_name': {'required': False},
-            'birth_date': {'required': True},
-        }
+# class FillProfileSerializer(ProfileSerializer):
+#     class Meta:
+#         model = UserProfile
+#         fields = [
+#             'id',
+#             'avatar',
+#             'documents',
+#             'first_name',
+#             'last_name',
+#             'middle_name',
+#             'birth_date',
+#             'phone',
+#             'email',
+#             'languages',
+#             'nationality',
+#             'policy_accepted',
+#             'agreement_accepted',
+#             'country',
+#             'city',
+#         ]
+#
+#         extra_kwargs = {
+#             'phone': {'read_only': True},
+#             'first_name': {'required': True},
+#             'last_name': {'required': False},
+#             'middle_name': {'required': False},
+#             'birth_date': {'required': True},
+#         }

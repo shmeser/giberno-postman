@@ -47,6 +47,8 @@ class UserProfile(AbstractUser, BaseModel):
     policy_accepted = models.BooleanField(default=False)
     agreement_accepted = models.BooleanField(default=False)
 
+    edited = models.BooleanField(default=False, verbose_name='Профиль редактировался после регистрации')
+
     def __str__(self):
         return f'ID:{self.id} - {self.username} {self.first_name} {self.middle_name} {self.middle_name}'
 

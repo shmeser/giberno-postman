@@ -40,18 +40,31 @@ class CRUDSerializer(serializers.ModelSerializer):
 
         if self._errors and raise_exception:
             # Обрабатываем список ошибок валидаторов ValidationError
-            raise CustomException(errors=[
-                dict(
-                    Error(ErrorsCodes[e[0].code]) if ErrorsCodes.has_key(e[0].code) else Error(
-                        **{
-                            'code': ErrorsCodes.EMAIL_IS_USED.name
-                            if e[0].code == 'unique' and k == 'email'  # Конкретная проверка на уникальность имейла в бд
-                            else ErrorsCodes.VALIDATION_ERROR.name,
-                            'detail': e[0],
-                        }
+            errors_processed = []
+            for k, e in self.errors.items():
+                if ErrorsCodes.has_key(e[0].code):
+                    errors_processed.append(dict(Error(ErrorsCodes[e[0].code])))
+                else:
+                    code = ErrorsCodes.VALIDATION_ERROR.name
+                    detail = ErrorsCodes.VALIDATION_ERROR.value
+
+                    if e[0].code == 'unique':
+                        if k == 'email':  # Конкретная проверка на уникальность имейла в бд
+                            code = ErrorsCodes.EMAIL_IS_USED.name
+                        detail = e[0]
+
+                    if e[0].code == 'required':
+                        detail = k + ' - ' + e[0]
+
+                    # Добавляем в массив кастомных ошибок
+                    errors_processed.append(
+                        dict(Error(**{
+                            'code': code,
+                            'detail': detail
+                        }))
                     )
-                ) for k, e in self.errors.items()
-            ])
+
+            raise CustomException(errors=errors_processed)
 
         return not bool(self._errors)
 

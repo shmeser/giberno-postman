@@ -10,14 +10,14 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from social_core.exceptions import AuthTokenRevoked
 from social_django.utils import load_backend, load_strategy
 
-from app_media.forms import FileForm
 from app_media.versions.v1_0.repositories import MediaRepository
+from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository
-from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, FillProfileSerializer
+from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mappers import RequestMapper
@@ -157,6 +157,8 @@ class MyProfile(CRUDAPIView):
 
     def patch(self, request, **kwargs):
         body = get_request_body(request)
+        # Добавляем флаг edited=True для определения, что профиль редактировался
+        body['edited'] = True
         serialized = self.serializer_class(request.user, data=body)
         serialized.is_valid(raise_exception=True)
         serialized.save()
@@ -166,8 +168,9 @@ class MyProfile(CRUDAPIView):
 class MyProfileUploads(APIView):
     def post(self, request):
         uploaded_files = RequestMapper.file_entities(request, request.user)
-        MediaRepository().bulk_create(uploaded_files)
-        return Response(None, status=status.HTTP_204_NO_CONTENT)
+        saved_files = MediaRepository().bulk_create(uploaded_files)
+        serializer = MediaSerializer(saved_files, many=True)
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)
 
 
 class Users(CRUDAPIView):
