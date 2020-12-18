@@ -157,8 +157,6 @@ class MyProfile(CRUDAPIView):
 
     def patch(self, request, **kwargs):
         body = get_request_body(request)
-        # Добавляем флаг edited=True для определения, что профиль редактировался
-        body['edited'] = True
         serialized = self.serializer_class(request.user, data=body)
         serialized.is_valid(raise_exception=True)
         serialized.save()

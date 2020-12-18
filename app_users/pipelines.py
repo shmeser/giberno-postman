@@ -71,20 +71,11 @@ def get_or_create_user(backend, user: UserProfile = None, *args, **kwargs):
         else:
             social_data = SocialEntity()
 
-        social = SocialsRepository().filter_by_kwargs({
-            'type': backend.name, 'social_id': social_data.social_id
-        }).first()
-
-        if social:
-            """ Если соцсеть привязана к чьему-либо аккаунту, то берем этот аккаунт """
-            user = social.user
-        else:
-            """ Если такой соцсети нет, то создать пользователя и добавить ему эту соцсеть """
-            user, created = AuthRepository.get_or_create_social_user(
-                social_data,
-                # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
-                reference_code=kwargs.get('reference_code', None)
-            )
+        user, created = AuthRepository.get_or_create_social_user(
+            social_data,
+            # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
+            reference_code=kwargs.get('reference_code', None)
+        )
 
         user.provider = backend.name  # Необходимо добавить провайдера в user для использования web авторизации
 

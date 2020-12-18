@@ -58,7 +58,7 @@ class AuthRepository:
             user.email = social_data.email
         else:
             # Подставляем имеил с соцсети, если его нет
-            if not user.email:
+            if not user.email and social_data.email:
                 user.email = social_data.email
         user.save()
 
