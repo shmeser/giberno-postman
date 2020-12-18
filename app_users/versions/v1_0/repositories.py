@@ -52,10 +52,12 @@ class AuthRepository:
         user, created = UserProfile.objects.get_or_create(socialmodel=social, defaults=defaults)
 
         if created:
+            # Привязываем пользователя к соцсети
             social.user = user
             social.save()
             user.email = social_data.email
         else:
+            # Подставляем имеил с соцсети, если его нет
             if not user.email:
                 user.email = social_data.email
         user.save()

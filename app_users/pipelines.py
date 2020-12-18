@@ -36,7 +36,9 @@ def get_or_create_user(backend, user: UserProfile = None, *args, **kwargs):
         else:
             social_data = SocialEntity()
 
-        social = SocialsRepository().filter_by_kwargs(type=backend.name, social_id=social_data.social_id).first()
+        social = SocialsRepository().filter_by_kwargs({
+            'type': backend.name, 'social_id': social_data.social_id
+        }).first()
 
         if not social:
             # Создаем модель способа авторизации
@@ -69,7 +71,9 @@ def get_or_create_user(backend, user: UserProfile = None, *args, **kwargs):
         else:
             social_data = SocialEntity()
 
-        social = SocialsRepository().filter_by_kwargs(type=backend.name, social_id=social_data.social_id).first()
+        social = SocialsRepository().filter_by_kwargs({
+            'type': backend.name, 'social_id': social_data.social_id
+        }).first()
 
         if social:
             """ Если соцсеть привязана к чьему-либо аккаунту, то берем этот аккаунт """

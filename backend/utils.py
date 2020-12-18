@@ -2,6 +2,7 @@ import csv
 import datetime
 import importlib
 import json
+import re
 from copy import copy
 from io import BytesIO
 from json import JSONDecodeError
@@ -312,6 +313,12 @@ def resize_image(uploaded_file):
     except Exception as e:
         CP(bg='red').bold(e)
         return None, None, None, None, None
+
+
+def has_latin(text: str = None):
+    if text and isinstance(text, str):
+        return bool(re.search('[a-zA-Z]', text))
+    return False
 
 
 # ####

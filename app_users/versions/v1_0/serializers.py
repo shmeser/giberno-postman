@@ -52,6 +52,8 @@ class ProfileSerializer(CRUDSerializer):
     country = serializers.SerializerMethodField()
     city = serializers.SerializerMethodField()
 
+    registration_completed = serializers.SerializerMethodField()
+
     # def validate_phone(self, phone):
     #     with_same_phone = False
     #     if phone:
@@ -109,6 +111,16 @@ class ProfileSerializer(CRUDSerializer):
     def get_city(self, profile):
         return None
 
+    def get_registration_completed(self, profile: UserProfile):
+        if profile.first_name and \
+                profile.middle_name and \
+                profile.last_name and \
+                profile.birth_date is not None and \
+                profile.email and \
+                profile.phone:
+            return True
+        return False
+
     class Meta:
         model = UserProfile
         fields = [
@@ -128,10 +140,12 @@ class ProfileSerializer(CRUDSerializer):
             'agreement_accepted',
             'country',
             'city',
-            'edited'
+            'registration_completed'
         ]
-        
-        extra_kwargs = {}
+
+        extra_kwargs = {
+            'phone': {'read_only': True}
+        }
 
 
 class SocialSerializer(CRUDSerializer):
@@ -152,32 +166,3 @@ class SocialSerializer(CRUDSerializer):
             'email',
             'created_at'
         ]
-
-# class FillProfileSerializer(ProfileSerializer):
-#     class Meta:
-#         model = UserProfile
-#         fields = [
-#             'id',
-#             'avatar',
-#             'documents',
-#             'first_name',
-#             'last_name',
-#             'middle_name',
-#             'birth_date',
-#             'phone',
-#             'email',
-#             'languages',
-#             'nationality',
-#             'policy_accepted',
-#             'agreement_accepted',
-#             'country',
-#             'city',
-#         ]
-#
-#         extra_kwargs = {
-#             'phone': {'read_only': True},
-#             'first_name': {'required': True},
-#             'last_name': {'required': False},
-#             'middle_name': {'required': False},
-#             'birth_date': {'required': True},
-#         }
