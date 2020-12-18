@@ -36,6 +36,7 @@ class SocialDataMapper:
         entity.username = data.get('name', None)
         identities = data.get('firebase').get('identities', None) if 'firebase' in data else None
         if identities:
+            # TODO проверить Apple и Facebook
             entity.social_id = identities[entity.social_type][0] if entity.social_type in identities and identities[
                 entity.social_type] else None
             entity.email = identities['email'][0] if 'email' in identities and identities['email'] else None
