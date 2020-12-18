@@ -6,7 +6,7 @@ from django.contrib.postgres.fields import JSONField, ArrayField
 from django.db.models import UUIDField
 from django.forms import TextInput, Textarea
 
-from app_users.models import SocialModel
+from app_users.models import SocialModel, UserProfile
 
 admin.site.register(User, admin.OSMGeoAdmin)
 admin.site.register(ContentType, admin.OSMGeoAdmin)
@@ -31,10 +31,17 @@ class GroupAdmin(FormattedAdmin):
     raw_id_fields = ("content_type",)
 
 
+@admin.register(UserProfile)
+class UserProfileAdmin(FormattedAdmin):
+    list_display = (
+        "id", "username", "birth_date", "phone", "email", "created_at"
+    )
+
+
 @admin.register(SocialModel)
 class SocialModelAdmin(FormattedAdmin):
     list_display = (
-        "id", "user_id", "type", "phone", "email", "social_id", "created_at"
+        "id", "user_id", "type", "phone", "email", "created_at"
     )
 
     raw_id_fields = ("user",)

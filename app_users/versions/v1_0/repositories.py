@@ -6,10 +6,11 @@ from app_users.models import SocialModel, UserProfile, JwtToken
 from backend.errors.enums import RESTErrors
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException
+from backend.mixins import MasterRepository
 from backend.repositories import BaseRepository
 
 
-class UsersRepository(object):
+class UsersRepository:
     @staticmethod
     def get_reference_user(reference_code):
         return UserProfile.objects.filter(uuid__icontains=reference_code, deleted=False).first()
@@ -38,7 +39,6 @@ class AuthRepository:
             'reg_reference': reference_user,
             'reg_reference_code': reference_code,
             'phone': social_data.phone,
-            'email': social_data.email,
             'first_name': social_data.first_name,
             'last_name': social_data.last_name,
             'middle_name': social_data.middle_name,
@@ -52,8 +52,15 @@ class AuthRepository:
         user, created = UserProfile.objects.get_or_create(socialmodel=social, defaults=defaults)
 
         if created:
+            # Привязываем пользователя к соцсети
             social.user = user
             social.save()
+            user.email = social_data.email
+        else:
+            # Подставляем имеил с соцсети, если его нет
+            if not user.email and social_data.email:
+                user.email = social_data.email
+        user.save()
 
         if user.account_type != account_type:
             raise HttpException(
@@ -66,16 +73,13 @@ class AuthRepository:
         return user, created
 
 
-class SocialModelRepository(BaseRepository):
+class SocialsRepository(BaseRepository):
     def __init__(self) -> None:
         super().__init__(SocialModel)
 
     @staticmethod
     def create(**kwargs):
         return SocialModel.objects.create(**kwargs)
-
-    def filter_by_kwargs(self, **kwargs):
-        return super().filter_by_kwargs(kwargs)
 
 
 class JwtRepository:
@@ -150,3 +154,16 @@ class JwtRepository:
         access_token = str(refresh.access_token)
 
         return JwtToken.objects.create(**JwtTokenEntity(user, access_token, refresh_token).get_kwargs())
+
+
+class ProfileRepository(MasterRepository):
+    model = UserProfile
+
+    def get_by_id(self, record_id):
+        try:
+            return self.model.objects.get(id=record_id, is_staff=False)
+        except self.model.DoesNotExist:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
+            )

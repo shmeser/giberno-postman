@@ -1,7 +1,7 @@
 from rest_framework.permissions import SAFE_METHODS
 
-from users.permissions import FilledProfilePermission
-from .utils import user_is_admin
+from app_users.permissions import FilledProfilePermission
+from backend.utils import user_is_admin
 
 
 class AbbleToPerform(FilledProfilePermission):

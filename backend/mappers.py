@@ -1,23 +1,30 @@
+import uuid as uuid
+
 import inflection
+from django.contrib.contenttypes.models import ContentType
 from djangorestframework_camel_case.util import underscoreize
 
-from backend.entity import Pagination
-from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
-from backend.utils import timestamp_to_datetime as m_t_d
+from app_media.enums import MediaType, MediaFormat
+from app_media.forms import FileForm
+from backend.entity import Pagination, File, Error
+from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.http_exception import HttpException, CustomException
+from backend.utils import timestamp_to_datetime as m_t_d, get_media_format, resize_image
 
 
 class BaseMapper:
     @classmethod
     def validate(cls, data, field):
         if data.get(field) is None:
-            raise HttpException(detail='Empty field: ' + field,
-                                status_code=RESTErrors.BAD_REQUEST.value)
+            raise HttpException(
+                detail='Empty field: ' + field,
+                status_code=RESTErrors.BAD_REQUEST.value
+            )
 
 
-class RequestToPaginationMapper:
+class RequestMapper:
     @classmethod
-    def map(cls, request):
+    def pagination(cls, request):
         pagination: Pagination = Pagination()
 
         if request.GET.get('offset') is None:
@@ -38,17 +45,15 @@ class RequestToPaginationMapper:
 
         return pagination
 
-
-class RequestToFilters:
     @classmethod
-    def map(cls, request, params: dict, date_params: dict):
+    def filters(cls, request, params: dict, date_params: dict, default_filters: dict):
         if not params and not date_params:
             return
 
         # копируем, чтобы не изменять сам request.query_params
         filter_values = underscoreize(request.query_params.copy())
         if not filter_values:
-            return
+            return default_filters
 
         for param in date_params:
             if param in filter_values:
@@ -62,12 +67,10 @@ class RequestToFilters:
         """
         all_params = {**params, **date_params}
         kwargs = {all_params[param]: filter_values.get(param) for param in all_params if filter_values.get(param)}
-        return kwargs
+        return {**kwargs, **default_filters}
 
-
-class RequestToOrderParams:
     @classmethod
-    def map(cls, request, params: dict):
+    def order(cls, request, params: dict):
         if not params:
             return list()
 
@@ -89,3 +92,67 @@ class RequestToOrderParams:
                 django_order_params.append(f'{django_order}{django_field}')
 
         return django_order_params
+
+    @staticmethod
+    def file_entities(request, owner):
+        form = FileForm(request.POST, request.FILES)
+        entities = []
+
+        if form.is_valid():
+            for form_file in form.files.getlist('file'):
+                owner_content_type = ContentType.objects.get_for_model(owner)
+
+                file_entity = File()
+
+                file_entity.uuid = uuid.uuid4()
+                file_entity.owner_content_type_id = owner_content_type.id
+                file_entity.owner_content_type = owner_content_type.model
+                file_entity.owner_id = owner.id
+
+                file_entity.mime_type = form_file.content_type
+                file_entity.format = get_media_format(file_entity.mime_type)
+                file_entity.size = form_file.size
+
+                file_entity.title = form.cleaned_data['title'] if 'title' in form.cleaned_data and form.cleaned_data[
+                    'title'] else form_file.name
+                file_entity.type = form.cleaned_data.get('type', MediaType.OTHER)
+
+                name = str(file_entity.uuid)
+                parts = form_file.name.split('.')
+                if parts.__len__() > 1:
+                    extension = '.' + parts[-1].lower()
+                else:
+                    extension = ''
+                form_file.name = name + extension
+
+                file_entity.file = form_file
+                file_entity.mime_type = form_file.content_type
+
+                if file_entity.format == MediaFormat.IMAGE:
+                    file_entity.file, file_entity.preview, file_entity.width, file_entity.height, file_entity.size = \
+                        resize_image(form_file)
+                if file_entity.format == MediaFormat.AUDIO:
+                    # duration
+                    pass
+                if file_entity.format == MediaFormat.VIDEO:
+                    # width
+                    # height
+                    # duration
+                    # preview
+                    pass
+                if file_entity.format == MediaFormat.UNKNOWN:  # Если пришел неизвестный формат файла
+                    raise CustomException(errors=[
+                        dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT))
+                    ])
+
+                # Не создаем пустые записи, если файл не удалось обработать
+                if file_entity.file is not None:
+                    entities.append(file_entity)
+
+            return entities
+        else:
+            # TODO подробные ошибки валидации формы
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.VALIDATION_ERROR)),
+                dict(Error(ErrorsCodes.EMPTY_REQUIRED_FIELDS)),
+            ])
