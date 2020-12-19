@@ -9,7 +9,7 @@ from app_media.forms import FileForm
 from backend.entity import Pagination, File, Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
-from backend.utils import timestamp_to_datetime as m_t_d, get_media_format, resize_image
+from backend.utils import timestamp_to_datetime as m_t_d, get_media_format, resize_image, convert_video
 
 
 class BaseMapper:
@@ -129,8 +129,7 @@ class RequestMapper:
                 file_entity.mime_type = form_file.content_type
 
                 if file_entity.format == MediaFormat.IMAGE:
-                    file_entity.file, file_entity.preview, file_entity.width, file_entity.height, file_entity.size = \
-                        resize_image(form_file)
+                    resize_image(file_entity)
                 if file_entity.format == MediaFormat.AUDIO:
                     # duration
                     pass
@@ -139,7 +138,7 @@ class RequestMapper:
                     # height
                     # duration
                     # preview
-                    pass
+                    convert_video(file_entity)
                 if file_entity.format == MediaFormat.UNKNOWN:  # Если пришел неизвестный формат файла
                     raise CustomException(errors=[
                         dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT))

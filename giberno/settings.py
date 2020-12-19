@@ -154,11 +154,15 @@ AUTH_USER_MODEL = 'app_users.UserProfile'
 
 IMAGE_RESIZE_QUALITY = 80
 
-IMAGE_WIDTH_MAX = 2000
-IMAGE_HEIGHT_MAX = 2000
+IMAGE_SIDE_MAX = 2000
+IMAGE_PREVIEW_SIDE_MAX = 720
 
-IMAGE_PREVIEW_WIDTH_MAX = 500
-IMAGE_PREVIEW_HEIGHT_MAX = 500
+VIDEO_SIDE_MAX = 1920
+VIDEO_PREVIEW_SIDE_MAX = 720
+
+VIDEO_DURATION_MAX = 60
+
+AUDIO_DURATION_MAX = 300
 
 DOCUMENT_MIME_TYPES = [
     'application/msword',
@@ -186,14 +190,10 @@ VIDEO_MIME_TYPES = [
     'video/mpeg'
 ]
 
-RAPIDAPI_KEY = os.getenv('X_RAPIDAPI_KEY')
-RAPIDAPI_HOST = os.getenv('X_RAPIDAPI_HOST')
-
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS')
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-EMAIL_PORT = os.getenv('EMAIL_PORT')
+# Устанавливаем единственный обработчик для загрузки файлов - через временные файлы на диске
+FILE_UPLOAD_HANDLERS = [
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler"
+]
 
 FCM_DJANGO_SETTINGS = {
     'FCM_SERVER_KEY': os.getenv('FCM_SERVER_KEY', 'test'),
