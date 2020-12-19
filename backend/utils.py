@@ -310,34 +310,35 @@ def convert_video(file_entity: FileEntity):
         input_full = file_entity.file.file.name
         _META = get_video_metadata(input_full)
 
+        # TODO Проставить корректные повороты
         # Размеры превью для видео
         preview_width = _META['width']
         preview_height = _META['height']
         if _META['width'] > VIDEO_PREVIEW_SIDE_MAX or _META['height'] > VIDEO_PREVIEW_SIDE_MAX:
-            if _META['width'] > _META['height']:
-                preview_width = VIDEO_PREVIEW_SIDE_MAX
-                preview_height = '-1'
-            else:
+            if _META['width'] > _META['height'] and _META['rotation'] in [90, 270] or _META['width'] < _META['height']:
                 preview_width = '-1'
                 preview_height = VIDEO_PREVIEW_SIDE_MAX
+            else:
+                preview_width = VIDEO_PREVIEW_SIDE_MAX
+                preview_height = '-1'
 
         # Размеры итогового видео
         converted_width = _META['width']
         converted_height = _META['height']
         if _META['width'] > VIDEO_SIDE_MAX or _META['height'] > VIDEO_SIDE_MAX:
-            if _META['width'] > _META['height']:
-                converted_width = VIDEO_SIDE_MAX
-                converted_height = '-1'
-            else:
+            if _META['width'] > _META['height'] and _META['rotation'] in [90, 270] or _META['width'] < _META['height']:
                 converted_width = '-1'
                 converted_height = VIDEO_SIDE_MAX
+            else:
+                converted_width = VIDEO_SIDE_MAX
+                converted_height = '-1'
 
         transpose = ''
         # TODO Проставить корректные повороты
         if _META['rotation'] == 180:  # Если повернуто на 180 градусов, то поворачиваем 2 раза по 90 CW
             transpose = ',transpose=1,transpose=1'
-        if _META['rotation'] == 90:  # Если повернуто на 90 CW градусов, то поворачиваем на 90 CW
-            transpose = ',transpose=1,transpose=1,transpose=1'
+        # if _META['rotation'] == 90:  # Если повернуто на 90 CW градусов, то поворачиваем на 90 CW
+        #     transpose = ',transpose=1,transpose=1,transpose=1'
         if _META['rotation'] == 270:  # Если повернуто на 270 градусов CW, то поворачиваем 3 раза по 90 CW
             transpose = ',transpose=1'
 
