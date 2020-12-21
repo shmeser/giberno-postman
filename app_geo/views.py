@@ -1,3 +1,14 @@
-from django.shortcuts import render
+from rest_framework.views import APIView
 
-# Create your views here.
+from app_geo.versions.v1_0 import views as v1_0
+from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.http_exception import HttpException
+
+
+class Languages(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['geo_1_0']:
+            return v1_0.Languages().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

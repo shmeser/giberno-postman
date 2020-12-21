@@ -1,13 +1,19 @@
 from django.contrib.contenttypes.models import ContentType
+from django.db import IntegrityError
 from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from app_geo.versions.v1_0.serializers import LanguageSerializer
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
-from app_users.models import UserProfile, SocialModel
+from app_users.enums import LanguageProficiency
+from app_users.models import UserProfile, SocialModel, UserLanguage
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository
+from backend.entity import Error
+from backend.errors.enums import ErrorsCodes
+from backend.errors.http_exception import CustomException
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 
@@ -44,7 +50,7 @@ class ProfileSerializer(CRUDSerializer):
     birth_date = DateTimeField(required=False)
     avatar = serializers.SerializerMethodField(read_only=True)
     documents = serializers.SerializerMethodField(read_only=True)
-    languages = serializers.SerializerMethodField(read_only=True)
+    languages = serializers.SerializerMethodField()
 
     socials = serializers.SerializerMethodField(read_only=True)
 
@@ -54,17 +60,54 @@ class ProfileSerializer(CRUDSerializer):
 
     registration_completed = serializers.SerializerMethodField()
 
-    # def validate_phone(self, phone):
-    #     with_same_phone = False
-    #     if phone:
-    #         with_same_phone = ProfileRepository().filter_by_kwargs({
-    #             'phone': phone,
-    #         }).exclude(id=globals.request.user.id).exists()
-    #     if with_same_phone:
-    #         raise serializers.ValidationError(
-    #             detail=ErrorsCodes.PHONE_IS_USED.value, code=ErrorsCodes.PHONE_IS_USED.name
-    #         )
-    #     return phone
+    def to_internal_value(self, data):
+        m2m_errors = []
+        # Проверяем m2m поля
+        nationalities = data.pop('nationalities', None)
+
+        languages = data.pop('languages', None)
+        if languages is not None:
+            if languages:
+                # Добавляем или обновляем языки пользователя
+                for l in languages:
+                    proficiency = l.get('proficiency', None)
+                    lang_id = l.get('id', None)
+                    if proficiency is None or not LanguageProficiency.has_value(proficiency):
+                        m2m_errors.append(
+                            dict(Error(
+                                code=ErrorsCodes.VALIDATION_ERROR.name,
+                                detail='Невалидные данные в поле proficiency'))
+                        )
+
+                    try:
+                        UserLanguage.objects.update_or_create(defaults={
+                            'proficiency': proficiency,
+                            'deleted': False
+                        },
+                            **{
+                                'user': self.instance,
+                                'language_id': lang_id,
+                            }
+                        )
+                    except IntegrityError:
+                        m2m_errors.append(
+                            dict(Error(
+                                code=ErrorsCodes.VALIDATION_ERROR.name,
+                                detail='Указан неправильный id языка'))
+                        )
+
+            else:
+                # Удаляем языки
+                self.instance.languages.update(userlanguage__deleted=True)
+
+        if m2m_errors:
+            raise CustomException(errors=m2m_errors)
+
+        return super().to_internal_value(data)
+
+    def update(self, instance, validated_data):
+        print(validated_data)
+        return super().update(instance, validated_data)
 
     def get_avatar(self, profile: UserProfile):
         avatar = MediaRepository().filter_by_kwargs({
@@ -99,8 +142,8 @@ class ProfileSerializer(CRUDSerializer):
 
         return SocialSerializer(socials, many=True).data
 
-    def get_languages(self, profile):
-        return []
+    def get_languages(self, profile: UserProfile):
+        return LanguageSerializer(profile.languages.filter(userlanguage__deleted=False), many=True).data
 
     def get_nationalities(self, profile):
         return []
