@@ -12,3 +12,12 @@ class Languages(APIView):
             return v1_0.Languages().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class Countries(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['geo_1_0']:
+            return v1_0.Countries().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
