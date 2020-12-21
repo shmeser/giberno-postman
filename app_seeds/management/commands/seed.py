@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 
+from app_seeds.geo_seeder import LanguagesSeeder
 # python manage.py seed --mode=refresh
 from app_seeds.users_seeder import AdminSeeder
 
@@ -23,5 +24,6 @@ class Command(BaseCommand):
 
         # SEED DATA
         AdminSeeder().create(refresh)
+        LanguagesSeeder().create(refresh)
 
         self.stdout.write("[DONE]\n")

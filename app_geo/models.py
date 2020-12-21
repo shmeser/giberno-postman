@@ -9,7 +9,7 @@ from giberno import settings
 class Language(BaseModel):
     name = models.CharField(max_length=1024, null=True, blank=True)
     native = models.CharField(max_length=1024, null=True, blank=True)
-    iso_code = models.CharField(max_length=4, null=True, blank=True)
+    iso_code = models.CharField(max_length=4, null=True, blank=True, unique=True)
 
     def __str__(self):
         return f'{self.name}'
@@ -23,6 +23,7 @@ class Language(BaseModel):
 class Country(BaseModel):
     name = models.CharField(max_length=1024, null=True, blank=True)
     names = HStoreField(null=True, blank=True)
+    iso_code = models.CharField(max_length=8, null=True, blank=True, unique=True)
 
     osm = HStoreField(null=True, blank=True)
 
