@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import IntEnum, Enum
 
 
 class Gender(IntEnum):
@@ -17,6 +17,19 @@ class AccountType(IntEnum):
     MANAGER = 1
     SECURITY = 2
     SELF_EMPLOYED = 3
+
+    @classmethod
+    def has_value(cls, value):
+        return value in cls._value2member_map_
+
+
+class LanguageProficiency(IntEnum):
+    BEGINNER = 0
+    ELEMENTARY = 1
+    INTERMEDIATE = 2
+    UPPER_INTERMEDIATE = 3
+    ADVANCED = 4
+    PROFICIENCY = 5
 
     @classmethod
     def has_value(cls, value):

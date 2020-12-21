@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'app_bot.apps.AppBotConfig',
     'app_users.apps.AppUsersConfig',
     'app_media.apps.AppMediaConfig',
+    'app_geo.apps.AppGeoConfig',
 ]
 
 CHANNEL_LAYERS = {
