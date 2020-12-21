@@ -44,7 +44,7 @@ class ProfileSerializer(CRUDSerializer):
     birth_date = DateTimeField(required=False)
     avatar = serializers.SerializerMethodField(read_only=True)
     documents = serializers.SerializerMethodField(read_only=True)
-    languages = serializers.SerializerMethodField(read_only=True)
+    languages = serializers.SerializerMethodField()
 
     socials = serializers.SerializerMethodField(read_only=True)
 

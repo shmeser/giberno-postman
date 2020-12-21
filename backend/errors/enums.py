@@ -11,6 +11,7 @@ class RESTErrors(IntEnum):
 
 
 class ErrorsCodes(Enum):
+    METHOD_NOT_FOUND = 'Метод не найден'
     SOCIAL_ALREADY_IN_USE = 'Данным способом уже зарегистрирован другой пользователь'
     PROFILE_NOT_FILLED = 'Профиль не заполнен'
     PHONE_IS_USED = 'Этот номер телефона уже занят'
