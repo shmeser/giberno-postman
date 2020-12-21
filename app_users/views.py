@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
 from app_users.versions.v1_0 import views as v1_0
-from backend.errors.enums import RESTErrors
+from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException
 
 
@@ -14,7 +14,7 @@ from backend.errors.http_exception import HttpException
 def firebase_web_auth(request):
     if request.version in ['users_1_0']:
         return v1_0.firebase_web_auth(request._request)
-    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
 @login_required
@@ -34,7 +34,7 @@ class AuthVk(APIView):
         if request.version in ['users_1_0']:
             return v1_0.AuthVk(request).post(request)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
 class AuthFirebase(APIView):
@@ -45,7 +45,7 @@ class AuthFirebase(APIView):
         if request.version in ['users_1_0']:
             return v1_0.AuthFirebase.post(request)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
 class AuthRefreshToken(APIView):
@@ -56,7 +56,7 @@ class AuthRefreshToken(APIView):
         if request.version in ['users_1_0']:
             return v1_0.AuthRefreshToken().post(request)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
 class ReferenceCode(APIView):
@@ -73,29 +73,42 @@ class ReferenceCode(APIView):
         if request.version in ['users_1_0']:
             return v1_0.ReferenceCode.post(request)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
     @staticmethod
     def get(request):
         if request.version in ['users_1_0']:
             return v1_0.ReferenceCode.get(request)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
 class Users(APIView):
     @staticmethod
-    def get(request):
+    def get(request, **kwargs):
         if request.version in ['users_1_0']:
-            return v1_0.Users.get(request)
+            return v1_0.Users().get(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
 class MyProfile(APIView):
     @staticmethod
     def get(request):
         if request.version in ['users_1_0']:
-            return v1_0.MyProfile.get(request)
+            return v1_0.MyProfile().get(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail="Метод не найден")
+    @staticmethod
+    def patch(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfile().patch(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class MyProfileUploads(APIView):
+    @staticmethod
+    def post(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileUploads().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

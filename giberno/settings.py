@@ -1,8 +1,9 @@
 import datetime
 import os
+from datetime import timedelta, datetime
 
 from celery.schedules import crontab
-from datetime import timedelta, datetime
+
 from giberno.environment.environments import Environment
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'TeStSeCrEtKeY')
@@ -28,6 +29,8 @@ INSTALLED_APPS = [
     'app_seeds.apps.AppSeedsConfig',
     'app_bot.apps.AppBotConfig',
     'app_users.apps.AppUsersConfig',
+    'app_media.apps.AppMediaConfig',
+    'app_geo.apps.AppGeoConfig',
 ]
 
 CHANNEL_LAYERS = {
@@ -71,7 +74,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                # 'social_django.context_processors.backends',
             ],
         },
     },
@@ -138,43 +140,61 @@ STATIC_URL = '/static/'
 LOGS_URL = '/logs/'
 MEDIA_URL = '/media/'
 
+REACT_APP_DIR = os.path.join(BASE_DIR, 'frontend')
+
 STATIC_ROOT = os.path.join(BASE_DIR, 'files', 'static')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'files', 'media')
 LOGS_ROOT = os.path.join(BASE_DIR, 'files', 'logs')
 
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'static'),
+    os.path.join(REACT_APP_DIR, 'build', 'static'),
 )
 
 AUTH_USER_MODEL = 'app_users.UserProfile'
 
-AVATAR_SIZE = 500, 500
+IMAGE_RESIZE_QUALITY = 80
 
-AVATAR_FILE_TYPES = [
+IMAGE_SIDE_MAX = 2048
+IMAGE_PREVIEW_SIDE_MAX = 720
+
+VIDEO_SIDE_MAX = 1920
+VIDEO_PREVIEW_SIDE_MAX = 720
+
+VIDEO_DURATION_MAX = 60
+
+AUDIO_DURATION_MAX = 300
+
+DOCUMENT_MIME_TYPES = [
+    'application/msword',
+    'application/pdf',
+    'text/richtext',
+    'text/plain',
+    'application/excel',
+    'application/vnd.ms-excel',
+]
+IMAGE_MIME_TYPES = [
+    'image/x-ms-bmp',
+    'image/gif',
     'image/jpeg',
-    'image/pjpeg',
     'image/png',
-    'image/bmp',
-    'image/x-windows-bmp'
+    'image/tiff',
+]
+AUDIO_MIME_TYPES = [
+    'audio/mpeg',
+    'audio/x-wav',
+]
+VIDEO_MIME_TYPES = [
+    'video/x-msvideo',
+    'video/quicktime',
+    'video/mp4',
+    'video/mpeg'
 ]
 
-DOCUMENT_FILE_TYPES = [
-    'image/jpeg',
-    'image/pjpeg',
-    'image/png',
-    'image/bmp',
-    'image/x-windows-bmp',
-    'application/pdf'
+# Устанавливаем единственный обработчик для загрузки файлов - через временные файлы на диске
+FILE_UPLOAD_HANDLERS = [
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler"
 ]
-
-RAPIDAPI_KEY = os.getenv('X_RAPIDAPI_KEY')
-RAPIDAPI_HOST = os.getenv('X_RAPIDAPI_HOST')
-
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS')
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-EMAIL_PORT = os.getenv('EMAIL_PORT')
 
 FCM_DJANGO_SETTINGS = {
     'FCM_SERVER_KEY': os.getenv('FCM_SERVER_KEY', 'test'),

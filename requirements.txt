@@ -35,6 +35,7 @@ djangorestframework-camel-case==1.2.0
 djangorestframework-simplejwt==4.6.0
 drf-yasg==1.20.0
 fcm-django==0.3.7
+ffmpy==0.2.3
 firebase-admin==4.4.0
 geoip2==4.1.0
 google-api-core==1.23.0
@@ -64,6 +65,7 @@ msgpack==1.0.0
 multidict==5.1.0
 oauthlib==3.1.0
 packaging==20.7
+Pillow==8.0.1
 prompt-toolkit==3.0.8
 proto-plus==1.13.0
 protobuf==3.14.0
@@ -71,6 +73,7 @@ psycopg2==2.8.6
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
 pycparser==2.20
+PyExifTool==0.1.1
 pyfcm==1.4.9
 PyHamcrest==2.0.2
 PyJWT==1.7.1
@@ -78,7 +81,9 @@ pyOpenSSL==20.0.0
 pyparsing==2.4.7
 python-crontab==2.5.1
 python-dateutil==2.8.1
+python-magic==0.4.18
 python3-openid==3.2.0
+pytils==0.3
 pytz==2020.4
 redis==3.5.3
 requests==2.25.0
@@ -96,6 +101,7 @@ txaio==20.4.1
 typing-extensions==3.7.4.3
 uritemplate==3.0.1
 urllib3==1.26.2
+uuid==1.30
 vine==5.0.0
 wcwidth==0.2.5
 yarl==1.6.3
