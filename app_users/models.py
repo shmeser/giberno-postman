@@ -36,6 +36,7 @@ class UserProfile(AbstractUser, BaseModel):
     status = models.IntegerField(choices=choices(Status), default=Status.ACTIVE)
 
     languages = models.ManyToManyField(Language, through='UserLanguage', blank=True)
+    nationalities = models.ManyToManyField(Country, through='UserNationality', blank=True)
 
     reg_reference = models.ForeignKey(
         'self',
