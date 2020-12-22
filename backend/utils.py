@@ -5,7 +5,6 @@ import json
 import re
 from io import BytesIO
 from json import JSONDecodeError
-from tempfile import NamedTemporaryFile
 from urllib.request import urlopen, HTTPError, Request
 
 import exiftool
@@ -437,6 +436,8 @@ def has_latin(text: str = None):
 def get_remote_file(remote_url):
     status = FileDownloadStatus.FAIL.value
     downloaded_file = None
+    content_type = None
+    size = 0
 
     fake_headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -449,13 +450,16 @@ def get_remote_file(remote_url):
         req = Request(url=remote_url, headers=fake_headers)
         opened_url = urlopen(req)
         downloaded_file = opened_url.read()
+        info = opened_url.info()
+        content_type = info.get_content_type()
+        size = int(opened_url.getheader('Content-Length'))
         status = FileDownloadStatus.SAVED.value
     except HTTPError as e:
         if e.code == RESTErrors.NOT_FOUND.value:
             status = FileDownloadStatus.NOT_EXIST.value
     except Exception as e:
         CP(fg='yellow', bg='red').bold(e)
-    return downloaded_file, status
+    return downloaded_file, content_type, size, status
 
 
 # ####
