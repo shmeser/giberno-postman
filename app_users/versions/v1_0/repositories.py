@@ -20,7 +20,7 @@ class AuthRepository:
 
     @staticmethod
     def get_or_create_social_user(social_data: SocialEntity, account_type=AccountType.SELF_EMPLOYED,
-                                  reference_code=None):
+                                  reference_code=None, base_user: UserProfile = None):
 
         # Проверка реферального кода
         reference_user = None
@@ -29,8 +29,8 @@ class AuthRepository:
             if reference_user is None:
                 raise HttpException(detail='Невалидный реферальный код', status_code=RESTErrors.BAD_REQUEST)
 
-        # Создаем способ авторизации
-        social, created = SocialModel.objects.get_or_create(
+        # Получаем способ авторизации
+        social, social_created = SocialModel.objects.get_or_create(
             social_id=social_data.social_id, type=social_data.social_type, defaults=social_data.get_kwargs()
         )
 
@@ -49,32 +49,78 @@ class AuthRepository:
         if account_type is not None and AccountType.has_value(account_type):
             defaults['account_type'] = account_type
 
-        user, created = UserProfile.objects.get_or_create(socialmodel=social, defaults=defaults)
+        if base_user is None or base_user.is_anonymous:
+            # Если запрос пришел без авторизации (первая регистрация)
+            user, created = UserProfile.objects.get_or_create(socialmodel=social, defaults=defaults)
 
-        if created:
-            # Привязываем пользователя к соцсети
-            social.user = user
-            social.save()
-            user.email = social_data.email
-        else:
-            # Подставляем имеил с соцсети, если его нет
-            if not user.email and social_data.email:
+            if created:
+                # Привязываем пользователя к соцсети
+                social.user = user
+                social.save()
                 user.email = social_data.email
+            else:
+                # Если при регистрации указан другой тип аккаунта
+                if user.account_type != account_type:
+                    raise HttpException(
+                        detail='Данным способом уже зарегистрирован пользователь с другой ролью',
+                        status_code=RESTErrors.FORBIDDEN
+                    )
 
-            # Подставляем телефон с соцсети всегда
-            if social_data.phone:
-                user.phone = social_data.phone
-        user.save()
+                # Подставляем имеил с соцсети, если его нет
+                if not user.email and social_data.email:
+                    user.email = social_data.email
 
-        if user.account_type != account_type:
-            raise HttpException(
-                detail='Данным способом уже зарегистрирован пользователь с другой ролью',
-                status_code=RESTErrors.FORBIDDEN
-            )
+                # Подставляем телефон из соцсети всегда
+                if social_data.phone:
+                    user.phone = social_data.phone
+            user.save()
+            result = user
+
+        else:
+            # Если происходит привязка соцсети к аккаунту
+            user = UserProfile.objects.filter(socialmodel=social).first()
+            created = False
+
+            if user is not None:
+                # Пользователь найден
+
+                if user.id != base_user.id:
+                    raise HttpException(
+                        detail='Данным способом уже зарегистрирован другой пользователь',
+                        status_code=RESTErrors.FORBIDDEN
+                    )
+                else:
+                    # Найден свой аккаунт
+
+                    # Подставляем имеил с соцсети, если его нет
+                    if not user.email and social_data.email:
+                        user.email = social_data.email
+
+                    # Подставляем телефон из соцсети всегда
+                    if social_data.phone:
+                        user.phone = social_data.phone
+                    user.save()
+
+                result = user
+
+            else:
+                # Пользователь для соцсети не найден
+                # Привязываем ооцсеть к своему base_user
+                social.user = base_user
+                social.save()
+                # Подставляем имеил с соцсети, если его нет
+                if not base_user.email and social_data.email:
+                    base_user.email = social_data.email
+
+                # Подставляем телефон из соцсети всегда
+                if social_data.phone:
+                    base_user.phone = social_data.phone
+                base_user.save()
+                result = base_user
 
         # Создаем модель настроек
         # TODO
-        return user, created
+        return result, created
 
 
 class SocialsRepository(BaseRepository):
