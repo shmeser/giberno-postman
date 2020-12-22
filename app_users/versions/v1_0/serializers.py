@@ -64,18 +64,19 @@ class ProfileSerializer(CRUDSerializer):
         m2m_errors = []
         # Проверяем m2m поля
         nationalities = data.pop('nationalities', None)
-        if nationalities is not None and isinstance(nationalities, list):  # Обрабатываем только массив
-            if nationalities:
-                # Добавляем или обновляем национальности пользователя
-                for n in nationalities:
-                    country_id = n.get('id', None)
-                    if country_id is None:
-                        m2m_errors.append(
-                            dict(Error(
-                                code=ErrorsCodes.VALIDATION_ERROR.name,
-                                detail='Указан неправильный id страны'))
-                        )
-
+        if nationalities is not None and isinstance(nationalities, list):  # Обрабатываем только list
+            # Удаляем гражданства
+            self.instance.usernationality_set.all().update(deleted=True)
+            # Добавляем или обновляем гражданства пользователя
+            for n in nationalities:
+                country_id = n.get('id', None)
+                if country_id is None:
+                    m2m_errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail='Указан неправильный id страны'))
+                    )
+                else:
                     try:
                         UserNationality.objects.update_or_create(defaults={
                             'deleted': False
@@ -92,24 +93,21 @@ class ProfileSerializer(CRUDSerializer):
                                 detail='Указан неправильный id страны'))
                         )
 
-            else:
-                # Удаляем языки
-                self.instance.nationalities.update(usernationality__deleted=True)
-
         languages = data.pop('languages', None)
         if languages is not None and isinstance(languages, list):  # Обрабатываем только массив
-            if languages:
-                # Добавляем или обновляем языки пользователя
-                for l in languages:
-                    proficiency = l.get('proficiency', None)
-                    lang_id = l.get('id', None)
-                    if proficiency is None or not LanguageProficiency.has_value(proficiency):
-                        m2m_errors.append(
-                            dict(Error(
-                                code=ErrorsCodes.VALIDATION_ERROR.name,
-                                detail='Невалидные данные в поле proficiency'))
-                        )
-
+            # Удаляем языки
+            self.instance.userlanguage_set.all().update(deleted=True)
+            # Добавляем или обновляем языки пользователя
+            for l in languages:
+                proficiency = l.get('proficiency', None)
+                lang_id = l.get('id', None)
+                if proficiency is None or not LanguageProficiency.has_value(proficiency):
+                    m2m_errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail='Невалидные данные в поле proficiency'))
+                    )
+                else:
                     try:
                         UserLanguage.objects.update_or_create(defaults={
                             'proficiency': proficiency,
@@ -126,10 +124,6 @@ class ProfileSerializer(CRUDSerializer):
                                 code=ErrorsCodes.VALIDATION_ERROR.name,
                                 detail='Указан неправильный id языка'))
                         )
-
-            else:
-                # Удаляем языки
-                self.instance.languages.update(userlanguage__deleted=True)
 
         if m2m_errors:
             raise CustomException(errors=m2m_errors)
