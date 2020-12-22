@@ -4,12 +4,12 @@ from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app_geo.versions.v1_0.serializers import LanguageSerializer
+from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import LanguageProficiency
-from app_users.models import UserProfile, SocialModel, UserLanguage
+from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
@@ -64,21 +64,50 @@ class ProfileSerializer(CRUDSerializer):
         m2m_errors = []
         # Проверяем m2m поля
         nationalities = data.pop('nationalities', None)
-
-        languages = data.pop('languages', None)
-        if languages is not None:
-            if languages:
-                # Добавляем или обновляем языки пользователя
-                for l in languages:
-                    proficiency = l.get('proficiency', None)
-                    lang_id = l.get('id', None)
-                    if proficiency is None or not LanguageProficiency.has_value(proficiency):
+        if nationalities is not None and isinstance(nationalities, list):  # Обрабатываем только list
+            # Удаляем гражданства
+            self.instance.usernationality_set.all().update(deleted=True)
+            # Добавляем или обновляем гражданства пользователя
+            for n in nationalities:
+                country_id = n.get('id', None)
+                if country_id is None:
+                    m2m_errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail='Указан неправильный id страны'))
+                    )
+                else:
+                    try:
+                        UserNationality.objects.update_or_create(defaults={
+                            'deleted': False
+                        },
+                            **{
+                                'user': self.instance,
+                                'country_id': country_id,
+                            }
+                        )
+                    except IntegrityError:
                         m2m_errors.append(
                             dict(Error(
                                 code=ErrorsCodes.VALIDATION_ERROR.name,
-                                detail='Невалидные данные в поле proficiency'))
+                                detail='Указан неправильный id страны'))
                         )
 
+        languages = data.pop('languages', None)
+        if languages is not None and isinstance(languages, list):  # Обрабатываем только массив
+            # Удаляем языки
+            self.instance.userlanguage_set.all().update(deleted=True)
+            # Добавляем или обновляем языки пользователя
+            for l in languages:
+                proficiency = l.get('proficiency', None)
+                lang_id = l.get('id', None)
+                if proficiency is None or not LanguageProficiency.has_value(proficiency):
+                    m2m_errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail='Невалидные данные в поле proficiency'))
+                    )
+                else:
                     try:
                         UserLanguage.objects.update_or_create(defaults={
                             'proficiency': proficiency,
@@ -95,10 +124,6 @@ class ProfileSerializer(CRUDSerializer):
                                 code=ErrorsCodes.VALIDATION_ERROR.name,
                                 detail='Указан неправильный id языка'))
                         )
-
-            else:
-                # Удаляем языки
-                self.instance.languages.update(userlanguage__deleted=True)
 
         if m2m_errors:
             raise CustomException(errors=m2m_errors)
@@ -136,7 +161,7 @@ class ProfileSerializer(CRUDSerializer):
 
         return MediaSerializer(documents, many=True).data
 
-    def get_socials(self, profile):
+    def get_socials(self, profile: UserProfile):
         socials = SocialsRepository().filter_by_kwargs({
         }, order_by=['-created_at'])
 
@@ -145,13 +170,13 @@ class ProfileSerializer(CRUDSerializer):
     def get_languages(self, profile: UserProfile):
         return LanguageSerializer(profile.languages.filter(userlanguage__deleted=False), many=True).data
 
-    def get_nationalities(self, profile):
-        return []
+    def get_nationalities(self, profile: UserProfile):
+        return CountrySerializer(profile.nationalities.filter(usernationality__deleted=False), many=True).data
 
-    def get_country(self, profile):
+    def get_country(self, profile: UserProfile):
         return None
 
-    def get_city(self, profile):
+    def get_city(self, profile: UserProfile):
         return None
 
     def get_registration_completed(self, profile: UserProfile):

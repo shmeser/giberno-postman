@@ -46,13 +46,9 @@ class AuthFirebase(APIView):
         user, created = AuthRepository.get_or_create_social_user(
             social_data,
             # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
-            reference_code=body.get('reference_code', None)
+            reference_code=body.get('reference_code', None),
+            base_user=request.user or None
         )
-
-        # if request.user and not request.user.is_anonymous:  # Если отсылался заголовок Authorization
-        #     """ Если запрос пришел от соц юзера, и привязывается к другому соц юзеру, отдаем ошибку"""
-        #     raise HttpException(detail='Нельзя привязать соцсеть к аккаунту с соцсетью',
-        #                         status_code=RESTErrors.FORBIDDEN)
 
         JwtRepository().remove_old(user)  # TODO пригодится для запрета входа с нескольких устройств
         jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
