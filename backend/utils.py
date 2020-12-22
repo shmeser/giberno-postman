@@ -2,6 +2,7 @@ import csv
 import datetime
 import importlib
 import json
+import os
 import re
 from io import BytesIO
 from json import JSONDecodeError
@@ -10,6 +11,7 @@ from urllib.request import urlopen, HTTPError, Request
 import exiftool
 import pytz
 from PIL import Image
+from django.conf import settings
 from django.core.files.uploadedfile import TemporaryUploadedFile
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
@@ -460,6 +462,14 @@ def get_remote_file(remote_url):
     except Exception as e:
         CP(fg='yellow', bg='red').bold(e)
     return downloaded_file, content_type, size, status
+
+
+def remove_file_from_server(relative_url=None):
+    if relative_url:
+        try:
+            os.remove(os.path.join(settings.MEDIA_ROOT, relative_url))
+        except Exception as e:
+            CP(fg='yellow', bg='red').bold(e)
 
 
 # ####

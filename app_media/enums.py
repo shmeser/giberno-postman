@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import IntEnum, Enum
 
 
 class MediaFormat(IntEnum):
@@ -26,3 +26,8 @@ class FileDownloadStatus(IntEnum):
     SAVED = 1
     NOT_EXIST = 2
     FAIL = 3
+
+
+class MimeTypes(Enum):
+    PNG = 'image/png'
+    SVG = 'image/svg+xml'
