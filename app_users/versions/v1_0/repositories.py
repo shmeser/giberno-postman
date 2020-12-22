@@ -60,6 +60,10 @@ class AuthRepository:
             # Подставляем имеил с соцсети, если его нет
             if not user.email and social_data.email:
                 user.email = social_data.email
+
+            # Подставляем телефон с соцсети всегда
+            if social_data.phone:
+                user.phone = social_data.phone
         user.save()
 
         if user.account_type != account_type:
