@@ -40,7 +40,12 @@ class MediaMapper:
         file_entity.mime_type = file_data.content_type
 
         if file_entity.format == MediaFormat.IMAGE:
-            resize_image(file_entity)
+            if file_entity.mime_type == 'image/svg+xml':
+                # Не обрабатываем SVG, превью - тот же файл
+                file_entity.preview = file_data
+            else:
+                resize_image(file_entity)
+
         if file_entity.format == MediaFormat.AUDIO:
             # duration
             pass
