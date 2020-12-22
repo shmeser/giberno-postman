@@ -2,15 +2,16 @@ import csv
 import datetime
 import importlib
 import json
+import os
 import re
 from io import BytesIO
 from json import JSONDecodeError
-from tempfile import NamedTemporaryFile
 from urllib.request import urlopen, HTTPError, Request
 
 import exiftool
 import pytz
 from PIL import Image
+from django.conf import settings
 from django.core.files.uploadedfile import TemporaryUploadedFile
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
@@ -437,6 +438,8 @@ def has_latin(text: str = None):
 def get_remote_file(remote_url):
     status = FileDownloadStatus.FAIL.value
     downloaded_file = None
+    content_type = None
+    size = 0
 
     fake_headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -449,13 +452,24 @@ def get_remote_file(remote_url):
         req = Request(url=remote_url, headers=fake_headers)
         opened_url = urlopen(req)
         downloaded_file = opened_url.read()
+        info = opened_url.info()
+        content_type = info.get_content_type()
+        size = int(opened_url.getheader('Content-Length'))
         status = FileDownloadStatus.SAVED.value
     except HTTPError as e:
         if e.code == RESTErrors.NOT_FOUND.value:
             status = FileDownloadStatus.NOT_EXIST.value
     except Exception as e:
         CP(fg='yellow', bg='red').bold(e)
-    return downloaded_file, status
+    return downloaded_file, content_type, size, status
+
+
+def remove_file_from_server(relative_url=None):
+    if relative_url:
+        try:
+            os.remove(os.path.join(settings.MEDIA_ROOT, relative_url))
+        except Exception as e:
+            CP(fg='yellow', bg='red').bold(e)
 
 
 # ####

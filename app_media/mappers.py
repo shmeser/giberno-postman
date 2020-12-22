@@ -2,7 +2,7 @@ import uuid as uuid
 
 from django.contrib.contenttypes.models import ContentType
 
-from app_media.enums import MediaType, MediaFormat
+from app_media.enums import MediaType, MediaFormat, MimeTypes
 from backend.entity import File, Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exception import CustomException
@@ -40,7 +40,7 @@ class MediaMapper:
         file_entity.mime_type = file_data.content_type
 
         if file_entity.format == MediaFormat.IMAGE:
-            if file_entity.mime_type == 'image/svg+xml':
+            if file_entity.mime_type == MimeTypes.SVG.value:
                 # Не обрабатываем SVG, превью - тот же файл
                 file_entity.preview = file_data
             else:
@@ -50,10 +50,6 @@ class MediaMapper:
             # duration
             pass
         if file_entity.format == MediaFormat.VIDEO:
-            # width
-            # height
-            # duration
-            # preview
             convert_video(file_entity)
         if file_entity.format == MediaFormat.UNKNOWN:  # Если пришел неизвестный формат файла
             raise CustomException(errors=[

@@ -17,7 +17,7 @@ def mkdir_p(path):
 
 
 class MakeFileHandler(TimedRotatingFileHandler):
-    def __init__(self, filename, when='h', interval=1, backupCount=0, encoding=None, delay=False, utc=False,
-                 atTime=None):
+    def __init__(self, filename, when='h', interval=1, backup_count=0, encoding=None, delay=False, utc=False,
+                 at_time=None):
         mkdir_p(os.path.dirname(filename))
-        TimedRotatingFileHandler.__init__(self, filename, when, interval, backupCount, encoding, delay, utc, atTime)
+        TimedRotatingFileHandler.__init__(self, filename, when, interval, backup_count, encoding, delay, utc, at_time)
