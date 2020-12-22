@@ -4,9 +4,10 @@ from rest_framework import serializers
 
 from app_geo.models import Language, Country
 from app_geo.versions.v1_0.repositories import LanguagesRepository, CountriesRepository
-from app_media.enums import MediaType, MediaFormat
+from app_media.enums import MediaType, MediaFormat, MimeTypes
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
+from backend.enums import Platform
 from backend.mixins import CRUDSerializer
 
 
@@ -52,6 +53,9 @@ class CountrySerializer(serializers.ModelSerializer):
         return country.name
 
     def get_flag(self, country: Country):
+        platform = g.request.headers.get('Platform', '').lower()
+        mime_type = MimeTypes.PNG.value if Platform.IOS.value in platform else MimeTypes.SVG.value
+
         flag_file = MediaRepository().filter_by_kwargs({
             'owner_id': country.id,
             'owner_content_type_id': ContentType.objects.get_for_model(country).id,
@@ -60,7 +64,8 @@ class CountrySerializer(serializers.ModelSerializer):
             ],
             'format__in': [
                 MediaFormat.IMAGE.value
-            ]
+            ],
+            'mime_type': mime_type
         }, order_by=['-created_at']).first()
         if flag_file:
             return MediaSerializer(flag_file, many=False).data
