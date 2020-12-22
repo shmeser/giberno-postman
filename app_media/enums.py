@@ -18,3 +18,11 @@ class MediaType(IntEnum):
     MEDICAL_BOOK = 5
     DRIVER_LICENCE = 6
     LOGO = 7
+    FLAG = 8
+
+
+class FileDownloadStatus(IntEnum):
+    INITIAL = 0
+    SAVED = 1
+    NOT_EXIST = 2
+    FAIL = 3

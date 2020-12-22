@@ -1,5 +1,6 @@
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from app_geo.versions.v1_0.repositories import LanguagesRepository, CountriesRepository
@@ -49,6 +50,18 @@ class Languages(CRUDAPIView):
             serialized = self.serializer_class(dataset, many=True)
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def custom_languages(request):
+    pagination = RequestMapper.pagination(request)
+    dataset = LanguagesRepository().filter_by_kwargs(
+        kwargs={
+            'iso_code__in': ['ru', 'en', 'hy', 'be', 'kk', 'ky', 'uk']
+        }, paginator=pagination
+    )
+    serialized = LanguageSerializer(dataset, many=True)
+    return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class Countries(CRUDAPIView):

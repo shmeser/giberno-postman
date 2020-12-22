@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
+    'django.contrib.postgres',
     'rest_framework',
     'rest_framework_simplejwt',
     'fcm_django',
@@ -133,8 +134,6 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-# SILENCED_SYSTEM_CHECKS = ['urls.W002']
-
 STATIC_URL = '/static/'
 
 LOGS_URL = '/logs/'
@@ -179,6 +178,7 @@ IMAGE_MIME_TYPES = [
     'image/jpeg',
     'image/png',
     'image/tiff',
+    'image/svg+xml',
 ]
 AUDIO_MIME_TYPES = [
     'audio/mpeg',

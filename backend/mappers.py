@@ -1,15 +1,13 @@
-import uuid as uuid
-
 import inflection
-from django.contrib.contenttypes.models import ContentType
 from djangorestframework_camel_case.util import underscoreize
 
-from app_media.enums import MediaType, MediaFormat
+from app_media.enums import MediaType
 from app_media.forms import FileForm
-from backend.entity import Pagination, File, Error
+from app_media.mappers import MediaMapper
+from backend.entity import Pagination, Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
-from backend.utils import timestamp_to_datetime as m_t_d, get_media_format, resize_image, convert_video
+from backend.utils import timestamp_to_datetime as m_t_d
 
 
 class BaseMapper:
@@ -100,53 +98,14 @@ class RequestMapper:
 
         if form.is_valid():
             for form_file in form.files.getlist('file'):
-                owner_content_type = ContentType.objects.get_for_model(owner)
-
-                file_entity = File()
-
-                file_entity.uuid = uuid.uuid4()
-                file_entity.owner_content_type_id = owner_content_type.id
-                file_entity.owner_content_type = owner_content_type.model
-                file_entity.owner_id = owner.id
-
-                file_entity.mime_type = form_file.content_type
-                file_entity.format = get_media_format(file_entity.mime_type)
-                file_entity.size = form_file.size
-
-                file_entity.title = form.cleaned_data['title'] if 'title' in form.cleaned_data and form.cleaned_data[
+                file_title = form.cleaned_data['title'] if 'title' in form.cleaned_data and form.cleaned_data[
                     'title'] else form_file.name
-                file_entity.type = form.cleaned_data.get('type', MediaType.OTHER)
+                file_type = form.cleaned_data.get('type', MediaType.OTHER)
 
-                name = str(file_entity.uuid)
-                parts = form_file.name.split('.')
-                if parts.__len__() > 1:
-                    extension = '.' + parts[-1].lower()
-                else:
-                    extension = ''
-                form_file.name = name + extension
+                mapped_file = MediaMapper.combine(form_file, owner, file_title, file_type)
 
-                file_entity.file = form_file
-                file_entity.mime_type = form_file.content_type
-
-                if file_entity.format == MediaFormat.IMAGE:
-                    resize_image(file_entity)
-                if file_entity.format == MediaFormat.AUDIO:
-                    # duration
-                    pass
-                if file_entity.format == MediaFormat.VIDEO:
-                    # width
-                    # height
-                    # duration
-                    # preview
-                    convert_video(file_entity)
-                if file_entity.format == MediaFormat.UNKNOWN:  # Если пришел неизвестный формат файла
-                    raise CustomException(errors=[
-                        dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT))
-                    ])
-
-                # Не создаем пустые записи, если файл не удалось обработать
-                if file_entity.file is not None:
-                    entities.append(file_entity)
+                if mapped_file:
+                    entities.append(mapped_file)
 
             return entities
         else:
