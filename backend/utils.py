@@ -5,6 +5,8 @@ import json
 import re
 from io import BytesIO
 from json import JSONDecodeError
+from tempfile import NamedTemporaryFile
+from urllib.request import urlopen, HTTPError, Request
 
 import exiftool
 import pytz
@@ -14,7 +16,7 @@ from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 from ffmpy import FFmpeg
 
-from app_media.enums import MediaFormat
+from app_media.enums import MediaFormat, FileDownloadStatus
 from backend.entity import File as FileEntity
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
@@ -308,7 +310,7 @@ def resize_image(file_entity: FileEntity):
 def convert_video(file_entity: FileEntity):
     try:
         input_full = file_entity.file.file.name
-        _META = get_video_metadata(input_full)
+        _META = get_media_metadata(input_full)
 
         # TODO Проставить корректные повороты
         # Размеры превью для видео
@@ -392,7 +394,7 @@ def convert_video(file_entity: FileEntity):
 
         ff.run()
 
-        _RESULT_META = get_video_metadata(converted_temp_location)
+        _RESULT_META = get_media_metadata(converted_temp_location)
 
         file_entity.file = result
         file_entity.preview = preview
@@ -405,7 +407,7 @@ def convert_video(file_entity: FileEntity):
         file_entity.file = None
 
 
-def get_video_metadata(file_url):
+def get_media_metadata(file_url):
     """ https://github.com/smarnach/pyexiftool/issues/26 """
     with exiftool.ExifTool() as et:
         # print(et.get_metadata(file_url))
@@ -430,6 +432,30 @@ def has_latin(text: str = None):
     if text and isinstance(text, str):
         return bool(re.search('[a-zA-Z]', text))
     return False
+
+
+def get_remote_file(remote_url):
+    status = FileDownloadStatus.FAIL.value
+    downloaded_file = None
+
+    fake_headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                      'AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/79.0.3945.130 Safari/537.36',
+        'accept-encoding': 'gzip, deflate, br'
+    }
+
+    try:
+        req = Request(url=remote_url, headers=fake_headers)
+        opened_url = urlopen(req)
+        downloaded_file = opened_url.read()
+        status = FileDownloadStatus.SAVED.value
+    except HTTPError as e:
+        if e.code == RESTErrors.NOT_FOUND.value:
+            status = FileDownloadStatus.NOT_EXIST.value
+    except Exception as e:
+        CP(fg='yellow', bg='red').bold(e)
+    return downloaded_file, status
 
 
 # ####
