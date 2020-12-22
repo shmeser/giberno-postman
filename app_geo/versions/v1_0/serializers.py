@@ -1,10 +1,9 @@
+from django_globals import globals as g
 from rest_framework import serializers
 
-from app_geo.models import Language
-from app_geo.versions.v1_0.repositories import LanguagesRepository
-from app_users.models import UserLanguage
+from app_geo.models import Language, Country
+from app_geo.versions.v1_0.repositories import LanguagesRepository, CountriesRepository
 from backend.mixins import CRUDSerializer
-from django_globals import globals as g
 
 
 class LanguageSerializer(CRUDSerializer):
@@ -34,19 +33,18 @@ class LanguageSerializer(CRUDSerializer):
         }
 
 
-class UserLanguageSerializer(serializers.ModelSerializer):
-    id = serializers.SerializerMethodField()
-    iso_code = serializers.SerializerMethodField()
-    name = serializers.SerializerMethodField()
-    native = serializers.SerializerMethodField()
-    proficiency = serializers.SerializerMethodField()
+class CountrySerializer(serializers.ModelSerializer):
+    repository = CountriesRepository
 
     class Meta:
-        model = UserLanguage
+        model = Country
         fields = [
             'id',
             'iso_code',
             'name',
-            'native',
-            'proficiency'
         ]
+
+        extra_kwargs = {
+            'iso_code': {'read_only': True},
+            'name': {'read_only': True},
+        }
