@@ -3,7 +3,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType
 from app_users.models import SocialModel, UserProfile, JwtToken
-from backend.errors.enums import RESTErrors
+from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
@@ -34,6 +34,10 @@ class AuthRepository:
             social_id=social_data.social_id, type=social_data.social_type, defaults=social_data.get_kwargs()
         )
 
+        # Проверяем существование пользователя с пришедшим имейлом, если таковой есть, не подставляем имейл в профиль
+        if ProfileRepository().filter_by_kwargs({'email': social_data.email}).exists():
+            social_data.email = None
+
         # Получаем или создаем пользователя
         defaults = {
             'reg_reference': reference_user,
@@ -62,17 +66,15 @@ class AuthRepository:
                 # Если при регистрации указан другой тип аккаунта
                 if user.account_type != account_type:
                     raise HttpException(
-                        detail='Данным способом уже зарегистрирован пользователь с другой ролью',
+                        detail=ErrorsCodes.ALREADY_REGISTERED_WITH_OTHER_ROLE.value,
                         status_code=RESTErrors.FORBIDDEN
                     )
 
                 # Подставляем имеил с соцсети, если его нет
-                if not user.email and social_data.email:
-                    user.email = social_data.email
-
+                user.email = social_data.email if not user.email and social_data.email else user.email
                 # Подставляем телефон из соцсети всегда
-                if social_data.phone:
-                    user.phone = social_data.phone
+                user.phone = social_data.phone if social_data.phone else user.phone
+
             user.save()
             result = user
 
@@ -93,29 +95,28 @@ class AuthRepository:
                     # Найден свой аккаунт
 
                     # Подставляем имеил с соцсети, если его нет
-                    if not user.email and social_data.email:
-                        user.email = social_data.email
-
+                    user.email = social_data.email if not user.email and social_data.email else user.email
                     # Подставляем телефон из соцсети всегда
-                    if social_data.phone:
-                        user.phone = social_data.phone
+                    user.phone = social_data.phone if social_data.phone else user.phone
+
                     user.save()
 
                 result = user
 
             else:
                 # Пользователь для соцсети не найден
+
                 # Привязываем ооцсеть к своему base_user
                 social.user = base_user
                 social.save()
-                # Подставляем имеил с соцсети, если его нет
-                if not base_user.email and social_data.email:
-                    base_user.email = social_data.email
 
+                # Подставляем имеил с соцсети, если его нет
+                base_user.email = social_data.email if not base_user.email and social_data.email else base_user.email
                 # Подставляем телефон из соцсети всегда
-                if social_data.phone:
-                    base_user.phone = social_data.phone
+                base_user.phone = social_data.phone if social_data.phone else base_user.phone
+
                 base_user.save()
+
                 result = base_user
 
         # Создаем модель настроек
