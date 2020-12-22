@@ -18,3 +18,4 @@ class MediaType(IntEnum):
     MEDICAL_BOOK = 5
     DRIVER_LICENCE = 6
     LOGO = 7
+    FLAG = 8
