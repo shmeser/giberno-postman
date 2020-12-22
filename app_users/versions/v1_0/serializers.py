@@ -64,7 +64,7 @@ class ProfileSerializer(CRUDSerializer):
         m2m_errors = []
         # Проверяем m2m поля
         nationalities = data.pop('nationalities', None)
-        if nationalities and isinstance(nationalities, list):  # Обрабатываем только list
+        if nationalities is not None and isinstance(nationalities, list):  # Обрабатываем только list
             # Удаляем гражданства
             self.instance.usernationality_set.all().update(deleted=True)
             # Добавляем или обновляем гражданства пользователя
@@ -94,7 +94,7 @@ class ProfileSerializer(CRUDSerializer):
                         )
 
         languages = data.pop('languages', None)
-        if languages and isinstance(languages, list):  # Обрабатываем только массив
+        if languages is not None and isinstance(languages, list):  # Обрабатываем только массив
             # Удаляем языки
             self.instance.userlanguage_set.all().update(deleted=True)
             # Добавляем или обновляем языки пользователя
