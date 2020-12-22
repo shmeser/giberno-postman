@@ -257,12 +257,12 @@ LOGGING = {
             'class': 'app_bot.controllers.BotLogger',
         },
         'file_log': {
-            'level': 'DEBUG',
+            'level': 'ERROR',
             'filename': 'files/logs/log.txt',
             'formatter': 'simple',
             'class': 'backend.logger.MakeFileHandler',
             'when': 'D',  # daily
-            'backupCount': 100,  # 100 days backup
+            'backup_count': 100,  # 100 days backup
         },
     },
     'loggers': {
