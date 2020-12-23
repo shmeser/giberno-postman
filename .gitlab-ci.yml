@@ -29,6 +29,7 @@ build:
 deploy:
   stage: deploy
   before_script:
+    - docker image prune -f
     - sudo rm -f /etc/nginx/sites-enabled/giberno-server_develop.conf
     - cp -r ./devops /srv/giberno-server_develop
     - cd /srv/giberno-server_develop
@@ -83,6 +84,7 @@ build_stage:
 deploy_stage:
   stage: deploy_stage
   before_script:
+    - docker image prune -f
     - sudo rm -f /etc/nginx/sites-enabled/giberno-server_stage.conf
     - cp -r ./devops /srv/giberno-server_stage
     - cd /srv/giberno-server_stage
@@ -137,6 +139,7 @@ build_release:
 deploy_release:
   stage: deploy_release
   before_script:
+    - docker image prune -f
     - sudo rm -f /etc/nginx/sites-enabled/giberno-server_release.conf
     - cp -r ./devops /srv/giberno-server_release
     - cd /srv/giberno-server_release
