@@ -32,7 +32,7 @@ class Country(BaseModel):
     languages = models.ManyToManyField(Language, blank=True, db_table='app_geo__country_language')
 
     def __str__(self):
-        return f'{self.name}'
+        return f'{self.names.get("name:en", "")} - {self.name}'
 
     class Meta:
         db_table = 'app_geo__countries'
