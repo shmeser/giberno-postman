@@ -181,7 +181,6 @@ class ProfileSerializer(CRUDSerializer):
 
     def get_registration_completed(self, profile: UserProfile):
         if profile.first_name and \
-                profile.middle_name and \
                 profile.last_name and \
                 profile.birth_date is not None and \
                 profile.email and \

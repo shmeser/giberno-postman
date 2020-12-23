@@ -1,5 +1,7 @@
+from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -165,6 +167,21 @@ class MyProfileUploads(APIView):
         saved_files = MediaRepository().bulk_create(uploaded_files)
         serializer = MediaSerializer(saved_files, many=True)
         return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        body = get_request_body(request)
+        uuid_list = body.get('uuid', [])
+        uuid_list = uuid_list if isinstance(uuid_list, list) else [uuid_list]
+        if uuid_list:
+            MediaRepository().filter_by_kwargs({
+                'owner_id': request.user.id,
+                'owner_content_type_id': ContentType.objects.get_for_model(request.user).id,
+                'uuid__in': uuid_list
+            }).update(**{
+                'deleted': True,
+                'updated_at': now()
+            })
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 class Users(CRUDAPIView):
