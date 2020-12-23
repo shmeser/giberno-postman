@@ -6,7 +6,6 @@ from tempfile import NamedTemporaryFile
 from cairosvg import svg2png
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.uploadedfile import UploadedFile
-from django.utils.timezone import now
 
 from app_geo.models import Country
 from app_geo.versions.v1_0.repositories import CountriesRepository
@@ -32,7 +31,7 @@ def countries_update_flag(countries_ids: list = None):
         'owner_id__in': countries_ids,
         'owner_content_type_id': country_ct.id,
         'type': MediaType.FLAG
-    }).update(deleted=True, updated_at=now())
+    }).delete()
 
     for country in countries:
         flag_url = country.osm.get('flag', None)
@@ -74,7 +73,7 @@ def countries_update_flag_png(countries_ids: list = None):
         'owner_content_type_id': country_ct.id,
         'mime_type': MimeTypes.PNG.value,
         'type': MediaType.FLAG
-    }).update(deleted=True, updated_at=now())
+    }).delete()
 
     media_files = MediaRepository().filter_by_kwargs({
         'deleted': False,
