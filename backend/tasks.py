@@ -1,3 +1,4 @@
+import gzip
 import mimetypes
 import sys
 from tempfile import NamedTemporaryFile
@@ -41,6 +42,8 @@ def countries_update_flag(countries_ids: list = None):
             if status == FileDownloadStatus.SAVED:
                 suffix = mimetypes.guess_extension(content_type)
                 temp_file = NamedTemporaryFile(delete=True, suffix=suffix)
+                if content_type == MimeTypes.SVG.value:
+                    dl_file = gzip.decompress(dl_file)
                 temp_file.write(dl_file)
                 temp_file.flush()
 
