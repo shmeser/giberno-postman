@@ -46,7 +46,9 @@ def countries_update_flag(countries_ids: list = None):
 
                 uploaded = UploadedFile(file=temp_file, size=size, content_type=content_type)
 
-                mapped_file = MediaMapper.combine(uploaded, country, file_type=MediaType.FLAG)
+                mapped_file = MediaMapper.combine(
+                    uploaded, country, file_type=MediaType.FLAG, file_title=country.names.get('name:en', None)
+                )
                 if mapped_file:
                     mapped_entities.append(mapped_file)
 
@@ -92,7 +94,9 @@ def countries_update_flag_png(countries_ids: list = None):
 
             uploaded = UploadedFile(file=temp_file, size=sys.getsizeof(png), content_type=MimeTypes.PNG.value)
 
-            mapped_file = MediaMapper.combine(uploaded, country, file_type=MediaType.FLAG)
+            mapped_file = MediaMapper.combine(
+                uploaded, country, file_type=MediaType.FLAG, file_title=country.names.get('name:en', None)
+            )
             if mapped_file:
                 mapped_entities.append(mapped_file)
 
