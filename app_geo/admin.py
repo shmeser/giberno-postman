@@ -22,7 +22,7 @@ class FormattedAdmin(admin.OSMGeoAdmin):
 
 
 @admin.register(Country)
-class ActivityAdmin(FormattedAdmin):
+class CountryAdmin(FormattedAdmin):
     fields = ['name', 'names', 'iso_code', 'osm', 'boundary', 'languages']
     raw_id_fields = ['languages']
     actions = ["update_flags", "update_flags_png"]
@@ -55,5 +55,5 @@ class ActivityAdmin(FormattedAdmin):
 
 
 @admin.register(City)
-class ActivityAdmin(FormattedAdmin):
+class CityAdmin(FormattedAdmin):
     fields = ['name', 'names', 'iso_code', 'osm']
