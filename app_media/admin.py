@@ -22,6 +22,7 @@ class FormattedAdmin(admin.OSMGeoAdmin):
 @admin.register(MediaModel)
 class MediaAdmin(FormattedAdmin):
     list_display = ['uuid', 'owner_id', 'owner_content_type', 'file_preview', 'size', 'mime_type', 'type', 'format']
+    list_filter = ['owner_content_type', 'deleted', 'type', 'format']
     # картинка preview в просмотре
     readonly_fields = ["file_preview", 'uuid']
 

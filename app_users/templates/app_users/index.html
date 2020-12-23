@@ -41,6 +41,11 @@
         <button class="btn-send-sms j-send-phone">Send Phone</button>
     </div>
 
+    <div class="send-email-block">
+        <input type="text" id="email" placeholder="mail@example.com" autofocus required>
+        <button class="j-send-email">Send Email</button>
+    </div>
+
     <div class="send-code-block">
         <input type="text" id="code" placeholder="Code from SMS">
         <button class="j-send-code">Send Code</button>
@@ -75,6 +80,23 @@
         measurementId: "G-55E5PYRMRL"
     };
 
+    const actionCodeSettings = {
+        // URL you want to redirect back to. The domain (www.example.com) for this
+        // URL must be in the authorized domains list in the Firebase Console.
+        url: 'http://localhost/finishSignUp?cartId=1234',
+        // This must be true.
+        handleCodeInApp: true,
+        iOS: {
+            bundleId: 'com.example.ios'
+        },
+        android: {
+            packageName: 'com.example.android',
+            installApp: true,
+            minimumVersion: '12'
+        },
+        dynamicLinkDomain: 'localhost'
+    };
+
     firebase.initializeApp(config);
 
     window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
@@ -89,6 +111,7 @@
 
     /* ----------------------------------- */
     $('.send-phone-block').hide();
+    $('.send-email-block').hide();
     $('.send-code-block').hide();
     $('.results-block').hide();
 
@@ -96,6 +119,18 @@
     $('.phone-sign-in').click(function () {
         clear();
         $('.send-phone-block').show();
+    });
+
+    $('.email-sign-in').click(function () {
+        clear();
+        $('.send-email-block').show();
+    });
+
+    $('.j-send-email').click(sendEmail);
+    $('input#email').keyup(function (e) {
+        if (e.keyCode == 13) {
+            sendEmail(e);
+        }
     });
 
     $('.j-send-phone').click(sendPhone);
@@ -172,6 +207,28 @@
             alert('SMS не отправлено. Попробуйте снова');
             console.log('firebase signin error', error);
         });
+    }
+
+    function sendEmail() {
+        const email = $('#email').val().replace(/[\s-\(\)]/gi, '');
+        if (!email || email.length < 11) {
+            alert('Невалидный email');
+            return false;
+        }
+
+        firebase.auth().sendSignInLinkToEmail(email, actionCodeSettings)
+            .then(function () {
+                // The link was successfully sent. Inform the user.
+                // Save the email locally so you don't need to ask the user for it again
+                // if they open the link on the same device.
+                alert(email);
+                window.localStorage.setItem('emailForSignIn', email);
+            })
+            .catch(function (error) {
+                alert(error)
+                // Some error occurred, you can inspect the code: error.code
+            });
+
     }
 
     function sendCode() {
