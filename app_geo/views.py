@@ -30,3 +30,11 @@ class Countries(APIView):
             return v1_0.Countries().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+@api_view(['GET'])
+def custom_countries(request):
+    if request.version in ['geo_1_0']:
+        return v1_0.custom_countries(request._request)
+
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

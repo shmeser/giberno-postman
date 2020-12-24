@@ -104,3 +104,15 @@ class Countries(CRUDAPIView):
             serialized = self.serializer_class(dataset, many=True)
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def custom_countries(request):
+    pagination = RequestMapper.pagination(request)
+    dataset = CountriesRepository().filter_by_kwargs(
+        kwargs={
+            'iso_code__in': ['RU', 'AM', 'BY', 'KZ', 'KG', 'UA']
+        }, paginator=pagination
+    )
+    serialized = CountrySerializer(dataset, many=True)
+    return Response(camelize(serialized.data), status=status.HTTP_200_OK)
