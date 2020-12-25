@@ -34,10 +34,6 @@ class AuthRepository:
             social_id=social_data.social_id, type=social_data.social_type, defaults=social_data.get_kwargs()
         )
 
-        # Проверяем существование пользователя с пришедшим имейлом, если таковой есть, не подставляем имейл в профиль
-        if ProfileRepository().filter_by_kwargs({'email': social_data.email}).exists():
-            social_data.email = None
-
         # Получаем или создаем пользователя
         defaults = {
             'reg_reference': reference_user,
@@ -45,8 +41,7 @@ class AuthRepository:
             'phone': social_data.phone,
             'first_name': social_data.first_name,
             'last_name': social_data.last_name,
-            'middle_name': social_data.middle_name,
-            'username': social_data.username,
+            'middle_name': social_data.middle_name
         }
 
         # Проверка типа аккаунта, отсылаемого при авторизации
