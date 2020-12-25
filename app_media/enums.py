@@ -29,6 +29,7 @@ class FileDownloadStatus(IntEnum):
 
 
 class MimeTypes(Enum):
+    JPEG = 'image/jpeg'
     PDF = 'application/pdf'
     PNG = 'image/png'
     SVG = 'image/svg+xml'

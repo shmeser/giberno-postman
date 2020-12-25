@@ -6,7 +6,7 @@ from django.db.models import UUIDField
 from django.forms import TextInput, Textarea
 
 from app_geo.models import Country, City
-from backend.tasks import countries_update_flag, countries_update_flag_png
+from backend.tasks import countries_update_flag, countries_add_png_flag_from_svg
 from backend.utils import chunks
 
 
@@ -25,7 +25,7 @@ class FormattedAdmin(admin.OSMGeoAdmin):
 class CountryAdmin(FormattedAdmin):
     list_display = ['name', 'iso_code']
     raw_id_fields = ['languages']
-    actions = ["update_flags", "update_flags_png"]
+    actions = ["update_flags", "add_png_flags"]
 
     def update_flags(self, request, queryset):
         _COUNTRIES_PER_REQUEST = 5
@@ -40,7 +40,7 @@ class CountryAdmin(FormattedAdmin):
 
         self.message_user(request, f"{len(queryset)} Стран поставлены в очередь на обновление флагов")
 
-    def update_flags_png(self, request, queryset):
+    def add_png_flags(self, request, queryset):
         _COUNTRIES_PER_REQUEST = 5
 
         countries_ids_chunked = chunks(queryset.values_list('id', flat=True), _COUNTRIES_PER_REQUEST)
@@ -48,7 +48,7 @@ class CountryAdmin(FormattedAdmin):
         print('@@@countries_ids_chunks count', len(countries_ids_chunked))
 
         jobs = group(
-            [countries_update_flag_png.s(countries_ids) for countries_ids in countries_ids_chunked])
+            [countries_add_png_flag_from_svg.s(countries_ids) for countries_ids in countries_ids_chunked])
         jobs.apply_async()
 
         self.message_user(request, f"{len(queryset)} Стран поставлены в очередь на обновление флагов")

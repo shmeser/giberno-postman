@@ -62,7 +62,7 @@ def countries_update_flag(countries_ids: list = None):
 
 
 @app.task
-def countries_update_flag_png(countries_ids: list = None):
+def countries_add_png_flag_from_svg(countries_ids: list = None):
     mapped_entities = []
 
     # Удаляем старые флаги
@@ -87,7 +87,7 @@ def countries_update_flag_png(countries_ids: list = None):
         try:
             country = Country.objects.get(pk=file.owner_id)
 
-            png = svg2png(file_obj=file.file, output_height=IMAGE_PREVIEW_SIDE_MAX, output_width=IMAGE_PREVIEW_SIDE_MAX)
+            png = svg2png(file_obj=file.file)
 
             suffix = mimetypes.guess_extension(MimeTypes.PNG.value)
             temp_file = NamedTemporaryFile(delete=True, suffix=suffix)
