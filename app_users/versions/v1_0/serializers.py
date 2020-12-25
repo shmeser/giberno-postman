@@ -130,10 +130,6 @@ class ProfileSerializer(CRUDSerializer):
 
         return super().to_internal_value(data)
 
-    def update(self, instance, validated_data):
-        print(validated_data)
-        return super().update(instance, validated_data)
-
     def get_avatar(self, profile: UserProfile):
         avatar = MediaRepository().filter_by_kwargs({
             'owner_id': profile.id,
