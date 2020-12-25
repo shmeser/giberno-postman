@@ -13,11 +13,11 @@ from backend.utils import choices
 class UserProfile(AbstractUser, BaseModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
 
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = []
 
-    username = models.CharField(max_length=255, null=True, blank=True)
-    email = models.EmailField(unique=True, blank=True, null=True)
+    username = models.CharField(unique=True, max_length=255, null=True, blank=True)
+    email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=16, blank=True, null=True)
 
     first_name = models.CharField(max_length=255, null=True, blank=True)
