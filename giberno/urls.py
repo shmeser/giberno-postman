@@ -4,7 +4,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import path, include
 
 from app_users.views import social_web_auth, login
-from frontend.views import PolicyView, AgreementView, DocumentsView
+from frontend.views import PolicyView, AgreementView, DocumentsView, TermsView
 from giberno import settings
 from giberno.yasg import urlpatterns as doc_urls
 
@@ -23,6 +23,7 @@ social_web_auth = [
 
 service_urls = [
     path('documents', DocumentsView.as_view()),
+    path('terms', TermsView.as_view()),
     path('policy', PolicyView.as_view()),
     path('agreement', AgreementView.as_view()),
 ]
