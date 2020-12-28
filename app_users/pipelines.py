@@ -44,6 +44,7 @@ def get_or_create_user(backend, user: UserProfile = None, *args, **kwargs):
             # Создаем модель способа авторизации
             SocialsRepository().create(
                 user=user,
+                is_for_reg=True, # Ставим флаг, что используется для регистрации
                 **social_data.get_kwargs()
             )
         else:

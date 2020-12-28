@@ -5,7 +5,7 @@ from django.contrib.postgres.fields import ArrayField, JSONField, HStoreField
 from django.db.models import UUIDField
 from django.forms import TextInput, Textarea
 
-from app_geo.models import Country, City
+from app_geo.models import Country, City, Region, District
 from backend.tasks import countries_update_flag, countries_add_png_flag_from_svg
 from backend.utils import chunks
 
@@ -21,18 +21,17 @@ class FormattedAdmin(admin.OSMGeoAdmin):
     }
 
 
+_ITEMS_PER_ITERATION = 5
+
+
 @admin.register(Country)
 class CountryAdmin(FormattedAdmin):
-    list_display = ['name', 'iso_code']
+    list_display = ['id', 'iso_code', 'name', 'names']
     raw_id_fields = ['languages']
     actions = ["update_flags", "add_png_flags"]
 
     def update_flags(self, request, queryset):
-        _COUNTRIES_PER_REQUEST = 5
-
-        countries_ids_chunked = chunks(queryset.values_list('id', flat=True), _COUNTRIES_PER_REQUEST)
-        print('@@@countries COUNT', queryset.count())
-        print('@@@countries_ids_chunks count', len(countries_ids_chunked))
+        countries_ids_chunked = chunks(queryset.values_list('id', flat=True), _ITEMS_PER_ITERATION)
 
         jobs = group(
             [countries_update_flag.s(countries_ids) for countries_ids in countries_ids_chunked])
@@ -41,11 +40,7 @@ class CountryAdmin(FormattedAdmin):
         self.message_user(request, f"{len(queryset)} Стран поставлены в очередь на обновление флагов")
 
     def add_png_flags(self, request, queryset):
-        _COUNTRIES_PER_REQUEST = 5
-
-        countries_ids_chunked = chunks(queryset.values_list('id', flat=True), _COUNTRIES_PER_REQUEST)
-        print('@@@countries COUNT', queryset.count())
-        print('@@@countries_ids_chunks count', len(countries_ids_chunked))
+        countries_ids_chunked = chunks(queryset.values_list('id', flat=True), _ITEMS_PER_ITERATION)
 
         jobs = group(
             [countries_add_png_flag_from_svg.s(countries_ids) for countries_ids in countries_ids_chunked])
@@ -54,6 +49,21 @@ class CountryAdmin(FormattedAdmin):
         self.message_user(request, f"{len(queryset)} Стран поставлены в очередь на обновление флагов")
 
 
+@admin.register(Region)
+class RegionAdmin(FormattedAdmin):
+    list_display = ['id', 'name', 'names', 'osm']
+    list_filter = ["country_id"]
+
+
+@admin.register(District)
+class DistrictAdmin(FormattedAdmin):
+    list_display = ['id', 'name', 'names', 'osm']
+    actions = ["parse_district", "get_border"]
+    list_filter = ["country_id", 'region_id']
+
+
 @admin.register(City)
 class CityAdmin(FormattedAdmin):
-    list_display = ['name', 'names', 'osm']
+    list_display = ['id', 'name', 'names', 'osm']
+    actions = ["get_border"]
+    list_filter = ["country_id", 'region_id']

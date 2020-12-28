@@ -24,6 +24,8 @@ class ErrorsCodes(Enum):
 
     UNSUPPORTED_FILE_FORMAT = 'Неподдерживаемый формат файла'
 
+    DELETING_REG_SOCIAL = 'Нельзя отвязать соцсеть, через которую был создан аккаунт'
+
     @classmethod
     def has_value(cls, value):
         return value in cls._value2member_map_
