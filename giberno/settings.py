@@ -169,21 +169,23 @@ DOCUMENT_MIME_TYPES = [
     'application/pdf',
     'text/richtext',
     'text/plain',
-    'application/excel',
     'application/vnd.ms-excel',
 ]
+
 IMAGE_MIME_TYPES = [
-    'image/x-ms-bmp',
+    'image/bmp',
     'image/gif',
     'image/jpeg',
     'image/png',
     'image/tiff',
     'image/svg+xml',
 ]
+
 AUDIO_MIME_TYPES = [
     'audio/mpeg',
     'audio/x-wav',
 ]
+
 VIDEO_MIME_TYPES = [
     'video/x-msvideo',
     'video/quicktime',
