@@ -227,5 +227,6 @@ class SocialSerializer(CRUDSerializer):
             'username',
             'phone',
             'email',
-            'created_at'
+            'created_at',
+            'is_for_reg',
         ]

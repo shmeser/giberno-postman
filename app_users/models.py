@@ -95,6 +95,7 @@ class SocialModel(BaseModel):
     social_id = models.CharField(max_length=255, blank=False, null=True)
     access_token = models.CharField(max_length=2048, blank=False, null=True)
     access_token_expiration = models.DateTimeField(null=True, blank=True)
+    is_for_reg = models.BooleanField(default=False, verbose_name='Использовался для регистрации')
 
     def __str__(self):
         return f'{self.social_id} - {self.type}'
