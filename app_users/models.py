@@ -13,11 +13,11 @@ from backend.utils import choices
 class UserProfile(AbstractUser, BaseModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
 
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = []
 
-    username = models.CharField(max_length=255, null=True, blank=True)
-    email = models.EmailField(unique=True, blank=True, null=True)
+    username = models.CharField(unique=True, max_length=255, null=True, blank=True)
+    email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=16, blank=True, null=True)
 
     first_name = models.CharField(max_length=255, null=True, blank=True)
@@ -95,6 +95,7 @@ class SocialModel(BaseModel):
     social_id = models.CharField(max_length=255, blank=False, null=True)
     access_token = models.CharField(max_length=2048, blank=False, null=True)
     access_token_expiration = models.DateTimeField(null=True, blank=True)
+    is_for_reg = models.BooleanField(default=False, verbose_name='Использовался для регистрации')
 
     def __str__(self):
         return f'{self.social_id} - {self.type}'

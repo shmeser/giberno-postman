@@ -130,10 +130,6 @@ class ProfileSerializer(CRUDSerializer):
 
         return super().to_internal_value(data)
 
-    def update(self, instance, validated_data):
-        print(validated_data)
-        return super().update(instance, validated_data)
-
     def get_avatar(self, profile: UserProfile):
         avatar = MediaRepository().filter_by_kwargs({
             'owner_id': profile.id,
@@ -181,7 +177,6 @@ class ProfileSerializer(CRUDSerializer):
 
     def get_registration_completed(self, profile: UserProfile):
         if profile.first_name and \
-                profile.middle_name and \
                 profile.last_name and \
                 profile.birth_date is not None and \
                 profile.email and \
@@ -232,5 +227,6 @@ class SocialSerializer(CRUDSerializer):
             'username',
             'phone',
             'email',
-            'created_at'
+            'created_at',
+            'is_for_reg',
         ]

@@ -112,3 +112,23 @@ class MyProfileUploads(APIView):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileUploads().post(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileUploads().delete(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class MyProfileSocials(APIView):
+    @staticmethod
+    def get(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileSocials().get(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileSocials().delete(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

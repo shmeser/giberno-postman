@@ -34,10 +34,6 @@ class AuthRepository:
             social_id=social_data.social_id, type=social_data.social_type, defaults=social_data.get_kwargs()
         )
 
-        # Проверяем существование пользователя с пришедшим имейлом, если таковой есть, не подставляем имейл в профиль
-        if ProfileRepository().filter_by_kwargs({'email': social_data.email}).exists():
-            social_data.email = None
-
         # Получаем или создаем пользователя
         defaults = {
             'reg_reference': reference_user,
@@ -45,8 +41,7 @@ class AuthRepository:
             'phone': social_data.phone,
             'first_name': social_data.first_name,
             'last_name': social_data.last_name,
-            'middle_name': social_data.middle_name,
-            'username': social_data.username,
+            'middle_name': social_data.middle_name
         }
 
         # Проверка типа аккаунта, отсылаемого при авторизации
@@ -54,16 +49,17 @@ class AuthRepository:
             defaults['account_type'] = account_type
 
         if base_user is None or base_user.is_anonymous:
-            # Если запрос пришел без авторизации (первая регистрация)
+            # Если запрос пришел без авторизации (регистрация и содание аккаунта через соцсеть)
             user, created = UserProfile.objects.get_or_create(socialmodel=social, defaults=defaults)
 
             if created:
                 # Привязываем пользователя к соцсети
                 social.user = user
+                social.is_for_reg = True
                 social.save()
                 user.email = social_data.email
             else:
-                # Если при регистрации указан другой тип аккаунта
+                # Если ранее уже создан аккаунт и при регистрации указан другой тип аккаунта
                 if user.account_type != account_type:
                     raise HttpException(
                         detail=ErrorsCodes.ALREADY_REGISTERED_WITH_OTHER_ROLE.value,
@@ -84,11 +80,11 @@ class AuthRepository:
             created = False
 
             if user is not None:
-                # Пользователь найден
+                # Пользователь для соцсети найден
 
                 if user.id != base_user.id:
                     raise HttpException(
-                        detail='Данным способом уже зарегистрирован другой пользователь',
+                        detail=ErrorsCodes.SOCIAL_ALREADY_IN_USE.value,
                         status_code=RESTErrors.FORBIDDEN
                     )
                 else:

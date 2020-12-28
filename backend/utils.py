@@ -17,7 +17,7 @@ from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 from ffmpy import FFmpeg
 
-from app_media.enums import MediaFormat, FileDownloadStatus
+from app_media.enums import MediaFormat, FileDownloadStatus, MimeTypes
 from backend.entity import File as FileEntity
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
@@ -374,7 +374,7 @@ def convert_video(file_entity: FileEntity):
 
         preview = TemporaryUploadedFile(
             size=file_entity.file.size,
-            content_type='image/jpeg',
+            content_type=MimeTypes.JPEG.value,
             name=f'{file_entity.uuid}.jpg',
             charset=file_entity.file.charset
         )

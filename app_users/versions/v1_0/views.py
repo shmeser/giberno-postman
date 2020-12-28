@@ -1,5 +1,7 @@
+from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -16,10 +18,12 @@ from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
-from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository
-from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer
-from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
+    SocialsRepository
+from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer
+from backend.entity import Error
+from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.http_exception import HttpException, CustomException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers, get_request_body
@@ -166,6 +170,21 @@ class MyProfileUploads(APIView):
         serializer = MediaSerializer(saved_files, many=True)
         return Response(camelize(serializer.data), status=status.HTTP_200_OK)
 
+    def delete(self, request):
+        body = get_request_body(request)
+        uuid_list = body.get('uuid', [])
+        uuid_list = uuid_list if isinstance(uuid_list, list) else [uuid_list]
+        if uuid_list:
+            MediaRepository().filter_by_kwargs({
+                'owner_id': request.user.id,
+                'owner_content_type_id': ContentType.objects.get_for_model(request.user).id,
+                'uuid__in': uuid_list
+            }).update(**{
+                'deleted': True,
+                'updated_at': now()
+            })
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
 
 class Users(CRUDAPIView):
     serializer_class = ProfileSerializer
@@ -211,3 +230,32 @@ class Users(CRUDAPIView):
             serialized = self.serializer_class(dataset, many=True)
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class MyProfileSocials(APIView):
+    def get(self, request):
+        serializer = SocialSerializer(
+            request.user.socialmodel_set.filter(deleted=False).order_by('-created_at'),
+            many=True
+        )
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        body = get_request_body(request)
+        id_list = body.get('id', [])
+        id_list = id_list if isinstance(id_list, list) else [id_list]
+        if id_list:
+            if SocialsRepository().filter_by_kwargs({
+                'user': request.user,
+                'id__in': id_list,
+                'is_for_reg': True  # Проверяем, есть ли среди соцсетей та, через которую был создан аккаунт
+            }).exists():
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.DELETING_REG_SOCIAL))
+                ])
+
+            SocialsRepository().filter_by_kwargs({
+                'user': request.user,
+                'id__in': id_list,
+            })
+        return Response(None, status=status.HTTP_204_NO_CONTENT)

@@ -1,3 +1,4 @@
+import gzip
 import mimetypes
 import sys
 from tempfile import NamedTemporaryFile
@@ -5,7 +6,6 @@ from tempfile import NamedTemporaryFile
 from cairosvg import svg2png
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.uploadedfile import UploadedFile
-from django.utils.timezone import now
 
 from app_geo.models import Country
 from app_geo.versions.v1_0.repositories import CountriesRepository
@@ -31,7 +31,7 @@ def countries_update_flag(countries_ids: list = None):
         'owner_id__in': countries_ids,
         'owner_content_type_id': country_ct.id,
         'type': MediaType.FLAG
-    }).update(deleted=True, updated_at=now())
+    }).delete()
 
     for country in countries:
         flag_url = country.osm.get('flag', None)
@@ -41,12 +41,16 @@ def countries_update_flag(countries_ids: list = None):
             if status == FileDownloadStatus.SAVED:
                 suffix = mimetypes.guess_extension(content_type)
                 temp_file = NamedTemporaryFile(delete=True, suffix=suffix)
+                if content_type == MimeTypes.SVG.value:
+                    dl_file = gzip.decompress(dl_file)
                 temp_file.write(dl_file)
                 temp_file.flush()
 
                 uploaded = UploadedFile(file=temp_file, size=size, content_type=content_type)
 
-                mapped_file = MediaMapper.combine(uploaded, country, file_type=MediaType.FLAG)
+                mapped_file = MediaMapper.combine(
+                    uploaded, country, file_type=MediaType.FLAG, file_title=country.names.get('name:en', None)
+                )
                 if mapped_file:
                     mapped_entities.append(mapped_file)
 
@@ -58,7 +62,7 @@ def countries_update_flag(countries_ids: list = None):
 
 
 @app.task
-def countries_update_flag_png(countries_ids: list = None):
+def countries_add_png_flag_from_svg(countries_ids: list = None):
     mapped_entities = []
 
     # Удаляем старые флаги
@@ -69,7 +73,7 @@ def countries_update_flag_png(countries_ids: list = None):
         'owner_content_type_id': country_ct.id,
         'mime_type': MimeTypes.PNG.value,
         'type': MediaType.FLAG
-    }).update(deleted=True, updated_at=now())
+    }).delete()
 
     media_files = MediaRepository().filter_by_kwargs({
         'deleted': False,
@@ -83,7 +87,7 @@ def countries_update_flag_png(countries_ids: list = None):
         try:
             country = Country.objects.get(pk=file.owner_id)
 
-            png = svg2png(file_obj=file.file, output_height=IMAGE_PREVIEW_SIDE_MAX, output_width=IMAGE_PREVIEW_SIDE_MAX)
+            png = svg2png(file_obj=file.file)
 
             suffix = mimetypes.guess_extension(MimeTypes.PNG.value)
             temp_file = NamedTemporaryFile(delete=True, suffix=suffix)
@@ -92,7 +96,9 @@ def countries_update_flag_png(countries_ids: list = None):
 
             uploaded = UploadedFile(file=temp_file, size=sys.getsizeof(png), content_type=MimeTypes.PNG.value)
 
-            mapped_file = MediaMapper.combine(uploaded, country, file_type=MediaType.FLAG)
+            mapped_file = MediaMapper.combine(
+                uploaded, country, file_type=MediaType.FLAG, file_title=country.names.get('name:en', None)
+            )
             if mapped_file:
                 mapped_entities.append(mapped_file)
 
