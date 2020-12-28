@@ -29,7 +29,28 @@ class FileDownloadStatus(IntEnum):
 
 
 class MimeTypes(Enum):
+    # Images
     JPEG = 'image/jpeg'
-    PDF = 'application/pdf'
     PNG = 'image/png'
+    BMP = 'image/bmp',
+    GIF = 'image/gif',
+    TIFF = 'image/tiff',
     SVG = 'image/svg+xml'
+
+    # Video
+    AVI = 'video/x-msvideo',
+    MOV = 'video/quicktime',
+    MP4 = 'video/mp4',
+    MPG = 'video/mpeg'
+
+    # Audio
+    MP3 = 'audio/mpeg',
+    WAV = 'audio/x-wav',
+
+    # Documents
+    PDF = 'application/pdf'
+    DOC = 'application/msword',
+    RTF = 'text/richtext',
+    TXT = 'text/plain',
+    XLS = 'application/vnd.ms-excel'
+    # TODO XLS = 'application/excel', проверить

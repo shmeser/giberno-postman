@@ -1,12 +1,11 @@
 import uuid as uuid
 
 from django.contrib.contenttypes.models import ContentType
-
 from app_media.enums import MediaType, MediaFormat, MimeTypes
 from backend.entity import File, Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exception import CustomException
-from backend.utils import get_media_format, resize_image, convert_video
+from backend.utils import get_media_format, resize_image, convert_video, CP
 
 
 class MediaMapper:
@@ -30,10 +29,13 @@ class MediaMapper:
 
         name = str(file_entity.uuid)
         parts = file_data.name.split('.')
+
+        CP(bg='green').bold(f'Uploaded File Name - "{file_data.name}"')
+
         if parts.__len__() > 1:
-            extension = '.' + parts[-1].lower()
+            extension = f'.{parts[-1].lower()}'
         else:
-            extension = ''
+            extension = f'.{str(MimeTypes(file_entity.mime_type).name).lower()}'
         file_data.name = name + extension
 
         file_entity.file = file_data
