@@ -27,10 +27,15 @@ class MediaMapper:
         file_entity.format = get_media_format(file_entity.mime_type)
         file_entity.size = file_data.size
 
+        if file_entity.format == MediaFormat.UNKNOWN:  # Если пришел неизвестный формат файла
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT))
+            ])
+
         name = str(file_entity.uuid)
         parts = file_data.name.split('.')
 
-        CP(bg='green').bold(f'Uploaded File Name - "{file_data.name}"')
+        CP(bg='green').bold(f'Uploaded File Name - "{file_data.name}" - uuid {file_entity.uuid}')
 
         if parts.__len__() > 1:
             extension = f'.{parts[-1].lower()}'
@@ -53,10 +58,6 @@ class MediaMapper:
             pass
         if file_entity.format == MediaFormat.VIDEO:
             convert_video(file_entity)
-        if file_entity.format == MediaFormat.UNKNOWN:  # Если пришел неизвестный формат файла
-            raise CustomException(errors=[
-                dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT))
-            ])
 
         # Не создаем пустые записи, если файл не удалось обработать
         if file_entity.file is not None:

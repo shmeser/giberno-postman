@@ -26,7 +26,7 @@ from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_headers, get_request_body
+from backend.utils import get_request_headers, get_request_body, CP
 
 
 @api_view(['GET'])
@@ -157,6 +157,7 @@ class MyProfile(CRUDAPIView):
 
     def patch(self, request, **kwargs):
         body = get_request_body(request)
+        CP(bg='cyan').bold(body)
         serialized = self.serializer_class(request.user, data=body)
         serialized.is_valid(raise_exception=True)
         serialized.save()
