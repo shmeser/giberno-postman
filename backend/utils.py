@@ -270,13 +270,17 @@ def resize_image(file_entity: FileEntity):
 
         img.save(blob, img_format)
 
+        CP(fg='red', bg='cyan').bold(file_entity.file.file.name)
+
         result = TemporaryUploadedFile(
             size=blob.__sizeof__(),
             content_type=file_entity.file.content_type,
-            name=f'resized.{file_entity.file.name}',
+            name=file_entity.file.name,
             charset=file_entity.file.charset
         )
         img.save(result, img_format)
+
+        CP(fg='red', bg='cyan').bold(result.file.name)
 
         """Создаем превью для изображения"""
 
@@ -289,10 +293,12 @@ def resize_image(file_entity: FileEntity):
         preview = TemporaryUploadedFile(
             size=blob.__sizeof__(),
             content_type=file_entity.file.content_type,
-            name=f'resized.{file_entity.file.name}',
+            name=file_entity.file.name,
             charset=file_entity.file.charset
         )
         img.save(preview, img_format)
+
+        CP(fg='red', bg='cyan').bold(preview.file.name)
 
         file_entity.file = result
         file_entity.preview = preview
