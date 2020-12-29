@@ -273,7 +273,7 @@ def resize_image(file_entity: FileEntity):
         result = TemporaryUploadedFile(
             size=blob.__sizeof__(),
             content_type=file_entity.file.content_type,
-            name=file_entity.file.name,
+            name=f'resized.{file_entity.file.name}',
             charset=file_entity.file.charset
         )
         img.save(result, img_format)
@@ -289,7 +289,7 @@ def resize_image(file_entity: FileEntity):
         preview = TemporaryUploadedFile(
             size=blob.__sizeof__(),
             content_type=file_entity.file.content_type,
-            name=file_entity.file.name,
+            name=f'resized.{file_entity.file.name}',
             charset=file_entity.file.charset
         )
         img.save(preview, img_format)

@@ -39,7 +39,7 @@ def countries_update_flag(countries_ids: list = None):
 
             if status == FileDownloadStatus.SAVED:
                 suffix = mimetypes.guess_extension(content_type)
-                temp_file = NamedTemporaryFile(delete=False, suffix=suffix)
+                temp_file = NamedTemporaryFile(delete=True, suffix=suffix)
                 if content_type == MimeTypes.SVG.value:
                     dl_file = gzip.decompress(dl_file)
                 temp_file.write(dl_file)
@@ -89,7 +89,7 @@ def countries_add_png_flag_from_svg(countries_ids: list = None):
             png = svg2png(file_obj=file.file)
 
             suffix = mimetypes.guess_extension(MimeTypes.PNG.value)
-            temp_file = NamedTemporaryFile(delete=False, suffix=suffix)
+            temp_file = NamedTemporaryFile(delete=True, suffix=suffix)
             temp_file.write(png)
             temp_file.flush()
 
