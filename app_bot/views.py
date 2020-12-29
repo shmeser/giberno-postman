@@ -30,29 +30,31 @@ class TelegramBotView(View):
         t_data = get_request_body(request)
         # CP(fg='cyan').bold(t_data)
         t_message = t_data["message"] if "message" in t_data else None
+        t_channel_post = t_data["channel_post"] if "channel_post" in t_data else None
 
-        t_chat = t_message["chat"] if t_message and "chat" in t_message else None
-        text = t_message["text"].strip().lower() if t_message and 'text' in t_message else None
+        incoming_data = t_message or t_channel_post
 
-        if t_message is None or t_chat is None or text is None:
+        t_chat = incoming_data["chat"] if "chat" in incoming_data else None
+        text = incoming_data["text"].strip().lower() if incoming_data and 'text' in incoming_data else None
+
+        if incoming_data is None or t_chat is None or text is None:
             return JsonResponse({
                 "ok": "POST request processed"
             })
 
-        # text = text.lstrip("/")
-
         chat = BotRepository.get_or_create_chat(
-            chat_id=t_chat["id"],
-            chat_type=t_chat["type"] if "type" in t_chat else None,
-            username=t_chat["username"] if "username" in t_chat else None,
-            first_name=t_chat["first_name"] if "first_name" in t_chat else None,
-            last_name=t_chat["last_name"] if "last_name" in t_chat else None
+            chat_id=t_chat.get("id", None),
+            chat_type=t_chat.get("type", None),
+            chat_title=t_chat.get("title", None),
+            username=t_chat.get("username", None),
+            first_name=t_chat.get("first_name", None),
+            last_name=t_chat.get("last_name", None)
         )
 
         # Если пришла команда
-        if "entities" in t_message and t_message['entities']:
+        if "entities" in incoming_data and incoming_data['entities']:
             msg = None
-            for entity in t_message['entities']:
+            for entity in incoming_data['entities']:
                 if entity['type'] == 'bot_command':
                     # Проверяем команды
                     if '/start' in text and config.TELEGRAM_BOT_PASSWORD in text:
@@ -105,15 +107,15 @@ class TelegramBotView(View):
                 self.send_message(msg, t_chat["id"])
 
         BotRepository.create_message(chat, **{
-            "message_id": t_message['message_id'],
-            "is_bot": t_message['from']['is_bot'],
+            "message_id": incoming_data['message_id'],
+            "date": timestamp_to_datetime(t_message['date'], milliseconds=False),
+            "text": text,
+            "is_bot": incoming_data['from']['is_bot'],
             "from_id": t_message['from']['id'],
             "username": t_message['from']['username'] if "username" in t_message['from'] else None,
             "first_name": t_message['from']['first_name'] if "first_name" in t_message['from'] else None,
             "last_name": t_message['from']['last_name'] if "last_name" in t_message['from'] else None,
             "language_code": t_message['from']['language_code'] if "language_code" in t_message['from'] else None,
-            "date": timestamp_to_datetime(t_message['date'] * 1000),
-            "text": text,
         })
 
         BotRepository.create_message(chat, **{
