@@ -7,7 +7,7 @@ import requests
 from backend.utils import CP
 from giberno.environment.environments import Environment
 from giberno.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_URL
-from app_bot.enums import BotNotificationType
+from app_bot.enums import TelegramBotNotificationType
 
 
 class TelegramFormatter(logging.Formatter):
@@ -61,9 +61,9 @@ class BotSender:
             Environment.DEVELOP.value,
             Environment.LOCAL.value
         ]:
-            if notification_type == BotNotificationType.DEBUG.value:
+            if notification_type == TelegramBotNotificationType.DEBUG.value:
                 chats = BotRepository.get_chats_by_notification_types(
-                    BotNotificationType.DEBUG.value, approved=True
+                    TelegramBotNotificationType.DEBUG.value, approved=True
                 )
             else:
                 chats = []
@@ -97,4 +97,4 @@ class BotLogger(logging.Handler):
         self.setFormatter(TelegramFormatter())
 
     def emit(self, record):
-        BotSender.send_message(self.format(record), BotNotificationType.DEBUG.value)
+        BotSender.send_message(self.format(record), TelegramBotNotificationType.DEBUG.value)
