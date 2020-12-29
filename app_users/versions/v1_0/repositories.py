@@ -3,13 +3,14 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType
 from app_users.models import SocialModel, UserProfile, JwtToken
-from backend.errors.enums import RESTErrors
+from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException
+from backend.mixins import MasterRepository
 from backend.repositories import BaseRepository
 
 
-class UsersRepository(object):
+class UsersRepository:
     @staticmethod
     def get_reference_user(reference_code):
         return UserProfile.objects.filter(uuid__icontains=reference_code, deleted=False).first()
@@ -19,7 +20,7 @@ class AuthRepository:
 
     @staticmethod
     def get_or_create_social_user(social_data: SocialEntity, account_type=AccountType.SELF_EMPLOYED,
-                                  reference_code=None):
+                                  reference_code=None, base_user: UserProfile = None):
 
         # Проверка реферального кода
         reference_user = None
@@ -28,8 +29,8 @@ class AuthRepository:
             if reference_user is None:
                 raise HttpException(detail='Невалидный реферальный код', status_code=RESTErrors.BAD_REQUEST)
 
-        # Создаем способ авторизации
-        social, created = SocialModel.objects.get_or_create(
+        # Получаем способ авторизации
+        social, social_created = SocialModel.objects.get_or_create(
             social_id=social_data.social_id, type=social_data.social_type, defaults=social_data.get_kwargs()
         )
 
@@ -38,44 +39,94 @@ class AuthRepository:
             'reg_reference': reference_user,
             'reg_reference_code': reference_code,
             'phone': social_data.phone,
-            'email': social_data.email,
             'first_name': social_data.first_name,
             'last_name': social_data.last_name,
-            'middle_name': social_data.middle_name,
-            'username': social_data.username,
+            'middle_name': social_data.middle_name
         }
 
         # Проверка типа аккаунта, отсылаемого при авторизации
         if account_type is not None and AccountType.has_value(account_type):
             defaults['account_type'] = account_type
 
-        user, created = UserProfile.objects.get_or_create(socialmodel=social, defaults=defaults)
+        if base_user is None or base_user.is_anonymous:
+            # Если запрос пришел без авторизации (регистрация и содание аккаунта через соцсеть)
+            user, created = UserProfile.objects.get_or_create(socialmodel=social, defaults=defaults)
 
-        if created:
-            social.user = user
-            social.save()
+            if created:
+                # Привязываем пользователя к соцсети
+                social.user = user
+                social.is_for_reg = True
+                social.save()
+                user.email = social_data.email
+            else:
+                # Если ранее уже создан аккаунт и при регистрации указан другой тип аккаунта
+                if user.account_type != account_type:
+                    raise HttpException(
+                        detail=ErrorsCodes.ALREADY_REGISTERED_WITH_OTHER_ROLE.value,
+                        status_code=RESTErrors.FORBIDDEN
+                    )
 
-        if user.account_type != account_type:
-            raise HttpException(
-                detail='Данным способом уже зарегистрирован пользователь с другой ролью',
-                status_code=RESTErrors.FORBIDDEN
-            )
+                # Подставляем имеил с соцсети, если его нет
+                user.email = social_data.email if not user.email and social_data.email else user.email
+                # Подставляем телефон из соцсети всегда
+                user.phone = social_data.phone if social_data.phone else user.phone
+
+            user.save()
+            result = user
+
+        else:
+            # Если происходит привязка соцсети к аккаунту
+            user = UserProfile.objects.filter(socialmodel=social).first()
+            created = False
+
+            if user is not None:
+                # Пользователь для соцсети найден
+
+                if user.id != base_user.id:
+                    raise HttpException(
+                        detail=ErrorsCodes.SOCIAL_ALREADY_IN_USE.value,
+                        status_code=RESTErrors.FORBIDDEN
+                    )
+                else:
+                    # Найден свой аккаунт
+
+                    # Подставляем имеил с соцсети, если его нет
+                    user.email = social_data.email if not user.email and social_data.email else user.email
+                    # Подставляем телефон из соцсети всегда
+                    user.phone = social_data.phone if social_data.phone else user.phone
+
+                    user.save()
+
+                result = user
+
+            else:
+                # Пользователь для соцсети не найден
+
+                # Привязываем ооцсеть к своему base_user
+                social.user = base_user
+                social.save()
+
+                # Подставляем имеил с соцсети, если его нет
+                base_user.email = social_data.email if not base_user.email and social_data.email else base_user.email
+                # Подставляем телефон из соцсети всегда
+                base_user.phone = social_data.phone if social_data.phone else base_user.phone
+
+                base_user.save()
+
+                result = base_user
 
         # Создаем модель настроек
         # TODO
-        return user, created
+        return result, created
 
 
-class SocialModelRepository(BaseRepository):
+class SocialsRepository(BaseRepository):
     def __init__(self) -> None:
         super().__init__(SocialModel)
 
     @staticmethod
     def create(**kwargs):
         return SocialModel.objects.create(**kwargs)
-
-    def filter_by_kwargs(self, **kwargs):
-        return super().filter_by_kwargs(kwargs)
 
 
 class JwtRepository:
@@ -150,3 +201,16 @@ class JwtRepository:
         access_token = str(refresh.access_token)
 
         return JwtToken.objects.create(**JwtTokenEntity(user, access_token, refresh_token).get_kwargs())
+
+
+class ProfileRepository(MasterRepository):
+    model = UserProfile
+
+    def get_by_id(self, record_id):
+        try:
+            return self.model.objects.get(id=record_id, is_staff=False)
+        except self.model.DoesNotExist:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
+            )

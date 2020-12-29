@@ -1,5 +1,8 @@
+from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.utils.timezone import now
+from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -9,14 +12,20 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from social_core.exceptions import AuthTokenRevoked
 from social_django.utils import load_backend, load_strategy
 
+from app_media.versions.v1_0.repositories import MediaRepository
+from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
-from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository
-from app_users.versions.v1_0.serializers import RefreshTokenSerializer
-from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
+    SocialsRepository
+from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer
+from backend.entity import Error
+from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.http_exception import HttpException, CustomException
+from backend.mappers import RequestMapper
+from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers, get_request_body
 
 
@@ -41,13 +50,9 @@ class AuthFirebase(APIView):
         user, created = AuthRepository.get_or_create_social_user(
             social_data,
             # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
-            reference_code=body.get('reference_code', None)
+            reference_code=body.get('reference_code', None),
+            base_user=request.user or None
         )
-
-        # if request.user and not request.user.is_anonymous:  # Если отсылался заголовок Authorization
-        #     """ Если запрос пришел от соц юзера, и привязывается к другому соц юзеру, отдаем ошибку"""
-        #     raise HttpException(detail='Нельзя привязать соцсеть к аккаунту с соцсетью',
-        #                         status_code=RESTErrors.FORBIDDEN)
 
         JwtRepository().remove_old(user)  # TODO пригодится для запрета входа с нескольких устройств
         jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
@@ -137,13 +142,120 @@ class ReferenceCode(APIView):
         })
 
 
-class MyProfile(APIView):
-    @staticmethod
-    def get(request):
+class MyProfile(CRUDAPIView):
+    serializer_class = ProfileSerializer
+    repository_class = ProfileRepository
+    allowed_http_methods = ['get']
+
+    def __init__(self):
+        super().__init__()
+        self.serializer_class = ProfileSerializer
+
+    def get(self, request, **kwargs):
+        serialized = self.serializer_class(request.user, many=False)
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def patch(self, request, **kwargs):
+        body = get_request_body(request)
+        serialized = self.serializer_class(request.user, data=body)
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class MyProfileUploads(APIView):
+    def post(self, request):
+        uploaded_files = RequestMapper.file_entities(request, request.user)
+        saved_files = MediaRepository().bulk_create(uploaded_files)
+        serializer = MediaSerializer(saved_files, many=True)
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        body = get_request_body(request)
+        uuid_list = body.get('uuid', [])
+        uuid_list = uuid_list if isinstance(uuid_list, list) else [uuid_list]
+        if uuid_list:
+            MediaRepository().filter_by_kwargs({
+                'owner_id': request.user.id,
+                'owner_content_type_id': ContentType.objects.get_for_model(request.user).id,
+                'uuid__in': uuid_list
+            }).update(**{
+                'deleted': True,
+                'updated_at': now()
+            })
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
-class Users(APIView):
-    @staticmethod
-    def get(request):
+class Users(CRUDAPIView):
+    serializer_class = ProfileSerializer
+    repository_class = ProfileRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'username': 'username__istartswith',
+    }
+
+    default_order_params = []
+
+    default_filters = {
+        'is_staff': False
+    }
+
+    order_params = {
+        'username': 'username',
+    }
+
+    def __init__(self):
+        super().__init__()
+        self.serializer_class = ProfileSerializer
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        pagination = RequestMapper.pagination(request)
+        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
+                                          self.default_filters) or dict()
+        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+
+        if record_id:
+            self.serializer_class = ProfileSerializer
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+            serialized = self.serializer_class(dataset)
+        else:
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params
+            )
+            serialized = self.serializer_class(dataset, many=True)
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class MyProfileSocials(APIView):
+    def get(self, request):
+        serializer = SocialSerializer(
+            request.user.socialmodel_set.filter(deleted=False).order_by('-created_at'),
+            many=True
+        )
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        body = get_request_body(request)
+        id_list = body.get('id', [])
+        id_list = id_list if isinstance(id_list, list) else [id_list]
+        if id_list:
+            if SocialsRepository().filter_by_kwargs({
+                'user': request.user,
+                'id__in': id_list,
+                'is_for_reg': True  # Проверяем, есть ли среди соцсетей та, через которую был создан аккаунт
+            }).exists():
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.DELETING_REG_SOCIAL))
+                ])
+
+            SocialsRepository().filter_by_kwargs({
+                'user': request.user,
+                'id__in': id_list,
+            })
         return Response(None, status=status.HTTP_204_NO_CONTENT)

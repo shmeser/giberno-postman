@@ -1,9 +1,12 @@
 import inflection
 from djangorestframework_camel_case.util import underscoreize
 
-from backend.entity import Pagination
-from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from app_media.enums import MediaType
+from app_media.forms import FileForm
+from app_media.mappers import MediaMapper
+from backend.entity import Pagination, Error
+from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.http_exception import HttpException, CustomException
 from backend.utils import timestamp_to_datetime as m_t_d
 
 
@@ -11,13 +14,15 @@ class BaseMapper:
     @classmethod
     def validate(cls, data, field):
         if data.get(field) is None:
-            raise HttpException(detail='Empty field: ' + field,
-                                status_code=RESTErrors.BAD_REQUEST.value)
+            raise HttpException(
+                detail='Empty field: ' + field,
+                status_code=RESTErrors.BAD_REQUEST.value
+            )
 
 
-class RequestToPaginationMapper:
+class RequestMapper:
     @classmethod
-    def map(cls, request):
+    def pagination(cls, request):
         pagination: Pagination = Pagination()
 
         if request.GET.get('offset') is None:
@@ -38,17 +43,15 @@ class RequestToPaginationMapper:
 
         return pagination
 
-
-class RequestToFilters:
     @classmethod
-    def map(cls, request, params: dict, date_params: dict):
+    def filters(cls, request, params: dict, date_params: dict, default_filters: dict):
         if not params and not date_params:
             return
 
         # копируем, чтобы не изменять сам request.query_params
         filter_values = underscoreize(request.query_params.copy())
         if not filter_values:
-            return
+            return default_filters
 
         for param in date_params:
             if param in filter_values:
@@ -62,12 +65,10 @@ class RequestToFilters:
         """
         all_params = {**params, **date_params}
         kwargs = {all_params[param]: filter_values.get(param) for param in all_params if filter_values.get(param)}
-        return kwargs
+        return {**kwargs, **default_filters}
 
-
-class RequestToOrderParams:
     @classmethod
-    def map(cls, request, params: dict):
+    def order(cls, request, params: dict):
         if not params:
             return list()
 
@@ -89,3 +90,27 @@ class RequestToOrderParams:
                 django_order_params.append(f'{django_order}{django_field}')
 
         return django_order_params
+
+    @staticmethod
+    def file_entities(request, owner):
+        form = FileForm(request.POST, request.FILES)
+        entities = []
+
+        if form.is_valid():
+            for form_file in form.files.getlist('file'):
+                file_title = form.cleaned_data['title'] if 'title' in form.cleaned_data and form.cleaned_data[
+                    'title'] else form_file.name
+                file_type = form.cleaned_data.get('type', MediaType.OTHER)
+
+                mapped_file = MediaMapper.combine(form_file, owner, file_title, file_type)
+
+                if mapped_file:
+                    entities.append(mapped_file)
+
+            return entities
+        else:
+            # TODO подробные ошибки валидации формы
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.VALIDATION_ERROR)),
+                dict(Error(ErrorsCodes.EMPTY_REQUIRED_FIELDS)),
+            ])

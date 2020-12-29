@@ -5,10 +5,10 @@ from django.utils.timezone import now
 from app_users.entities import SocialEntity
 from app_users.mappers import SocialDataMapper
 from app_users.models import UserProfile
-from app_users.versions.v1_0.repositories import SocialModelRepository, AuthRepository
+from app_users.versions.v1_0.repositories import SocialsRepository, AuthRepository
 # from backend.utils import CP
 from backend.entity import Error
-from backend.errors.enums import ErrorsCodes as err
+from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exception import CustomException
 
 
@@ -36,18 +36,21 @@ def get_or_create_user(backend, user: UserProfile = None, *args, **kwargs):
         else:
             social_data = SocialEntity()
 
-        social = SocialModelRepository().filter_by_kwargs(type=backend.name, social_id=social_data.social_id).first()
+        social = SocialsRepository().filter_by_kwargs({
+            'type': backend.name, 'social_id': social_data.social_id
+        }).first()
 
         if not social:
             # Создаем модель способа авторизации
-            SocialModelRepository().create(
+            SocialsRepository().create(
                 user=user,
+                is_for_reg=True, # Ставим флаг, что используется для регистрации
                 **social_data.get_kwargs()
             )
         else:
             if social.user.id != user.id:
                 raise CustomException(errors=[
-                    dict(Error(err.SOCIAL_ALREADY_IN_USE))
+                    dict(Error(ErrorsCodes.SOCIAL_ALREADY_IN_USE))
                 ])
             # Обновляем access_token
             social.access_token = kwargs.get('response').get('access_token')
@@ -69,18 +72,11 @@ def get_or_create_user(backend, user: UserProfile = None, *args, **kwargs):
         else:
             social_data = SocialEntity()
 
-        social = SocialModelRepository().filter_by_kwargs(type=backend.name, social_id=social_data.social_id).first()
-
-        if social:
-            """ Если соцсеть привязана к чьему-либо аккаунту, то берем этот аккаунт """
-            user = social.user
-        else:
-            """ Если такой соцсети нет, то создать пользователя и добавить ему эту соцсеть """
-            user, created = AuthRepository.get_or_create_social_user(
-                social_data,
-                # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
-                reference_code=kwargs.get('reference_code', None)
-            )
+        user, created = AuthRepository.get_or_create_social_user(
+            social_data,
+            # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
+            reference_code=kwargs.get('reference_code', None)
+        )
 
         user.provider = backend.name  # Необходимо добавить провайдера в user для использования web авторизации
 
