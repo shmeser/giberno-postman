@@ -12,9 +12,8 @@ from app_geo.versions.v1_0.repositories import CountriesRepository
 from app_media.enums import FileDownloadStatus, MediaType, MimeTypes
 from app_media.mappers import MediaMapper
 from app_media.versions.v1_0.repositories import MediaRepository
-from backend.utils import get_remote_file
+from backend.utils import get_remote_file, CP
 from giberno.celery import app
-from giberno.settings import IMAGE_PREVIEW_SIDE_MAX
 
 
 @app.task
@@ -40,7 +39,7 @@ def countries_update_flag(countries_ids: list = None):
 
             if status == FileDownloadStatus.SAVED:
                 suffix = mimetypes.guess_extension(content_type)
-                temp_file = NamedTemporaryFile(delete=True, suffix=suffix)
+                temp_file = NamedTemporaryFile(delete=False, suffix=suffix)
                 if content_type == MimeTypes.SVG.value:
                     dl_file = gzip.decompress(dl_file)
                 temp_file.write(dl_file)
@@ -55,7 +54,7 @@ def countries_update_flag(countries_ids: list = None):
                     mapped_entities.append(mapped_file)
 
         except Exception as e:
-            print(e)
+            CP(bg='red').bold(e)
 
     if mapped_entities:
         MediaRepository().bulk_create(mapped_entities)
@@ -90,7 +89,7 @@ def countries_add_png_flag_from_svg(countries_ids: list = None):
             png = svg2png(file_obj=file.file)
 
             suffix = mimetypes.guess_extension(MimeTypes.PNG.value)
-            temp_file = NamedTemporaryFile(delete=True, suffix=suffix)
+            temp_file = NamedTemporaryFile(delete=False, suffix=suffix)
             temp_file.write(png)
             temp_file.flush()
 
@@ -103,7 +102,7 @@ def countries_add_png_flag_from_svg(countries_ids: list = None):
                 mapped_entities.append(mapped_file)
 
         except Exception as e:
-            print(e)
+            CP(bg='red').bold(e)
 
     if mapped_entities:
         MediaRepository().bulk_create(mapped_entities)
