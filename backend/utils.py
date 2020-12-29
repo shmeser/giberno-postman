@@ -270,8 +270,7 @@ def resize_image(file_entity: FileEntity):
 
         img.save(blob, img_format)
 
-        CP(fg='red', bg='cyan').bold(file_entity.file.file.name)
-
+        # TODO exception ignored in TemporaryFileCloser - разобраться с багом питона по временным файламы
         result = TemporaryUploadedFile(
             size=blob.__sizeof__(),
             content_type=file_entity.file.content_type,
@@ -279,8 +278,6 @@ def resize_image(file_entity: FileEntity):
             charset=file_entity.file.charset
         )
         img.save(result, img_format)
-
-        CP(fg='red', bg='cyan').bold(result.file.name)
 
         """Создаем превью для изображения"""
 
@@ -296,9 +293,8 @@ def resize_image(file_entity: FileEntity):
             name=file_entity.file.name,
             charset=file_entity.file.charset
         )
-        img.save(preview, img_format)
 
-        CP(fg='red', bg='cyan').bold(preview.file.name)
+        img.save(preview, img_format)
 
         file_entity.file = result
         file_entity.preview = preview
