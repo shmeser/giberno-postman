@@ -13,6 +13,7 @@ from backend.mixins import CRUDSerializer
 
 class LanguageSerializer(CRUDSerializer):
     repository = LanguagesRepository
+    name = serializers.SerializerMethodField()
     proficiency = serializers.SerializerMethodField()
 
     def get_proficiency(self, language: Language):
@@ -20,6 +21,12 @@ class LanguageSerializer(CRUDSerializer):
         if user_language:
             return user_language.proficiency
         return None
+
+    def get_name(self, language: Language):
+        user_language = 'name:ru'
+        if language.names.get(user_language, None):
+            return language.names[user_language]
+        return language.name
 
     class Meta:
         model = Language

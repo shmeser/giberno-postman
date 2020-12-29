@@ -19,6 +19,7 @@ class UserProfile(AbstractUser, BaseModel):
     username = models.CharField(unique=True, max_length=255, null=True, blank=True)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=16, blank=True, null=True)
+    show_phone = models.BooleanField(default=False, verbose_name='Показывать номер телефона')
 
     first_name = models.CharField(max_length=255, null=True, blank=True)
     middle_name = models.CharField(max_length=255, null=True, blank=True)
