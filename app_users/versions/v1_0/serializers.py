@@ -159,6 +159,8 @@ class ProfileSerializer(CRUDSerializer):
 
     def get_socials(self, profile: UserProfile):
         socials = SocialsRepository().filter_by_kwargs({
+            'user': profile,
+            'deleted': False
         }, order_by=['-created_at'])
 
         return SocialSerializer(socials, many=True).data
@@ -194,7 +196,9 @@ class ProfileSerializer(CRUDSerializer):
             'last_name',
             'middle_name',
             'birth_date',
+            'gender',
             'phone',
+            'show_phone',
             'email',
             'socials',
             'languages',

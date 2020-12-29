@@ -12,7 +12,7 @@ import exiftool
 import pytz
 from PIL import Image
 from django.conf import settings
-from django.core.files.uploadedfile import TemporaryUploadedFile
+from django.core.files.uploadedfile import TemporaryUploadedFile,UploadedFile
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 from ffmpy import FFmpeg
@@ -292,6 +292,7 @@ def resize_image(file_entity: FileEntity):
             name=file_entity.file.name,
             charset=file_entity.file.charset
         )
+
         img.save(preview, img_format)
 
         file_entity.file = result

@@ -1,11 +1,12 @@
 import uuid as uuid
 
 from django.contrib.contenttypes.models import ContentType
+
 from app_media.enums import MediaType, MediaFormat, MimeTypes
 from backend.entity import File, Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exception import CustomException
-from backend.utils import get_media_format, resize_image, convert_video, CP
+from backend.utils import get_media_format, resize_image, convert_video
 
 
 class MediaMapper:
@@ -27,10 +28,15 @@ class MediaMapper:
         file_entity.format = get_media_format(file_entity.mime_type)
         file_entity.size = file_data.size
 
+        if file_entity.format == MediaFormat.UNKNOWN:  # Если пришел неизвестный формат файла
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT))
+            ])
+
         name = str(file_entity.uuid)
         parts = file_data.name.split('.')
 
-        CP(bg='green').bold(f'Uploaded File Name - "{file_data.name}"')
+        # CP(bg='green', fg='yellow').bold(f'Uploaded File Name - "{file_data.name}" - uuid {file_entity.uuid}')
 
         if parts.__len__() > 1:
             extension = f'.{parts[-1].lower()}'
@@ -53,10 +59,6 @@ class MediaMapper:
             pass
         if file_entity.format == MediaFormat.VIDEO:
             convert_video(file_entity)
-        if file_entity.format == MediaFormat.UNKNOWN:  # Если пришел неизвестный формат файла
-            raise CustomException(errors=[
-                dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT))
-            ])
 
         # Не создаем пустые записи, если файл не удалось обработать
         if file_entity.file is not None:

@@ -8,6 +8,7 @@ from giberno import settings
 
 class Language(BaseModel):
     name = models.CharField(max_length=1024, null=True, blank=True)
+    names = HStoreField(null=True, blank=True)
     native = models.CharField(max_length=1024, null=True, blank=True)
     iso_code = models.CharField(max_length=4, null=True, blank=True, unique=True)
 
