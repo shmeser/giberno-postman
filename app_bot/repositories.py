@@ -1,5 +1,3 @@
-from django.db.models import Q
-
 from app_bot.enums import TelegramBotNotificationType
 from app_bot.models import BotChat, BotMessage
 
@@ -32,18 +30,3 @@ class BotRepository:
             approved=approved,
             notification_types__contains=[notification_types]
         )
-
-    @staticmethod
-    def get_chats_with_no_env(approved=True):
-        chats = BotChat.objects.filter(
-            Q(
-                approved=approved,
-                notification_types__isnull=True
-            ) |
-            Q(
-                approved=approved,
-                notification_types__len=0
-            )
-        )
-
-        return chats
