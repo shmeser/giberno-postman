@@ -12,7 +12,7 @@ import exiftool
 import pytz
 from PIL import Image
 from django.conf import settings
-from django.core.files.uploadedfile import TemporaryUploadedFile
+from django.core.files.uploadedfile import TemporaryUploadedFile,UploadedFile
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 from ffmpy import FFmpeg
@@ -278,6 +278,7 @@ def resize_image(file_entity: FileEntity):
             charset=file_entity.file.charset
         )
         img.save(result, img_format)
+        result.flush()
 
         """Создаем превью для изображения"""
 
@@ -295,6 +296,7 @@ def resize_image(file_entity: FileEntity):
         )
 
         img.save(preview, img_format)
+        preview.flush()
 
         file_entity.file = result
         file_entity.preview = preview

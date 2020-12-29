@@ -26,7 +26,7 @@ from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_headers, get_request_body, CP
+from backend.utils import get_request_headers, get_request_body
 
 
 @api_view(['GET'])
@@ -167,11 +167,6 @@ class MyProfileUploads(APIView):
     def post(self, request):
         uploaded_files = RequestMapper.file_entities(request, request.user)
         saved_files = MediaRepository().bulk_create(uploaded_files)
-
-        for uf in uploaded_files:
-            CP(fg='orange').bold(uf.file.file.name)
-            CP(fg='orange').bold(uf.preview.file.name)
-
         serializer = MediaSerializer(saved_files, many=True)
         return Response(camelize(serializer.data), status=status.HTTP_200_OK)
 

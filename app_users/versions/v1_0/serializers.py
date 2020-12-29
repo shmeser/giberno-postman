@@ -196,6 +196,7 @@ class ProfileSerializer(CRUDSerializer):
             'last_name',
             'middle_name',
             'birth_date',
+            'gender',
             'phone',
             'email',
             'socials',
