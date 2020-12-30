@@ -7,7 +7,7 @@ import requests
 from requests import Response
 
 from app_bot.enums import TelegramBotNotificationType
-from backend.utils import CP
+# from backend.utils import CP
 from giberno.environment.environments import Environment
 from giberno.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_URL
 
@@ -80,7 +80,7 @@ class BotSender:
             response: Response = requests.post(
                 f"{TELEGRAM_URL}{TELEGRAM_BOT_TOKEN}/sendMessage", data=prepared_data
             )
-            CP(bg='red', sp=2).bold(response.json())
+            # CP(bg='red', sp=2).bold(response.json())
 
 
 class BotLogger(logging.Handler):
