@@ -236,8 +236,8 @@ SOCIAL_AUTH_REDIRECT_IS_HTTPS = False  # Нужно True, так как facebook
 
 # social-auth end
 
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-TELEGRAM_BOT_PASSWORD = os.getenv('TELEGRAM_BOT_PASSWORD')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_BOT_PASSWORD = os.getenv('TELEGRAM_BOT_PASSWORD', '')
 TELEGRAM_URL = 'https://api.telegram.org/bot'
 
 LOGGING = {
@@ -291,6 +291,17 @@ if os.name == 'nt':
 
 # ### POSTGIS ###
 
+CONSTANCE_REDIS_CONNECTION = {
+    'host': os.getenv('REDIS_HOST', '127.0.0.1'),
+    'port': 6379,
+    'db': 0,
+}
+
+CONSTANCE_CONFIG = {
+    'TELEGRAM_BOT_PASSWORD': (
+        TELEGRAM_BOT_PASSWORD, 'Пароль для активации телеграм бота', str
+    ),
+}
 
 if os.getenv('ENVIRONMENT', Environment.LOCAL) == Environment.DEVELOP.value:
     from .environment.develop_settings import *

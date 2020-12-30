@@ -26,11 +26,11 @@ service_urls = [
     path('terms', TermsView.as_view()),
     path('policy', PolicyView.as_view()),
     path('agreement', AgreementView.as_view()),
+    path('bot/', include(('app_bot.urls', 'bot_1_0'))),
 ]
 
 v1_0 = 'v1.0/'
 v1_0_urls = [
-    path(v1_0, include(('app_bot.urls', 'bot_1_0'))),
     path(v1_0, include(('app_users.urls', 'users_1_0'))),
     path(v1_0, include(('app_geo.urls', 'geo_1_0'))),
 ]

@@ -49,7 +49,7 @@ deploy:
     - echo SUPERUSER_PASS="$SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo ENVIRONMENT="$ENVIRONMENT" | tr -d '\r' >> .env
 
-    - echo TELEGRAM_BOT_TOKEN="$DEV_TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
+    - echo DEV_TELEGRAM_BOT_TOKEN="$DEV_TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
     - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
 
     - echo DEV_VK_APP_ID="$DEV_VK_APP_ID" | tr -d '\r' >> .env
