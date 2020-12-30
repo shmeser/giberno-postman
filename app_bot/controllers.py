@@ -4,6 +4,7 @@ import os
 import traceback
 
 import requests
+from requests import Response
 
 from app_bot.enums import TelegramBotNotificationType
 from backend.utils import CP
@@ -76,11 +77,10 @@ class BotSender:
                 "chat_type": chat.type
             })
 
-            CP(bg='red', sp=2).bold(data=TELEGRAM_BOT_TOKEN)
-            response = requests.post(
+            response: Response = requests.post(
                 f"{TELEGRAM_URL}{TELEGRAM_BOT_TOKEN}/sendMessage", data=prepared_data
             )
-            CP(bg='red', fg='yellow', sp=2).bold(data=str(response))
+            CP(bg='red', sp=2).bold(response.json())
 
 
 class BotLogger(logging.Handler):
