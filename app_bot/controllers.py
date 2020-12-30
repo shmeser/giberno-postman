@@ -33,7 +33,7 @@ class TelegramFormatter(logging.Formatter):
                     value=record.request.META[attr]
                 )
 
-        s += f"\nSERVER: {os.getenv('ENVIRONMENTS', Environment.LOCAL.value)}"
+        s += f"\nSERVER: {os.getenv('ENVIRONMENT', Environment.LOCAL.value)}"
 
         return s
 
@@ -76,10 +76,11 @@ class BotSender:
                 "chat_type": chat.type
             })
 
+            CP(bg='red', sp=2).bold(data=TELEGRAM_BOT_TOKEN)
             response = requests.post(
                 f"{TELEGRAM_URL}{TELEGRAM_BOT_TOKEN}/sendMessage", data=prepared_data
             )
-            CP(bg='red', fg='yellow', sp=2).bold(data=response)
+            CP(bg='red', fg='yellow', sp=2).bold(data=str(response))
 
 
 class BotLogger(logging.Handler):
