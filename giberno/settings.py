@@ -236,8 +236,8 @@ SOCIAL_AUTH_REDIRECT_IS_HTTPS = False  # Нужно True, так как facebook
 
 # social-auth end
 
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-TELEGRAM_BOT_PASSWORD = os.getenv('TELEGRAM_BOT_PASSWORD')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_BOT_PASSWORD = os.getenv('TELEGRAM_BOT_PASSWORD', '')
 TELEGRAM_URL = 'https://api.telegram.org/bot'
 
 LOGGING = {

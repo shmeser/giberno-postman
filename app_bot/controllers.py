@@ -4,9 +4,10 @@ import os
 import traceback
 
 import requests
+from requests import Response
 
 from app_bot.enums import TelegramBotNotificationType
-from backend.utils import CP
+# from backend.utils import CP
 from giberno.environment.environments import Environment
 from giberno.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_URL
 
@@ -33,7 +34,7 @@ class TelegramFormatter(logging.Formatter):
                     value=record.request.META[attr]
                 )
 
-        s += f"\nSERVER: {os.getenv('ENVIRONMENTS', Environment.LOCAL.value)}"
+        s += f"\nSERVER: {os.getenv('ENVIRONMENT', Environment.LOCAL.value)}"
 
         return s
 
@@ -76,10 +77,10 @@ class BotSender:
                 "chat_type": chat.type
             })
 
-            response = requests.post(
+            response: Response = requests.post(
                 f"{TELEGRAM_URL}{TELEGRAM_BOT_TOKEN}/sendMessage", data=prepared_data
             )
-            CP(bg='red', fg='yellow', sp=2).bold(data=response)
+            # CP(bg='red', sp=2).bold(response.json())
 
 
 class BotLogger(logging.Handler):
