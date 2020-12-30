@@ -5,7 +5,7 @@ from backend.models import BaseModel
 
 
 class BotChat(BaseModel):
-    chat_id = models.IntegerField()
+    chat_id = models.BigIntegerField()
     type = models.CharField(max_length=255, blank=True, null=True)
     username = models.CharField(max_length=255, blank=True, null=True)
     first_name = models.CharField(max_length=255, blank=True, null=True)
@@ -28,8 +28,10 @@ class BotChat(BaseModel):
 class BotMessage(BaseModel):
     chat = models.ForeignKey(BotChat, on_delete=models.SET_NULL, blank=True, null=True)
     message_id = models.IntegerField(blank=True, null=True)
+    chat_type = models.CharField(max_length=255, blank=True, null=True)
     from_id = models.IntegerField(blank=True, null=True)
     is_bot = models.BooleanField(default=False)
+    title = models.CharField(max_length=255, blank=True, null=True)
     first_name = models.CharField(max_length=255, blank=True, null=True)
     last_name = models.CharField(max_length=255, blank=True, null=True)
     username = models.CharField(max_length=255, blank=True, null=True)
