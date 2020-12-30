@@ -159,9 +159,7 @@ class TelegramBotView(View):
             f"{TELEGRAM_URL}{TELEGRAM_BOT_TOKEN}/sendMessage", data=data
         )
 
-        CP(fg='yellow').bold(data)
-        CP(fg='red').bold([TELEGRAM_URL, TELEGRAM_BOT_TOKEN])
-        CP(fg='orange').bold(response)
+        CP(fg='yellow').bold(response)
 
 
 class TestView(APIView):
