@@ -26,7 +26,7 @@ _ITEMS_PER_ITERATION = 5
 
 @admin.register(Country)
 class CountryAdmin(FormattedAdmin):
-    list_display = ['id', 'iso_code', 'name', 'names']
+    list_display = ['id', 'iso_code', 'native', 'names']
     raw_id_fields = ['languages']
     actions = ["update_flags", "add_png_flags"]
 
@@ -51,19 +51,19 @@ class CountryAdmin(FormattedAdmin):
 
 @admin.register(Region)
 class RegionAdmin(FormattedAdmin):
-    list_display = ['id', 'name', 'names', 'osm']
+    list_display = ['id', 'native', 'names', 'osm']
     list_filter = ["country_id"]
 
 
 @admin.register(District)
 class DistrictAdmin(FormattedAdmin):
-    list_display = ['id', 'name', 'names', 'osm']
+    list_display = ['id', 'native', 'names', 'osm']
     actions = ["parse_district", "get_border"]
     list_filter = ["country_id", 'region_id']
 
 
 @admin.register(City)
 class CityAdmin(FormattedAdmin):
-    list_display = ['id', 'name', 'names', 'osm']
+    list_display = ['id', 'native', 'names', 'osm']
     actions = ["get_border"]
     list_filter = ["country_id", 'region_id']
