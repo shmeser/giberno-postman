@@ -69,8 +69,9 @@ class Countries(CRUDAPIView):
     repository_class = CountriesRepository
     allowed_http_methods = ['get']
 
+    # TODO поиск и сортировка с учетом языка пользователя
     filter_params = {
-        'name': 'name__istartswith',
+        'name': 'native__istartswith',
         'code': 'iso_code__istartswith',
     }
 
@@ -80,7 +81,7 @@ class Countries(CRUDAPIView):
     }
 
     order_params = {
-        'name': 'name',
+        'name': 'native',
         'id': 'id'
     }
 
@@ -124,7 +125,7 @@ class Cities(CRUDAPIView):
     allowed_http_methods = ['get']
 
     filter_params = {
-        'name': 'name__istartswith',  # TODO Доработать поиск по строке для строк с пробелами
+        'name': 'native__istartswith',  # TODO Доработать поиск по строке для строк с пробелами
     }
 
     default_order_params = []
@@ -133,7 +134,7 @@ class Cities(CRUDAPIView):
     }
 
     order_params = {
-        'name': 'name',
+        'name': 'native',
         'id': 'id'
     }
 

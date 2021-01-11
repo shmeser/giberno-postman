@@ -49,15 +49,11 @@ class CountrySerializer(serializers.ModelSerializer):
     repository = CountriesRepository
 
     name = serializers.SerializerMethodField(read_only=True)
-    native = serializers.SerializerMethodField(read_only=True)
     flag = serializers.SerializerMethodField(read_only=True)
 
     def get_name(self, country: Country):
         # TODO для локализации выводить соответствующее название
         return country.names.get('name:ru', None)
-
-    def get_native(self, country: Country):
-        return country.name
 
     def get_flag(self, country: Country):
         platform = g.request.headers.get('Platform', '').lower()
@@ -97,14 +93,10 @@ class RegionSerializer(serializers.ModelSerializer):
     repository = RegionsRepository
 
     name = serializers.SerializerMethodField(read_only=True)
-    native = serializers.SerializerMethodField(read_only=True)
 
     def get_name(self, region: Region):
         # TODO для локализации выводить соответствующее название
         return region.names.get('name:ru', None)
-
-    def get_native(self, region: Region):
-        return region.name
 
     class Meta:
         model = Region
@@ -117,16 +109,12 @@ class RegionSerializer(serializers.ModelSerializer):
 
 class CitySerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
-    native = serializers.SerializerMethodField()
     country = serializers.SerializerMethodField(read_only=True)
     region = serializers.SerializerMethodField(read_only=True)
 
     def get_name(self, city: City):
         # TODO для локализации выводить соответствующее название
         return city.names.get('name:ru', None)
-
-    def get_native(self, city: City):
-        return city.name
 
     def get_country(self, city: City):
         return CountrySerializer(city.country, many=False).data
