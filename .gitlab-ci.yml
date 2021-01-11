@@ -56,7 +56,7 @@ deploy:
     - echo DEV_VK_APP_SECRET="$DEV_VK_APP_SECRET" | tr -d '\r' >> .env
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
-    - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
+    - echo SECRET_KEY="$SECRET_KEY" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
     - sudo ln -s "$(pwd -P)"/devops/develop/docker-compose.yml "$(pwd -P)"
@@ -111,7 +111,7 @@ deploy_stage:
     - echo DEV_VK_APP_SECRET="$DEV_VK_APP_SECRET" | tr -d '\r' >> .env
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
-    - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
+    - echo ST_SECRET_KEY="$ST_SECRET_KEY" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
     - sudo ln -s "$(pwd -P)"/devops/stage/docker-compose.yml "$(pwd -P)"
@@ -164,7 +164,7 @@ deploy_release:
     - echo VK_APP_SECRET="$VK_APP_SECRET" | tr -d '\r' >> .env
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
-    - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
+    - echo RL_SECRET_KEY="$RL_SECRET_KEY" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
     - sudo ln -s "$(pwd -P)"/devops/release/docker-compose.yml "$(pwd -P)"
