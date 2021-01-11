@@ -14,5 +14,5 @@ urlpatterns = [
     path('geo/cities', Cities.as_view()),
     path('geo/cities/<int:record_id>', Cities.as_view()),
 
-    path('geo/coords', Geocode.as_view()),
+    path('geo/location', Geocode.as_view()),
 ]

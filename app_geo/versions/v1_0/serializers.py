@@ -2,8 +2,8 @@ from django.contrib.contenttypes.models import ContentType
 from django_globals import globals as g
 from rest_framework import serializers
 
-from app_geo.models import Language, Country
-from app_geo.versions.v1_0.repositories import LanguagesRepository, CountriesRepository
+from app_geo.models import Language, Country, City, Region
+from app_geo.versions.v1_0.repositories import LanguagesRepository, CountriesRepository, RegionsRepository
 from app_media.enums import MediaType, MediaFormat, MimeTypes
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -91,3 +91,55 @@ class CountrySerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'iso_code': {'read_only': True},
         }
+
+
+class RegionSerializer(serializers.ModelSerializer):
+    repository = RegionsRepository
+
+    name = serializers.SerializerMethodField(read_only=True)
+    native = serializers.SerializerMethodField(read_only=True)
+
+    def get_name(self, region: Region):
+        # TODO для локализации выводить соответствующее название
+        return region.names.get('name:ru', None)
+
+    def get_native(self, region: Region):
+        return region.name
+
+    class Meta:
+        model = Region
+        fields = [
+            'id',
+            'name',
+            'native',
+        ]
+
+
+class CitySerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    native = serializers.SerializerMethodField()
+    country = serializers.SerializerMethodField(read_only=True)
+    region = serializers.SerializerMethodField(read_only=True)
+
+    def get_name(self, city: City):
+        # TODO для локализации выводить соответствующее название
+        return city.names.get('name:ru', None)
+
+    def get_native(self, city: City):
+        return city.name
+
+    def get_country(self, city: City):
+        return CountrySerializer(city.country, many=False).data
+
+    def get_region(self, city: City):
+        return RegionSerializer(city.region, many=False).data
+
+    class Meta:
+        model = City
+        fields = [
+            'id',
+            'name',
+            'native',
+            'country',
+            'region',
+        ]

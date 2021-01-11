@@ -3,8 +3,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from app_geo.versions.v1_0.repositories import LanguagesRepository, CountriesRepository
-from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer
+from app_geo.versions.v1_0.repositories import LanguagesRepository, CountriesRepository, CitiesRepository
+from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 
@@ -119,13 +119,12 @@ def custom_countries(request):
 
 
 class Cities(CRUDAPIView):
-    serializer_class = CountrySerializer
-    repository_class = CountriesRepository
+    serializer_class = CitySerializer
+    repository_class = CitiesRepository
     allowed_http_methods = ['get']
 
     filter_params = {
-        'name': 'name__istartswith',
-        'code': 'iso_code__istartswith',
+        'name': 'name__istartswith',  # TODO Доработать поиск по строке для строк с пробелами
     }
 
     default_order_params = []
@@ -139,7 +138,6 @@ class Cities(CRUDAPIView):
     }
 
     def get(self, request, **kwargs):
-        None.get('a')
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         pagination = RequestMapper.pagination(request)
@@ -159,3 +157,11 @@ class Cities(CRUDAPIView):
             serialized = self.serializer_class(dataset, many=True)
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def geocode(request):
+    lon, lat = RequestMapper().geocode(request)
+    dataset = CitiesRepository().geocode(lon, lat)
+    serialized = CitySerializer(dataset, many=True)
+    return Response(camelize(serialized.data), status=status.HTTP_200_OK)
