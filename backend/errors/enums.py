@@ -17,14 +17,12 @@ class ErrorsCodes(Enum):
     PHONE_IS_USED = 'Этот номер телефона уже занят'
     EMAIL_IS_USED = 'Этот email уже занят'
     ALREADY_REGISTERED_WITH_OTHER_ROLE = 'Данным способом уже зарегистрирован пользователь с другой ролью'
-
     VALIDATION_ERROR = 'Ошибка валидации'
-
     EMPTY_REQUIRED_FIELDS = 'Не все обязательные поля отправлены'
-
     UNSUPPORTED_FILE_FORMAT = 'Неподдерживаемый формат файла'
-
     DELETING_REG_SOCIAL = 'Нельзя отвязать соцсеть, через которую был создан аккаунт'
+
+    INVALID_COORDS = 'Некорректные географические координаты'
 
     @classmethod
     def has_value(cls, value):

@@ -22,7 +22,7 @@ class Language(BaseModel):
 
 
 class Country(BaseModel):
-    name = models.CharField(max_length=1024, null=True, blank=True)
+    native = models.CharField(max_length=1024, null=True, blank=True)
     names = HStoreField(null=True, blank=True)
     iso_code = models.CharField(max_length=8, null=True, blank=True, unique=True)
 
@@ -33,7 +33,7 @@ class Country(BaseModel):
     languages = models.ManyToManyField(Language, blank=True, db_table='app_geo__country_language')
 
     def __str__(self):
-        return f'{self.names.get("name:en", "")} - {self.name}'
+        return f'{self.names.get("name:en", "")} - {self.native}'
 
     class Meta:
         db_table = 'app_geo__countries'
@@ -42,7 +42,7 @@ class Country(BaseModel):
 
 
 class Region(BaseModel):
-    name = models.CharField(max_length=1024, null=True, blank=True)
+    native = models.CharField(max_length=1024, null=True, blank=True)
     names = HStoreField(null=True, blank=True)
 
     osm = HStoreField(null=True, blank=True)
@@ -52,7 +52,7 @@ class Region(BaseModel):
     boundary = models.MultiPolygonField(srid=settings.SRID, blank=True, null=True)
 
     def __str__(self):
-        return f'{self.name}'
+        return f'{self.native}'
 
     class Meta:
         db_table = 'app_geo__regions'
@@ -61,7 +61,7 @@ class Region(BaseModel):
 
 
 class District(BaseModel):
-    name = models.CharField(max_length=1024, null=True, blank=True)
+    native = models.CharField(max_length=1024, null=True, blank=True)
     names = HStoreField(null=True, blank=True)
 
     osm = HStoreField(null=True, blank=True)
@@ -72,7 +72,7 @@ class District(BaseModel):
     boundary = models.MultiPolygonField(srid=settings.SRID, blank=True, null=True)
 
     def __str__(self):
-        return f'{self.name}'
+        return f'{self.native}'
 
     class Meta:
         db_table = 'app_geo__districts'
@@ -81,7 +81,7 @@ class District(BaseModel):
 
 
 class City(BaseModel):
-    name = models.CharField(max_length=1024, null=True, blank=True)
+    native = models.CharField(max_length=1024, null=True, blank=True)
     names = HStoreField(null=True, blank=True)
 
     osm = HStoreField(null=True, blank=True)
@@ -97,7 +97,7 @@ class City(BaseModel):
     )
 
     def __str__(self):
-        return f'{self.name}'
+        return f'{self.native}'
 
     class Meta:
         db_table = 'app_geo__cities'

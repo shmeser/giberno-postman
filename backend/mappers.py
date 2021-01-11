@@ -7,7 +7,7 @@ from app_media.mappers import MediaMapper
 from backend.entity import Pagination, Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
-from backend.utils import timestamp_to_datetime as m_t_d
+from backend.utils import timestamp_to_datetime as m_t_d, CP
 
 
 class BaseMapper:
@@ -113,4 +113,20 @@ class RequestMapper:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.VALIDATION_ERROR)),
                 dict(Error(ErrorsCodes.EMPTY_REQUIRED_FIELDS)),
+            ])
+
+    @classmethod
+    def geocode(cls, request):
+        try:
+            lon = float(request.GET.get('lon'))
+            lat = float(request.GET.get('lat'))
+            if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.INVALID_COORDS)),
+                ])
+            return lon, lat
+        except Exception as e:
+            CP(fg='red').bold(e)
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.INVALID_COORDS)),
             ])
