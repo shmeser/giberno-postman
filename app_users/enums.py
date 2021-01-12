@@ -1,36 +1,28 @@
-from enum import IntEnum
+from backend.enums import IntEnumM
 
 
-class Gender(IntEnum):
+class Gender(IntEnumM):
     FEMALE = 0
     MALE = 1
 
 
-class Status(IntEnum):
+class Status(IntEnumM):
     NEW = 0
     ACTIVE = 1
     BLOCKED = 2
 
 
-class AccountType(IntEnum):
+class AccountType(IntEnumM):
     ADMIN = 0
     MANAGER = 1
     SECURITY = 2
     SELF_EMPLOYED = 3
 
-    @classmethod
-    def has_value(cls, value):
-        return value in cls._value2member_map_
 
-
-class LanguageProficiency(IntEnum):
+class LanguageProficiency(IntEnumM):
     BEGINNER = 0
     ELEMENTARY = 1
     INTERMEDIATE = 2
     UPPER_INTERMEDIATE = 3
     ADVANCED = 4
     PROFICIENCY = 5
-
-    @classmethod
-    def has_value(cls, value):
-        return value in cls._value2member_map_

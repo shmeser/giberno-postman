@@ -1,20 +1,16 @@
-from enum import Enum
+from backend.enums import EnumM
 
 
-def choices(em):
-    return [(e.value, e.name) for e in em]
-
-
-class TelegramBotMessageType(Enum):
+class TelegramBotMessageType(EnumM):
     PRIVATE = 'message'
     CHANNEL = 'channel_post'
 
 
-class TelegramBotNotificationType(Enum):
+class TelegramBotNotificationType(EnumM):
     DEBUG = 'DEBUG'
 
 
-class TelegramBotCommand(Enum):
+class TelegramBotCommand(EnumM):
     START = '/start'
     STOP = '/stop'
 
@@ -26,7 +22,3 @@ class TelegramBotCommand(Enum):
 
     LOG_ERRORS_ON = '/log_errors_on'
     LOG_ERRORS_OFF = '/log_errors_off'
-
-    @classmethod
-    def has_value(cls, value):
-        return value in cls._value2member_map_
