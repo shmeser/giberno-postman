@@ -40,8 +40,7 @@ class UserProfile(AbstractUser, BaseModel):
 
     languages = models.ManyToManyField(Language, through='UserLanguage', blank=True)
     nationalities = models.ManyToManyField(Country, through='UserNationality', blank=True, related_name='nationalities')
-
-    city = models.ForeignKey(City, blank=True, null=True, on_delete=models.SET_NULL)
+    cities = models.ManyToManyField(City, through='UserCity', blank=True, related_name='cities')
 
     reg_reference = models.ForeignKey(
         'self',
@@ -90,6 +89,16 @@ class UserNationality(BaseModel):
         db_table = 'app_users__profile_nationality'
         verbose_name = 'Гражданство пользователя'
         verbose_name_plural = 'Гражданство пользователей'
+
+
+class UserCity(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    city = models.ForeignKey(City, on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'app_users__profile_city'
+        verbose_name = 'Город пользователя'
+        verbose_name_plural = 'Города пользователей'
 
 
 class SocialModel(BaseModel):
