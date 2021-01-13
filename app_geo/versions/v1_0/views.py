@@ -128,7 +128,7 @@ class Cities(CRUDAPIView):
         'name': 'native__istartswith',  # TODO Доработать поиск по строке для строк с пробелами
     }
 
-    default_order_params = []
+    default_order_params = ['native']
 
     default_filters = {
     }
