@@ -4,7 +4,8 @@ from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer
+from app_geo.models import City, Country
+from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -55,14 +56,29 @@ class ProfileSerializer(CRUDSerializer):
     socials = serializers.SerializerMethodField(read_only=True)
 
     nationalities = serializers.SerializerMethodField(read_only=True)
-    country = serializers.SerializerMethodField()
+    country = serializers.SerializerMethodField(read_only=True)
     city = serializers.SerializerMethodField()
 
     registration_completed = serializers.SerializerMethodField()
 
-    def to_internal_value(self, data):
-        m2m_errors = []
-        # Проверяем m2m поля
+    rating_place = serializers.SerializerMethodField(read_only=True)
+    notifications_count = serializers.SerializerMethodField(read_only=True)
+
+    @staticmethod
+    def check_city(data, ret, errors):
+        city_id = data.pop('city', None)
+        if city_id:
+            try:
+                City.objects.get(id=city_id, deleted=False)
+                ret['city_id'] = city_id
+            except City.DoesNotExist:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+                )
+
+    def update_nationalities(self, data, errors):
         nationalities = data.pop('nationalities', None)
         if nationalities is not None and isinstance(nationalities, list):  # Обрабатываем только list
             # Удаляем гражданства
@@ -71,10 +87,10 @@ class ProfileSerializer(CRUDSerializer):
             for n in nationalities:
                 country_id = n.get('id', None)
                 if country_id is None:
-                    m2m_errors.append(
+                    errors.append(
                         dict(Error(
                             code=ErrorsCodes.VALIDATION_ERROR.name,
-                            detail='Указан неправильный id страны'))
+                            detail=f'Объект {Country._meta.verbose_name} с ID={country_id} не найден'))
                     )
                 else:
                     try:
@@ -87,12 +103,13 @@ class ProfileSerializer(CRUDSerializer):
                             }
                         )
                     except IntegrityError:
-                        m2m_errors.append(
+                        errors.append(
                             dict(Error(
                                 code=ErrorsCodes.VALIDATION_ERROR.name,
-                                detail='Указан неправильный id страны'))
+                                detail=f'Объект {Country._meta.verbose_name} с ID={country_id} не найден'))
                         )
 
+    def update_languages(self, data, errors):
         languages = data.pop('languages', None)
         if languages is not None and isinstance(languages, list):  # Обрабатываем только массив
             # Удаляем языки
@@ -102,7 +119,7 @@ class ProfileSerializer(CRUDSerializer):
                 proficiency = l.get('proficiency', None)
                 lang_id = l.get('id', None)
                 if proficiency is None or not LanguageProficiency.has_value(proficiency):
-                    m2m_errors.append(
+                    errors.append(
                         dict(Error(
                             code=ErrorsCodes.VALIDATION_ERROR.name,
                             detail='Невалидные данные в поле proficiency'))
@@ -119,16 +136,27 @@ class ProfileSerializer(CRUDSerializer):
                             }
                         )
                     except IntegrityError:
-                        m2m_errors.append(
+                        errors.append(
                             dict(Error(
                                 code=ErrorsCodes.VALIDATION_ERROR.name,
                                 detail='Указан неправильный id языка'))
                         )
 
-        if m2m_errors:
-            raise CustomException(errors=m2m_errors)
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
 
-        return super().to_internal_value(data)
+        # Проверяем fk поля
+        self.check_city(data, ret, errors)
+
+        # Проверяем m2m поля
+        self.update_nationalities(data, errors)
+        self.update_languages(data, errors)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
 
     def get_avatar(self, profile: UserProfile):
         avatar = MediaRepository().filter_by_kwargs({
@@ -172,10 +200,20 @@ class ProfileSerializer(CRUDSerializer):
         return CountrySerializer(profile.nationalities.filter(usernationality__deleted=False), many=True).data
 
     def get_country(self, profile: UserProfile):
+        if profile.city:
+            return CountrySerializer(profile.city.country, many=False).data
         return None
 
     def get_city(self, profile: UserProfile):
+        if profile.city:
+            return CitySerializer(profile.city, many=False).data
         return None
+
+    def get_rating_place(self, profile: UserProfile):
+        return None
+
+    def get_notifications_count(self, profile: UserProfile):
+        return 0
 
     def get_registration_completed(self, profile: UserProfile):
         if profile.first_name and \
@@ -203,15 +241,24 @@ class ProfileSerializer(CRUDSerializer):
             'socials',
             'languages',
             'nationalities',
+            'terms_accepted',
             'policy_accepted',
             'agreement_accepted',
             'country',
             'city',
-            'registration_completed'
+            'registration_completed',
+            'verified',
+            'bonus_balance',
+            'rating_place',
+            'notifications_count',
+            'favourite_vacancies_count'
         ]
 
         extra_kwargs = {
-            'phone': {'read_only': True}
+            'phone': {'read_only': True},
+            'verified': {'read_only': True},
+            'bonus_balance': {'read_only': True},
+            'favourite_vacancies_count': {'read_only': True}
         }
 
 

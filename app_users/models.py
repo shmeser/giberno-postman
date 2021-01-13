@@ -3,7 +3,7 @@ import uuid as uuid
 from django.contrib.auth.models import AbstractUser
 from django.contrib.gis.db import models
 
-from app_geo.models import Language, Country
+from app_geo.models import Language, Country, City
 from app_media.models import MediaModel
 from app_users.enums import Gender, Status, AccountType, LanguageProficiency
 from backend.models import BaseModel
@@ -37,7 +37,9 @@ class UserProfile(AbstractUser, BaseModel):
     status = models.IntegerField(choices=choices(Status), default=Status.ACTIVE)
 
     languages = models.ManyToManyField(Language, through='UserLanguage', blank=True)
-    nationalities = models.ManyToManyField(Country, through='UserNationality', blank=True)
+    nationalities = models.ManyToManyField(Country, through='UserNationality', blank=True, related_name='nationalities')
+
+    city = models.ForeignKey(City, blank=True, null=True, on_delete=models.SET_NULL)
 
     reg_reference = models.ForeignKey(
         'self',
@@ -45,10 +47,15 @@ class UserProfile(AbstractUser, BaseModel):
         blank=True,
         verbose_name='Приглашение на регистрацию от', on_delete=models.SET_NULL
     )
-    reg_reference_code = models.CharField(max_length=255, null=True, blank=True)
+    reg_reference_code = models.CharField(max_length=255, null=True, blank=True, verbose_name='')
 
-    policy_accepted = models.BooleanField(default=False)
-    agreement_accepted = models.BooleanField(default=False)
+    terms_accepted = models.BooleanField(default=False, verbose_name='Правила использования приняты')
+    policy_accepted = models.BooleanField(default=False, verbose_name='Политика конфиденциальности принята')
+    agreement_accepted = models.BooleanField(default=False, verbose_name='Пользовательское соглашение принято')
+
+    verified = models.BooleanField(default=False, verbose_name='Профиль проверен')
+    bonus_balance = models.PositiveIntegerField(default=0, verbose_name='Очки славы')
+    favourite_vacancies_count = models.PositiveIntegerField(default=0, verbose_name='Количество избранных вакансий')
 
     def __str__(self):
         return f'ID:{self.id} - {self.username} {self.first_name} {self.middle_name} {self.middle_name}'
