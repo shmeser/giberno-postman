@@ -7,7 +7,7 @@ from app_media.mappers import MediaMapper
 from backend.entity import Pagination, Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
-from backend.utils import timestamp_to_datetime as m_t_d, CP
+from backend.utils import timestamp_to_datetime as t2d, CP
 
 
 class BaseMapper:
@@ -55,7 +55,7 @@ class RequestMapper:
 
         for param in date_params:
             if param in filter_values:
-                filter_values[param] = m_t_d(int(filter_values[param]))
+                filter_values[param] = t2d(int(filter_values[param]))
 
         """
         kwargs - конечный вариант фильтров, в виде:

@@ -2,7 +2,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType, NotificationType
-from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings
+from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException
@@ -58,6 +58,8 @@ class AuthRepository:
                 social.is_for_reg = True
                 social.save()
                 user.email = social_data.email
+
+                # Создаем модель настроек для уведомлений
                 NotificationsSettings.objects.create(
                     user=user,
                     enabled_types=[NotificationType.SYSTEM]
@@ -119,8 +121,6 @@ class AuthRepository:
 
                 result = base_user
 
-        # Создаем модель настроек
-        # TODO
         return result, created
 
 
@@ -216,5 +216,31 @@ class ProfileRepository(MasterRepository):
         except self.model.DoesNotExist:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
-                detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
+            )
+
+
+class NotificationsRepository(MasterRepository):
+    model = Notification
+
+    def get_by_id(self, record_id):
+        try:
+            return self.model.objects.get(id=record_id, deleted=False)
+        except self.model.DoesNotExist:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
+            )
+
+
+class NotificationsSettingsRepository(MasterRepository):
+    model = NotificationsSettings
+
+    def get_by_id(self, record_id):
+        try:
+            return self.model.objects.get(id=record_id, deleted=False)
+        except self.model.DoesNotExist:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )

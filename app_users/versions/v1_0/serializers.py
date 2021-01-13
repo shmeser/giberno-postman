@@ -10,8 +10,9 @@ from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import LanguageProficiency
-from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality
-from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository
+from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
+    NotificationsSettings
+from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exception import CustomException
@@ -213,7 +214,7 @@ class ProfileSerializer(CRUDSerializer):
         return None
 
     def get_notifications_count(self, profile: UserProfile):
-        return 0
+        return profile.notification_set.filter(read_at__isnull=True, deleted=False).count()
 
     def get_registration_completed(self, profile: UserProfile):
         if profile.first_name and \
@@ -280,4 +281,32 @@ class SocialSerializer(CRUDSerializer):
             'email',
             'created_at',
             'is_for_reg',
+        ]
+
+
+class NotificationSerializer(CRUDSerializer):
+    repository = NotificationsRepository
+
+    created_at = DateTimeField()
+    read_at = DateTimeField()
+
+    class Meta:
+        model = Notification
+        fields = [
+            'id',
+            'subject_id',
+            'title',
+            'message',
+            'type',
+            'action',
+            'read_at',
+            'created_at',
+        ]
+
+
+class NotificationsSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationsSettings
+        fields = [
+            'enabled_types',
         ]
