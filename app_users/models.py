@@ -2,10 +2,12 @@ import uuid as uuid
 
 from django.contrib.auth.models import AbstractUser
 from django.contrib.gis.db import models
+from django.contrib.postgres.fields import ArrayField
+from django.db.models import JSONField
 
 from app_geo.models import Language, Country, City
 from app_media.models import MediaModel
-from app_users.enums import Gender, Status, AccountType, LanguageProficiency
+from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction
 from backend.models import BaseModel
 from backend.utils import choices
 
@@ -130,3 +132,50 @@ class JwtToken(BaseModel):
         db_table = 'app_users__jwt_tokens'
         verbose_name = 'JWT токен'
         verbose_name_plural = 'JWT токены'
+
+
+class Notification(BaseModel):
+    user = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.SET_NULL)
+
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
+
+    subject_id = models.IntegerField(blank=True, null=True, verbose_name='ID сущности в уведомлении')
+    title = models.CharField(max_length=255, blank=True, null=True, verbose_name='Заголовок')
+    message = models.CharField(max_length=255, blank=True, null=True, verbose_name='Сообщение')
+
+    type = models.IntegerField(
+        choices=choices(NotificationType), default=NotificationType.SYSTEM, verbose_name='Тип отправителя уведомления'
+    )
+
+    action = models.IntegerField(
+        choices=choices(NotificationAction), default=NotificationAction.APP, verbose_name='Открываемый экран'
+    )
+    read_at = models.DateTimeField(null=True, blank=True, verbose_name='Время прочтения')
+
+    push_tokens_android = ArrayField(models.CharField(max_length=1024), blank=True, null=True)
+    firebase_response_android = JSONField(blank=True, null=True)
+    push_tokens_ios = ArrayField(models.CharField(max_length=1024), blank=True, null=True)
+    firebase_response_ios = JSONField(blank=True, null=True)
+
+    sent_at = models.DateTimeField(null=True, blank=True, verbose_name='Отправлено в Firebase')
+
+    def __str__(self):
+        return f'{self.title}'
+
+    class Meta:
+        db_table = 'app_users__notifications'
+        verbose_name = 'Уведомление'
+        verbose_name_plural = 'Уведомления'
+
+
+class NotificationsSettings(BaseModel):
+    user = models.OneToOneField(UserProfile, on_delete=models.CASCADE, unique=True)
+    enabled_types = ArrayField(models.IntegerField(choices=choices(NotificationType)), blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.user.username}'
+
+    class Meta:
+        db_table = 'app_users__notifications_settings'
+        verbose_name = 'Настройки уведомлений пользователя'
+        verbose_name_plural = 'Настройки уведомлений пользователей'

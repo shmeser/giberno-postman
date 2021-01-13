@@ -1,8 +1,8 @@
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_users.entities import JwtTokenEntity, SocialEntity
-from app_users.enums import AccountType
-from app_users.models import SocialModel, UserProfile, JwtToken
+from app_users.enums import AccountType, NotificationType
+from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException
@@ -58,6 +58,10 @@ class AuthRepository:
                 social.is_for_reg = True
                 social.save()
                 user.email = social_data.email
+                NotificationsSettings.objects.create(
+                    user=user,
+                    enabled_types=[NotificationType.SYSTEM]
+                )
             else:
                 # Если ранее уже создан аккаунт и при регистрации указан другой тип аккаунта
                 if user.account_type != account_type:

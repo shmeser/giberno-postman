@@ -1,4 +1,4 @@
-from backend.enums import IntEnumM
+from backend.enums import IntEnumM, EnumM
 
 
 class Gender(IntEnumM):
@@ -26,3 +26,15 @@ class LanguageProficiency(IntEnumM):
     UPPER_INTERMEDIATE = 3
     ADVANCED = 4
     PROFICIENCY = 5
+
+
+class NotificationType(IntEnumM):
+    # Для настроек получения уведомлений
+    SYSTEM = 0  # Системные уведомления
+
+
+class NotificationAction(IntEnumM):
+    # Для открытия нужного экрана в приложении
+    APP = 0  # Главный экран в приложении
+
+    VACANCY = 1  # Вакансия
