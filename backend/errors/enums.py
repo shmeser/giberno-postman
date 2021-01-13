@@ -1,7 +1,7 @@
-from enum import IntEnum, Enum
+from backend.enums import EnumM, IntEnumM
 
 
-class RESTErrors(IntEnum):
+class RESTErrors(IntEnumM):
     BAD_REQUEST = 400
     NOT_AUTHORIZED = 401
     FORBIDDEN = 403
@@ -10,7 +10,7 @@ class RESTErrors(IntEnum):
     INTERNAL_SERVER_ERROR = 500
 
 
-class ErrorsCodes(Enum):
+class ErrorsCodes(EnumM):
     METHOD_NOT_FOUND = 'Метод не найден'
     SOCIAL_ALREADY_IN_USE = 'Данным способом уже зарегистрирован другой пользователь'
     PROFILE_NOT_FILLED = 'Профиль не заполнен'
@@ -24,14 +24,6 @@ class ErrorsCodes(Enum):
 
     INVALID_COORDS = 'Некорректные географические координаты'
 
-    @classmethod
-    def has_value(cls, value):
-        return value in cls._value2member_map_
 
-    @classmethod
-    def has_key(cls, key):
-        return key in cls.__members__
-
-
-class SocketErrors(IntEnum):
+class SocketErrors(IntEnumM):
     USER_NOT_FOUND = 1004

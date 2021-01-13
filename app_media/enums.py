@@ -1,7 +1,7 @@
-from enum import IntEnum, Enum
+from backend.enums import IntEnumM, EnumM
 
 
-class MediaFormat(IntEnum):
+class MediaFormat(IntEnumM):
     UNKNOWN = 0
     DOCUMENT = 1
     IMAGE = 2
@@ -9,7 +9,7 @@ class MediaFormat(IntEnum):
     AUDIO = 4
 
 
-class MediaType(IntEnum):
+class MediaType(IntEnumM):
     OTHER = 0
     AVATAR = 1
     PASSPORT = 2
@@ -21,14 +21,14 @@ class MediaType(IntEnum):
     FLAG = 8
 
 
-class FileDownloadStatus(IntEnum):
+class FileDownloadStatus(IntEnumM):
     INITIAL = 0
     SAVED = 1
     NOT_EXIST = 2
     FAIL = 3
 
 
-class MimeTypes(Enum):
+class MimeTypes(EnumM):
     # Images
     JPEG = 'image/jpeg'
     PNG = 'image/png'

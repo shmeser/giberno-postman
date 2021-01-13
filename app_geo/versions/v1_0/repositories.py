@@ -11,11 +11,11 @@ class LanguagesRepository(MasterRepository):
 
     def get_by_id(self, record_id):
         try:
-            return self.model.objects.get(id=record_id, is_staff=False)
+            return self.model.objects.get(id=record_id)
         except self.model.DoesNotExist:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
-                detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
 
 
@@ -24,11 +24,11 @@ class CountriesRepository(MasterRepository):
 
     def get_by_id(self, record_id):
         try:
-            return self.model.objects.get(id=record_id, is_staff=False)
+            return self.model.objects.get(id=record_id)
         except self.model.DoesNotExist:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
-                detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
 
 
@@ -37,11 +37,11 @@ class RegionsRepository(MasterRepository):
 
     def get_by_id(self, record_id):
         try:
-            return self.model.objects.get(id=record_id, is_staff=False)
+            return self.model.objects.get(id=record_id)
         except self.model.DoesNotExist:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
-                detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
 
 
@@ -50,11 +50,11 @@ class CitiesRepository(MasterRepository):
 
     def get_by_id(self, record_id):
         try:
-            return self.model.objects.get(id=record_id, is_staff=False)
+            return self.model.objects.get(id=record_id)
         except self.model.DoesNotExist:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
-                detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
 
     def geocode(self, lon, lat):
