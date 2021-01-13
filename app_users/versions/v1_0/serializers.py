@@ -11,7 +11,7 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import LanguageProficiency
 from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
-    NotificationsSettings
+    NotificationsSettings, UserCity
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
@@ -57,27 +57,43 @@ class ProfileSerializer(CRUDSerializer):
     socials = serializers.SerializerMethodField(read_only=True)
 
     nationalities = serializers.SerializerMethodField(read_only=True)
-    country = serializers.SerializerMethodField(read_only=True)
-    city = serializers.SerializerMethodField()
+    cities = serializers.SerializerMethodField()
 
     registration_completed = serializers.SerializerMethodField()
 
     rating_place = serializers.SerializerMethodField(read_only=True)
     notifications_count = serializers.SerializerMethodField(read_only=True)
 
-    @staticmethod
-    def check_city(data, ret, errors):
-        city_id = data.pop('city', None)
-        if city_id:
-            try:
-                City.objects.get(id=city_id, deleted=False)
-                ret['city_id'] = city_id
-            except City.DoesNotExist:
-                errors.append(
-                    dict(Error(
-                        code=ErrorsCodes.VALIDATION_ERROR.name,
-                        detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
-                )
+    def update_cities(self, data, errors):
+        cities = data.pop('cities', None)
+        if cities is not None and isinstance(cities, list):  # Обрабатываем только list
+            # Удаляем города
+            self.instance.usercity_set.all().update(deleted=True)
+            # Добавляем или обновляем города пользователя
+            for c in cities:
+                city_id = c.get('id', None)
+                if city_id is None:
+                    errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+                    )
+                else:
+                    try:
+                        UserCity.objects.update_or_create(defaults={
+                            'deleted': False
+                        },
+                            **{
+                                'user': self.instance,
+                                'city_id': city_id,
+                            }
+                        )
+                    except IntegrityError:
+                        errors.append(
+                            dict(Error(
+                                code=ErrorsCodes.VALIDATION_ERROR.name,
+                                detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+                        )
 
     def update_nationalities(self, data, errors):
         nationalities = data.pop('nationalities', None)
@@ -148,9 +164,9 @@ class ProfileSerializer(CRUDSerializer):
         errors = []
 
         # Проверяем fk поля
-        self.check_city(data, ret, errors)
 
         # Проверяем m2m поля
+        self.update_cities(data, errors)
         self.update_nationalities(data, errors)
         self.update_languages(data, errors)
 
@@ -200,15 +216,8 @@ class ProfileSerializer(CRUDSerializer):
     def get_nationalities(self, profile: UserProfile):
         return CountrySerializer(profile.nationalities.filter(usernationality__deleted=False), many=True).data
 
-    def get_country(self, profile: UserProfile):
-        if profile.city:
-            return CountrySerializer(profile.city.country, many=False).data
-        return None
-
-    def get_city(self, profile: UserProfile):
-        if profile.city:
-            return CitySerializer(profile.city, many=False).data
-        return None
+    def get_cities(self, profile: UserProfile):
+        return CitySerializer(profile.cities.filter(usercity__deleted=False), many=True).data
 
     def get_rating_place(self, profile: UserProfile):
         return None
@@ -229,8 +238,6 @@ class ProfileSerializer(CRUDSerializer):
         model = UserProfile
         fields = [
             'id',
-            'avatar',
-            'documents',
             'first_name',
             'last_name',
             'middle_name',
@@ -239,20 +246,21 @@ class ProfileSerializer(CRUDSerializer):
             'phone',
             'show_phone',
             'email',
-            'socials',
-            'languages',
-            'nationalities',
             'terms_accepted',
             'policy_accepted',
             'agreement_accepted',
-            'country',
-            'city',
             'registration_completed',
             'verified',
             'bonus_balance',
             'rating_place',
             'notifications_count',
-            'favourite_vacancies_count'
+            'favourite_vacancies_count',
+            'avatar',
+            'documents',
+            'socials',
+            'languages',
+            'nationalities',
+            'cities',
         ]
 
         extra_kwargs = {
