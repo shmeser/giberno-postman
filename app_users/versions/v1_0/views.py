@@ -16,11 +16,13 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
+from app_users.enums import NotificationType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
-    SocialsRepository
-from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer
+    SocialsRepository, NotificationsRepository
+from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
+    NotificationsSettingsSerializer, NotificationSerializer
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
@@ -259,3 +261,72 @@ class MyProfileSocials(APIView):
                 'id__in': id_list,
             })
         return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class Notifications(CRUDAPIView):
+    serializer_class = NotificationSerializer
+    repository_class = NotificationsRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'title': 'title__istartswith',
+        'message': 'message__istartswith',
+    }
+
+    default_order_params = ['-created_at']
+
+    default_filters = {
+        'deleted': False
+    }
+
+    order_params = {
+        'created': 'created_at',
+    }
+
+    def __init__(self):
+        super().__init__()
+        self.serializer_class = NotificationSerializer
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        pagination = RequestMapper.pagination(request)
+        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
+                                          self.default_filters) or dict()
+        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+            serialized = self.serializer_class(dataset)
+        else:
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params
+            )
+            serialized = self.serializer_class(dataset, many=True)
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class NotificationsSettings(APIView):
+    def get(self, request):
+        serializer = NotificationsSettingsSerializer(
+            request.user.notificationssettings,
+            many=False
+        )
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+    def put(self, request):
+        body = get_request_body(request)
+        types_list = body.get('enabled_types', [])
+        types_list = types_list if isinstance(types_list, list) else [types_list]
+        types_list = list(filter(lambda x: NotificationType.has_value(x), types_list))  # Фильтруем ненужные значения
+
+        request.user.notificationssettings.enabled_types = types_list
+        request.user.notificationssettings.save()
+
+        serializer = NotificationsSettingsSerializer(
+            request.user.notificationssettings,
+            many=False
+        )
+
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)

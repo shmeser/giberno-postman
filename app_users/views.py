@@ -132,3 +132,25 @@ class MyProfileSocials(APIView):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileSocials().delete(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class Notifications(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.Notifications().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class NotificationsSettings(APIView):
+    @staticmethod
+    def get(request):
+        if request.version in ['users_1_0']:
+            return v1_0.NotificationsSettings().get(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def put(request):
+        if request.version in ['users_1_0']:
+            return v1_0.NotificationsSettings().put(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

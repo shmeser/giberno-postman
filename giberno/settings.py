@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'app_users.apps.AppUsersConfig',
     'app_media.apps.AppMediaConfig',
     'app_geo.apps.AppGeoConfig',
+    'app_market.apps.AppMarketConfig',
 ]
 
 CHANNEL_LAYERS = {
@@ -119,8 +120,8 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
 
     'AUTH_HEADER_TYPES': ('Bearer', 'JWT'),
 

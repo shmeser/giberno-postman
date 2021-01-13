@@ -6,7 +6,7 @@ from django.contrib.postgres.fields import JSONField, ArrayField
 from django.db.models import UUIDField
 from django.forms import TextInput, Textarea
 
-from app_users.models import SocialModel, UserProfile
+from app_users.models import SocialModel, UserProfile, Notification, NotificationsSettings
 
 admin.site.register(User, admin.OSMGeoAdmin)
 admin.site.register(ContentType, admin.OSMGeoAdmin)
@@ -45,3 +45,20 @@ class SocialModelAdmin(FormattedAdmin):
     )
 
     raw_id_fields = ("user",)
+
+
+@admin.register(Notification)
+class NotificationAdmin(FormattedAdmin):
+    list_display = (
+        "id", "user_id", "subject_id", "title", "message", "type", "action", "read_at", "sent_at"
+    )
+
+    list_filter = ["type", "action"]
+    raw_id_fields = ("user",)
+
+
+@admin.register(NotificationsSettings)
+class NotificationsSettingsAdmin(FormattedAdmin):
+    list_display = (
+        "id", "user_id", "enabled_types"
+    )
