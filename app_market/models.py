@@ -235,3 +235,29 @@ class Transaction(BaseModel):
         db_table = 'app_market__transactions'
         verbose_name = 'Транзакция'
         verbose_name_plural = 'Транзакции'
+
+
+class Profession(BaseModel):
+    name = models.CharField(max_length=1024, null=True, blank=True)
+    description = models.CharField(max_length=1024, null=True, blank=True)
+
+    is_suggested = models.BooleanField(default=False, verbose_name='Предложена пользователем')
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='Одобрена администатором')
+
+    def __str__(self):
+        return f'{self.name}'
+
+    class Meta:
+        db_table = 'app_market__professions'
+        verbose_name = 'Профессия'
+        verbose_name_plural = 'Профессии'
+
+
+class UserProfession(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    profession = models.ForeignKey(Profession, on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'app_users__profession_user'
+        verbose_name = 'Профессия пользователя'
+        verbose_name_plural = 'Профессии пользователей'
