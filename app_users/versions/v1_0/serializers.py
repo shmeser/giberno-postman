@@ -71,7 +71,7 @@ class ProfileSerializer(CRUDSerializer):
             self.instance.usercity_set.all().update(deleted=True)
             # Добавляем или обновляем города пользователя
             for c in cities:
-                city_id = c.get('id', None)
+                city_id = c.get('id', None) if isinstance(c, dict) else c
                 if city_id is None:
                     errors.append(
                         dict(Error(
@@ -102,7 +102,7 @@ class ProfileSerializer(CRUDSerializer):
             self.instance.usernationality_set.all().update(deleted=True)
             # Добавляем или обновляем гражданства пользователя
             for n in nationalities:
-                country_id = n.get('id', None)
+                country_id = n.get('id', None) if isinstance(n, dict) else n
                 if country_id is None:
                     errors.append(
                         dict(Error(
