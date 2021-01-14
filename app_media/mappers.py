@@ -20,8 +20,8 @@ class MediaMapper:
         file_entity.type = file_type
 
         owner_content_type = ContentType.objects.get_for_model(owner)
-        file_entity.owner_content_type_id = owner_content_type.id
-        file_entity.owner_content_type = owner_content_type.model
+        file_entity.owner_ct_id = owner_content_type.id
+        file_entity.owner_ct_name = owner_content_type.model
         file_entity.owner_id = owner.id
 
         file_entity.mime_type = file_data.content_type

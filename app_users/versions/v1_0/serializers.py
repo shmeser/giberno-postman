@@ -178,7 +178,7 @@ class ProfileSerializer(CRUDSerializer):
     def get_avatar(self, profile: UserProfile):
         avatar = MediaRepository().filter_by_kwargs({
             'owner_id': profile.id,
-            'owner_content_type_id': ContentType.objects.get_for_model(profile).id,
+            'owner_ct_id': ContentType.objects.get_for_model(profile).id,
             'type': MediaType.AVATAR.value,
             'format': MediaFormat.IMAGE.value
         }, order_by=['-created_at']).first()
@@ -189,7 +189,7 @@ class ProfileSerializer(CRUDSerializer):
     def get_documents(self, profile):
         documents = MediaRepository().filter_by_kwargs({
             'owner_id': profile.id,
-            'owner_content_type_id': ContentType.objects.get_for_model(profile).id,
+            'owner_ct_id': ContentType.objects.get_for_model(profile).id,
             'type__in': [
                 MediaType.PASSPORT.value,
                 MediaType.INN.value,

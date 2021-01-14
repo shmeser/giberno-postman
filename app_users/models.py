@@ -1,6 +1,7 @@
 import uuid as uuid
 
 from django.contrib.auth.models import AbstractUser
+from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import JSONField
@@ -57,6 +58,8 @@ class UserProfile(AbstractUser, BaseModel):
     verified = models.BooleanField(default=False, verbose_name='Профиль проверен')
     bonus_balance = models.PositiveIntegerField(default=0, verbose_name='Очки славы')
     favourite_vacancies_count = models.PositiveIntegerField(default=0, verbose_name='Количество избранных вакансий')
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
         return f'ID:{self.id} - {self.username} {self.first_name} {self.middle_name} {self.middle_name}'
