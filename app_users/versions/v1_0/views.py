@@ -179,7 +179,7 @@ class MyProfileUploads(APIView):
         if uuid_list:
             MediaRepository().filter_by_kwargs({
                 'owner_id': request.user.id,
-                'owner_content_type_id': ContentType.objects.get_for_model(request.user).id,
+                'owner_ct_id': ContentType.objects.get_for_model(request.user).id,
                 'uuid__in': uuid_list
             }).update(**{
                 'deleted': True,

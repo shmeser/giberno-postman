@@ -97,13 +97,16 @@ class Countries(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset)
         else:
+            self.many = True
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            serialized = self.serializer_class(dataset, many=True)
+            # SpeedUp
+            dataset = self.serializer_class().fast_related_loading(dataset)
+            dataset = dataset.defer("boundary", "osm")
 
+        serialized = self.serializer_class(dataset, many=self.many)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
@@ -115,6 +118,10 @@ def custom_countries(request):
             'iso_code__in': ['RU', 'AM', 'BY', 'KZ', 'KG', 'UA']
         }, paginator=pagination
     )
+    # SpeedUp
+    dataset = CountrySerializer().fast_related_loading(dataset)
+    dataset = dataset.defer("boundary", "osm")
+
     serialized = CountrySerializer(dataset, many=True)
     return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
@@ -150,12 +157,16 @@ class Cities(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset)
         else:
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            serialized = self.serializer_class(dataset, many=True)
+            self.many = True
+            # SpeedUp
+            dataset = self.serializer_class.fast_related_loading(dataset)
+            dataset = dataset.defer("boundary", "position", "osm", "country__boundary", "country__osm")
+
+        serialized = self.serializer_class(dataset, many=self.many)
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
@@ -164,5 +175,10 @@ class Cities(CRUDAPIView):
 def geocode(request):
     lon, lat = RequestMapper().geocode(request)
     dataset = CitiesRepository().geocode(lon, lat)
+
+    # SpeedUp
+    dataset = CitySerializer.fast_related_loading(dataset)
+    dataset = dataset.defer("boundary", "position", "osm", "country__boundary", "country__osm")
+
     serialized = CitySerializer(dataset, many=True)
     return Response(camelize(serialized.data), status=status.HTTP_200_OK)
