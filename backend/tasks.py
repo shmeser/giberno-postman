@@ -28,7 +28,7 @@ def countries_update_flag(countries_ids: list = None):
     MediaRepository().filter_by_kwargs({
         'deleted': False,
         'owner_id__in': countries_ids,
-        'owner_content_type_id': country_ct.id,
+        'owner_ct_id': country_ct.id,
         'type': MediaType.FLAG
     }).delete()
 
@@ -69,7 +69,7 @@ def countries_add_png_flag_from_svg(countries_ids: list = None):
     MediaRepository().filter_by_kwargs({
         'deleted': False,
         'owner_id__in': countries_ids,
-        'owner_content_type_id': country_ct.id,
+        'owner_ct_id': country_ct.id,
         'mime_type': MimeTypes.PNG.value,
         'type': MediaType.FLAG
     }).delete()
@@ -77,7 +77,7 @@ def countries_add_png_flag_from_svg(countries_ids: list = None):
     media_files = MediaRepository().filter_by_kwargs({
         'deleted': False,
         'owner_id__in': countries_ids,
-        'owner_content_type_id': country_ct.id,
+        'owner_ct_id': country_ct.id,
         'mime_type': MimeTypes.SVG.value,
         'type': MediaType.FLAG
     })
