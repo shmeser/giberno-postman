@@ -1,5 +1,7 @@
 import uuid as uuid
 
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 from app_media.enums import MediaType, MediaFormat
@@ -10,12 +12,7 @@ from backend.utils import choices
 class MediaModel(BaseModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
 
-    owner_id = models.IntegerField(blank=True, null=True)
-    owner_content_type_id = models.IntegerField(blank=True, null=True)
-    owner_content_type = models.CharField(max_length=255, blank=True, null=True)
-
     title = models.CharField(max_length=255, blank=True, null=True)
-
     mime_type = models.CharField(max_length=255, blank=True, null=True)
 
     file = models.FileField(blank=True, null=True)
@@ -28,8 +25,13 @@ class MediaModel(BaseModel):
     duration = models.BigIntegerField(default=None, blank=True, null=True)
     size = models.BigIntegerField(blank=True, null=True)
 
+    owner_id = models.PositiveIntegerField(null=True, blank=True)
+    owner_ct = models.ForeignKey(ContentType, null=True, blank=True, on_delete=models.SET_NULL)
+    owner_ct_name = models.CharField(max_length=255, blank=True, null=True)
+    owner = GenericForeignKey(ct_field='owner_ct', fk_field='owner_id')
+
     def __str__(self):
-        return f'{self.id} - {self.owner_content_type} - {self.file.name}'
+        return f'{self.id} - {self.owner_ct_name} - {self.file.name}'
 
     class Meta:
         db_table = 'app_media'

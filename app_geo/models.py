@@ -1,7 +1,9 @@
 import pytz
+from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import HStoreField
 
+from app_media.models import MediaModel
 from backend.models import BaseModel
 from giberno import settings
 
@@ -31,6 +33,8 @@ class Country(BaseModel):
     boundary = models.MultiPolygonField(srid=settings.SRID, blank=True, null=True)
 
     languages = models.ManyToManyField(Language, blank=True, db_table='app_geo__country_language')
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
         return f'{self.names.get("name:en", "")} - {self.native}'
