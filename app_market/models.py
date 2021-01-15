@@ -257,6 +257,9 @@ class UserProfession(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     profession = models.ForeignKey(Profession, on_delete=models.CASCADE)
 
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.profession.name}'
+
     class Meta:
         db_table = 'app_market__profession_user'
         verbose_name = 'Профессия пользователя'
