@@ -1,11 +1,13 @@
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
+from backend.utils import get_request_body
 
 
 class Vacancies(CRUDAPIView):
@@ -88,3 +90,19 @@ class Professions(CRUDAPIView):
             serialized = self.serializer_class(dataset, many=True)
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def suggest_profession(request):
+    body = get_request_body(request)
+    name = body.get('name', None)
+    if name:
+        dataset = ProfessionsRepository().filter_by_kwargs(
+            kwargs={
+                'name__icontains': name
+            }
+        )
+        if not dataset:
+            ProfessionsRepository().add_suggested_profession(name)
+
+    return Response(None, status=status.HTTP_204_NO_CONTENT)
