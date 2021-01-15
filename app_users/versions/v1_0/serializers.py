@@ -6,7 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_geo.models import City, Country
 from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
-from app_market.models import UserProfession
+from app_market.models import UserProfession, Profession
 from app_market.versions.v1_0.serializers import ProfessionSerializer
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -250,11 +250,18 @@ class ProfileSerializer(CRUDSerializer):
         return LanguageSerializer(profile.languages.filter(userlanguage__deleted=False), many=True).data
 
     def get_nationalities(self, profile: UserProfile):
-        return CountrySerializer(profile.nationalities.filter(usernationality__deleted=False), many=True).data
+        return CountrySerializer(
+            CountrySerializer().fast_related_loading(
+                profile.nationalities.filter(usernationality__deleted=False),
+            ),
+            many=True
+        ).data
 
     def get_professions(self, profile: UserProfile):
-        return ProfessionSerializer(profile.userprofession_set.filter(profession__deleted=False, deleted=False),
-                                    many=True).data
+        return ProfessionSerializer(
+            Profession.objects.filter(userprofession__user=profile, userprofession__deleted=False, deleted=False),
+            many=True
+        ).data
 
     def get_cities(self, profile: UserProfile):
         return CitySerializer(profile.cities.filter(usercity__deleted=False), many=True).data
