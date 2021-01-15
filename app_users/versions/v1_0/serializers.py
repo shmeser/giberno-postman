@@ -6,6 +6,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_geo.models import City, Country
 from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
+from app_market.models import UserProfession, Profession
+from app_market.versions.v1_0.serializers import ProfessionSerializer
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -53,6 +55,7 @@ class ProfileSerializer(CRUDSerializer):
     avatar = serializers.SerializerMethodField(read_only=True)
     documents = serializers.SerializerMethodField(read_only=True)
     languages = serializers.SerializerMethodField()
+    professions = serializers.SerializerMethodField()
 
     socials = serializers.SerializerMethodField(read_only=True)
 
@@ -159,6 +162,38 @@ class ProfileSerializer(CRUDSerializer):
                                 detail='Указан неправильный id языка'))
                         )
 
+    def update_professions(self, data, errors):
+        professions = data.pop('professions', None)
+        if professions is not None and isinstance(professions, list):  # Обрабатываем только массив
+            # Удаляем языки
+            self.instance.userprofession_set.all().update(deleted=True)
+            # Добавляем или обновляем языки пользователя
+            for p in professions:
+                profession_id = p.get('id', None) if isinstance(p, dict) else p
+                if profession_id is None:
+                    errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail='Невалидные данные в поле professions'))
+                    )
+                else:
+                    try:
+                        UserProfession.objects.update_or_create(defaults={
+                            'profession_id': profession_id,
+                            'deleted': False
+                        },
+                            **{
+                                'user': self.instance,
+                                'profession_id': profession_id,
+                            }
+                        )
+                    except IntegrityError:
+                        errors.append(
+                            dict(Error(
+                                code=ErrorsCodes.VALIDATION_ERROR.name,
+                                detail='Указан неправильный id профессии'))
+                        )
+
     def to_internal_value(self, data):
         ret = super().to_internal_value(data)
         errors = []
@@ -169,6 +204,7 @@ class ProfileSerializer(CRUDSerializer):
         self.update_cities(data, errors)
         self.update_nationalities(data, errors)
         self.update_languages(data, errors)
+        self.update_professions(data, errors)
 
         if errors:
             raise CustomException(errors=errors)
@@ -214,7 +250,18 @@ class ProfileSerializer(CRUDSerializer):
         return LanguageSerializer(profile.languages.filter(userlanguage__deleted=False), many=True).data
 
     def get_nationalities(self, profile: UserProfile):
-        return CountrySerializer(profile.nationalities.filter(usernationality__deleted=False), many=True).data
+        return CountrySerializer(
+            CountrySerializer().fast_related_loading(
+                profile.nationalities.filter(usernationality__deleted=False),
+            ),
+            many=True
+        ).data
+
+    def get_professions(self, profile: UserProfile):
+        return ProfessionSerializer(
+            Profession.objects.filter(userprofession__user=profile, userprofession__deleted=False, deleted=False),
+            many=True
+        ).data
 
     def get_cities(self, profile: UserProfile):
         return CitySerializer(profile.cities.filter(usercity__deleted=False), many=True).data
@@ -260,6 +307,7 @@ class ProfileSerializer(CRUDSerializer):
             'socials',
             'languages',
             'nationalities',
+            'professions',
             'cities',
         ]
 
