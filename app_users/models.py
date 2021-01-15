@@ -1,11 +1,14 @@
 import uuid as uuid
 
 from django.contrib.auth.models import AbstractUser
+from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
+from django.contrib.postgres.fields import ArrayField
+from django.db.models import JSONField
 
-from app_geo.models import Language, Country
+from app_geo.models import Language, Country, City
 from app_media.models import MediaModel
-from app_users.enums import Gender, Status, AccountType, LanguageProficiency
+from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction
 from backend.models import BaseModel
 from backend.utils import choices
 
@@ -37,7 +40,8 @@ class UserProfile(AbstractUser, BaseModel):
     status = models.IntegerField(choices=choices(Status), default=Status.ACTIVE)
 
     languages = models.ManyToManyField(Language, through='UserLanguage', blank=True)
-    nationalities = models.ManyToManyField(Country, through='UserNationality', blank=True)
+    nationalities = models.ManyToManyField(Country, through='UserNationality', blank=True, related_name='nationalities')
+    cities = models.ManyToManyField(City, through='UserCity', blank=True, related_name='cities')
 
     reg_reference = models.ForeignKey(
         'self',
@@ -45,10 +49,17 @@ class UserProfile(AbstractUser, BaseModel):
         blank=True,
         verbose_name='Приглашение на регистрацию от', on_delete=models.SET_NULL
     )
-    reg_reference_code = models.CharField(max_length=255, null=True, blank=True)
+    reg_reference_code = models.CharField(max_length=255, null=True, blank=True, verbose_name='')
 
-    policy_accepted = models.BooleanField(default=False)
-    agreement_accepted = models.BooleanField(default=False)
+    terms_accepted = models.BooleanField(default=False, verbose_name='Правила использования приняты')
+    policy_accepted = models.BooleanField(default=False, verbose_name='Политика конфиденциальности принята')
+    agreement_accepted = models.BooleanField(default=False, verbose_name='Пользовательское соглашение принято')
+
+    verified = models.BooleanField(default=False, verbose_name='Профиль проверен')
+    bonus_balance = models.PositiveIntegerField(default=0, verbose_name='Очки славы')
+    favourite_vacancies_count = models.PositiveIntegerField(default=0, verbose_name='Количество избранных вакансий')
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
         return f'ID:{self.id} - {self.username} {self.first_name} {self.middle_name} {self.middle_name}'
@@ -81,6 +92,16 @@ class UserNationality(BaseModel):
         db_table = 'app_users__profile_nationality'
         verbose_name = 'Гражданство пользователя'
         verbose_name_plural = 'Гражданство пользователей'
+
+
+class UserCity(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    city = models.ForeignKey(City, on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'app_users__profile_city'
+        verbose_name = 'Город пользователя'
+        verbose_name_plural = 'Города пользователей'
 
 
 class SocialModel(BaseModel):
@@ -123,3 +144,50 @@ class JwtToken(BaseModel):
         db_table = 'app_users__jwt_tokens'
         verbose_name = 'JWT токен'
         verbose_name_plural = 'JWT токены'
+
+
+class Notification(BaseModel):
+    user = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.SET_NULL)
+
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
+
+    subject_id = models.IntegerField(blank=True, null=True, verbose_name='ID сущности в уведомлении')
+    title = models.CharField(max_length=255, blank=True, null=True, verbose_name='Заголовок')
+    message = models.CharField(max_length=255, blank=True, null=True, verbose_name='Сообщение')
+
+    type = models.IntegerField(
+        choices=choices(NotificationType), default=NotificationType.SYSTEM, verbose_name='Тип отправителя уведомления'
+    )
+
+    action = models.IntegerField(
+        choices=choices(NotificationAction), default=NotificationAction.APP, verbose_name='Открываемый экран'
+    )
+    read_at = models.DateTimeField(null=True, blank=True, verbose_name='Время прочтения')
+
+    push_tokens_android = ArrayField(models.CharField(max_length=1024), blank=True, null=True)
+    firebase_response_android = JSONField(blank=True, null=True)
+    push_tokens_ios = ArrayField(models.CharField(max_length=1024), blank=True, null=True)
+    firebase_response_ios = JSONField(blank=True, null=True)
+
+    sent_at = models.DateTimeField(null=True, blank=True, verbose_name='Отправлено в Firebase')
+
+    def __str__(self):
+        return f'{self.title}'
+
+    class Meta:
+        db_table = 'app_users__notifications'
+        verbose_name = 'Уведомление'
+        verbose_name_plural = 'Уведомления'
+
+
+class NotificationsSettings(BaseModel):
+    user = models.OneToOneField(UserProfile, on_delete=models.CASCADE, unique=True)
+    enabled_types = ArrayField(models.IntegerField(choices=choices(NotificationType)), blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.user.username}'
+
+    class Meta:
+        db_table = 'app_users__notifications_settings'
+        verbose_name = 'Настройки уведомлений пользователя'
+        verbose_name_plural = 'Настройки уведомлений пользователей'

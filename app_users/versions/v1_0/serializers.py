@@ -4,13 +4,17 @@ from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer
+from app_geo.models import City, Country
+from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
+from app_market.models import UserProfession, Profession
+from app_market.versions.v1_0.serializers import ProfessionSerializer
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import LanguageProficiency
-from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality
-from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository
+from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
+    NotificationsSettings, UserCity
+from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exception import CustomException
@@ -51,30 +55,62 @@ class ProfileSerializer(CRUDSerializer):
     avatar = serializers.SerializerMethodField(read_only=True)
     documents = serializers.SerializerMethodField(read_only=True)
     languages = serializers.SerializerMethodField()
+    professions = serializers.SerializerMethodField()
 
     socials = serializers.SerializerMethodField(read_only=True)
 
     nationalities = serializers.SerializerMethodField(read_only=True)
-    country = serializers.SerializerMethodField()
-    city = serializers.SerializerMethodField()
+    cities = serializers.SerializerMethodField()
 
     registration_completed = serializers.SerializerMethodField()
 
-    def to_internal_value(self, data):
-        m2m_errors = []
-        # Проверяем m2m поля
+    rating_place = serializers.SerializerMethodField(read_only=True)
+    notifications_count = serializers.SerializerMethodField(read_only=True)
+
+    def update_cities(self, data, errors):
+        cities = data.pop('cities', None)
+        if cities is not None and isinstance(cities, list):  # Обрабатываем только list
+            # Удаляем города
+            self.instance.usercity_set.all().update(deleted=True)
+            # Добавляем или обновляем города пользователя
+            for c in cities:
+                city_id = c.get('id', None) if isinstance(c, dict) else c
+                if city_id is None:
+                    errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+                    )
+                else:
+                    try:
+                        UserCity.objects.update_or_create(defaults={
+                            'deleted': False
+                        },
+                            **{
+                                'user': self.instance,
+                                'city_id': city_id,
+                            }
+                        )
+                    except IntegrityError:
+                        errors.append(
+                            dict(Error(
+                                code=ErrorsCodes.VALIDATION_ERROR.name,
+                                detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+                        )
+
+    def update_nationalities(self, data, errors):
         nationalities = data.pop('nationalities', None)
         if nationalities is not None and isinstance(nationalities, list):  # Обрабатываем только list
             # Удаляем гражданства
             self.instance.usernationality_set.all().update(deleted=True)
             # Добавляем или обновляем гражданства пользователя
             for n in nationalities:
-                country_id = n.get('id', None)
+                country_id = n.get('id', None) if isinstance(n, dict) else n
                 if country_id is None:
-                    m2m_errors.append(
+                    errors.append(
                         dict(Error(
                             code=ErrorsCodes.VALIDATION_ERROR.name,
-                            detail='Указан неправильный id страны'))
+                            detail=f'Объект {Country._meta.verbose_name} с ID={country_id} не найден'))
                     )
                 else:
                     try:
@@ -87,12 +123,13 @@ class ProfileSerializer(CRUDSerializer):
                             }
                         )
                     except IntegrityError:
-                        m2m_errors.append(
+                        errors.append(
                             dict(Error(
                                 code=ErrorsCodes.VALIDATION_ERROR.name,
-                                detail='Указан неправильный id страны'))
+                                detail=f'Объект {Country._meta.verbose_name} с ID={country_id} не найден'))
                         )
 
+    def update_languages(self, data, errors):
         languages = data.pop('languages', None)
         if languages is not None and isinstance(languages, list):  # Обрабатываем только массив
             # Удаляем языки
@@ -102,7 +139,7 @@ class ProfileSerializer(CRUDSerializer):
                 proficiency = l.get('proficiency', None)
                 lang_id = l.get('id', None)
                 if proficiency is None or not LanguageProficiency.has_value(proficiency):
-                    m2m_errors.append(
+                    errors.append(
                         dict(Error(
                             code=ErrorsCodes.VALIDATION_ERROR.name,
                             detail='Невалидные данные в поле proficiency'))
@@ -119,21 +156,65 @@ class ProfileSerializer(CRUDSerializer):
                             }
                         )
                     except IntegrityError:
-                        m2m_errors.append(
+                        errors.append(
                             dict(Error(
                                 code=ErrorsCodes.VALIDATION_ERROR.name,
                                 detail='Указан неправильный id языка'))
                         )
 
-        if m2m_errors:
-            raise CustomException(errors=m2m_errors)
+    def update_professions(self, data, errors):
+        professions = data.pop('professions', None)
+        if professions is not None and isinstance(professions, list):  # Обрабатываем только массив
+            # Удаляем языки
+            self.instance.userprofession_set.all().update(deleted=True)
+            # Добавляем или обновляем языки пользователя
+            for p in professions:
+                profession_id = p.get('id', None) if isinstance(p, dict) else p
+                if profession_id is None:
+                    errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail='Невалидные данные в поле professions'))
+                    )
+                else:
+                    try:
+                        UserProfession.objects.update_or_create(defaults={
+                            'profession_id': profession_id,
+                            'deleted': False
+                        },
+                            **{
+                                'user': self.instance,
+                                'profession_id': profession_id,
+                            }
+                        )
+                    except IntegrityError:
+                        errors.append(
+                            dict(Error(
+                                code=ErrorsCodes.VALIDATION_ERROR.name,
+                                detail='Указан неправильный id профессии'))
+                        )
 
-        return super().to_internal_value(data)
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+
+        # Проверяем fk поля
+
+        # Проверяем m2m поля
+        self.update_cities(data, errors)
+        self.update_nationalities(data, errors)
+        self.update_languages(data, errors)
+        self.update_professions(data, errors)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
 
     def get_avatar(self, profile: UserProfile):
         avatar = MediaRepository().filter_by_kwargs({
             'owner_id': profile.id,
-            'owner_content_type_id': ContentType.objects.get_for_model(profile).id,
+            'owner_ct_id': ContentType.objects.get_for_model(profile).id,
             'type': MediaType.AVATAR.value,
             'format': MediaFormat.IMAGE.value
         }, order_by=['-created_at']).first()
@@ -144,7 +225,7 @@ class ProfileSerializer(CRUDSerializer):
     def get_documents(self, profile):
         documents = MediaRepository().filter_by_kwargs({
             'owner_id': profile.id,
-            'owner_content_type_id': ContentType.objects.get_for_model(profile).id,
+            'owner_ct_id': ContentType.objects.get_for_model(profile).id,
             'type__in': [
                 MediaType.PASSPORT.value,
                 MediaType.INN.value,
@@ -169,13 +250,27 @@ class ProfileSerializer(CRUDSerializer):
         return LanguageSerializer(profile.languages.filter(userlanguage__deleted=False), many=True).data
 
     def get_nationalities(self, profile: UserProfile):
-        return CountrySerializer(profile.nationalities.filter(usernationality__deleted=False), many=True).data
+        return CountrySerializer(
+            CountrySerializer().fast_related_loading(
+                profile.nationalities.filter(usernationality__deleted=False),
+            ),
+            many=True
+        ).data
 
-    def get_country(self, profile: UserProfile):
+    def get_professions(self, profile: UserProfile):
+        return ProfessionSerializer(
+            Profession.objects.filter(userprofession__user=profile, userprofession__deleted=False, deleted=False),
+            many=True
+        ).data
+
+    def get_cities(self, profile: UserProfile):
+        return CitySerializer(profile.cities.filter(usercity__deleted=False), many=True).data
+
+    def get_rating_place(self, profile: UserProfile):
         return None
 
-    def get_city(self, profile: UserProfile):
-        return None
+    def get_notifications_count(self, profile: UserProfile):
+        return profile.notification_set.filter(read_at__isnull=True, deleted=False).count()
 
     def get_registration_completed(self, profile: UserProfile):
         if profile.first_name and \
@@ -190,8 +285,6 @@ class ProfileSerializer(CRUDSerializer):
         model = UserProfile
         fields = [
             'id',
-            'avatar',
-            'documents',
             'first_name',
             'last_name',
             'middle_name',
@@ -200,18 +293,29 @@ class ProfileSerializer(CRUDSerializer):
             'phone',
             'show_phone',
             'email',
+            'terms_accepted',
+            'policy_accepted',
+            'agreement_accepted',
+            'registration_completed',
+            'verified',
+            'bonus_balance',
+            'rating_place',
+            'notifications_count',
+            'favourite_vacancies_count',
+            'avatar',
+            'documents',
             'socials',
             'languages',
             'nationalities',
-            'policy_accepted',
-            'agreement_accepted',
-            'country',
-            'city',
-            'registration_completed'
+            'professions',
+            'cities',
         ]
 
         extra_kwargs = {
-            'phone': {'read_only': True}
+            'phone': {'read_only': True},
+            'verified': {'read_only': True},
+            'bonus_balance': {'read_only': True},
+            'favourite_vacancies_count': {'read_only': True}
         }
 
 
@@ -233,4 +337,32 @@ class SocialSerializer(CRUDSerializer):
             'email',
             'created_at',
             'is_for_reg',
+        ]
+
+
+class NotificationSerializer(CRUDSerializer):
+    repository = NotificationsRepository
+
+    created_at = DateTimeField()
+    read_at = DateTimeField()
+
+    class Meta:
+        model = Notification
+        fields = [
+            'id',
+            'subject_id',
+            'title',
+            'message',
+            'type',
+            'action',
+            'read_at',
+            'created_at',
+        ]
+
+
+class NotificationsSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationsSettings
+        fields = [
+            'enabled_types',
         ]

@@ -77,6 +77,7 @@ class MasterRepository(BaseRepository):
 
 
 class CRUDAPIView(APIView):
+    many = False
     serializer_class = None
     repository_class = None
     urlpattern_record_id_name = 'record_id'
