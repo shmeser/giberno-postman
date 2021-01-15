@@ -242,7 +242,7 @@ class Profession(BaseModel):
     description = models.CharField(max_length=1024, null=True, blank=True)
 
     is_suggested = models.BooleanField(default=False, verbose_name='Предложена пользователем')
-    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='Одобрена администатором')
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='Одобрена (для предложенных)')
 
     def __str__(self):
         return f'{self.name}'
