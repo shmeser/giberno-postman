@@ -4,7 +4,8 @@ from django.contrib.postgres.fields import ArrayField, JSONField, HStoreField
 from django.db.models import UUIDField
 from django.forms import TextInput, Textarea
 
-from app_market.models import Distributor, Shop, Vacancy, Shift, UserShift, Order, Transaction, Coupon
+from app_market.models import Distributor, Shop, Vacancy, Shift, UserShift, Order, Transaction, Coupon, Profession, \
+    UserProfession
 
 
 class FormattedAdmin(admin.OSMGeoAdmin):
@@ -76,3 +77,16 @@ class TransactionAdmin(FormattedAdmin):
         'id', 'amount', 'exchange_rate', 'type', 'status', 'uuid', 'from_id', 'from_content_type', 'to_id',
         'to_content_type', 'comment'
     ]
+
+
+@admin.register(Profession)
+class ProfessionAdmin(FormattedAdmin):
+    list_display = [
+        'id', 'name', 'description', 'is_suggested', 'approved_at', 'created_at', 'updated_at',
+    ]
+    list_filter = ["is_suggested"]
+
+
+@admin.register(UserProfession)
+class UserProfessionAdmin(FormattedAdmin):
+    raw_id_fields = ['user', 'profession']

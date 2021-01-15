@@ -258,6 +258,6 @@ class UserProfession(BaseModel):
     profession = models.ForeignKey(Profession, on_delete=models.CASCADE)
 
     class Meta:
-        db_table = 'app_users__profession_user'
+        db_table = 'app_market__profession_user'
         verbose_name = 'Профессия пользователя'
         verbose_name_plural = 'Профессии пользователей'

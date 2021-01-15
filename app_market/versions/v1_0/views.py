@@ -59,7 +59,9 @@ class Professions(CRUDAPIView):
 
     default_order_params = []
 
-    default_filters = {}
+    default_filters = {
+        'is_suggested': False,
+    }
 
     order_params = {
         'name': 'name',
