@@ -28,3 +28,6 @@ class ProfessionsRepository(MasterRepository):
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
             )
+
+    def add_suggested_profession(self, name):
+        self.model.objects.create(name=name, is_suggested=True)
