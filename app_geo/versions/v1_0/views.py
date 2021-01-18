@@ -133,6 +133,8 @@ class Cities(CRUDAPIView):
 
     filter_params = {
         'name': 'native__istartswith',  # TODO Доработать поиск по строке для строк с пробелами
+        'country': 'country_id',
+        'region': 'region_id'
     }
 
     default_order_params = ['native']

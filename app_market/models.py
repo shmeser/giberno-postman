@@ -4,6 +4,7 @@ from dateutil.rrule import MONTHLY, WEEKLY, DAILY
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 
+from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
     ShiftStatus
 from app_media.enums import MediaType
