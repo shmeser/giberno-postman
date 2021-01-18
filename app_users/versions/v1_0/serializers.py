@@ -6,8 +6,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_geo.models import City, Country
 from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
-from app_market.models import UserProfession, Profession
-from app_market.versions.v1_0.serializers import ProfessionSerializer
+from app_market.models import UserProfession, Profession, UserSkill, Skill
+from app_market.versions.v1_0.serializers import ProfessionSerializer, SkillSerializer
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -57,6 +57,7 @@ class ProfileSerializer(CRUDSerializer):
     documents = serializers.SerializerMethodField(read_only=True)
     languages = serializers.SerializerMethodField()
     professions = serializers.SerializerMethodField()
+    skills = serializers.SerializerMethodField()
 
     socials = serializers.SerializerMethodField(read_only=True)
 
@@ -67,6 +68,40 @@ class ProfileSerializer(CRUDSerializer):
 
     rating_place = serializers.SerializerMethodField(read_only=True)
     notifications_count = serializers.SerializerMethodField(read_only=True)
+
+    def validate(self, attrs):
+        errors = []
+
+        # Проверяем введенные ссылки для соцсетей
+        fb_link = attrs.get('fb_link', None)
+        vk_link = attrs.get('vk_link', None)
+        instagram_link = attrs.get('instagram_link', None)
+
+        if fb_link is not None and 'facebook.com' not in fb_link:
+            errors.append(
+                dict(Error(
+                    code=ErrorsCodes.VALIDATION_ERROR.name,
+                    detail=f'Некорректная ссылка на Facebook'))
+            )
+
+        if vk_link is not None and 'vk.com' not in vk_link:
+            errors.append(
+                dict(Error(
+                    code=ErrorsCodes.VALIDATION_ERROR.name,
+                    detail=f'Некорректная ссылка на ВКонтакте'))
+            )
+
+        if instagram_link is not None and 'instagram.com' not in instagram_link:
+            errors.append(
+                dict(Error(
+                    code=ErrorsCodes.VALIDATION_ERROR.name,
+                    detail=f'Некорректная ссылка на Instagram'))
+            )
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return attrs
 
     def update_cities(self, data, errors):
         cities = data.pop('cities', None)
@@ -195,6 +230,38 @@ class ProfileSerializer(CRUDSerializer):
                                 detail='Указан неправильный id профессии'))
                         )
 
+    def update_skills(self, data, errors):
+        skills = data.pop('skills', None)
+        if skills is not None and isinstance(skills, list):  # Обрабатываем только массив
+            # Удаляем языки
+            self.instance.userskill_set.all().update(deleted=True)
+            # Добавляем или обновляем языки пользователя
+            for s in skills:
+                skill_id = s.get('id', None) if isinstance(s, dict) else s
+                if skill_id is None:
+                    errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail='Невалидные данные в поле skills'))
+                    )
+                else:
+                    try:
+                        UserSkill.objects.update_or_create(defaults={
+                            'skill_id': skill_id,
+                            'deleted': False
+                        },
+                            **{
+                                'user': self.instance,
+                                'skill_id': skill_id,
+                            }
+                        )
+                    except IntegrityError:
+                        errors.append(
+                            dict(Error(
+                                code=ErrorsCodes.VALIDATION_ERROR.name,
+                                detail='Указан неправильный id специального навыка'))
+                        )
+
     def to_internal_value(self, data):
         ret = super().to_internal_value(data)
         errors = []
@@ -206,6 +273,7 @@ class ProfileSerializer(CRUDSerializer):
         self.update_nationalities(data, errors)
         self.update_languages(data, errors)
         self.update_professions(data, errors)
+        self.update_skills(data, errors)
 
         if errors:
             raise CustomException(errors=errors)
@@ -264,6 +332,12 @@ class ProfileSerializer(CRUDSerializer):
             many=True
         ).data
 
+    def get_skills(self, profile: UserProfile):
+        return SkillSerializer(
+            Skill.objects.filter(userskill__user=profile, userskill__deleted=False, deleted=False),
+            many=True
+        ).data
+
     def get_cities(self, profile: UserProfile):
         return CitySerializer(profile.cities.filter(usercity__deleted=False), many=True).data
 
@@ -303,6 +377,11 @@ class ProfileSerializer(CRUDSerializer):
             'rating_place',
             'notifications_count',
             'favourite_vacancies_count',
+            'fb_link',
+            'vk_link',
+            'instagram_link',
+            'education',
+
             'avatar',
             'documents',
             'socials',
@@ -310,6 +389,7 @@ class ProfileSerializer(CRUDSerializer):
             'nationalities',
             'professions',
             'cities',
+            'skills',
         ]
 
         extra_kwargs = {

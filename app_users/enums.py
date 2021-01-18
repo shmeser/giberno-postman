@@ -36,5 +36,10 @@ class NotificationType(IntEnumM):
 class NotificationAction(IntEnumM):
     # Для открытия нужного экрана в приложении
     APP = 0  # Главный экран в приложении
-
     VACANCY = 1  # Вакансия
+
+
+class Education(IntEnumM):
+    SCHOOL = 0  # Общее (школа)
+    COLLEGE = 1  # Профессиональное-техническое (колледж, техникум)
+    UNIVERSITY = 2  # Высшее (университет)
