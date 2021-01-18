@@ -61,6 +61,12 @@ class UserProfile(AbstractUser, BaseModel):
 
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
+    fb_link = models.CharField(max_length=255, null=True, blank=True, verbose_name='Ссылка на профиль в Facebook')
+    vk_link = models.CharField(max_length=255, null=True, blank=True, verbose_name='Ссылка на профиль в ВКонтанте')
+    instagram_link = models.CharField(
+        max_length=255, null=True, blank=True, verbose_name='Ссылка на профиль в Intsagram'
+    )
+
     def __str__(self):
         return f'ID:{self.id} - {self.username} {self.first_name} {self.middle_name} {self.middle_name}'
 

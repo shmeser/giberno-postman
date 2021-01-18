@@ -68,6 +68,40 @@ class ProfileSerializer(CRUDSerializer):
     rating_place = serializers.SerializerMethodField(read_only=True)
     notifications_count = serializers.SerializerMethodField(read_only=True)
 
+    def validate(self, attrs):
+        errors = []
+
+        # Проверяем введенные ссылки для соцсетей
+        fb_link = attrs.get('fb_link', None)
+        vk_link = attrs.get('vk_link', None)
+        instagram_link = attrs.get('instagram_link', None)
+
+        if fb_link is not None and 'facebook.com' not in fb_link:
+            errors.append(
+                dict(Error(
+                    code=ErrorsCodes.VALIDATION_ERROR.name,
+                    detail=f'Некорректная ссылка на Facebook'))
+            )
+
+        if vk_link is not None and 'vk.com' not in vk_link:
+            errors.append(
+                dict(Error(
+                    code=ErrorsCodes.VALIDATION_ERROR.name,
+                    detail=f'Некорректная ссылка на ВКонтакте'))
+            )
+
+        if instagram_link is not None and 'instagram.com' not in instagram_link:
+            errors.append(
+                dict(Error(
+                    code=ErrorsCodes.VALIDATION_ERROR.name,
+                    detail=f'Некорректная ссылка на Instagram'))
+            )
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return attrs
+
     def update_cities(self, data, errors):
         cities = data.pop('cities', None)
         if cities is not None and isinstance(cities, list):  # Обрабатываем только list
@@ -303,6 +337,10 @@ class ProfileSerializer(CRUDSerializer):
             'rating_place',
             'notifications_count',
             'favourite_vacancies_count',
+            'fb_link',
+            'vk_link',
+            'instagram_link',
+
             'avatar',
             'documents',
             'socials',
