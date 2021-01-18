@@ -2,7 +2,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType, NotificationType
-from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification
+from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification, UserCareer
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException
@@ -223,24 +223,10 @@ class ProfileRepository(MasterRepository):
 class NotificationsRepository(MasterRepository):
     model = Notification
 
-    def get_by_id(self, record_id):
-        try:
-            return self.model.objects.get(id=record_id, deleted=False)
-        except self.model.DoesNotExist:
-            raise HttpException(
-                status_code=RESTErrors.NOT_FOUND.value,
-                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
-            )
-
 
 class NotificationsSettingsRepository(MasterRepository):
     model = NotificationsSettings
 
-    def get_by_id(self, record_id):
-        try:
-            return self.model.objects.get(id=record_id, deleted=False)
-        except self.model.DoesNotExist:
-            raise HttpException(
-                status_code=RESTErrors.NOT_FOUND.value,
-                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
-            )
+
+class CareerRepository(MasterRepository):
+    model = UserCareer

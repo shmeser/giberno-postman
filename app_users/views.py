@@ -106,6 +106,32 @@ class MyProfile(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+class MyProfileCareer(APIView):
+    @staticmethod
+    def get(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileCareer().get(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def post(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileCareer().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def patch(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileCareer().patch(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileCareer().delete(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class MyProfileUploads(APIView):
     @staticmethod
     def post(request):

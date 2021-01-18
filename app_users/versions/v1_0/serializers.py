@@ -13,8 +13,9 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import LanguageProficiency
 from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
-    NotificationsSettings, UserCity
-from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository
+    NotificationsSettings, UserCity, UserCareer
+from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository, \
+    CareerRepository
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exception import CustomException
@@ -365,4 +366,76 @@ class NotificationsSettingsSerializer(serializers.ModelSerializer):
         model = NotificationsSettings
         fields = [
             'enabled_types',
+        ]
+
+
+class CareerSerializer(CRUDSerializer):
+    repository = CareerRepository
+
+    country = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+
+    def update_city(self, ret, data, errors):
+        city_id = data.pop('city', None)
+        if city_id is not None:
+            city = City.objects.filter(pk=city_id, deleted=False).first()
+            if city is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+                )
+            else:
+                ret['city_id'] = city_id
+
+    def update_country(self, ret, data, errors):
+        country_id = data.pop('country', None)
+        if country_id is not None:
+            country = Country.objects.filter(pk=country_id, deleted=False).first()
+            if country is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {City._meta.verbose_name} с ID={country_id} не найден'))
+                )
+            else:
+                ret['country_id'] = country_id
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+
+        # Добавляем пользователя
+        ret['user_id'] = data.get('user_id', None)
+
+        # Проверяем fk поля
+        self.update_city(ret, data, errors)
+        self.update_country(ret, data, errors)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def get_country(self, career: UserCareer):
+        if not career.country:
+            return None
+        return CountrySerializer(career.country, many=False).data
+
+    def get_city(self, career: UserCareer):
+        if not career.city:
+            return None
+        return CitySerializer(career.city, many=False).data
+
+    class Meta:
+        model = UserCareer
+        fields = [
+            'id',
+            'work_place',
+            'position',
+            'year_start',
+            'year_end',
+            'is_working_now',
+            'country',
+            'city',
         ]
