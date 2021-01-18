@@ -191,3 +191,26 @@ class NotificationsSettings(BaseModel):
         db_table = 'app_users__notifications_settings'
         verbose_name = 'Настройки уведомлений пользователя'
         verbose_name_plural = 'Настройки уведомлений пользователей'
+
+
+class UserCareer(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+
+    work_place = models.CharField(max_length=128, blank=True, null=True)
+    position = models.CharField(max_length=128, blank=True, null=True)
+
+    country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True, blank=True)
+    city = models.ForeignKey(City, on_delete=models.SET_NULL, null=True, blank=True)
+
+    year_start = models.PositiveIntegerField(null=True, blank=True)
+    year_end = models.PositiveIntegerField(null=True, blank=True)
+
+    is_working_now = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.work_place} {self.position}'
+
+    class Meta:
+        db_table = 'app_users__profile_career'
+        verbose_name = 'Карьера пользователя'
+        verbose_name_plural = 'Картера пользователей'

@@ -23,7 +23,7 @@ class BaseRepository:
         except self.model.DoesNotExist:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
-                detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
@@ -48,7 +48,7 @@ class BaseRepository:
             return self.get_by_id(record_id)
         else:
             raise HttpException(status_code=RESTErrors.NOT_FOUND.value,
-                                detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id))
+                                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
 
     def update_or_create(self, record_id, **kwargs):
         if record_id:
