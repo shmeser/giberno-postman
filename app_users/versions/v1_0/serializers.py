@@ -340,6 +340,7 @@ class ProfileSerializer(CRUDSerializer):
             'fb_link',
             'vk_link',
             'instagram_link',
+            'education',
 
             'avatar',
             'documents',

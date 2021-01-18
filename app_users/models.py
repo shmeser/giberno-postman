@@ -8,7 +8,8 @@ from django.db.models import JSONField
 
 from app_geo.models import Language, Country, City
 from app_media.models import MediaModel
-from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction
+from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction, \
+    Education
 from backend.models import BaseModel
 from backend.utils import choices
 
@@ -66,6 +67,9 @@ class UserProfile(AbstractUser, BaseModel):
     instagram_link = models.CharField(
         max_length=255, null=True, blank=True, verbose_name='Ссылка на профиль в Intsagram'
     )
+
+    education = models.PositiveIntegerField(choices=choices(Education), null=True, blank=True,
+                                            verbose_name='Образование')
 
     def __str__(self):
         return f'ID:{self.id} - {self.username} {self.first_name} {self.middle_name} {self.middle_name}'
