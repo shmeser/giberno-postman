@@ -1,5 +1,5 @@
-from app_market.models import Vacancy, Profession
-from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository
+from app_market.models import Vacancy, Profession, Skill
+from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository
 from backend.mixins import CRUDSerializer
 
 
@@ -22,6 +22,18 @@ class ProfessionSerializer(CRUDSerializer):
 
     class Meta:
         model = Profession
+        fields = [
+            'id',
+            'name',
+            'description',
+        ]
+
+
+class SkillSerializer(CRUDSerializer):
+    repository = SkillsRepository
+
+    class Meta:
+        model = Skill
         fields = [
             'id',
             'name',

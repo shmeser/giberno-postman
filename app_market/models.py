@@ -265,3 +265,32 @@ class UserProfession(BaseModel):
         db_table = 'app_market__profession_user'
         verbose_name = 'Профессия пользователя'
         verbose_name_plural = 'Профессии пользователей'
+
+
+class Skill(BaseModel):
+    name = models.CharField(max_length=1024, null=True, blank=True)
+    description = models.CharField(max_length=1024, null=True, blank=True)
+
+    is_suggested = models.BooleanField(default=False, verbose_name='Предложена пользователем')
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='Одобрена (для предложенных)')
+
+    def __str__(self):
+        return f'{self.name}'
+
+    class Meta:
+        db_table = 'app_market__skills'
+        verbose_name = 'Специальный навык'
+        verbose_name_plural = 'Специальные навыки'
+
+
+class UserSkill(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    skill = models.ForeignKey(Skill, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.skill.name}'
+
+    class Meta:
+        db_table = 'app_market__skill_user'
+        verbose_name = 'Специальный навык пользователя'
+        verbose_name_plural = 'Специальные навыки пользователей'
