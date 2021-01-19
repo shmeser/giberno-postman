@@ -2,7 +2,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType, NotificationType
-from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification, UserCareer
+from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification, UserCareer, \
+    Document
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException
@@ -230,3 +231,7 @@ class NotificationsSettingsRepository(MasterRepository):
 
 class CareerRepository(MasterRepository):
     model = UserCareer
+
+
+class DocumentsRepository(MasterRepository):
+    model = Document

@@ -13,9 +13,9 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import LanguageProficiency
 from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
-    NotificationsSettings, UserCity, UserCareer
+    NotificationsSettings, UserCity, UserCareer, Document
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository, \
-    CareerRepository
+    CareerRepository, DocumentsRepository
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exception import CustomException
@@ -518,4 +518,33 @@ class CareerSerializer(CRUDSerializer):
             'is_working_now',
             'country',
             'city',
+        ]
+
+
+class DocumentSerializer(CRUDSerializer):
+    repository = DocumentsRepository
+
+    media = serializers.SerializerMethodField()
+    expiration_date = DateTimeField
+    issue_date = DateTimeField
+    created_at = DateTimeField
+
+    def get_media(self, career: UserCareer):
+        if not career.city:
+            return None
+        return CitySerializer(career.city, many=False).data
+
+    class Meta:
+        model = Document
+        fields = [
+            'id',
+            'type',
+            'series',
+            'number',
+            'category',
+            'department_code',
+            'issue_place',
+            'issue_date',
+            'expiration_date',
+            'created_at',
         ]

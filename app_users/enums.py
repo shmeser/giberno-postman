@@ -43,3 +43,12 @@ class Education(IntEnumM):
     SCHOOL = 0  # Общее (школа)
     COLLEGE = 1  # Профессиональное-техническое (колледж, техникум)
     UNIVERSITY = 2  # Высшее (университет)
+
+
+class DocumentType(IntEnumM):
+    OTHER = 0
+    PASSPORT = 1
+    INN = 2
+    SNILS = 3
+    MEDICAL_BOOK = 4
+    DRIVER_LICENCE = 5

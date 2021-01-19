@@ -7,9 +7,10 @@ from django.contrib.postgres.fields import ArrayField
 from django.db.models import JSONField
 
 from app_geo.models import Language, Country, City
+from app_media.enums import MediaType
 from app_media.models import MediaModel
 from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction, \
-    Education
+    Education, DocumentType
 from backend.models import BaseModel
 from backend.utils import choices
 
@@ -224,3 +225,23 @@ class UserCareer(BaseModel):
         db_table = 'app_users__profile_career'
         verbose_name = 'Карьера пользователя'
         verbose_name_plural = 'Картера пользователей'
+
+
+class Document(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    type = models.IntegerField(choices=choices(DocumentType), default=DocumentType.OTHER)
+    series = models.CharField(max_length=128, blank=True, null=True, verbose_name='Серия')
+    number = models.CharField(max_length=128, blank=True, null=True, verbose_name='Номер')
+    category = models.CharField(max_length=128, blank=True, null=True, verbose_name='Категория')
+    department_code = models.CharField(max_length=128, blank=True, null=True, verbose_name='Код подразделения')
+    issue_place = models.CharField(max_length=128, blank=True, null=True, verbose_name='Место выдачи')
+    issue_date = models.DateTimeField(null=True, blank=True, verbose_name='Дата выдачи')
+    expiration_date = models.DateTimeField(null=True, blank=True, verbose_name='Действителен до')
+
+    def __str__(self):
+        return f'{self.user.username}'
+
+    class Meta:
+        db_table = 'app_users__documents'
+        verbose_name = 'Документ'
+        verbose_name_plural = 'Документы'
