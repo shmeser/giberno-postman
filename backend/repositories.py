@@ -39,6 +39,19 @@ class BaseRepository:
                 records = self.model.objects.filter(**kwargs)
         return records[paginator.offset:paginator.limit] if paginator else records
 
+    def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(args, **kwargs)
+            else:
+                records = self.model.objects.exclude(deleted=True).filter(args, **kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.model.objects.order_by(*order_by).filter(args, **kwargs)
+            else:
+                records = self.model.objects.filter(args, **kwargs)
+        return records[paginator.offset:paginator.limit] if paginator else records
+
     def create(self, **kwargs):
         return self.model.objects.create(**kwargs)
 

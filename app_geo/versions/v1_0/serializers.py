@@ -1,5 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch
+from django.db.models import Prefetch, QuerySet
 from django_globals import globals as g
 from rest_framework import serializers
 
@@ -78,9 +78,20 @@ class CountrySerializer(serializers.ModelSerializer):
         return country.names.get('name:ru', None)
 
     def get_flag(self, country: Country):
-        # Берем флаг из поля medias
-        if hasattr(country, 'medias') and country.medias:
-            return MediaSerializer(country.medias[0], many=False).data
+        if isinstance(self.instance, QuerySet):
+            # для many=True
+            flag_file = None
+            # Берем флаг из предзагруженного поля medias
+            if hasattr(country, 'medias') and country.medias:
+                flag_file = country.medias[0]
+        else:
+            flag_file = MediaModel.objects.filter(
+                owner_id=country.id, type=MediaType.FLAG.value, mime_type=self.mime_type,
+                owner_ct_id=ContentType.objects.get_for_model(country).id, format=MediaFormat.IMAGE.value,
+            ).order_by('-created_at').first()
+
+        if flag_file:
+            return MediaSerializer(flag_file, many=False).data
         return None
 
     class Meta:
