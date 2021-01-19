@@ -374,11 +374,9 @@ class MyProfileCareer(CRUDAPIView):
 
     def post(self, request, **kwargs):
         body = get_request_body(request)
-        body['user_id'] = request.user.id
-
         serialized = self.serializer_class(data=body)
-        if serialized.is_valid():
-            serialized.save()
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
@@ -390,8 +388,8 @@ class MyProfileCareer(CRUDAPIView):
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
             serialized = self.serializer_class(dataset, data=body)
-            if serialized.is_valid():
-                serialized.save()
+            serialized.is_valid(raise_exception=True)
+            serialized.save()
         else:
             raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
 
@@ -458,9 +456,10 @@ class MyProfileDocuments(CRUDAPIView):
         body['user_id'] = request.user.id
 
         serialized = self.serializer_class(data=body)
-        if serialized.is_valid():
-            serialized.save()
+        serialized.is_valid(raise_exception=True)
 
+        document = serialized.save()
+        self.repository_class().update_media(document, body.pop('attach_files', None))
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):
@@ -471,8 +470,9 @@ class MyProfileDocuments(CRUDAPIView):
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
             serialized = self.serializer_class(dataset, data=body)
-            if serialized.is_valid():
-                serialized.save()
+            serialized.is_valid(raise_exception=True)
+            document = serialized.save()
+            self.repository_class().update_media(document, body.pop('attach_files', None))
         else:
             raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
 

@@ -1,5 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
+from django_globals import globals as g
 from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -486,7 +487,7 @@ class CareerSerializer(CRUDSerializer):
         errors = []
 
         # Добавляем пользователя
-        ret['user_id'] = data.get('user_id', None)
+        ret['user_id'] = g.request.user.id
 
         # Проверяем fk поля
         self.update_city(ret, data, errors)
@@ -525,14 +526,22 @@ class DocumentSerializer(CRUDSerializer):
     repository = DocumentsRepository
 
     media = serializers.SerializerMethodField()
-    expiration_date = DateTimeField
-    issue_date = DateTimeField
-    created_at = DateTimeField
+    expiration_date = DateTimeField()
+    issue_date = DateTimeField()
+    created_at = DateTimeField(read_only=True)
 
-    def get_media(self, career: UserCareer):
-        if not career.city:
-            return None
-        return CitySerializer(career.city, many=False).data
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+        # Добавляем пользователя
+        ret['user_id'] = g.request.user.id
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def get_media(self, document: Document):
+        return MediaSerializer(document.media.all(), many=True).data
 
     class Meta:
         model = Document
@@ -547,4 +556,5 @@ class DocumentSerializer(CRUDSerializer):
             'issue_date',
             'expiration_date',
             'created_at',
+            'media'
         ]

@@ -1,14 +1,21 @@
+from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
+from django.utils.timezone import now
+from django_globals import globals as g
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from app_media.versions.v1_0.repositories import MediaRepository
 from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType, NotificationType
 from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification, UserCareer, \
     Document
+from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exception import HttpException, CustomException
 from backend.mixins import MasterRepository
 from backend.repositories import BaseRepository
+from backend.utils import is_valid_uuid
 
 
 class UsersRepository:
@@ -235,3 +242,39 @@ class CareerRepository(MasterRepository):
 
 class DocumentsRepository(MasterRepository):
     model = Document
+
+    def update_media(self, instance, files_uuid):
+        if files_uuid is not None and isinstance(files_uuid, list):  # Обрабатываем только массив
+            try:
+                # Отфильтровываем невалидные uuid
+                files_uuid = list(filter(lambda x: is_valid_uuid(x), files_uuid))
+
+                user_ct = ContentType.objects.get_for_model(g.request.user)
+                document_ct = ContentType.objects.get_for_model(instance)
+                # Получаем массив uuid всех прикрепленных к документу файлов
+
+                # Получаем массив uuid файлов которые прикреплены к документу но не пришли в списке прикрепляемых
+                # и перепривязываем их к обратно пользователю (или удаляем)
+                instance.media \
+                    .all() \
+                    .exclude(uuid__in=files_uuid) \
+                    .update(deleted=True)
+
+                # Получаем из бд массив загруженных файлов, которые нужно прикрепить к документу
+                # Получаем список файлов
+
+                # Находим список всех прикрепленных файлов
+                # Добавляем или обновляем языки пользователя
+                MediaRepository().filter(
+                    Q(uuid__in=files_uuid, owner_ct=document_ct, owner_id=instance.id) |
+                    Q(uuid__in=files_uuid, owner_ct=user_ct, owner_id=g.request.user.id)
+                ).update(
+                    updated_at=now(),
+                    owner_ct=document_ct,
+                    owner_ct_name=document_ct.model,
+                    owner_id=instance.id
+                )
+            except Exception as e:
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT, **{'detail': str(e)}))
+                ])

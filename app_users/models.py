@@ -238,6 +238,8 @@ class Document(BaseModel):
     issue_date = models.DateTimeField(null=True, blank=True, verbose_name='Дата выдачи')
     expiration_date = models.DateTimeField(null=True, blank=True, verbose_name='Действителен до')
 
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
     def __str__(self):
         return f'{self.user.username}'
 
