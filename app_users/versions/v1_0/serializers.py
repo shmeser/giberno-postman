@@ -1,5 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
+from django_globals import globals as g
 from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -13,9 +14,9 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import LanguageProficiency
 from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
-    NotificationsSettings, UserCity, UserCareer
+    NotificationsSettings, UserCity, UserCareer, Document
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository, \
-    CareerRepository
+    CareerRepository, DocumentsRepository
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exception import CustomException
@@ -486,7 +487,7 @@ class CareerSerializer(CRUDSerializer):
         errors = []
 
         # Добавляем пользователя
-        ret['user_id'] = data.get('user_id', None)
+        ret['user_id'] = g.request.user.id
 
         # Проверяем fk поля
         self.update_city(ret, data, errors)
@@ -518,4 +519,42 @@ class CareerSerializer(CRUDSerializer):
             'is_working_now',
             'country',
             'city',
+        ]
+
+
+class DocumentSerializer(CRUDSerializer):
+    repository = DocumentsRepository
+
+    media = serializers.SerializerMethodField()
+    expiration_date = DateTimeField()
+    issue_date = DateTimeField()
+    created_at = DateTimeField(read_only=True)
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+        # Добавляем пользователя
+        ret['user_id'] = g.request.user.id
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def get_media(self, document: Document):
+        return MediaSerializer(document.media.all(), many=True).data
+
+    class Meta:
+        model = Document
+        fields = [
+            'id',
+            'type',
+            'series',
+            'number',
+            'category',
+            'department_code',
+            'issue_place',
+            'issue_date',
+            'expiration_date',
+            'created_at',
+            'media'
         ]

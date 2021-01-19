@@ -1,7 +1,8 @@
 from django.urls import path
 
 from app_users.views import AuthFirebase, AuthRefreshToken, firebase_web_auth, ReferenceCode, AuthVk, Users, \
-    MyProfile, MyProfileUploads, MyProfileSocials, Notifications, NotificationsSettings, MyProfileCareer
+    MyProfile, MyProfileUploads, MyProfileSocials, Notifications, NotificationsSettings, MyProfileCareer, \
+    MyProfileDocuments
 
 urlpatterns = [
     path('auth/firebase/web', firebase_web_auth),
@@ -19,6 +20,9 @@ urlpatterns = [
     path('users/profile/career/<int:record_id>', MyProfileCareer.as_view()),
 
     path('users/profile/socials', MyProfileSocials.as_view()),
+
+    path('users/profile/documents', MyProfileDocuments.as_view()),
+    path('users/profile/documents/<int:record_id>', MyProfileDocuments.as_view()),
 
     path('notifications', Notifications.as_view()),
     path('notifications/<int:record_id>', Notifications.as_view()),
