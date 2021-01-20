@@ -5,7 +5,7 @@ from django.db.models import UUIDField
 from django.forms import TextInput, Textarea
 
 from app_market.models import Distributor, Shop, Vacancy, Shift, UserShift, Order, Transaction, Coupon, Profession, \
-    UserProfession
+    UserProfession, DistributorCategory
 
 
 class FormattedAdmin(admin.OSMGeoAdmin):
@@ -24,7 +24,7 @@ _ITEMS_PER_ITERATION = 5
 
 @admin.register(Distributor)
 class DistributorAdmin(FormattedAdmin):
-    list_display = ['id', 'title', 'category', 'description', 'required_docs']
+    list_display = ['id', 'title', 'description', 'required_docs']
 
 
 @admin.register(Shop)
@@ -90,3 +90,8 @@ class ProfessionAdmin(FormattedAdmin):
 @admin.register(UserProfession)
 class UserProfessionAdmin(FormattedAdmin):
     raw_id_fields = ['user', 'profession']
+
+
+@admin.register(DistributorCategory)
+class DistributorCategoryAdmin(FormattedAdmin):
+    raw_id_fields = ['distributor', 'category']

@@ -7,6 +7,24 @@ from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException
 
 
+class Distributors(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.Distributors().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class Shops(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.Shops().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class Vacancies(APIView):
     @staticmethod
     def get(request, **kwargs):
@@ -55,6 +73,7 @@ class Vacancies(APIView):
                  "description": "Осуществляет фасовку, дозировку  полуфабрикатов  и  готовой  продукции  или отдельных ее компонентов в тару - пакеты, пачки, банки, тубы, флаконы, ампулы, бутылки, бутыли, ящики, мешки и т.п. вручную как без взвешивания, отмера и оформления, так и с отмером по  заданному  объему, массе или количеству различных твердых, сыпучих, жидких и штучных товаров;",
                  "price": 500,
                  "isFavourite": True,
+                 "isHot": True,
                  "requiredExperience": 0,
                  "employment": 0,
                  "shop": {
@@ -92,6 +111,7 @@ class Vacancies(APIView):
                  "description": "Осуществляет фасовку, дозировку  полуфабрикатов  и  готовой  продукции  или отдельных ее компонентов в тару - пакеты, пачки, банки, тубы, флаконы, ампулы, бутылки, бутыли, ящики, мешки и т.п. вручную как без взвешивания, отмера и оформления, так и с отмером по  заданному  объему, массе или количеству различных твердых, сыпучих, жидких и штучных товаров;",
                  "price": 600,
                  "isFavourite": False,
+                 "isHot": False,
                  "requiredExperience": 0,
                  "employment": 0,
                  "shop": {
