@@ -6,7 +6,7 @@ from backend.utils import user_is_admin
 
 class AbbleToPerform(FilledProfilePermission):
 
-    def has_permission(self, request, view):
+    def has_permission(self, request, view=None):
         """
         метод, вызываемый автоматически при каждом запросе.
         """

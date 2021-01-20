@@ -51,7 +51,6 @@ class AuthFirebase(APIView):
 
         user, created = AuthRepository.get_or_create_social_user(
             social_data,
-            # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
             reference_code=body.get('reference_code', None),
             base_user=request.user or None
         )
@@ -391,7 +390,7 @@ class MyProfileCareer(CRUDAPIView):
             serialized.is_valid(raise_exception=True)
             serialized.save()
         else:
-            raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
@@ -406,7 +405,7 @@ class MyProfileCareer(CRUDAPIView):
                 record.deleted = True
                 record.save()
         else:
-            raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
 
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 

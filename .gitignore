@@ -307,6 +307,7 @@ GitHub.sublime-settings
 .sonar/
 .scannerwork/
 sonar-project.properties
+tsconfig.json
 
 # http://www.sonarlint.org/commandline/
 # SonarLint working directories, configuration files (including credentials)

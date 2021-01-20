@@ -6,7 +6,6 @@ from app_users.entities import SocialEntity
 from app_users.mappers import SocialDataMapper
 from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import SocialsRepository, AuthRepository
-# from backend.utils import CP
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exception import CustomException
@@ -74,7 +73,6 @@ def get_or_create_user(backend, user: UserProfile = None, *args, **kwargs):
 
         user, created = AuthRepository.get_or_create_social_user(
             social_data,
-            # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
             reference_code=kwargs.get('reference_code', None)
         )
 

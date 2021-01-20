@@ -11,6 +11,8 @@ from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.enums import Platform
 from backend.mixins import CRUDSerializer
 
+DEFAULT_LANGUAGE = 'name:ru'
+
 
 class LanguageSerializer(CRUDSerializer):
     repository = LanguagesRepository
@@ -24,7 +26,7 @@ class LanguageSerializer(CRUDSerializer):
         return None
 
     def get_name(self, language: Language):
-        user_language = 'name:ru'
+        user_language = DEFAULT_LANGUAGE
         if language.names.get(user_language, None):
             return language.names[user_language]
         return language.name
@@ -75,7 +77,7 @@ class CountrySerializer(serializers.ModelSerializer):
 
     def get_name(self, country: Country):
         # TODO для локализации выводить соответствующее название
-        return country.names.get('name:ru', None)
+        return country.names.get(DEFAULT_LANGUAGE, None)
 
     def get_flag(self, country: Country):
         if isinstance(self.instance, QuerySet):
@@ -114,7 +116,7 @@ class CountryLightSerializer(serializers.ModelSerializer):
 
     def get_name(self, country: Country):
         # TODO для локализации выводить соответствующее название
-        return country.names.get('name:ru', None)
+        return country.names.get(DEFAULT_LANGUAGE, None)
 
     class Meta:
         model = Country
@@ -137,7 +139,7 @@ class RegionSerializer(serializers.ModelSerializer):
 
     def get_name(self, region: Region):
         # TODO для локализации выводить соответствующее название
-        return region.names.get('name:ru', None)
+        return region.names.get(DEFAULT_LANGUAGE, None)
 
     class Meta:
         model = Region
@@ -160,7 +162,7 @@ class CitySerializer(serializers.ModelSerializer):
 
     def get_name(self, city: City):
         # TODO для локализации выводить соответствующее название
-        return city.names.get('name:ru', None)
+        return city.names.get(DEFAULT_LANGUAGE, None)
 
     def get_country(self, city: City):
         if city.country:
