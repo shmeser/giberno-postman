@@ -51,9 +51,19 @@ class AuthFirebase(APIView):
 
         user, created = AuthRepository.get_or_create_social_user(
             social_data,
-            reference_code=body.get('reference_code', None),
             base_user=request.user or None
         )
+
+        # Проверка реферального кода
+        reference_code = body.get('reference_code', None)
+        if reference_code:
+            reference_user = UsersRepository.get_reference_user(reference_code)
+            if reference_user is None:
+                raise HttpException(detail='Невалидный реферальный код', status_code=RESTErrors.BAD_REQUEST)
+
+            user.reg_reference = reference_user
+            user.reg_reference_code = reference_code
+            user.save()
 
         JwtRepository().remove_old(user)  # TODO пригодится для запрета входа с нескольких устройств
         jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
