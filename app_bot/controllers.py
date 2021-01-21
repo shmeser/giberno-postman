@@ -4,10 +4,9 @@ import os
 import traceback
 
 import requests
-from requests import Response
 
 from app_bot.enums import TelegramBotNotificationType
-from giberno.environment.environments import Environment
+from backend.enums import Environment
 from giberno.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_URL
 
 

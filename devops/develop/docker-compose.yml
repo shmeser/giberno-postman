@@ -42,6 +42,7 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       VK_APP_ID: ${DEV_VK_APP_ID}
       VK_APP_SECRET: ${DEV_VK_APP_SECRET}
+      DEBUG: ${DEBUG}
     ports:
       - "127.0.0.1:${API_PORT}:${API_PORT}"
     networks:

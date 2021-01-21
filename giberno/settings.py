@@ -4,8 +4,6 @@ from datetime import timedelta, datetime
 
 from celery.schedules import crontab
 
-from giberno.environment.environments import Environment
-
 SECRET_KEY = os.getenv('SECRET_KEY', 'TeStSeCrEtKeY')
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -304,11 +302,32 @@ CONSTANCE_CONFIG = {
     ),
 }
 
-if os.getenv('ENVIRONMENT', Environment.LOCAL) == Environment.DEVELOP.value:
-    from .environment.develop_settings import *
-elif os.getenv('ENVIRONMENT', Environment.LOCAL) == Environment.STAGE.value:
-    from .environment.stage_settings import *
-elif os.getenv('ENVIRONMENT', Environment.LOCAL) == Environment.RELEASE.value:
-    from .environment.release_settings import *
-else:
-    from .environment.local_settings import *
+DEBUG = True if os.getenv('DEBUG', False) in ['True', 'true', 'TRUE', True] else False
+
+ALLOWED_HOSTS = [
+    os.getenv('MACHINE_HOST', '127.0.0.1'),
+    os.getenv('HOST_IP', '127.0.0.1'),
+    os.getenv('HOST_DOMAIN', '127.0.0.1')
+]
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': os.getenv('DB_NAME', 'db-name'),
+        'USER': os.getenv('DB_USER', 'db-user'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'db-password'),
+        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+        'PORT': os.getenv('DB_PORT', '5432'),
+    },
+}
+
+try:
+    from giberno.environment.local_settings import \
+        DATABASES, \
+        FCM_DJANGO_SETTINGS, \
+        ALLOWED_HOSTS, \
+        DEBUG, \
+        CONSTANCE_CONFIG, \
+        SOCIAL_AUTH_VK_OAUTH2_KEY
+except ImportError as e:
+    pass
