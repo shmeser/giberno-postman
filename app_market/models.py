@@ -7,7 +7,7 @@ from django.contrib.postgres.fields import ArrayField
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
     ShiftStatus
-from app_media.enums import MediaType
+from app_users.enums import DocumentType
 from app_users.models import UserProfile
 from backend.models import BaseModel
 from backend.utils import choices
@@ -20,20 +20,33 @@ FREQUENCY_CHOICES = (
 )
 
 REQUIRED_DOCS = (
-    ('Пасспорт', MediaType.PASSPORT),
-    ('ИНН', MediaType.INN),
-    ('СНИЛС', MediaType.SNILS),
-    ('Медкнижка', MediaType.MEDICAL_BOOK),
-    ('Водительское удостоверение', MediaType.DRIVER_LICENCE),
+    ('Пасспорт', DocumentType.PASSPORT),
+    ('ИНН', DocumentType.INN),
+    ('СНИЛС', DocumentType.SNILS),
+    ('Медкнижка', DocumentType.MEDICAL_BOOK),
+    ('Водительское удостоверение', DocumentType.DRIVER_LICENCE),
 )
+
+
+class Category(BaseModel):
+    title = models.CharField(max_length=128, null=True, blank=True)
+    description = models.CharField(max_length=2048, null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.title}'
+
+    class Meta:
+        db_table = 'app_market__categories'
+        verbose_name = 'Категория'
+        verbose_name_plural = 'Категории'
 
 
 class Distributor(BaseModel):
     title = models.CharField(max_length=128, null=True, blank=True)
-    category = models.CharField(max_length=128, null=True, blank=True)
     description = models.CharField(max_length=2048, null=True, blank=True)
-
     required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS))
+
+    categories = models.ManyToManyField(Category, through='DistributorCategory', related_name='categories')
 
     def __str__(self):
         return f'{self.title}'
@@ -42,6 +55,19 @@ class Distributor(BaseModel):
         db_table = 'app_market__distributors'
         verbose_name = 'Торговая сеть'
         verbose_name_plural = 'Торговые сети'
+
+
+class DistributorCategory(BaseModel):
+    distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.distributor.title} - {self.category.title}'
+
+    class Meta:
+        db_table = 'app_market__distributor_category'
+        verbose_name = 'Категория торговой сети'
+        verbose_name_plural = 'Категории торговых сетей'
 
 
 class Shop(BaseModel):

@@ -1,5 +1,13 @@
-from app_market.models import Vacancy, Profession, Skill
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop
 from backend.mixins import MasterRepository
+
+
+class DistributorsRepository(MasterRepository):
+    model = Distributor
+
+
+class ShopsRepository(MasterRepository):
+    model = Shop
 
 
 class VacanciesRepository(MasterRepository):

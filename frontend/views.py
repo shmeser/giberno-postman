@@ -12,8 +12,7 @@ from rest_framework.views import APIView
 from app_media.enums import MimeTypes
 from backend.errors.enums import RESTErrors
 
-
-# from backend.utils import get_request_body
+BUILD_NOT_FOUND = 'Production build of app not found'
 
 
 class FrontendAppView(View):
@@ -28,7 +27,7 @@ class FrontendAppView(View):
             with open(os.path.join(settings.REACT_APP_DIR, 'build', 'index.html'), encoding="utf_8_sig") as f:
                 return HttpResponse(f.read())
         except FileNotFoundError:
-            logging.exception('Production build of app not found')
+            logging.exception(BUILD_NOT_FOUND)
             return HttpResponse(
                 """
                 Данный url используется фронтендом.
@@ -53,7 +52,7 @@ class AgreementView(APIView):
             with open(os.path.join(settings.REACT_APP_DIR, 'public', 'agreement.pdf'), 'rb') as f:
                 return HttpResponse(f.read(), content_type=MimeTypes.PDF.value)
         except FileNotFoundError:
-            logging.exception('Production build of app not found')
+            logging.exception(BUILD_NOT_FOUND)
             return HttpResponse(
                 """
                 Не найден файл пользовательского соглашения
@@ -76,7 +75,7 @@ class PolicyView(APIView):
             with open(os.path.join(settings.REACT_APP_DIR, 'public', 'policy.pdf'), 'rb') as f:
                 return HttpResponse(f.read(), content_type=MimeTypes.PDF.value)
         except FileNotFoundError:
-            logging.exception('Production build of app not found')
+            logging.exception(BUILD_NOT_FOUND)
             return HttpResponse(
                 """
                 Не найден файл политики конфиденциальности
@@ -99,7 +98,7 @@ class TermsView(APIView):
             with open(os.path.join(settings.REACT_APP_DIR, 'public', 'terms.pdf'), 'rb') as f:
                 return HttpResponse(f.read(), content_type=MimeTypes.PDF.value)
         except FileNotFoundError:
-            logging.exception('Production build of app not found')
+            logging.exception(BUILD_NOT_FOUND)
             return HttpResponse(
                 """
                 Не найден файл условий использования
