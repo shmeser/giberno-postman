@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from app_bot.enums import TelegramBotNotificationType, TelegramBotMessageType, TelegramBotCommand
 from app_bot.repositories import BotRepository
-from backend.utils import get_request_body, timestamp_to_datetime, CP
+from backend.utils import get_request_body, timestamp_to_datetime, CP, chained_get
 from giberno.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_URL
 
 
@@ -26,6 +26,8 @@ class TelegramBotView(View):
 
     """
 
+    chat = None
+
     def post(self, request, *args, **kwargs):
         t_data = get_request_body(request)
         # CP(fg='cyan').bold(t_data)
@@ -37,17 +39,17 @@ class TelegramBotView(View):
         else:
             message_type = None
 
-        incoming_data = t_data[message_type] if message_type else None
-
-        t_chat = incoming_data.get("chat", None) if incoming_data else None
-        text = incoming_data.get("text", '').strip().lower() if incoming_data else None
+        incoming_data = chained_get(t_data, message_type)
+        t_chat = chained_get(t_data, message_type, 'chat')
+        text = chained_get(t_data, message_type, 'text')
+        text = text.strip().lower() if text else None
 
         if incoming_data is None or t_chat is None or text is None:
             return JsonResponse({
                 "ok": "POST request processed"
             })
 
-        chat = BotRepository.get_or_create_chat(
+        self.chat = BotRepository.get_or_create_chat(
             chat_id=t_chat.get("id", None),
             chat_type=t_chat.get("type", None),
             chat_title=t_chat.get("title", None),
@@ -62,57 +64,15 @@ class TelegramBotView(View):
         bot_command = ''
         for v in TelegramBotCommand:
             bot_command = v.value if v.value in text else bot_command
-        msg = ''
 
         # Если пришла команда
         if is_bot_command:
-            # Проверяем команды
-            if chat.approved and bot_command == TelegramBotCommand.START.value:
-                msg = 'Бот уже активирован'
-
-            if not chat.approved and bot_command == TelegramBotCommand.START.value and config.TELEGRAM_BOT_PASSWORD in text:
-                # Если передан правильный пароль
-                chat.approved = True
-                chat.save()
-                msg = f'Бот активирован для {t_chat.get("username", None) or t_chat.get("title", None)}'
-
-            if not chat.approved:
-                msg = f'Необходимо получить доступ к боту, отправив команду "/start <password>"'
-            elif TelegramBotCommand.has_value(bot_command):
-                if bot_command == TelegramBotCommand.ALL_ON.value:
-                    chat.notification_types = [
-                        TelegramBotNotificationType.DEBUG.value,
-                    ]
-                    chat.save()
-                    msg = f'Включены все оповещения'
-
-                if bot_command == TelegramBotCommand.ALL_OFF.value and chat.approved:
-                    chat.notification_types = None
-                    chat.save()
-                    msg = f'Отключены все оповещения'
-
-                if bot_command == TelegramBotCommand.DEBUG_ON.value and chat.approved:
-                    if not chat.notification_types:
-                        chat.notification_types = [TelegramBotNotificationType.DEBUG.value]
-                    elif TelegramBotNotificationType.DEBUG.value not in chat.notification_types:
-                        chat.notification_types.append(TelegramBotNotificationType.DEBUG.value)
-                    chat.save()
-                    msg = f'Включены оповещения об ошибках'
-
-                if bot_command == TelegramBotCommand.DEBUG_OFF.value and chat.approved:
-                    if chat.notification_types:
-                        chat.notification_types.remove(TelegramBotNotificationType.DEBUG.value)
-                    chat.save()
-                    msg = f'Отключены оповещения об ошибках'
-            else:
-                msg = f"Неизвестная комманда"
-
+            msg = self.process_commands(t_chat, bot_command, text)
         # Если пришло обычное сообщение
+        elif self.chat.approved:
+            msg = f"Сообщение, отправленное боту: {text}"
         else:
-            if chat.approved:
-                msg = f"Сообщение, отправленное боту: {text}"
-            else:
-                msg = f'Необходимо получить доступ к боту, отправив команду "/start <password>"'
+            msg = f'Необходимо получить доступ к боту, отправив команду "/start <password>"'
 
         self.send_message(msg, t_chat["id"])
 
@@ -134,9 +94,9 @@ class TelegramBotView(View):
         if message_type == TelegramBotMessageType.CHANNEL.value:
             message_data["title"] = incoming_data['sender_chat'].get('title', None)
 
-        BotRepository.create_message(chat, **message_data)
+        BotRepository.create_message(self.chat, **message_data)
 
-        BotRepository.create_message(chat, **{
+        BotRepository.create_message(self.chat, **{
             "is_bot": True,
             "text": msg,
             "username": "GibernoBot",
@@ -158,6 +118,51 @@ class TelegramBotView(View):
         requests.post(
             f"{TELEGRAM_URL}{TELEGRAM_BOT_TOKEN}/sendMessage", data=data
         )
+
+    def process_commands(self, t_chat, bot_command, text):
+        # Проверяем команды
+
+        if not self.chat.approved and bot_command == TelegramBotCommand.START.value and \
+                config.TELEGRAM_BOT_PASSWORD in text:
+            # Если передан правильный пароль
+            self.chat.approved = True
+            self.chat.save()
+            msg = f'Бот активирован для {t_chat.get("username", None) or t_chat.get("title", None)}'
+        elif not self.chat.approved:
+            msg = f'Необходимо получить доступ к боту, отправив команду "/start <password>"'
+
+        elif bot_command == TelegramBotCommand.ALL_ON.value:
+            self.chat.notification_types = [
+                TelegramBotNotificationType.DEBUG.value,
+            ]
+            self.chat.save()
+            msg = f'Включены все оповещения'
+
+        elif bot_command == TelegramBotCommand.ALL_OFF.value:
+            self.chat.notification_types = None
+            self.chat.save()
+            msg = f'Отключены все оповещения'
+
+        elif bot_command == TelegramBotCommand.DEBUG_ON.value:
+            self.chat.notification_types = list(
+                filter(TelegramBotNotificationType.DEBUG.value.__ne__, self.chat.notification_types or [])
+            )
+            self.chat.notification_types.append(TelegramBotNotificationType.DEBUG.value)
+            self.chat.save()
+            msg = f'Включены оповещения об ошибках'
+
+        elif bot_command == TelegramBotCommand.DEBUG_OFF.value:
+            self.chat.notification_types = list(
+                filter(TelegramBotNotificationType.DEBUG.value.__ne__, self.chat.notification_types or [])
+            )
+            self.chat.save()
+            msg = f'Отключены оповещения об ошибках'
+        elif bot_command == TelegramBotCommand.START.value:
+            msg = f'Бот уже активирован'
+        else:
+            msg = f"Неизвестная комманда"
+
+        return msg
 
 
 class TestView(APIView):
