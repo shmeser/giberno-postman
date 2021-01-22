@@ -501,3 +501,16 @@ class MyProfileDocuments(CRUDAPIView):
             raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
 
         return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+def read_notification(request, **kwargs):
+    NotificationsRepository().filter_by_kwargs({
+        'id': kwargs.get('record_id'),
+        'read_at__isnull': True
+    }).update(
+        read_at=now(),
+        updated_at=now(),
+    )
+
+    return Response(None, status=status.HTTP_204_NO_CONTENT)
