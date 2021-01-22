@@ -110,7 +110,6 @@ class AuthRepository:
 
         # Получаем или создаем пользователя
         defaults = {
-            'username': social_data.username,
             'phone': social_data.phone,
             'first_name': social_data.first_name,
             'last_name': social_data.last_name,
