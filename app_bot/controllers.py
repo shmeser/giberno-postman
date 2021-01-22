@@ -7,10 +7,33 @@ import requests
 
 from app_bot.enums import TelegramBotNotificationType
 from backend.enums import Environment
+from backend.utils import get_request_body, get_request_headers
 from giberno.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_URL
 
 
 class TelegramFormatter(logging.Formatter):
+
+    def format_dict(self, dictionary):
+        return "{" + self.recursive_tab_str(dictionary) + "\n}"
+
+    def recursive_tab_str(self, data_dict, tab=1):
+        result = "\n"
+        identation = ''
+        count = 0
+        length = len(data_dict)
+        for i in range(0, tab):
+            identation += "  "
+        for k, v in data_dict.items():
+            count += 1
+            eol = ",\n" if length != count else ""
+
+            if isinstance(v, dict):
+                result += identation + f"'{k}': {self.recursive_tab_str(v, tab + 1)}" + eol
+            else:
+                result += identation + f"'{k}': {v}" + eol
+
+        return result
+
     meta_attrs = [
         'REMOTE_ADDR',
         'HOSTNAME',
@@ -21,18 +44,20 @@ class TelegramFormatter(logging.Formatter):
     def format(self, record):
         s = super().format(record)
 
-        s += "\n{attr}: {value}".format(
-            attr='USER',
-            value=record.request.user
-        )
+        s += f"\nUSER: {record.request.user}"
         for attr in self.meta_attrs:
             if attr in record.request.META:
-                s += "\n{attr}: {value}".format(
-                    attr=attr,
-                    value=record.request.META[attr]
-                )
+                s += f"\n{attr}: {record.request.META[attr]}"
 
         s += f"\nSERVER: {os.getenv('ENVIRONMENT', Environment.LOCAL.value)}"
+
+        if record.request.headers:
+            headers = get_request_headers(record.request)
+            s += f"\nHEADERS: {self.format_dict(headers)}"
+
+        if record.request.body:
+            body = get_request_body(record.request)
+            s += f"\nBODY: {self.format_dict(body)}"
 
         return s
 
