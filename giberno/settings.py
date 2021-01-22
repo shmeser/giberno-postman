@@ -323,6 +323,8 @@ DATABASES = {
 
 try:
     from giberno.environment.local_settings import \
+        TELEGRAM_BOT_TOKEN, \
+        TELEGRAM_BOT_PASSWORD, \
         DATABASES, \
         FCM_DJANGO_SETTINGS, \
         ALLOWED_HOSTS, \
