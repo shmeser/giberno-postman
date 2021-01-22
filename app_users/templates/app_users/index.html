@@ -255,7 +255,8 @@
             // This gives you a Google Access Token. You can use it to access the Google API.
             console.log('Google SignIn Result');
             console.log(result);
-            const idToken = result.user.ra;
+            {#let idToken = result.credential.idToken;#}
+            const idToken = result.user.ya;
             $('.results-block').show();
             $('#firebase-token').val(idToken);
             getJwt(idToken);
