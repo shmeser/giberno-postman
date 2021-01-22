@@ -13,26 +13,28 @@ from giberno.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_URL
 
 class TelegramFormatter(logging.Formatter):
 
-    def format_dict(self, dictionary):
-        return "{" + self.recursive_tab_str(dictionary) + "\n}"
-
-    def recursive_tab_str(self, data_dict, tab=1):
-        result = "\n"
-        identation = ''
-        count = 0
-        length = len(data_dict)
-        for i in range(0, tab):
-            identation += "  "
+    def recursive_tab_str(self, data_dict, tab=0):
+        brackets_ident = ''
+        tab_str = "  "
+        values_ident = tab_str
+        iteration = 0
+        keys_count = len(data_dict)
+        i = 0
+        while i < tab:
+            brackets_ident += tab_str
+            values_ident += tab_str
+            i += 1
+        result = brackets_ident + "{\n"
         for k, v in data_dict.items():
-            count += 1
-            eol = ",\n" if length != count else ""
+            iteration += 1
+            eol = ",\n" if keys_count != iteration else ""
 
             if isinstance(v, dict):
-                result += identation + f"'{k}': {self.recursive_tab_str(v, tab + 1)}" + eol
+                result += values_ident + f"'{k}': {self.recursive_tab_str(v, tab + 1)}" + eol
             else:
-                result += identation + f"'{k}': {v}" + eol
+                result += values_ident + f"'{k}': {v}" + eol
 
-        return result
+        return result + "\n" + brackets_ident + "}"
 
     meta_attrs = [
         'REMOTE_ADDR',
@@ -53,11 +55,11 @@ class TelegramFormatter(logging.Formatter):
 
         if record.request.headers:
             headers = get_request_headers(record.request)
-            s += f"\nHEADERS: {self.format_dict(headers)}"
+            s += f"\nHEADERS: {self.recursive_tab_str(headers)}"
 
         if record.request.body:
             body = get_request_body(record.request)
-            s += f"\nBODY: {self.format_dict(body)}"
+            s += f"\nBODY: {self.recursive_tab_str(body)}"
 
         return s
 
