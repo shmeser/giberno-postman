@@ -101,10 +101,13 @@ class Vacancies(CRUDAPIView):
         'title': 'title__istartswith',
         'country': 'city__country__id',
         'city': 'city_id',
+        'price': 'price__lte',
         'radius': 'distance__lte'
     }
 
-    default_order_params = []
+    default_order_params = [
+        '-created_at'
+    ]
 
     default_filters = {}
 
@@ -112,6 +115,7 @@ class Vacancies(CRUDAPIView):
         'distance': 'distance',
         'title': 'title',
         'price': 'price',
+        'created_at': 'created_at',
         'id': 'id'
     }
 
