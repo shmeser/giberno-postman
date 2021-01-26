@@ -1,12 +1,14 @@
 import uuid as uuid
 
 from dateutil.rrule import MONTHLY, WEEKLY, DAILY
+from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
     ShiftStatus
+from app_media.models import MediaModel
 from app_users.enums import DocumentType
 from app_users.models import UserProfile
 from backend.models import BaseModel
@@ -44,9 +46,11 @@ class Category(BaseModel):
 class Distributor(BaseModel):
     title = models.CharField(max_length=128, null=True, blank=True)
     description = models.CharField(max_length=2048, null=True, blank=True)
-    required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS))
+    required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS), null=True, blank=True)
 
     categories = models.ManyToManyField(Category, through='DistributorCategory', related_name='categories')
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
         return f'{self.title}'
@@ -76,6 +80,7 @@ class Shop(BaseModel):
     description = models.CharField(max_length=2048, null=True, blank=True)
 
     location = models.PointField(srid=settings.SRID, blank=True, null=True, verbose_name='Геопозиция')
+    city = models.ForeignKey(City, blank=True,  null=True, on_delete=models.SET_NULL)
     address = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Адрес')
 
     is_partner = models.BooleanField(default=False, verbose_name='Является партнером')
@@ -84,6 +89,8 @@ class Shop(BaseModel):
     discount_multiplier = models.PositiveIntegerField(null=True, blank=True, verbose_name='Множитель размера скидки')
     discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
     discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
         return f'{self.title}'
@@ -105,7 +112,7 @@ class Vacancy(BaseModel):
         null=True, blank=True, verbose_name='Требуемый опыт'
     )
 
-    required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS), verbose_name='Документы')
+    required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS), verbose_name='Документы', null=True, blank=True)
 
     features = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Бонусы и привилегии')
 

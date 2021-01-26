@@ -99,6 +99,9 @@ class Vacancies(CRUDAPIView):
 
     filter_params = {
         'title': 'title__istartswith',
+        'country': 'city__country__id',
+        'city': 'city_id',
+        # 'radius': 'distance__lte'
     }
 
     default_order_params = []
@@ -124,9 +127,11 @@ class Vacancies(CRUDAPIView):
             dataset = self.repository_class().get_by_id(record_id)
             serialized = self.serializer_class(dataset)
         else:
+            point = RequestMapper().geocode(request)
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
+            dataset = self.serializer_class().fast_related_loading(dataset, point)
             serialized = self.serializer_class(dataset, many=True)
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
