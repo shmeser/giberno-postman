@@ -111,6 +111,7 @@ class Vacancies(CRUDAPIView):
     order_params = {
         'distance': 'distance',
         'title': 'title',
+        'price': 'price',
         'id': 'id'
     }
 
