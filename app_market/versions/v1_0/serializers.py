@@ -1,6 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models.functions import Distance
-from django.db.models import QuerySet, Prefetch
+from django.db.models import QuerySet, Prefetch, Value, IntegerField
 from django_globals import globals as g
 from rest_framework import serializers
 
@@ -139,7 +139,7 @@ class VacancySerializer(CRUDSerializer):
     shop = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
 
-    def fast_related_loading(self, queryset, point):
+    def fast_related_loading(self, queryset, point=None):
         """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
             Vacancy
             -> Shop + Media
@@ -149,7 +149,9 @@ class VacancySerializer(CRUDSerializer):
             Prefetch(
                 'shop',
                 #  Подгрузка магазинов и вычисление расстояния от каждого до переданной точки
-                queryset=Shop.objects.annotate(distance=Distance('location', point)).prefetch_related(
+                queryset=Shop.objects.annotate(  # Вычисляем расстояние, если переданы координаты
+                    distance=Distance('location', point) if point else Value(None, IntegerField())
+                ).prefetch_related(
                     # Подгрузка медиа для магазинов
                     Prefetch(
                         'media',
