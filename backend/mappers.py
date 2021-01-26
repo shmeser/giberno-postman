@@ -122,6 +122,10 @@ class RequestMapper:
         try:
             _lon = chained_get(request.query_params, 'lon')
             _lat = chained_get(request.query_params, 'lat')
+
+            _radius = chained_get(request.query_params, 'radius')
+            radius = int(_radius) if _radius else None
+
             if _lat is not None and _lon is not None:
                 lon = float(_lon)
                 lat = float(_lat)
@@ -129,12 +133,12 @@ class RequestMapper:
                     raise CustomException(errors=[
                         dict(Error(ErrorsCodes.INVALID_COORDS)),
                     ])
-                return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID)
+                return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID), radius
             if raise_exception:
                 raise CustomException(errors=[
                     dict(Error(ErrorsCodes.INVALID_COORDS)),
                 ])
-            return None
+            return None, radius
         except Exception as e:
             CP(fg='red').bold(e)
             raise CustomException(errors=[

@@ -140,41 +140,46 @@ class VacancySerializer(CRUDSerializer):
     distributor = serializers.SerializerMethodField()
 
     def fast_related_loading(self, queryset, point):
-        queryset = queryset \
-            .prefetch_related(
-                Prefetch(
-                    'shop',
-                    queryset=Shop.objects
-                        .annotate(distance=Distance('location', point))
-                        .prefetch_related(
+        """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
+            Vacancy
+            -> Shop + Media
+            -> Distributor + Media
+        """
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                'shop',
+                #  Подгрузка магазинов и вычисление расстояния от каждого до переданной точки
+                queryset=Shop.objects.annotate(distance=Distance('location', point)).prefetch_related(
+                    # Подгрузка медиа для магазинов
+                    Prefetch(
+                        'media',
+                        queryset=MediaModel.objects.filter(
+                            type=MediaType.LOGO.value,
+                            owner_ct_id=ContentType.objects.get_for_model(Shop).id,
+                            format=MediaFormat.IMAGE.value
+                        ),
+                        to_attr='medias'
+                    )).prefetch_related(
+                    # Подгрузка торговых сетей для магазинов
+                    Prefetch(
+                        'distributor',
+                        queryset=Distributor.objects.all().prefetch_related(
+                            # Подгрузка медиа для торговых сетей
                             Prefetch(
                                 'media',
                                 queryset=MediaModel.objects.filter(
                                     type=MediaType.LOGO.value,
-                                    owner_ct_id=ContentType.objects.get_for_model(Shop).id,
+                                    owner_ct_id=ContentType.objects.get_for_model(
+                                        Distributor).id,
                                     format=MediaFormat.IMAGE.value
                                 ),
                                 to_attr='medias'
                             )
                         )
-                        .prefetch_related(
-                            Prefetch(
-                                'distributor',
-                                queryset=Distributor.objects.all().prefetch_related(
-                                    Prefetch(
-                                        'media',
-                                        queryset=MediaModel.objects.filter(
-                                            type=MediaType.LOGO.value,
-                                            owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
-                                            format=MediaFormat.IMAGE.value
-                                        ),
-                                        to_attr='medias'
-                                    )
-                                )
-                            )
-                        )
+                    )
                 )
             )
+        )
 
         return queryset
 

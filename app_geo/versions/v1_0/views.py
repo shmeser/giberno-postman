@@ -175,7 +175,7 @@ class Cities(CRUDAPIView):
 
 @api_view(['GET'])
 def geocode(request):
-    point = RequestMapper().geocode(request, raise_exception=True)
+    point = RequestMapper().geocode(request, raise_exception=True)[0]
     dataset = CitiesRepository().geocode(point)
 
     # SpeedUp
