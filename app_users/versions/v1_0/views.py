@@ -51,10 +51,19 @@ class AuthFirebase(APIView):
 
         user, created = AuthRepository.get_or_create_social_user(
             social_data,
-            # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
-            reference_code=body.get('reference_code', None),
             base_user=request.user or None
         )
+
+        # Проверка реферального кода
+        reference_code = body.get('reference_code', None)
+        if reference_code:
+            reference_user = UsersRepository.get_reference_user(reference_code)
+            if reference_user is None:
+                raise HttpException(detail='Невалидный реферальный код', status_code=RESTErrors.BAD_REQUEST)
+
+            user.reg_reference = reference_user
+            user.reg_reference_code = reference_code
+            user.save()
 
         JwtRepository().remove_old(user)  # TODO пригодится для запрета входа с нескольких устройств
         jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
@@ -391,7 +400,7 @@ class MyProfileCareer(CRUDAPIView):
             serialized.is_valid(raise_exception=True)
             serialized.save()
         else:
-            raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
@@ -406,7 +415,7 @@ class MyProfileCareer(CRUDAPIView):
                 record.deleted = True
                 record.save()
         else:
-            raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
 
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
@@ -492,3 +501,16 @@ class MyProfileDocuments(CRUDAPIView):
             raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
 
         return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+def read_notification(request, **kwargs):
+    NotificationsRepository().filter_by_kwargs({
+        'id': kwargs.get('record_id'),
+        'read_at__isnull': True
+    }).update(
+        read_at=now(),
+        updated_at=now(),
+    )
+
+    return Response(None, status=status.HTTP_204_NO_CONTENT)

@@ -10,7 +10,7 @@ from app_geo.models import Language, Country, City
 from app_media.enums import MediaType
 from app_media.models import MediaModel
 from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction, \
-    Education, DocumentType
+    Education, DocumentType, NotificationIcon
 from backend.models import BaseModel
 from backend.utils import choices
 
@@ -181,6 +181,10 @@ class Notification(BaseModel):
     firebase_response_ios = JSONField(blank=True, null=True)
 
     sent_at = models.DateTimeField(null=True, blank=True, verbose_name='Отправлено в Firebase')
+
+    icon_type = models.IntegerField(
+        choices=choices(NotificationIcon), default=NotificationIcon.DEFAULT, verbose_name='Тип иконки'
+    )
 
     def __str__(self):
         return f'{self.title}'

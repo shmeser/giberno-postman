@@ -206,3 +206,11 @@ class NotificationsSettings(APIView):
         if request.version in ['users_1_0']:
             return v1_0.NotificationsSettings().put(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def read_notification(request, **kwargs):
+    if request.version in ['users_1_0']:
+        return v1_0.read_notification(request._request, **kwargs)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

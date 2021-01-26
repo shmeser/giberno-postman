@@ -436,6 +436,7 @@ class NotificationSerializer(CRUDSerializer):
             'title',
             'message',
             'type',
+            'icon_type',
             'action',
             'read_at',
             'created_at',
