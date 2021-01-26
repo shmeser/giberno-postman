@@ -1,4 +1,5 @@
 from django.contrib.gis.db.models.functions import Distance
+from django.db.models import Value, IntegerField
 
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop
 from backend.mixins import MasterRepository
@@ -17,7 +18,7 @@ class VacanciesRepository(MasterRepository):
 
     def __init__(self, point=None) -> None:
         super().__init__()
-        self.distance_expression = Distance('shop__location', point) if point else None
+        self.distance_expression = Distance('shop__location', point) if point else Value(None, IntegerField())
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         try:
