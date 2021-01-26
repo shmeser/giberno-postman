@@ -1,4 +1,5 @@
 import inflection
+from django.contrib.gis.geos import GEOSGeometry
 from djangorestframework_camel_case.util import underscoreize
 
 from app_media.enums import MediaType
@@ -7,7 +8,8 @@ from app_media.mappers import MediaMapper
 from backend.entity import Pagination, Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
-from backend.utils import timestamp_to_datetime as t2d, CP
+from backend.utils import timestamp_to_datetime as t2d, CP, chained_get
+from giberno import settings
 
 
 class BaseMapper:
@@ -116,15 +118,27 @@ class RequestMapper:
             ])
 
     @classmethod
-    def geocode(cls, request):
+    def geocode(cls, request, raise_exception=False):
         try:
-            lon = float(request.GET.get('lon'))
-            lat = float(request.GET.get('lat'))
-            if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+            _lon = chained_get(request.query_params, 'lon')
+            _lat = chained_get(request.query_params, 'lat')
+
+            _radius = chained_get(request.query_params, 'radius')
+            radius = int(_radius) if _radius else None
+
+            if _lat is not None and _lon is not None:
+                lon = float(_lon)
+                lat = float(_lat)
+                if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+                    raise CustomException(errors=[
+                        dict(Error(ErrorsCodes.INVALID_COORDS)),
+                    ])
+                return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID), radius
+            if raise_exception:
                 raise CustomException(errors=[
                     dict(Error(ErrorsCodes.INVALID_COORDS)),
                 ])
-            return lon, lat
+            return None, radius
         except Exception as e:
             CP(fg='red').bold(e)
             raise CustomException(errors=[
