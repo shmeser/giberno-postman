@@ -36,8 +36,20 @@ class ShopSerializer(CRUDSerializer):
     repository = ShopsRepository
 
     distributor = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
 
     def get_distributor(self, instance):
+        return None
+
+    def get_lon(self, instance):
+        if instance.location:
+            return instance.location.x
+        return None
+
+    def get_lat(self, instance):
+        if instance.location:
+            return instance.location.y
         return None
 
     class Meta:
@@ -46,8 +58,9 @@ class ShopSerializer(CRUDSerializer):
             'id',
             'title',
             'description',
-            'location',
             'address',
+            'lon',
+            'lat',
             'distributor',
         ]
 
@@ -55,6 +68,8 @@ class ShopSerializer(CRUDSerializer):
 class VacancyShopSerializer(serializers.ModelSerializer):
     walk_time = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -65,6 +80,16 @@ class VacancyShopSerializer(serializers.ModelSerializer):
             # Принимаем среднюю скорость пешеходов за 3.6км/ч = 1м/с
             # Выводим расстояние в метрах как количество секунд
             return int(shop.distance.m)
+        return None
+
+    def get_lon(self, shop):
+        if shop.location:
+            return shop.location.x
+        return None
+
+    def get_lat(self, shop):
+        if shop.location:
+            return shop.location.x
         return None
 
     def get_logo(self, data):
@@ -95,6 +120,8 @@ class VacancyShopSerializer(serializers.ModelSerializer):
             'description',
             'address',
             'walk_time',
+            'lon',
+            'lat',
             'logo',
         ]
 

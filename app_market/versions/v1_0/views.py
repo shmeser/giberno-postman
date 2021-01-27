@@ -98,7 +98,7 @@ class Vacancies(CRUDAPIView):
     allowed_http_methods = ['get']
 
     filter_params = {
-        'title': 'title__istartswith',
+        'search': 'title__istartswith',
         'country': 'city__country__id',
         'city': 'city_id',
         'price': 'price__lte',
@@ -133,8 +133,8 @@ class Vacancies(CRUDAPIView):
             dataset = self.repository_class().get_by_id(record_id)
             serialized = self.serializer_class(dataset)
         else:
-            point, radius = RequestMapper().geocode(request)
-            dataset = self.repository_class(point).filter_by_kwargs(
+            point, bbox, radius = RequestMapper().geo(request)
+            dataset = self.repository_class(point, bbox).filter_by_kwargs(
                 kwargs=filters, order_by=order_params
             )
             dataset = dataset[pagination.offset:pagination.limit]

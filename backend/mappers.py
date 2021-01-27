@@ -118,13 +118,31 @@ class RequestMapper:
             ])
 
     @classmethod
-    def geocode(cls, request, raise_exception=False):
+    def geo(cls, request, raise_exception=False):
         try:
-            _lon = chained_get(request.query_params, 'lon')
-            _lat = chained_get(request.query_params, 'lat')
+            query_params = underscoreize(request.query_params)
+
+            _lon = chained_get(query_params, 'lon')
+            _lat = chained_get(query_params, 'lat')
 
             _radius = chained_get(request.query_params, 'radius')
             radius = int(_radius) if _radius else None
+
+            _sw_lon = chained_get(query_params, 'sw_lon')
+            _sw_lat = chained_get(query_params, 'sw_lat')
+            _ne_lon = chained_get(query_params, 'ne_lon')
+            _ne_lat = chained_get(query_params, 'ne_lat')
+
+            if None in [_sw_lon, _sw_lat, _ne_lon, _ne_lat]:
+                bbox = None
+            else:
+                coords_str = f'{_sw_lon} {_sw_lat},' \
+                    f'{_sw_lon} {_ne_lat},' \
+                    f'{_ne_lon} {_ne_lat},' \
+                    f'{_ne_lon} {_sw_lat},' \
+                    f'{_sw_lon} {_sw_lat}'
+
+                bbox = GEOSGeometry(f'POLYGON(({coords_str}))', srid=settings.SRID)
 
             if _lat is not None and _lon is not None:
                 lon = float(_lon)
@@ -133,12 +151,12 @@ class RequestMapper:
                     raise CustomException(errors=[
                         dict(Error(ErrorsCodes.INVALID_COORDS)),
                     ])
-                return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID), radius
+                return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID), bbox, radius
             if raise_exception:
                 raise CustomException(errors=[
                     dict(Error(ErrorsCodes.INVALID_COORDS)),
                 ])
-            return None, radius
+            return None, bbox, radius
         except Exception as e:
             CP(fg='red').bold(e)
             raise CustomException(errors=[

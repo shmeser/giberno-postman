@@ -16,11 +16,16 @@ class ShopsRepository(MasterRepository):
 class VacanciesRepository(MasterRepository):
     model = Vacancy
 
-    def __init__(self, point=None) -> None:
+    def __init__(self, point=None, bbox=None) -> None:
         super().__init__()
+        self.bbox = bbox
         self.distance_expression = Distance('shop__location', point) if point else Value(None, IntegerField())
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if self.bbox:
+            # Если передана область на карте, то радиус поиска от указанной точки не учитывается в фильтрации
+            kwargs.pop('distance__lte', None)
+            kwargs['shop__location__contained'] = self.bbox
         try:
             if order_by:
                 records = self.model.objects.annotate(distance=self.distance_expression).order_by(*order_by).exclude(
@@ -38,6 +43,10 @@ class VacanciesRepository(MasterRepository):
         return records[paginator.offset:paginator.limit] if paginator else records
 
     def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
+        if self.bbox:
+            # Если передана область на карте, то радиус поиска от указанной точки не учитывается в фильтрации
+            kwargs.pop('distance__lte', None)
+            kwargs['shop__location__contained'] = self.bbox
         try:
             if order_by:
                 records = self.model.objects.annotate(
