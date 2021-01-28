@@ -104,9 +104,9 @@ class Vacancies(CRUDAPIView):
     }
 
     array_filter_params = {
-        'required_experience': 'is_hot',
-        'employment': 'is_hot',
-        'work_time': 'is_hot',
+        'required_experience': 'required_experience__contains',
+        'employment': 'employment__in',
+        'work_time': 'work_time__contains',
     }
 
     default_order_params = [

@@ -75,13 +75,21 @@ class RequestMapper:
             if param in filter_values:
                 filter_values[param] = str(filter_values[param]).lower() in [True, 1, 'true', 'yes']
 
+        for param in self.array_filter_params:
+            if param in filter_values:
+                filter_values[param] = list(filter(
+                    lambda y: y, list(map(lambda x: x.strip(), filter_values[param].split(',')))
+                ))
+
         """
         kwargs - конечный вариант фильтров, в виде:
             'title': 'new item';
             'person__id': '1';
             ...
         """
-        all_params = {**self.filter_params, **self.date_filter_params, **self.bool_filter_params}
+        all_params = {
+            **self.filter_params, **self.date_filter_params, **self.bool_filter_params, **self.array_filter_params
+        }
         kwargs = {all_params[param]: filter_values.get(param) for param in all_params if filter_values.get(param)}
         return {**kwargs, **self.default_filters}
 
