@@ -3,7 +3,8 @@ from dateutil.utils import time
 
 
 class ShiftMapper:
-    def work_time_to_time_range(self, work_time):
+    @staticmethod
+    def work_time_to_time_range(work_time):
         if work_time == ShiftWorkTime.MORNING:
             return time(5, 0), time(11, 59, 59)
 

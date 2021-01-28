@@ -1,13 +1,15 @@
 from datetime import timedelta
 
 from django.contrib.gis.db.models.functions import Distance
-from django.contrib.postgres.aggregates import BoolOr
-from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q
 from django.utils.timezone import now
 
+from app_market.enums import ShiftWorkTime
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop
+from app_market.versions.v1_0.mappers import ShiftMapper
 from backend.mixins import MasterRepository
+from backend.utils import ArrayRemove
 
 
 class DistributorsRepository(MasterRepository):
@@ -36,7 +38,35 @@ class VacanciesRepository(MasterRepository):
                 shift__time_start__gt=now()
             ), then=True), default=False, output_field=BooleanField())
         )
-        self.work_time_expression = Value([], ArrayField(IntegerField()))
+        morning_range = ShiftMapper.work_time_to_time_range(ShiftWorkTime.MORNING.value)
+        day_range = ShiftMapper.work_time_to_time_range(ShiftWorkTime.DAY.value)
+        evening_range = ShiftMapper.work_time_to_time_range(ShiftWorkTime.EVENING.value)
+
+        # Выставляем work_time по времени начала смены - time_start
+        self.work_time_expression = ArrayRemove(ArrayAgg(  # Аггрегация значений в массив
+            Case(
+                When(Q(  # Если начинается утром
+                    shift__time_start__gte=morning_range[0],
+                    shift__time_start__lte=morning_range[1]
+                ),
+                    then=ShiftWorkTime.MORNING
+                ),
+                When(Q(  # Если начинается днем
+                    shift__time_start__gte=day_range[0],
+                    shift__time_start__lte=day_range[1]
+                ),
+                    then=ShiftWorkTime.DAY
+                ),
+                When(Q(  # Если начинается вечером
+                    shift__time_start__gte=evening_range[0],
+                    shift__time_start__lte=evening_range[1]
+                ),
+                    then=ShiftWorkTime.EVENING
+                ),
+                default=None,
+                output_field=IntegerField()
+            )
+        ), None)  # Удаляем из массива null значения
 
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(

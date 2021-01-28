@@ -104,9 +104,10 @@ class Vacancies(CRUDAPIView):
     }
 
     array_filter_params = {
-        'required_experience': 'required_experience__contains',
+        # overlap - пересечение множеств - если передано несколько, то нужно любое из имеющихся
+        'required_experience': 'required_experience__overlap',
+        'work_time': 'work_time__overlap',
         'employment': 'employment__in',
-        'work_time': 'work_time__contains',
     }
 
     default_order_params = [

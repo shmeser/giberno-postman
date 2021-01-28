@@ -89,7 +89,7 @@ class ShopInVacancySerializer(serializers.ModelSerializer):
 
     def get_lat(self, shop):
         if shop.location:
-            return shop.location.x
+            return shop.location.y
         return None
 
     def get_logo(self, data):
@@ -163,6 +163,7 @@ class VacancySerializer(CRUDSerializer):
 
     is_favourite = serializers.SerializerMethodField()
     is_hot = serializers.SerializerMethodField()
+    work_time = serializers.SerializerMethodField()
     shop = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
 
@@ -218,6 +219,9 @@ class VacancySerializer(CRUDSerializer):
     def get_is_hot(self, vacancy):
         return vacancy.is_hot
 
+    def get_work_time(self, vacancy):
+        return vacancy.work_time
+
     def get_shop(self, vacancy):
         return ShopInVacancySerializer(vacancy.shop).data
 
@@ -237,6 +241,7 @@ class VacancySerializer(CRUDSerializer):
             'is_hot',
             'required_experience',
             'employment',
+            'work_time',
             'shop',
             'distributor',
         ]
