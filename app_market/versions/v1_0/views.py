@@ -33,12 +33,9 @@ class Distributors(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -73,12 +70,9 @@ class Shops(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -109,6 +103,12 @@ class Vacancies(CRUDAPIView):
         'is_hot': 'is_hot',
     }
 
+    array_filter_params = {
+        'required_experience': 'is_hot',
+        'employment': 'is_hot',
+        'work_time': 'is_hot',
+    }
+
     default_order_params = [
         '-created_at'
     ]
@@ -126,12 +126,9 @@ class Vacancies(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -172,12 +169,9 @@ class Professions(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -230,12 +224,9 @@ class Skills(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)

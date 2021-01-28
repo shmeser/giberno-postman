@@ -23,6 +23,18 @@ class BaseMapper:
 
 
 class RequestMapper:
+
+    def __init__(self, view_class=None):
+        # super().__init__()
+        self.filter_params = view_class.filter_params if view_class else dict()
+        self.date_filter_params = view_class.date_filter_params if view_class else dict()
+        self.bool_filter_params = view_class.bool_filter_params if view_class else dict()
+        self.array_filter_params = view_class.array_filter_params if view_class else dict()
+        self.default_filters = view_class.default_filters if view_class else dict()
+
+        self.order_params = view_class.order_params if view_class else dict()
+        self.default_order_params = view_class.default_order_params if view_class else dict()
+
     @classmethod
     def pagination(cls, request):
         pagination: Pagination = Pagination()
@@ -45,21 +57,21 @@ class RequestMapper:
 
         return pagination
 
-    @classmethod
-    def filters(cls, request, params: dict, date_params: dict, bool_params: dict, default_filters: dict):
-        if not params and not date_params:
+    def filters(self, request):
+        if not self.filter_params and not self.date_filter_params and not self.bool_filter_params \
+                and not self.array_filter_params:
             return
 
         # копируем, чтобы не изменять сам request.query_params
         filter_values = underscoreize(request.query_params.copy())
         if not filter_values:
-            return default_filters
+            return self.default_filters
 
-        for param in date_params:
+        for param in self.date_filter_params:
             if param in filter_values:
                 filter_values[param] = t2d(int(filter_values[param]))
 
-        for param in bool_params:
+        for param in self.bool_filter_params:
             if param in filter_values:
                 filter_values[param] = str(filter_values[param]).lower() in [True, 1, 'true', 'yes']
 
@@ -69,13 +81,12 @@ class RequestMapper:
             'person__id': '1';
             ...
         """
-        all_params = {**params, **date_params, **bool_params}
+        all_params = {**self.filter_params, **self.date_filter_params, **self.bool_filter_params}
         kwargs = {all_params[param]: filter_values.get(param) for param in all_params if filter_values.get(param)}
-        return {**kwargs, **default_filters}
+        return {**kwargs, **self.default_filters}
 
-    @classmethod
-    def order(cls, request, params: dict):
-        if not params:
+    def order(self, request):
+        if not self.order_params:
             return list()
 
         fields = underscoreize(request.query_params).get('order_by')
@@ -89,13 +100,13 @@ class RequestMapper:
 
         django_order_params = []
         for field, order in zip(fields, order):
-            if inflection.underscore(field) in params:
+            if inflection.underscore(field) in self.order_params:
                 django_order = '' if order == 'asc' else '-'
-                django_field = params[inflection.underscore(field)]
+                django_field = self.order_params[inflection.underscore(field)]
 
                 django_order_params.append(f'{django_order}{django_field}')
 
-        return django_order_params
+        return django_order_params + self.default_order_params
 
     @staticmethod
     def file_entities(request, owner):
