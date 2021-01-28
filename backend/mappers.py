@@ -46,7 +46,7 @@ class RequestMapper:
         return pagination
 
     @classmethod
-    def filters(cls, request, params: dict, date_params: dict, default_filters: dict):
+    def filters(cls, request, params: dict, date_params: dict, bool_params: dict, default_filters: dict):
         if not params and not date_params:
             return
 
@@ -59,13 +59,17 @@ class RequestMapper:
             if param in filter_values:
                 filter_values[param] = t2d(int(filter_values[param]))
 
+        for param in bool_params:
+            if param in filter_values:
+                filter_values[param] = str(filter_values[param]).lower() in [True, 1, 'true', 'yes']
+
         """
         kwargs - конечный вариант фильтров, в виде:
             'title': 'new item';
             'person__id': '1';
             ...
         """
-        all_params = {**params, **date_params}
+        all_params = {**params, **date_params, **bool_params}
         kwargs = {all_params[param]: filter_values.get(param) for param in all_params if filter_values.get(param)}
         return {**kwargs, **default_filters}
 

@@ -152,7 +152,9 @@ class Shift(BaseModel):
     date_start = models.DateField(null=True, blank=True, verbose_name='Дата начала расписания')
     date_end = models.DateField(null=True, blank=True, verbose_name='Дата окончания расписания')
 
-    frequency = models.PositiveIntegerField(choices=FREQUENCY_CHOICES, verbose_name='Интервал выполнения')
+    frequency = models.PositiveIntegerField(
+        choices=FREQUENCY_CHOICES, null=True, blank=True, verbose_name='Интервал выполнения'
+    ),
 
     by_weekday = ArrayField(models.PositiveIntegerField(), size=7, blank=True, null=True, verbose_name='Дни недели')
     by_monthday = ArrayField(models.PositiveIntegerField(), size=31, blank=True, null=True, verbose_name='Дни месяца')

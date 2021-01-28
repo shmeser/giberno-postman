@@ -35,7 +35,7 @@ class Distributors(CRUDAPIView):
 
         pagination = RequestMapper.pagination(request)
         filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
+            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
             self.default_filters
         ) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
@@ -75,7 +75,7 @@ class Shops(CRUDAPIView):
 
         pagination = RequestMapper.pagination(request)
         filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
+            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
             self.default_filters
         ) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
@@ -101,8 +101,12 @@ class Vacancies(CRUDAPIView):
         'search': 'title__istartswith',
         'country': 'city__country__id',
         'city': 'city_id',
-        'price': 'price__lte',
-        'radius': 'distance__lte'
+        'price': 'price__gte',
+        'radius': 'distance__lte',
+    }
+
+    bool_filter_params = {
+        'is_hot': 'is_hot',
     }
 
     default_order_params = [
@@ -124,7 +128,7 @@ class Vacancies(CRUDAPIView):
 
         pagination = RequestMapper.pagination(request)
         filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
+            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
             self.default_filters
         ) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
@@ -170,7 +174,7 @@ class Professions(CRUDAPIView):
 
         pagination = RequestMapper.pagination(request)
         filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
+            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
             self.default_filters
         ) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
@@ -228,7 +232,7 @@ class Skills(CRUDAPIView):
 
         pagination = RequestMapper.pagination(request)
         filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
+            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
             self.default_filters
         ) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params

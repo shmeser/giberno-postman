@@ -65,7 +65,7 @@ class ShopSerializer(CRUDSerializer):
         ]
 
 
-class VacancyShopSerializer(serializers.ModelSerializer):
+class ShopInVacancySerializer(serializers.ModelSerializer):
     walk_time = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
@@ -126,7 +126,7 @@ class VacancyShopSerializer(serializers.ModelSerializer):
         ]
 
 
-class VacancyDistributorSerializer(serializers.ModelSerializer):
+class DistributorInVacancySerializer(serializers.ModelSerializer):
     logo = serializers.SerializerMethodField()
 
     def get_logo(self, data):
@@ -216,14 +216,14 @@ class VacancySerializer(CRUDSerializer):
         return False
 
     def get_is_hot(self, vacancy):
-        return False
+        return vacancy.is_hot
 
     def get_shop(self, vacancy):
-        return VacancyShopSerializer(vacancy.shop).data
+        return ShopInVacancySerializer(vacancy.shop).data
 
     def get_distributor(self, vacancy):
         if vacancy.shop and vacancy.shop.distributor:
-            return VacancyDistributorSerializer(vacancy.shop.distributor).data
+            return DistributorInVacancySerializer(vacancy.shop.distributor).data
         return None
 
     class Meta:

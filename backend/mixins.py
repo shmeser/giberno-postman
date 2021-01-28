@@ -87,6 +87,7 @@ class CRUDAPIView(APIView):
     filter_params = dict()
     order_params = dict()
     date_filter_params = dict()  # словарь, в котором будут указанны фильтры в формате timestamp.
+    bool_filter_params = dict()  # словарь, в котором будут указанны фильтры в c типом Bool.
     permission_classes = [AbbleToPerform]
     # есть возможность указать http методы которые будут обрабатываться.
     allowed_http_methods = []
@@ -125,7 +126,9 @@ class CRUDAPIView(APIView):
         queryset = self.get_queryset(request=request, **kwargs)
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params) or dict()
+        filters = RequestMapper().filters(
+            request, self.filter_params, self.date_filter_params, self.bool_filter_params
+        ) or dict()
 
         if record_id:
             if user_is_admin(request.user) and request.user.is_superuser:

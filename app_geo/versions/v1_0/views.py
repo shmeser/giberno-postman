@@ -35,7 +35,7 @@ class Languages(CRUDAPIView):
 
         pagination = RequestMapper.pagination(request)
         filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
+            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
             self.default_filters
         ) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
@@ -90,7 +90,7 @@ class Countries(CRUDAPIView):
 
         pagination = RequestMapper.pagination(request)
         filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
+            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
             self.default_filters
         ) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
@@ -152,7 +152,7 @@ class Cities(CRUDAPIView):
 
         pagination = RequestMapper.pagination(request)
         filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
+            request, self.filter_params, self.date_filter_params, self.bool_filter_params,
             self.default_filters
         ) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params

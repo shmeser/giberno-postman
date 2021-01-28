@@ -224,7 +224,7 @@ class Users(CRUDAPIView):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
+        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params, self.bool_filter_params,
                                           self.default_filters) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
 
@@ -300,7 +300,7 @@ class Notifications(CRUDAPIView):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
+        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params, self.bool_filter_params,
                                           self.default_filters) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
 
@@ -366,7 +366,7 @@ class MyProfileCareer(CRUDAPIView):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
+        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params, self.bool_filter_params,
                                           self.default_filters) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
 
@@ -445,7 +445,7 @@ class MyProfileDocuments(CRUDAPIView):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
+        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params, self.bool_filter_params,
                                           self.default_filters) or dict()
         order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
 
