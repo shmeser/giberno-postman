@@ -41,3 +41,10 @@ class ShiftStatus(IntEnumM):
     INITIAL = 0
     STARTED = 1
     COMPLETED = 2
+
+
+class ShiftWorkTime(IntEnumM):
+    # Тип времени смены (время начала)
+    MORNING = 0  # Утренняя
+    DAY = 1  # Дневная
+    EVENING = 2  # Вечерняя

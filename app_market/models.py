@@ -15,19 +15,19 @@ from backend.models import BaseModel
 from backend.utils import choices
 from giberno import settings
 
-FREQUENCY_CHOICES = (
+FREQUENCY_CHOICES = [
     (DAILY, "Ежедневно"),
     (WEEKLY, "Еженедельно"),
     (MONTHLY, "Ежемесячно")
-)
+]
 
-REQUIRED_DOCS = (
-    ('Пасспорт', DocumentType.PASSPORT),
-    ('ИНН', DocumentType.INN),
-    ('СНИЛС', DocumentType.SNILS),
-    ('Медкнижка', DocumentType.MEDICAL_BOOK),
-    ('Водительское удостоверение', DocumentType.DRIVER_LICENCE),
-)
+REQUIRED_DOCS = [
+    (DocumentType.PASSPORT, 'Паспорт'),
+    (DocumentType.INN, 'ИНН'),
+    (DocumentType.SNILS, 'СНИЛС'),
+    (DocumentType.MEDICAL_BOOK, 'Медкнижка'),
+    (DocumentType.DRIVER_LICENCE, 'Водительское удостоверение'),
+]
 
 
 class Category(BaseModel):
@@ -80,7 +80,7 @@ class Shop(BaseModel):
     description = models.CharField(max_length=2048, null=True, blank=True)
 
     location = models.PointField(srid=settings.SRID, blank=True, null=True, verbose_name='Геопозиция')
-    city = models.ForeignKey(City, blank=True,  null=True, on_delete=models.SET_NULL)
+    city = models.ForeignKey(City, blank=True, null=True, on_delete=models.SET_NULL)
     address = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Адрес')
 
     is_partner = models.BooleanField(default=False, verbose_name='Является партнером')
@@ -112,7 +112,9 @@ class Vacancy(BaseModel):
         null=True, blank=True, verbose_name='Требуемый опыт'
     )
 
-    required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS), verbose_name='Документы', null=True, blank=True)
+    required_docs = ArrayField(
+        models.PositiveIntegerField(choices=REQUIRED_DOCS), verbose_name='Документы', null=True, blank=True
+    )
 
     features = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Бонусы и привилегии')
 
@@ -152,7 +154,9 @@ class Shift(BaseModel):
     date_start = models.DateField(null=True, blank=True, verbose_name='Дата начала расписания')
     date_end = models.DateField(null=True, blank=True, verbose_name='Дата окончания расписания')
 
-    frequency = models.PositiveIntegerField(choices=FREQUENCY_CHOICES, verbose_name='Интервал выполнения')
+    frequency = models.PositiveIntegerField(
+        choices=FREQUENCY_CHOICES, null=True, blank=True, verbose_name='Интервал выполнения'
+    )
 
     by_weekday = ArrayField(models.PositiveIntegerField(), size=7, blank=True, null=True, verbose_name='Дни недели')
     by_monthday = ArrayField(models.PositiveIntegerField(), size=31, blank=True, null=True, verbose_name='Дни месяца')

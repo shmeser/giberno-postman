@@ -44,14 +44,12 @@ class TelegramFormatter(logging.Formatter):
     limit = -1  # default per logging.Formatter is None
 
     def format(self, record):
-        s = super().format(record)
-
+        s = f"SERVER: {os.getenv('ENVIRONMENT', Environment.LOCAL.value)}"
         s += f"\nUSER: {record.request.user}"
+
         for attr in self.meta_attrs:
             if attr in record.request.META:
                 s += f"\n{attr}: {record.request.META[attr]}"
-
-        s += f"\nSERVER: {os.getenv('ENVIRONMENT', Environment.LOCAL.value)}"
 
         if record.request.headers:
             headers = get_request_headers(record.request)
@@ -60,6 +58,9 @@ class TelegramFormatter(logging.Formatter):
         if record.request.body:
             body = get_request_body(record.request)
             s += f"\nBODY: {self.recursive_tab_str(body)}"
+
+        s += '\n\n ------------------------ \n\n'
+        s += super().format(record)
 
         return s
 
