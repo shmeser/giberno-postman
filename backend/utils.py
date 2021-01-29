@@ -8,7 +8,7 @@ from functools import reduce
 from io import BytesIO
 from json import JSONDecodeError
 from urllib.request import urlopen, HTTPError, Request
-
+from django.db.models.expressions import Func, Expression, F, Value as V
 import exiftool
 import pytz
 from PIL import Image
@@ -458,6 +458,22 @@ def is_valid_uuid(uuid_to_test, version=4):
         return True
     except ValueError:
         return False
+
+
+class SimpleFunc(Func):
+    def __init__(self, field, *values, **extra):
+        if not isinstance(field, Expression):
+            field = F(field)
+            if values and not isinstance(values[0], Expression):
+                values = [V(v) for v in values]
+        super(SimpleFunc, self).__init__(field, *values, **extra)
+
+
+class ArrayRemove(SimpleFunc):
+    """
+        Реализация Postgres функции array_remove, которой нет в Django
+    """
+    function = 'ARRAY_REMOVE'
 
 
 # ####

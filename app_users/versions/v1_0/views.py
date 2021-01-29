@@ -223,10 +223,9 @@ class Users(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
-                                          self.default_filters) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             self.serializer_class = ProfileSerializer
@@ -299,10 +298,9 @@ class Notifications(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
-                                          self.default_filters) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -365,10 +363,9 @@ class MyProfileCareer(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
-                                          self.default_filters) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -444,10 +441,9 @@ class MyProfileDocuments(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
-                                          self.default_filters) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)

@@ -36,8 +36,20 @@ class ShopSerializer(CRUDSerializer):
     repository = ShopsRepository
 
     distributor = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
 
     def get_distributor(self, instance):
+        return None
+
+    def get_lon(self, instance):
+        if instance.location:
+            return instance.location.x
+        return None
+
+    def get_lat(self, instance):
+        if instance.location:
+            return instance.location.y
         return None
 
     class Meta:
@@ -46,15 +58,18 @@ class ShopSerializer(CRUDSerializer):
             'id',
             'title',
             'description',
-            'location',
             'address',
+            'lon',
+            'lat',
             'distributor',
         ]
 
 
-class VacancyShopSerializer(serializers.ModelSerializer):
+class ShopInVacancySerializer(serializers.ModelSerializer):
     walk_time = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -65,6 +80,16 @@ class VacancyShopSerializer(serializers.ModelSerializer):
             # Принимаем среднюю скорость пешеходов за 3.6км/ч = 1м/с
             # Выводим расстояние в метрах как количество секунд
             return int(shop.distance.m)
+        return None
+
+    def get_lon(self, shop):
+        if shop.location:
+            return shop.location.x
+        return None
+
+    def get_lat(self, shop):
+        if shop.location:
+            return shop.location.y
         return None
 
     def get_logo(self, data):
@@ -95,11 +120,13 @@ class VacancyShopSerializer(serializers.ModelSerializer):
             'description',
             'address',
             'walk_time',
+            'lon',
+            'lat',
             'logo',
         ]
 
 
-class VacancyDistributorSerializer(serializers.ModelSerializer):
+class DistributorInVacancySerializer(serializers.ModelSerializer):
     logo = serializers.SerializerMethodField()
 
     def get_logo(self, data):
@@ -136,6 +163,7 @@ class VacancySerializer(CRUDSerializer):
 
     is_favourite = serializers.SerializerMethodField()
     is_hot = serializers.SerializerMethodField()
+    work_time = serializers.SerializerMethodField()
     shop = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
 
@@ -189,14 +217,17 @@ class VacancySerializer(CRUDSerializer):
         return False
 
     def get_is_hot(self, vacancy):
-        return False
+        return vacancy.is_hot
+
+    def get_work_time(self, vacancy):
+        return vacancy.work_time
 
     def get_shop(self, vacancy):
-        return VacancyShopSerializer(vacancy.shop).data
+        return ShopInVacancySerializer(vacancy.shop).data
 
     def get_distributor(self, vacancy):
         if vacancy.shop and vacancy.shop.distributor:
-            return VacancyDistributorSerializer(vacancy.shop.distributor).data
+            return DistributorInVacancySerializer(vacancy.shop.distributor).data
         return None
 
     class Meta:
@@ -210,6 +241,7 @@ class VacancySerializer(CRUDSerializer):
             'is_hot',
             'required_experience',
             'employment',
+            'work_time',
             'shop',
             'distributor',
         ]

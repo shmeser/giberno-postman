@@ -1,6 +1,6 @@
 from django.urls import path
 
-from app_market.views import Vacancies, Professions, suggest_profession, Skills, Distributors, Shops
+from app_market.views import Vacancies, Professions, suggest_profession, Skills, Distributors, Shops, VacanciesStats
 
 urlpatterns = [
     path('market/distributors', Distributors.as_view()),
@@ -10,6 +10,7 @@ urlpatterns = [
     path('market/shops/<int:record_id>', Shops.as_view()),
 
     path('market/vacancies', Vacancies.as_view()),
+    path('market/vacancies/stats', VacanciesStats.as_view()),
     path('market/vacancies/<int:record_id>', Vacancies.as_view()),
 
     path('market/professions', Professions.as_view()),

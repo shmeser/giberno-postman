@@ -9,7 +9,7 @@ from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSe
     DistributorSerializer, ShopSerializer
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_body
+from backend.utils import get_request_body, chained_get
 
 
 class Distributors(CRUDAPIView):
@@ -33,12 +33,9 @@ class Distributors(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -73,12 +70,9 @@ class Shops(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -98,11 +92,22 @@ class Vacancies(CRUDAPIView):
     allowed_http_methods = ['get']
 
     filter_params = {
-        'title': 'title__istartswith',
+        'search': 'title__istartswith',
         'country': 'city__country__id',
         'city': 'city_id',
-        'price': 'price__lte',
-        'radius': 'distance__lte'
+        'price': 'price__gte',
+        'radius': 'distance__lte',
+    }
+
+    bool_filter_params = {
+        'is_hot': 'is_hot',
+    }
+
+    array_filter_params = {
+        # overlap - пересечение множеств - если передано несколько, то нужно любое из имеющихся
+        'required_experience': 'required_experience__overlap',
+        'work_time': 'work_time__overlap',
+        'employment': 'employment__in',
     }
 
     default_order_params = [
@@ -122,19 +127,16 @@ class Vacancies(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
             serialized = self.serializer_class(dataset)
         else:
-            point, radius = RequestMapper().geocode(request)
-            dataset = self.repository_class(point).filter_by_kwargs(
+            point, bbox, radius = RequestMapper().geo(request)
+            dataset = self.repository_class(point, bbox).filter_by_kwargs(
                 kwargs=filters, order_by=order_params
             )
             dataset = dataset[pagination.offset:pagination.limit]
@@ -143,6 +145,25 @@ class Vacancies(CRUDAPIView):
             serialized = self.serializer_class(dataset, many=True)
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class VacanciesStats(Vacancies):
+    def get(self, request, **kwargs):
+        filters = RequestMapper(self).filters(request) or dict()
+        order_params = RequestMapper(self).order(request)
+
+        point, bbox, radius = RequestMapper().geo(request)
+        dataset = self.repository_class(point, bbox).filter_by_kwargs(
+            kwargs=filters, order_by=order_params
+        )
+
+        stats = self.repository_class().aggregate_stats(dataset)
+
+        return Response(camelize({
+            'all_prices': chained_get(stats, 'all_prices'),
+            'all_counts': chained_get(stats, 'all_counts'),
+            'result_count': chained_get(stats, 'result_count'),
+        }), status=status.HTTP_200_OK)
 
 
 class Professions(CRUDAPIView):
@@ -168,12 +189,9 @@ class Professions(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -226,12 +244,9 @@ class Skills(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
