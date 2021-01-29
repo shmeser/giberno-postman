@@ -9,7 +9,7 @@ from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSe
     DistributorSerializer, ShopSerializer
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_body
+from backend.utils import get_request_body, chained_get
 
 
 class Distributors(CRUDAPIView):
@@ -145,6 +145,25 @@ class Vacancies(CRUDAPIView):
             serialized = self.serializer_class(dataset, many=True)
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class VacanciesStats(Vacancies):
+    def get(self, request, **kwargs):
+        filters = RequestMapper(self).filters(request) or dict()
+        order_params = RequestMapper(self).order(request)
+
+        point, bbox, radius = RequestMapper().geo(request)
+        dataset = self.repository_class(point, bbox).filter_by_kwargs(
+            kwargs=filters, order_by=order_params
+        )
+
+        stats = self.repository_class().aggregate_stats(dataset)
+
+        return Response(camelize({
+            'all_prices': chained_get(stats, 'all_prices'),
+            'all_counts': chained_get(stats, 'all_counts'),
+            'result_count': chained_get(stats, 'result_count'),
+        }), status=status.HTTP_200_OK)
 
 
 class Professions(CRUDAPIView):

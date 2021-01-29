@@ -46,8 +46,8 @@ class VacancyAdmin(FormattedAdmin):
 @admin.register(Shift)
 class ShiftAdmin(FormattedAdmin):
     list_display = [
-        'id', 'price', 'currency', 'employees_count', 'max_employees_count', 'time_start', 'time_end',
-        'date_start', 'date_end', 'frequency'
+        'id', 'vacancy', 'vacancy_id', 'shop_id', 'price', 'currency', 'employees_count', 'max_employees_count',
+        'time_start', 'time_end', 'date_start', 'date_end', 'frequency'
     ]
     raw_id_fields = ['vacancy', 'shop']
 

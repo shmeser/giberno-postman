@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
-from django.db.models import Value, IntegerField, Case, When, BooleanField, Q
+from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count
 from django.utils.timezone import now
 
 from app_market.enums import ShiftWorkTime
@@ -110,6 +110,18 @@ class VacanciesRepository(MasterRepository):
             else:
                 records = self.model.objects.annotate(distance=self.distance_expression).filter(args, **kwargs)
         return records[paginator.offset:paginator.limit] if paginator else records
+
+    @staticmethod
+    def aggregate_stats(queryset):
+        count = queryset.aggregate(
+            result_count=Count('id'),
+        )
+
+        prices = Vacancy.objects.filter(deleted=False).values('price').order_by('price').annotate(
+            count=Count('id'),
+        ).aggregate(all_prices=ArrayAgg('price', ordering='price'), all_counts=ArrayAgg('count', ordering='price'))
+
+        return {**count, **prices}
 
 
 class ProfessionsRepository(MasterRepository):
