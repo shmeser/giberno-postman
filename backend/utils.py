@@ -8,12 +8,13 @@ from functools import reduce
 from io import BytesIO
 from json import JSONDecodeError
 from urllib.request import urlopen, HTTPError, Request
-from django.db.models.expressions import Func, Expression, F, Value as V
+
 import exiftool
 import pytz
 from PIL import Image
 from django.conf import settings
 from django.core.files.uploadedfile import TemporaryUploadedFile
+from django.db.models.expressions import Func, Expression, F, Value as V
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 from ffmpy import FFmpeg
@@ -398,11 +399,11 @@ def nonefy(value, condition=True):
 def chained_get(obj, *args, default=None):
     def get_value(o, attr):
         if isinstance(o, dict) and isinstance(attr, str):
-            return o.get(attr)
+            return o.get(attr, default)
         if isinstance(o, list) and isinstance(attr, int):
             return o[attr]
         if isinstance(o, object) and isinstance(attr, str):
-            return getattr(o, attr, None)
+            return getattr(o, attr, default)
         return None
 
     try:

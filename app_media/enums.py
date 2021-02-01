@@ -19,6 +19,7 @@ class MediaType(IntEnumM):
     DRIVER_LICENCE = 6
     LOGO = 7
     FLAG = 8
+    BANNER = 9
 
 
 class FileDownloadStatus(IntEnumM):
