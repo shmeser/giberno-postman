@@ -9,6 +9,7 @@ from app_market.versions.v1_0.repositories import VacanciesRepository, Professio
     DistributorsRepository, ShopsRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
+from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get
@@ -92,21 +93,10 @@ class ShopInVacancySerializer(serializers.ModelSerializer):
             return shop.location.y
         return None
 
-    def get_logo(self, data):
-        if isinstance(self.instance, QuerySet):
-            # для many=True
-            file = None
-            # Берем флаг из предзагруженного поля medias
-            if chained_get(data, 'medias'):
-                file = chained_get(data, 'medias')[0]
-        else:
-            if chained_get(data, 'medias'):
-                file = chained_get(data, 'medias')[0]
-            else:
-                file = MediaModel.objects.filter(
-                    owner_id=data.id, type=MediaType.LOGO.value,
-                    owner_ct_id=ContentType.objects.get_for_model(data).id, format=MediaFormat.IMAGE.value,
-                ).order_by('-created_at').first()
+    def get_logo(self, prefetched_data):
+        file = MediaRepository.get_related_media_file(
+            self.instance, prefetched_data, MediaType.LOGO.value, MediaFormat.IMAGE.value
+        )
 
         if file:
             return MediaSerializer(file, many=False).data
@@ -128,33 +118,33 @@ class ShopInVacancySerializer(serializers.ModelSerializer):
 
 class DistributorInVacancySerializer(serializers.ModelSerializer):
     logo = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
 
-    def get_logo(self, data):
-        if isinstance(self.instance, QuerySet):
-            # для many=True
-            file = None
-            # Берем флаг из предзагруженного поля medias
-            if chained_get(data, 'medias'):
-                file = chained_get(data, 'medias')[0]
-        else:
-            if chained_get(data, 'medias'):
-                file = chained_get(data, 'medias')[0]
-            else:
-                file = MediaModel.objects.filter(
-                    owner_id=data.id, type=MediaType.LOGO.value,
-                    owner_ct_id=ContentType.objects.get_for_model(data).id, format=MediaFormat.IMAGE.value,
-                ).order_by('-created_at').first()
+    def get_logo(self, prefetched_data):
+        file = MediaRepository.get_related_media_file(
+            self.instance, prefetched_data, MediaType.LOGO.value, MediaFormat.IMAGE.value
+        )
+
+        if file:
+            return MediaSerializer(file, many=False).data
+        return None
+
+    def get_banner(self, prefetched_data):
+        file = MediaRepository.get_related_media_file(
+            self.instance, prefetched_data, MediaType.BANNER.value, MediaFormat.IMAGE.value
+        )
 
         if file:
             return MediaSerializer(file, many=False).data
         return None
 
     class Meta:
-        model = Shop
+        model = Distributor
         fields = [
             'id',
             'title',
             'logo',
+            'banner',
         ]
 
 
@@ -198,7 +188,7 @@ class VacancySerializer(CRUDSerializer):
                             Prefetch(
                                 'media',
                                 queryset=MediaModel.objects.filter(
-                                    type=MediaType.LOGO.value,
+                                    type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
                                     owner_ct_id=ContentType.objects.get_for_model(
                                         Distributor).id,
                                     format=MediaFormat.IMAGE.value
