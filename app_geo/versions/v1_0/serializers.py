@@ -1,5 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch
+from django.db.models import Prefetch, QuerySet
 from django_globals import globals as g
 from rest_framework import serializers
 
@@ -10,6 +10,8 @@ from app_media.models import MediaModel
 from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.enums import Platform
 from backend.mixins import CRUDSerializer
+
+DEFAULT_LANGUAGE = 'name:ru'
 
 
 class LanguageSerializer(CRUDSerializer):
@@ -24,7 +26,7 @@ class LanguageSerializer(CRUDSerializer):
         return None
 
     def get_name(self, language: Language):
-        user_language = 'name:ru'
+        user_language = DEFAULT_LANGUAGE
         if language.names.get(user_language, None):
             return language.names[user_language]
         return language.name
@@ -75,12 +77,23 @@ class CountrySerializer(serializers.ModelSerializer):
 
     def get_name(self, country: Country):
         # TODO для локализации выводить соответствующее название
-        return country.names.get('name:ru', None)
+        return country.names.get(DEFAULT_LANGUAGE, None)
 
     def get_flag(self, country: Country):
-        # Берем флаг из поля medias
-        if hasattr(country, 'medias') and country.medias:
-            return MediaSerializer(country.medias[0], many=False).data
+        if isinstance(self.instance, QuerySet):
+            # для many=True
+            flag_file = None
+            # Берем флаг из предзагруженного поля medias
+            if hasattr(country, 'medias') and country.medias:
+                flag_file = country.medias[0]
+        else:
+            flag_file = MediaModel.objects.filter(
+                owner_id=country.id, type=MediaType.FLAG.value, mime_type=self.mime_type,
+                owner_ct_id=ContentType.objects.get_for_model(country).id, format=MediaFormat.IMAGE.value,
+            ).order_by('-created_at').first()
+
+        if flag_file:
+            return MediaSerializer(flag_file, many=False).data
         return None
 
     class Meta:
@@ -103,7 +116,7 @@ class CountryLightSerializer(serializers.ModelSerializer):
 
     def get_name(self, country: Country):
         # TODO для локализации выводить соответствующее название
-        return country.names.get('name:ru', None)
+        return country.names.get(DEFAULT_LANGUAGE, None)
 
     class Meta:
         model = Country
@@ -126,7 +139,7 @@ class RegionSerializer(serializers.ModelSerializer):
 
     def get_name(self, region: Region):
         # TODO для локализации выводить соответствующее название
-        return region.names.get('name:ru', None)
+        return region.names.get(DEFAULT_LANGUAGE, None)
 
     class Meta:
         model = Region
@@ -149,7 +162,7 @@ class CitySerializer(serializers.ModelSerializer):
 
     def get_name(self, city: City):
         # TODO для локализации выводить соответствующее название
-        return city.names.get('name:ru', None)
+        return city.names.get(DEFAULT_LANGUAGE, None)
 
     def get_country(self, city: City):
         if city.country:

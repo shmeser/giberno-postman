@@ -4,15 +4,38 @@ import os
 import traceback
 
 import requests
-from requests import Response
 
 from app_bot.enums import TelegramBotNotificationType
-# from backend.utils import CP
-from giberno.environment.environments import Environment
+from backend.enums import Environment
+from backend.utils import get_request_body, get_request_headers
 from giberno.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_URL
 
 
 class TelegramFormatter(logging.Formatter):
+
+    def recursive_tab_str(self, data_dict, tab=0):
+        brackets_ident = ''
+        tab_str = "  "
+        values_ident = tab_str
+        iteration = 0
+        keys_count = len(data_dict)
+        i = 0
+        while i < tab:
+            brackets_ident += tab_str
+            values_ident += tab_str
+            i += 1
+        result = brackets_ident + "{\n"
+        for k, v in data_dict.items():
+            iteration += 1
+            eol = ",\n" if keys_count != iteration else ""
+
+            if isinstance(v, dict):
+                result += values_ident + f"'{k}': {self.recursive_tab_str(v, tab + 1)}" + eol
+            else:
+                result += values_ident + f"'{k}': {v}" + eol
+
+        return result + "\n" + brackets_ident + "}"
+
     meta_attrs = [
         'REMOTE_ADDR',
         'HOSTNAME',
@@ -21,20 +44,23 @@ class TelegramFormatter(logging.Formatter):
     limit = -1  # default per logging.Formatter is None
 
     def format(self, record):
-        s = super().format(record)
+        s = f"SERVER: {os.getenv('ENVIRONMENT', Environment.LOCAL.value)}"
+        s += f"\nUSER: {record.request.user}"
 
-        s += "\n{attr}: {value}".format(
-            attr='USER',
-            value=record.request.user
-        )
         for attr in self.meta_attrs:
             if attr in record.request.META:
-                s += "\n{attr}: {value}".format(
-                    attr=attr,
-                    value=record.request.META[attr]
-                )
+                s += f"\n{attr}: {record.request.META[attr]}"
 
-        s += f"\nSERVER: {os.getenv('ENVIRONMENT', Environment.LOCAL.value)}"
+        if record.request.headers:
+            headers = get_request_headers(record.request)
+            s += f"\nHEADERS: {self.recursive_tab_str(headers)}"
+
+        if record.request.body:
+            body = get_request_body(record.request)
+            s += f"\nBODY: {self.recursive_tab_str(body)}"
+
+        s += '\n\n ------------------------ \n\n'
+        s += super().format(record)
 
         return s
 
@@ -77,10 +103,9 @@ class BotSender:
                 "chat_type": chat.type
             })
 
-            response: Response = requests.post(
+            requests.post(
                 f"{TELEGRAM_URL}{TELEGRAM_BOT_TOKEN}/sendMessage", data=prepared_data
             )
-            # CP(bg='red', sp=2).bold(response.json())
 
 
 class BotLogger(logging.Handler):

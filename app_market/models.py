@@ -1,38 +1,56 @@
 import uuid as uuid
 
 from dateutil.rrule import MONTHLY, WEEKLY, DAILY
+from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 
+from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
     ShiftStatus
-from app_media.enums import MediaType
+from app_media.models import MediaModel
+from app_users.enums import DocumentType
 from app_users.models import UserProfile
 from backend.models import BaseModel
 from backend.utils import choices
 from giberno import settings
 
-FREQUENCY_CHOICES = (
+FREQUENCY_CHOICES = [
     (DAILY, "Ежедневно"),
     (WEEKLY, "Еженедельно"),
     (MONTHLY, "Ежемесячно")
-)
+]
 
-REQUIRED_DOCS = (
-    ('Пасспорт', MediaType.PASSPORT),
-    ('ИНН', MediaType.INN),
-    ('СНИЛС', MediaType.SNILS),
-    ('Медкнижка', MediaType.MEDICAL_BOOK),
-    ('Водительское удостоверение', MediaType.DRIVER_LICENCE),
-)
+REQUIRED_DOCS = [
+    (DocumentType.PASSPORT, 'Паспорт'),
+    (DocumentType.INN, 'ИНН'),
+    (DocumentType.SNILS, 'СНИЛС'),
+    (DocumentType.MEDICAL_BOOK, 'Медкнижка'),
+    (DocumentType.DRIVER_LICENCE, 'Водительское удостоверение'),
+]
+
+
+class Category(BaseModel):
+    title = models.CharField(max_length=128, null=True, blank=True)
+    description = models.CharField(max_length=2048, null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.title}'
+
+    class Meta:
+        db_table = 'app_market__categories'
+        verbose_name = 'Категория'
+        verbose_name_plural = 'Категории'
 
 
 class Distributor(BaseModel):
     title = models.CharField(max_length=128, null=True, blank=True)
-    category = models.CharField(max_length=128, null=True, blank=True)
     description = models.CharField(max_length=2048, null=True, blank=True)
+    required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS), null=True, blank=True)
 
-    required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS))
+    categories = models.ManyToManyField(Category, through='DistributorCategory', related_name='categories')
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
         return f'{self.title}'
@@ -43,12 +61,26 @@ class Distributor(BaseModel):
         verbose_name_plural = 'Торговые сети'
 
 
+class DistributorCategory(BaseModel):
+    distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.distributor.title} - {self.category.title}'
+
+    class Meta:
+        db_table = 'app_market__distributor_category'
+        verbose_name = 'Категория торговой сети'
+        verbose_name_plural = 'Категории торговых сетей'
+
+
 class Shop(BaseModel):
     distributor = models.ForeignKey(Distributor, on_delete=models.SET_NULL, null=True, blank=True)
     title = models.CharField(max_length=1024, null=True, blank=True)
     description = models.CharField(max_length=2048, null=True, blank=True)
 
     location = models.PointField(srid=settings.SRID, blank=True, null=True, verbose_name='Геопозиция')
+    city = models.ForeignKey(City, blank=True, null=True, on_delete=models.SET_NULL)
     address = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Адрес')
 
     is_partner = models.BooleanField(default=False, verbose_name='Является партнером')
@@ -57,6 +89,8 @@ class Shop(BaseModel):
     discount_multiplier = models.PositiveIntegerField(null=True, blank=True, verbose_name='Множитель размера скидки')
     discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
     discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
         return f'{self.title}'
@@ -78,7 +112,9 @@ class Vacancy(BaseModel):
         null=True, blank=True, verbose_name='Требуемый опыт'
     )
 
-    required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS), verbose_name='Документы')
+    required_docs = ArrayField(
+        models.PositiveIntegerField(choices=REQUIRED_DOCS), verbose_name='Документы', null=True, blank=True
+    )
 
     features = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Бонусы и привилегии')
 
@@ -118,7 +154,9 @@ class Shift(BaseModel):
     date_start = models.DateField(null=True, blank=True, verbose_name='Дата начала расписания')
     date_end = models.DateField(null=True, blank=True, verbose_name='Дата окончания расписания')
 
-    frequency = models.PositiveIntegerField(choices=FREQUENCY_CHOICES, verbose_name='Интервал выполнения')
+    frequency = models.PositiveIntegerField(
+        choices=FREQUENCY_CHOICES, null=True, blank=True, verbose_name='Интервал выполнения'
+    )
 
     by_weekday = ArrayField(models.PositiveIntegerField(), size=7, blank=True, null=True, verbose_name='Дни недели')
     by_monthday = ArrayField(models.PositiveIntegerField(), size=31, blank=True, null=True, verbose_name='Дни месяца')
@@ -264,3 +302,32 @@ class UserProfession(BaseModel):
         db_table = 'app_market__profession_user'
         verbose_name = 'Профессия пользователя'
         verbose_name_plural = 'Профессии пользователей'
+
+
+class Skill(BaseModel):
+    name = models.CharField(max_length=1024, null=True, blank=True)
+    description = models.CharField(max_length=1024, null=True, blank=True)
+
+    is_suggested = models.BooleanField(default=False, verbose_name='Предложена пользователем')
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name='Одобрена (для предложенных)')
+
+    def __str__(self):
+        return f'{self.name}'
+
+    class Meta:
+        db_table = 'app_market__skills'
+        verbose_name = 'Специальный навык'
+        verbose_name_plural = 'Специальные навыки'
+
+
+class UserSkill(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    skill = models.ForeignKey(Skill, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.skill.name}'
+
+    class Meta:
+        db_table = 'app_market__skill_user'
+        verbose_name = 'Специальный навык пользователя'
+        verbose_name_plural = 'Специальные навыки пользователей'

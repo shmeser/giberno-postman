@@ -33,12 +33,9 @@ class Languages(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -88,12 +85,9 @@ class Countries(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -133,6 +127,8 @@ class Cities(CRUDAPIView):
 
     filter_params = {
         'name': 'native__istartswith',  # TODO Доработать поиск по строке для строк с пробелами
+        'country': 'country_id',
+        'region': 'region_id'
     }
 
     default_order_params = ['native']
@@ -148,12 +144,9 @@ class Cities(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(
-            request, self.filter_params, self.date_filter_params,
-            self.default_filters
-        ) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -173,8 +166,8 @@ class Cities(CRUDAPIView):
 
 @api_view(['GET'])
 def geocode(request):
-    lon, lat = RequestMapper().geocode(request)
-    dataset = CitiesRepository().geocode(lon, lat)
+    point = RequestMapper().geo(request, raise_exception=True)[0]
+    dataset = CitiesRepository().geocode(point)
 
     # SpeedUp
     dataset = CitySerializer.fast_related_loading(dataset)

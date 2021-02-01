@@ -17,7 +17,7 @@ class BotChat(BaseModel):
     notification_types = ArrayField(models.CharField(max_length=32), size=10, blank=True, null=True)
 
     def __str__(self):
-        return f'{self.username}'
+        return f'{self.username or self.title}'
 
     class Meta:
         db_table = 'app_bot__chats'

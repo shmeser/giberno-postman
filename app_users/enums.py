@@ -36,5 +36,37 @@ class NotificationType(IntEnumM):
 class NotificationAction(IntEnumM):
     # Для открытия нужного экрана в приложении
     APP = 0  # Главный экран в приложении
-
     VACANCY = 1  # Вакансия
+
+
+class NotificationIcon(IntEnumM):
+    DEFAULT = 0
+    REQUEST_APPROVED = 1
+    REQUEST_DECLINED = 2
+    MONEY_RECEIVED = 3
+    REWARD_RECEIVED = 4
+    DOCS_APPROVED = 5
+    DOCS_DECLINED = 6
+    SHIFT_AVAILABLE = 7
+    SHIFT_START_SOON = 8
+    LEAVED_SHOP_AREA = 9
+    VACANCY_APPROVED = 10
+    VACANCY_DECLINED = 11
+    WORKER_CANCELED_VACANCY = 12
+    SECURITY_CALL = 13
+    SECURITY_CANCELLATION_REASON = 14
+
+
+class Education(IntEnumM):
+    SCHOOL = 0  # Общее (школа)
+    COLLEGE = 1  # Профессиональное-техническое (колледж, техникум)
+    UNIVERSITY = 2  # Высшее (университет)
+
+
+class DocumentType(IntEnumM):
+    OTHER = 0
+    PASSPORT = 1
+    INN = 2
+    SNILS = 3
+    MEDICAL_BOOK = 4
+    DRIVER_LICENCE = 5

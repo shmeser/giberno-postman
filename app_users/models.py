@@ -7,8 +7,10 @@ from django.contrib.postgres.fields import ArrayField
 from django.db.models import JSONField
 
 from app_geo.models import Language, Country, City
+from app_media.enums import MediaType
 from app_media.models import MediaModel
-from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction
+from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction, \
+    Education, DocumentType, NotificationIcon
 from backend.models import BaseModel
 from backend.utils import choices
 
@@ -60,6 +62,15 @@ class UserProfile(AbstractUser, BaseModel):
     favourite_vacancies_count = models.PositiveIntegerField(default=0, verbose_name='Количество избранных вакансий')
 
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
+    fb_link = models.CharField(max_length=255, null=True, blank=True, verbose_name='Ссылка на профиль в Facebook')
+    vk_link = models.CharField(max_length=255, null=True, blank=True, verbose_name='Ссылка на профиль в ВКонтанте')
+    instagram_link = models.CharField(
+        max_length=255, null=True, blank=True, verbose_name='Ссылка на профиль в Intsagram'
+    )
+
+    education = models.PositiveIntegerField(choices=choices(Education), null=True, blank=True,
+                                            verbose_name='Образование')
 
     def __str__(self):
         return f'ID:{self.id} - {self.username} {self.first_name} {self.middle_name} {self.middle_name}'
@@ -171,6 +182,10 @@ class Notification(BaseModel):
 
     sent_at = models.DateTimeField(null=True, blank=True, verbose_name='Отправлено в Firebase')
 
+    icon_type = models.IntegerField(
+        choices=choices(NotificationIcon), default=NotificationIcon.DEFAULT, verbose_name='Тип иконки'
+    )
+
     def __str__(self):
         return f'{self.title}'
 
@@ -191,3 +206,48 @@ class NotificationsSettings(BaseModel):
         db_table = 'app_users__notifications_settings'
         verbose_name = 'Настройки уведомлений пользователя'
         verbose_name_plural = 'Настройки уведомлений пользователей'
+
+
+class UserCareer(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+
+    work_place = models.CharField(max_length=128, blank=True, null=True)
+    position = models.CharField(max_length=128, blank=True, null=True)
+
+    country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True, blank=True)
+    city = models.ForeignKey(City, on_delete=models.SET_NULL, null=True, blank=True)
+
+    year_start = models.PositiveIntegerField(null=True, blank=True)
+    year_end = models.PositiveIntegerField(null=True, blank=True)
+
+    is_working_now = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.work_place} {self.position}'
+
+    class Meta:
+        db_table = 'app_users__profile_career'
+        verbose_name = 'Карьера пользователя'
+        verbose_name_plural = 'Картера пользователей'
+
+
+class Document(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    type = models.IntegerField(choices=choices(DocumentType), default=DocumentType.OTHER)
+    series = models.CharField(max_length=128, blank=True, null=True, verbose_name='Серия')
+    number = models.CharField(max_length=128, blank=True, null=True, verbose_name='Номер')
+    category = models.CharField(max_length=128, blank=True, null=True, verbose_name='Категория')
+    department_code = models.CharField(max_length=128, blank=True, null=True, verbose_name='Код подразделения')
+    issue_place = models.CharField(max_length=128, blank=True, null=True, verbose_name='Место выдачи')
+    issue_date = models.DateTimeField(null=True, blank=True, verbose_name='Дата выдачи')
+    expiration_date = models.DateTimeField(null=True, blank=True, verbose_name='Действителен до')
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
+    def __str__(self):
+        return f'{self.user.username}'
+
+    class Meta:
+        db_table = 'app_users__documents'
+        verbose_name = 'Документ'
+        verbose_name_plural = 'Документы'

@@ -22,6 +22,32 @@ class CRUDSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         return self.repository().update(instance.id, **validated_data)
 
+    def process_validation_errors(self, errors):
+        errors_processed = []
+        for k, e in errors.items():
+            if ErrorsCodes.has_key(e[0].code):
+                errors_processed.append(dict(Error(ErrorsCodes[e[0].code])))
+            else:
+                code = ErrorsCodes.VALIDATION_ERROR.name
+                detail = ErrorsCodes.VALIDATION_ERROR.value
+
+                if e[0].code == 'unique':
+                    if k == 'email':  # Конкретная проверка на уникальность имейла в бд
+                        code = ErrorsCodes.EMAIL_IS_USED.name
+                    detail = e[0]
+
+                if e[0].code == 'required':
+                    detail = k + ' - ' + e[0]
+
+                # Добавляем в массив кастомных ошибок
+                errors_processed.append(
+                    dict(Error(**{
+                        'code': code,
+                        'detail': detail
+                    }))
+                )
+        return errors_processed
+
     def is_valid(self, raise_exception=False):
         # Переопределяем метод для использования кастомной ошибки
         assert hasattr(self, 'initial_data'), (
@@ -40,30 +66,7 @@ class CRUDSerializer(serializers.ModelSerializer):
 
         if self._errors and raise_exception:
             # Обрабатываем список ошибок валидаторов ValidationError
-            errors_processed = []
-            for k, e in self.errors.items():
-                if ErrorsCodes.has_key(e[0].code):
-                    errors_processed.append(dict(Error(ErrorsCodes[e[0].code])))
-                else:
-                    code = ErrorsCodes.VALIDATION_ERROR.name
-                    detail = ErrorsCodes.VALIDATION_ERROR.value
-
-                    if e[0].code == 'unique':
-                        if k == 'email':  # Конкретная проверка на уникальность имейла в бд
-                            code = ErrorsCodes.EMAIL_IS_USED.name
-                        detail = e[0]
-
-                    if e[0].code == 'required':
-                        detail = k + ' - ' + e[0]
-
-                    # Добавляем в массив кастомных ошибок
-                    errors_processed.append(
-                        dict(Error(**{
-                            'code': code,
-                            'detail': detail
-                        }))
-                    )
-
+            errors_processed = self.process_validation_errors(self.errors)
             raise CustomException(errors=errors_processed)
 
         return not bool(self._errors)
@@ -83,7 +86,9 @@ class CRUDAPIView(APIView):
     urlpattern_record_id_name = 'record_id'
     filter_params = dict()
     order_params = dict()
-    date_filter_params = dict()  # словарь, в котором будут указанны фильтры в формате timestamp.
+    date_filter_params = dict()  # словарь c фильтрами в timestamp
+    bool_filter_params = dict()  # словарь с фильтрами c типом Bool
+    array_filter_params = dict()  # словарь с массивом фильтров, на входе 1 значение либо несколько через запятую
     permission_classes = [AbbleToPerform]
     # есть возможность указать http методы которые будут обрабатываться.
     allowed_http_methods = []
@@ -101,45 +106,55 @@ class CRUDAPIView(APIView):
         if self.allowed_http_methods:
             self.http_method_names = self.allowed_http_methods
 
+    def get_admin_dataset_and_serializer(self, record_id=None, filters=None, pagination=None, order_params={}):
+        if self.many:
+            dataset = super(self.repository_class().__class__, self.repository_class()).filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params)
+            if self.admin_serializer:
+                serializer_class = self.admin_serializer
+            else:
+                serializer_class = create_admin_serializer(self.serializer_class)
+        else:
+            dataset = super(self.repository_class().__class__, self.repository_class()).get_by_id(record_id)
+            if self.admin_serializer:
+                serializer_class = self.admin_serializer
+            else:
+                serializer_class = create_admin_serializer(self.serializer_class)
+        return dataset, serializer_class
+
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params) or dict()
         queryset = self.get_queryset(request=request, **kwargs)
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             if user_is_admin(request.user) and request.user.is_superuser:
-                dataset = super(self.repository_class().__class__, self.repository_class()).get_by_id(record_id)
-                if self.admin_serializer:
-                    serializer_class = self.admin_serializer
-                else:
-                    serializer_class = create_admin_serializer(self.serializer_class)
-                serialized = serializer_class(dataset)
+                dataset, serializer_class = self.get_admin_dataset_and_serializer(record_id=record_id)
             else:
                 dataset = self.repository_class().get_by_id(record_id)
-                serialized = self.serializer_class(dataset)
+                serializer_class = self.serializer_class
 
         elif queryset is not None:
+            self.many = True
+            serializer_class = self.serializer_class
             dataset = queryset
             dataset = dataset.order_by(*order_params).filter(**filters)
             dataset = dataset[pagination.offset:pagination.limit]
-            serialized = self.serializer_class(dataset, many=True)
 
         else:
+            self.many = True
             if user_is_admin(request.user) and request.user.is_superuser:
-                dataset = super(self.repository_class().__class__, self.repository_class()).filter_by_kwargs(
-                    kwargs=filters, paginator=pagination, order_by=order_params)
-                if self.admin_serializer:
-                    serializer_class = self.admin_serializer
-                else:
-                    serializer_class = create_admin_serializer(self.serializer_class)
-                serialized = serializer_class(dataset, many=True)
+                dataset, serializer_class = self.get_admin_dataset_and_serializer(
+                    filters=filters, pagination=pagination, order_params=order_params)
             else:
                 dataset = self.repository_class().filter_by_kwargs(kwargs=filters, paginator=pagination,
                                                                    order_by=order_params)
-                serialized = self.serializer_class(dataset, many=True)
+                serializer_class = self.serializer_class
 
+        serialized = serializer_class(dataset, many=self.many)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def post(self, request):

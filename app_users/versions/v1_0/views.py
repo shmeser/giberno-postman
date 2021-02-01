@@ -20,9 +20,9 @@ from app_users.enums import NotificationType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
-    SocialsRepository, NotificationsRepository
+    SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
-    NotificationsSettingsSerializer, NotificationSerializer
+    NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
@@ -51,10 +51,19 @@ class AuthFirebase(APIView):
 
         user, created = AuthRepository.get_or_create_social_user(
             social_data,
-            # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
-            reference_code=body.get('reference_code', None),
             base_user=request.user or None
         )
+
+        # Проверка реферального кода
+        reference_code = body.get('reference_code', None)
+        if reference_code:
+            reference_user = UsersRepository.get_reference_user(reference_code)
+            if reference_user is None:
+                raise HttpException(detail='Невалидный реферальный код', status_code=RESTErrors.BAD_REQUEST)
+
+            user.reg_reference = reference_user
+            user.reg_reference_code = reference_code
+            user.save()
 
         JwtRepository().remove_old(user)  # TODO пригодится для запрета входа с нескольких устройств
         jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
@@ -214,10 +223,9 @@ class Users(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
-                                          self.default_filters) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             self.serializer_class = ProfileSerializer
@@ -290,10 +298,9 @@ class Notifications(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
-                                          self.default_filters) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -330,3 +337,176 @@ class NotificationsSettings(APIView):
         )
 
         return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+
+class MyProfileCareer(CRUDAPIView):
+    serializer_class = CareerSerializer
+    repository_class = CareerRepository
+
+    allowed_http_methods = ['get', 'post', 'patch', 'delete']
+
+    filter_params = {
+    }
+
+    default_order_params = ['year_start']
+
+    default_filters = {
+    }
+
+    order_params = {
+    }
+
+    def __init__(self):
+        super().__init__()
+        self.serializer_class = CareerSerializer
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params
+            )
+        serialized = self.serializer_class(dataset, many=self.many)
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def post(self, request, **kwargs):
+        body = get_request_body(request)
+        serialized = self.serializer_class(data=body)
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def patch(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        body = get_request_body(request)
+        body['user_id'] = request.user.id
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+            serialized = self.serializer_class(dataset, data=body)
+            serialized.is_valid(raise_exception=True)
+            serialized.save()
+        else:
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        if record_id:
+            record = self.repository_class().filter_by_kwargs(
+                {'id': record_id, 'deleted': False, 'user_id': request.user.id}
+            ).first()
+            if record:
+                record.deleted = True
+                record.save()
+        else:
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
+
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class MyProfileDocuments(CRUDAPIView):
+    serializer_class = DocumentSerializer
+    repository_class = DocumentsRepository
+
+    allowed_http_methods = ['get', 'post', 'patch', 'delete']
+
+    filter_params = {
+    }
+
+    default_order_params = ['-created_at']
+
+    default_filters = {
+    }
+
+    order_params = {
+    }
+
+    def __init__(self):
+        super().__init__()
+        self.serializer_class = DocumentSerializer
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params
+            )
+        serialized = self.serializer_class(dataset, many=self.many)
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def post(self, request):
+        body = get_request_body(request)
+        body['user_id'] = request.user.id
+
+        serialized = self.serializer_class(data=body)
+        serialized.is_valid(raise_exception=True)
+
+        document = serialized.save()
+        self.repository_class().update_media(document, body.pop('attach_files', None))
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def patch(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        body = get_request_body(request)
+        body['user_id'] = request.user.id
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+            serialized = self.serializer_class(dataset, data=body)
+            serialized.is_valid(raise_exception=True)
+            document = serialized.save()
+            self.repository_class().update_media(document, body.pop('attach_files', None))
+        else:
+            raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        if record_id:
+            record = self.repository_class().filter_by_kwargs(
+                {'id': record_id, 'deleted': False, 'user_id': request.user.id}
+            ).first()
+            if record:
+                record.deleted = True
+                record.save()
+        else:
+            raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
+
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+def read_notification(request, **kwargs):
+    NotificationsRepository().filter_by_kwargs({
+        'id': kwargs.get('record_id'),
+        'read_at__isnull': True
+    }).update(
+        read_at=now(),
+        updated_at=now(),
+    )
+
+    return Response(None, status=status.HTTP_204_NO_CONTENT)

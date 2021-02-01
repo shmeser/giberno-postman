@@ -57,6 +57,7 @@ deploy:
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
     - echo SECRET_KEY="$SECRET_KEY" | tr -d '\r' >> .env
+    - echo DEBUG="DEBUG" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
     - sudo ln -s "$(pwd -P)"/devops/develop/docker-compose.yml "$(pwd -P)"
@@ -112,6 +113,7 @@ deploy_stage:
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
     - echo ST_SECRET_KEY="$ST_SECRET_KEY" | tr -d '\r' >> .env
+    - echo DEBUG="DEBUG" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
     - sudo ln -s "$(pwd -P)"/devops/stage/docker-compose.yml "$(pwd -P)"

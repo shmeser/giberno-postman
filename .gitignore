@@ -295,6 +295,23 @@ GitHub.sublime-settings
 
 
 # Sonarlint plugin
+### Sonar ###
+#Sonar generated dir
+/.sonar/
+
+### SonarQube ###
+# SonarQube ignore files.
+#
+# https://docs.sonarqube.org/display/SCAN/Analyzing+with+SonarQube+Scanner
+# Sonar Scanner working directories
+.sonar/
+.scannerwork/
+sonar-project.properties
+tsconfig.json
+
+# http://www.sonarlint.org/commandline/
+# SonarLint working directories, configuration files (including credentials)
+.sonarlint/
 
 # End of https://www.toptal.com/developers/gitignore/api/jetbrains+all,intellij+all,pycharm+all,webstorm+all,vscode,sublimetext
 

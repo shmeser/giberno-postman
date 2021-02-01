@@ -24,3 +24,10 @@ class EnumM(Enum):
 class Platform(EnumM):
     ANDROID = 'android'
     IOS = 'ios'
+
+
+class Environment(EnumM):
+    LOCAL = 'LOCAL'
+    DEVELOP = 'DEVELOP'
+    STAGE = 'STAGE'
+    RELEASE = 'RELEASE'

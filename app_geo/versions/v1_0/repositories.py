@@ -57,5 +57,5 @@ class CitiesRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
 
-    def geocode(self, lon, lat):
-        return self.model.objects.filter(boundary__covers=GEOSGeometry(f'POINT({lon} {lat})'))
+    def geocode(self, point):
+        return self.model.objects.filter(boundary__covers=point)

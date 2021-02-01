@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -63,10 +64,10 @@
     </div>
     <div class="recaptcha-container" id="recaptcha-container"></div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.1.2/firebase-auth.js"></script>
-<script src="https://apis.google.com/js/platform.js" async defer></script>
+<script src="{% static 'js/jquery.min.js' %}"></script>
+<script src="{% static 'js/firebase-app.js' %}"></script>
+<script src="{% static 'js/firebase-auth.js' %}"></script>
+<script src="{% static 'js/platform.js' %}" async defer></script>
 <script>
     const url = '/v1.0/auth/firebase';
     // Initialize Firebase
@@ -254,7 +255,8 @@
             // This gives you a Google Access Token. You can use it to access the Google API.
             console.log('Google SignIn Result');
             console.log(result);
-            const idToken = result.user.ra;
+            {#let idToken = result.credential.idToken;#}
+            const idToken = result.user.ya;
             $('.results-block').show();
             $('#firebase-token').val(idToken);
             getJwt(idToken);
