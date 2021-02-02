@@ -31,17 +31,26 @@ class MediaRepository(MasterRepository):
         return self.model.objects.bulk_create(media_models)
 
     @staticmethod
-    def get_related_media_file(model_instance, data, media_type, media_format, mime_type=None):
+    def get_mime_cond(x, media_type, mime_type=None):
+        if mime_type:
+            return x.type == media_type and x.mime_type == mime_type
+        else:
+            return x.type == media_type
+
+    @classmethod
+    def get_related_media_file(cls, model_instance, data, media_type, media_format, mime_type=None):
         medias_list = chained_get(data, 'medias', default=list())
         if isinstance(model_instance, QuerySet):
             # для many=True
             file = None
             # Берем флаг из предзагруженного поля medias
             if medias_list:
-                file = next(filter(lambda x: x.type == media_type, chained_get(data, 'medias')), None)
+                file = next(filter(
+                    lambda x: cls.get_mime_cond(x, media_type, mime_type), chained_get(data, 'medias')), None)
         else:
             if medias_list:
-                file = next(filter(lambda x: x.type == media_type, chained_get(data, 'medias')), None)
+                file = next(filter(
+                    lambda x: cls.get_mime_cond(x, media_type, mime_type), chained_get(data, 'medias')), None)
             else:
                 files = MediaModel.objects.filter(
                     owner_id=data.id, type=media_type,
