@@ -1,7 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.utils.timezone import now
-from django_globals import globals as g
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -243,13 +242,13 @@ class CareerRepository(MasterRepository):
 class DocumentsRepository(MasterRepository):
     model = Document
 
-    def update_media(self, instance, files_uuid):
+    def update_media(self, instance, files_uuid, me):
         if files_uuid is not None and isinstance(files_uuid, list):  # Обрабатываем только массив
             try:
                 # Отфильтровываем невалидные uuid
                 files_uuid = list(filter(lambda x: is_valid_uuid(x), files_uuid))
 
-                user_ct = ContentType.objects.get_for_model(g.request.user)
+                user_ct = ContentType.objects.get_for_model(me)
                 document_ct = ContentType.objects.get_for_model(instance)
                 # Получаем массив uuid всех прикрепленных к документу файлов
 
@@ -267,7 +266,7 @@ class DocumentsRepository(MasterRepository):
                 # Добавляем или обновляем языки пользователя
                 MediaRepository().filter(
                     Q(uuid__in=files_uuid, owner_ct=document_ct, owner_id=instance.id) |
-                    Q(uuid__in=files_uuid, owner_ct=user_ct, owner_id=g.request.user.id)
+                    Q(uuid__in=files_uuid, owner_ct=user_ct, owner_id=me.id)
                 ).update(
                     updated_at=now(),
                     owner_ct=document_ct,

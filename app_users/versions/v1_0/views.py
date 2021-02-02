@@ -163,12 +163,16 @@ class MyProfile(CRUDAPIView):
         self.serializer_class = ProfileSerializer
 
     def get(self, request, **kwargs):
-        serialized = self.serializer_class(request.user, many=False)
+        headers = get_request_headers(request)
+        serialized = self.serializer_class(request.user, many=False, context={'me': request.user, 'headers': headers})
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):
         body = get_request_body(request)
-        serialized = self.serializer_class(request.user, data=body)
+        serialized = self.serializer_class(request.user, data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         serialized.is_valid(raise_exception=True)
         serialized.save()
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
@@ -232,13 +236,16 @@ class Users(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset)
         else:
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            serialized = self.serializer_class(dataset, many=True)
+            self.many = True
 
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
@@ -304,13 +311,13 @@ class Notifications(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset)
         else:
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            serialized = self.serializer_class(dataset, many=True)
+            self.many = True
 
+        serialized = self.serializer_class(dataset, many=self.many)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
@@ -374,8 +381,8 @@ class MyProfileCareer(CRUDAPIView):
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-        serialized = self.serializer_class(dataset, many=self.many)
 
+        serialized = self.serializer_class(dataset, many=self.many)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def post(self, request, **kwargs):
@@ -452,8 +459,8 @@ class MyProfileDocuments(CRUDAPIView):
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-        serialized = self.serializer_class(dataset, many=self.many)
 
+        serialized = self.serializer_class(dataset, many=self.many)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -464,7 +471,7 @@ class MyProfileDocuments(CRUDAPIView):
         serialized.is_valid(raise_exception=True)
 
         document = serialized.save()
-        self.repository_class().update_media(document, body.pop('attach_files', None))
+        self.repository_class().update_media(document, body.pop('attach_files', None), request.user)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):
@@ -477,7 +484,7 @@ class MyProfileDocuments(CRUDAPIView):
             serialized = self.serializer_class(dataset, data=body)
             serialized.is_valid(raise_exception=True)
             document = serialized.save()
-            self.repository_class().update_media(document, body.pop('attach_files', None))
+            self.repository_class().update_media(document, body.pop('attach_files', None), request.user)
         else:
             raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
 

@@ -1,13 +1,16 @@
 from datetime import timedelta
 
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
-from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count
+from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch
 from django.utils.timezone import now
 
 from app_market.enums import ShiftWorkTime
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop
 from app_market.versions.v1_0.mappers import ShiftMapper
+from app_media.enums import MediaType, MediaFormat
+from app_media.models import MediaModel
 from backend.mixins import MasterRepository
 from backend.utils import ArrayRemove
 
@@ -110,6 +113,53 @@ class VacanciesRepository(MasterRepository):
             else:
                 records = self.model.objects.annotate(distance=self.distance_expression).filter(args, **kwargs)
         return records[paginator.offset:paginator.limit] if paginator else records
+
+    @staticmethod
+    def fast_related_loading(queryset, point=None):
+        """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
+            Vacancy
+            -> Shop + Media
+            -> Distributor + Media
+        """
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                'shop',
+                #  Подгрузка магазинов и вычисление расстояния от каждого до переданной точки
+                queryset=Shop.objects.annotate(  # Вычисляем расстояние, если переданы координаты
+                    distance=Distance('location', point) if point else Value(None, IntegerField())
+                ).prefetch_related(
+                    # Подгрузка медиа для магазинов
+                    Prefetch(
+                        'media',
+                        queryset=MediaModel.objects.filter(
+                            type=MediaType.LOGO.value,
+                            owner_ct_id=ContentType.objects.get_for_model(Shop).id,
+                            format=MediaFormat.IMAGE.value
+                        ),
+                        to_attr='medias'
+                    )).prefetch_related(
+                    # Подгрузка торговых сетей для магазинов
+                    Prefetch(
+                        'distributor',
+                        queryset=Distributor.objects.all().prefetch_related(
+                            # Подгрузка медиа для торговых сетей
+                            Prefetch(
+                                'media',
+                                queryset=MediaModel.objects.filter(
+                                    type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
+                                    owner_ct_id=ContentType.objects.get_for_model(
+                                        Distributor).id,
+                                    format=MediaFormat.IMAGE.value
+                                ),
+                                to_attr='medias'
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        return queryset
 
     @staticmethod
     def aggregate_stats(queryset):

@@ -1,6 +1,9 @@
-from django.contrib.gis.geos import GEOSGeometry
+from django.contrib.contenttypes.models import ContentType
+from django.db.models import Prefetch
 
 from app_geo.models import Language, Country, City, Region
+from app_media.enums import MediaType, MediaFormat, MimeTypes
+from app_media.models import MediaModel
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
@@ -31,6 +34,24 @@ class CountriesRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
 
+    @staticmethod
+    def fast_related_loading(queryset, mime_type=MimeTypes.SVG.value):
+        country_ct = ContentType.objects.get_for_model(Country).id
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    owner_ct_id=country_ct,
+                    type=MediaType.FLAG.value,
+                    format=MediaFormat.IMAGE.value,
+                    mime_type=mime_type
+                ).order_by('-created_at'),
+                to_attr='medias'  # Подгружаем флаги в поле medias
+            )
+        )
+
+        return queryset
+
 
 class RegionsRepository(MasterRepository):
     model = Region
@@ -59,3 +80,8 @@ class CitiesRepository(MasterRepository):
 
     def geocode(self, point):
         return self.model.objects.filter(boundary__covers=point)
+
+    @staticmethod
+    def fast_related_loading(queryset):
+        queryset = queryset.select_related('country', 'region')
+        return queryset
