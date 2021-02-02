@@ -375,7 +375,9 @@ class MyProfileCareer(CRUDAPIView):
         else:
             self.many = True
             dataset = self.repository_class().filter_by_kwargs(
-                kwargs=filters, paginator=pagination, order_by=order_params
+                kwargs={**filters, **{
+                    'user': request.user
+                }}, paginator=pagination, order_by=order_params
             )
 
         serialized = self.serializer_class(dataset, many=self.many, context={
