@@ -163,8 +163,10 @@ class MyProfile(CRUDAPIView):
         self.serializer_class = ProfileSerializer
 
     def get(self, request, **kwargs):
-        headers = get_request_headers(request)
-        serialized = self.serializer_class(request.user, many=False, context={'me': request.user, 'headers': headers})
+        serialized = self.serializer_class(request.user, many=False, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):
@@ -182,7 +184,10 @@ class MyProfileUploads(APIView):
     def post(self, request):
         uploaded_files = RequestMapper.file_entities(request, request.user)
         saved_files = MediaRepository().bulk_create(uploaded_files)
-        serializer = MediaSerializer(saved_files, many=True)
+        serializer = MediaSerializer(saved_files, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serializer.data), status=status.HTTP_200_OK)
 
     def delete(self, request):
@@ -253,7 +258,11 @@ class MyProfileSocials(APIView):
     def get(self, request):
         serializer = SocialSerializer(
             request.user.socialmodel_set.filter(deleted=False).order_by('-created_at'),
-            many=True
+            many=True,
+            context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            }
         )
         return Response(camelize(serializer.data), status=status.HTTP_200_OK)
 
@@ -317,7 +326,10 @@ class Notifications(CRUDAPIView):
             )
             self.many = True
 
-        serialized = self.serializer_class(dataset, many=self.many)
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
@@ -340,7 +352,10 @@ class NotificationsSettings(APIView):
 
         serializer = NotificationsSettingsSerializer(
             request.user.notificationssettings,
-            many=False
+            many=False, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            }
         )
 
         return Response(camelize(serializer.data), status=status.HTTP_200_OK)
@@ -382,12 +397,18 @@ class MyProfileCareer(CRUDAPIView):
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
 
-        serialized = self.serializer_class(dataset, many=self.many)
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def post(self, request, **kwargs):
         body = get_request_body(request)
-        serialized = self.serializer_class(data=body)
+        serialized = self.serializer_class(data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         serialized.is_valid(raise_exception=True)
         serialized.save()
 
@@ -400,7 +421,10 @@ class MyProfileCareer(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset, data=body)
+            serialized = self.serializer_class(dataset, data=body, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            })
             serialized.is_valid(raise_exception=True)
             serialized.save()
         else:
@@ -460,14 +484,20 @@ class MyProfileDocuments(CRUDAPIView):
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
 
-        serialized = self.serializer_class(dataset, many=self.many)
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def post(self, request):
         body = get_request_body(request)
         body['user_id'] = request.user.id
 
-        serialized = self.serializer_class(data=body)
+        serialized = self.serializer_class(data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         serialized.is_valid(raise_exception=True)
 
         document = serialized.save()
@@ -481,7 +511,10 @@ class MyProfileDocuments(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset, data=body)
+            serialized = self.serializer_class(dataset, data=body, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            })
             serialized.is_valid(raise_exception=True)
             document = serialized.save()
             self.repository_class().update_media(document, body.pop('attach_files', None), request.user)
