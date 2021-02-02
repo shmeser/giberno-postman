@@ -319,35 +319,46 @@ class ProfileSerializer(CRUDSerializer):
     def get_languages(self, profile: UserProfile):
         return LanguageSerializer(
             profile.languages.filter(userlanguage__deleted=False), many=True,
-            context={'me': self.me}
+            context={
+                'me': self.me,
+                'headers': self.headers
+            }
         ).data
 
     def get_nationalities(self, profile: UserProfile):
         return CountrySerializer(
             CountriesRepository().fast_related_loading(
                 profile.nationalities.filter(usernationality__deleted=False),
-                mime_type=self.mime_type
             ),
-            many=True,
-            context={'me': self.me}
+            many=True, context={
+                'me': self.me,
+                'headers': self.headers
+            }
         ).data
 
     def get_professions(self, profile: UserProfile):
         return ProfessionSerializer(
             Profession.objects.filter(userprofession__user=profile, userprofession__deleted=False, deleted=False),
-            many=True,
-            context={'me': self.me}
+            many=True, context={
+                'me': self.me,
+                'headers': self.headers
+            }
         ).data
 
     def get_skills(self, profile: UserProfile):
         return SkillSerializer(
             Skill.objects.filter(userskill__user=profile, userskill__deleted=False, deleted=False),
-            many=True,
-            context={'me': self.me}
+            many=True, context={
+                'me': self.me,
+                'headers': self.headers
+            }
         ).data
 
     def get_cities(self, profile: UserProfile):
-        return CitySerializer(profile.cities.filter(usercity__deleted=False), many=True, context={'me': self.me}).data
+        return CitySerializer(profile.cities.filter(usercity__deleted=False), many=True, context={
+            'me': self.me,
+            'headers': self.headers
+        }).data
 
     def get_rating_place(self, profile: UserProfile):
         return None
@@ -509,12 +520,18 @@ class CareerSerializer(CRUDSerializer):
     def get_country(self, career: UserCareer):
         if not career.country:
             return None
-        return CountrySerializer(career.country, many=False).data
+        return CountrySerializer(career.country, many=False, context={
+            'me': self.me,
+            'headers': self.headers
+        }).data
 
     def get_city(self, career: UserCareer):
         if not career.city:
             return None
-        return CitySerializer(career.city, many=False).data
+        return CitySerializer(career.city, many=False, context={
+            'me': self.me,
+            'headers': self.headers
+        }).data
 
     class Meta:
         model = UserCareer
