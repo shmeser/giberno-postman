@@ -11,7 +11,7 @@ from urllib.request import urlopen, HTTPError, Request
 
 import exiftool
 import pytz
-from PIL import Image
+from PIL import Image, ExifTags
 from django.conf import settings
 from django.core.files.uploadedfile import TemporaryUploadedFile
 from django.db.models.expressions import Func, Expression, F, Value as V
@@ -198,6 +198,39 @@ def get_media_format(mime_type=None):
     return MediaFormat.UNKNOWN.value
 
 
+def rotate_image(img):
+    # Переворачиваем повернутые изображения
+    orientation_tag = None
+    try:
+        for tag in ExifTags.TAGS.keys():
+            if ExifTags.TAGS[tag] == 'Orientation':
+                orientation_tag = tag
+                break
+        exif = dict(img._getexif().items())
+
+        if exif[orientation_tag] == 2:
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+        elif exif[orientation_tag] == 3:
+            img = img.transpose(Image.ROTATE_180)
+        elif exif[orientation_tag] == 4:
+            img = img.transpose(Image.FLIP_TOP_BOTTOM)
+        elif exif[orientation_tag] == 5:
+            img = img.transpose(Image.ROTATE_270)
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+        elif exif[orientation_tag] == 6:
+            img = img.transpose(Image.ROTATE_270)
+        elif exif[orientation_tag] == 7:
+            img = img.transpose(Image.ROTATE_90)
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+        elif exif[orientation_tag] == 8:
+            img = img.transpose(Image.ROTATE_90)
+        #####
+        return img
+    except Exception as e:
+        CP(bg='red').bold(e)
+        return img
+
+
 def resize_image(file_entity: FileEntity):
     try:
         # копируем объект загруженного в память файла
@@ -208,6 +241,8 @@ def resize_image(file_entity: FileEntity):
         img_format = str(img.format).lower()
         img_width = img.width or None
         img_height = img.height or None
+
+        img = rotate_image(img)
 
         convert_to = 'RGB'
         if img_format in ['png', 'gif', 'tiff', 'bmp']:
