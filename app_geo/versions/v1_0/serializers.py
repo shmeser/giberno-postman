@@ -76,7 +76,7 @@ class CountrySerializer(CRUDSerializer):
         }
 
 
-class CountryLightSerializer(serializers.ModelSerializer):
+class CountryLightSerializer(CRUDSerializer):
     name = serializers.SerializerMethodField()
 
     def get_name(self, country: Country):
@@ -97,7 +97,7 @@ class CountryLightSerializer(serializers.ModelSerializer):
         }
 
 
-class RegionSerializer(serializers.ModelSerializer):
+class RegionSerializer(CRUDSerializer):
     repository = RegionsRepository
 
     name = serializers.SerializerMethodField(read_only=True)
@@ -115,7 +115,7 @@ class RegionSerializer(serializers.ModelSerializer):
         ]
 
 
-class CitySerializer(serializers.ModelSerializer):
+class CitySerializer(CRUDSerializer):
     name = serializers.SerializerMethodField()
     country = serializers.SerializerMethodField(read_only=True)
     region = serializers.SerializerMethodField(read_only=True)

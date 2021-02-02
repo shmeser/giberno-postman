@@ -400,7 +400,7 @@ def chained_get(obj, *args, default=None):
     def get_value(o, attr):
         if isinstance(o, dict) and isinstance(attr, str):
             return o.get(attr, default)
-        if isinstance(o, list) and isinstance(attr, int):
+        if isinstance(o, (list, tuple)) and isinstance(attr, int):
             return o[attr]
         if isinstance(o, object) and isinstance(attr, str):
             return getattr(o, attr, default)

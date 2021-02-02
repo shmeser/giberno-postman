@@ -158,10 +158,6 @@ class MyProfile(CRUDAPIView):
     repository_class = ProfileRepository
     allowed_http_methods = ['get']
 
-    def __init__(self):
-        super().__init__()
-        self.serializer_class = ProfileSerializer
-
     def get(self, request, **kwargs):
         serialized = self.serializer_class(request.user, many=False, context={
             'me': request.user,
@@ -225,19 +221,12 @@ class Users(CRUDAPIView):
         'username': 'username',
     }
 
-    def __init__(self):
-        super().__init__()
-        self.serializer_class = ProfileSerializer
-
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
-
-        if record_id:
-            self.serializer_class = ProfileSerializer
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -307,10 +296,6 @@ class Notifications(CRUDAPIView):
         'created': 'created_at',
     }
 
-    def __init__(self):
-        super().__init__()
-        self.serializer_class = NotificationSerializer
-
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
@@ -377,10 +362,6 @@ class MyProfileCareer(CRUDAPIView):
 
     order_params = {
     }
-
-    def __init__(self):
-        super().__init__()
-        self.serializer_class = CareerSerializer
 
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
@@ -464,10 +445,6 @@ class MyProfileDocuments(CRUDAPIView):
 
     order_params = {
     }
-
-    def __init__(self):
-        super().__init__()
-        self.serializer_class = DocumentSerializer
 
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
