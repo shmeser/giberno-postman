@@ -1,11 +1,11 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
-from django_globals import globals as g
 from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_geo.models import City, Country
+from app_geo.versions.v1_0.repositories import CountriesRepository
 from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
 from app_market.models import UserProfession, Profession, UserSkill, Skill
 from app_market.versions.v1_0.serializers import ProfessionSerializer, SkillSerializer
@@ -317,30 +317,37 @@ class ProfileSerializer(CRUDSerializer):
         return SocialSerializer(socials, many=True).data
 
     def get_languages(self, profile: UserProfile):
-        return LanguageSerializer(profile.languages.filter(userlanguage__deleted=False), many=True).data
+        return LanguageSerializer(
+            profile.languages.filter(userlanguage__deleted=False), many=True,
+            context={'me': self.me}
+        ).data
 
     def get_nationalities(self, profile: UserProfile):
         return CountrySerializer(
-            CountrySerializer().fast_related_loading(
+            CountriesRepository().fast_related_loading(
                 profile.nationalities.filter(usernationality__deleted=False),
+                mime_type=self.mime_type
             ),
-            many=True
+            many=True,
+            context={'me': self.me}
         ).data
 
     def get_professions(self, profile: UserProfile):
         return ProfessionSerializer(
             Profession.objects.filter(userprofession__user=profile, userprofession__deleted=False, deleted=False),
-            many=True
+            many=True,
+            context={'me': self.me}
         ).data
 
     def get_skills(self, profile: UserProfile):
         return SkillSerializer(
             Skill.objects.filter(userskill__user=profile, userskill__deleted=False, deleted=False),
-            many=True
+            many=True,
+            context={'me': self.me}
         ).data
 
     def get_cities(self, profile: UserProfile):
-        return CitySerializer(profile.cities.filter(usercity__deleted=False), many=True).data
+        return CitySerializer(profile.cities.filter(usercity__deleted=False), many=True, context={'me': self.me}).data
 
     def get_rating_place(self, profile: UserProfile):
         return None
@@ -488,7 +495,7 @@ class CareerSerializer(CRUDSerializer):
         errors = []
 
         # Добавляем пользователя
-        ret['user_id'] = g.request.user.id
+        ret['user_id'] = self.me.id
 
         # Проверяем fk поля
         self.update_city(ret, data, errors)
@@ -535,7 +542,7 @@ class DocumentSerializer(CRUDSerializer):
         ret = super().to_internal_value(data)
         errors = []
         # Добавляем пользователя
-        ret['user_id'] = g.request.user.id
+        ret['user_id'] = self.me.id
         if errors:
             raise CustomException(errors=errors)
 

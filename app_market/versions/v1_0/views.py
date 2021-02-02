@@ -9,7 +9,7 @@ from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSe
     DistributorSerializer, ShopSerializer
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_body, chained_get
+from backend.utils import get_request_body, chained_get, get_request_headers
 
 
 class Distributors(CRUDAPIView):
@@ -39,13 +39,16 @@ class Distributors(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset)
         else:
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            serialized = self.serializer_class(dataset, many=True)
+            self.many = True
 
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
@@ -76,13 +79,16 @@ class Shops(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset)
         else:
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            serialized = self.serializer_class(dataset, many=True)
+            self.many = True
 
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
@@ -133,16 +139,20 @@ class Vacancies(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset)
         else:
+            self.many = True
             point, bbox, radius = RequestMapper().geo(request)
             dataset = self.repository_class(point, bbox).filter_by_kwargs(
                 kwargs=filters, order_by=order_params
             )
             dataset = dataset[pagination.offset:pagination.limit]
 
-            dataset = self.serializer_class().fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
-            serialized = self.serializer_class(dataset, many=True)
+            dataset = self.repository_class.fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
@@ -195,13 +205,16 @@ class Professions(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset)
         else:
+            self.many = True
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            serialized = self.serializer_class(dataset, many=True)
 
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
@@ -250,11 +263,14 @@ class Skills(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset)
         else:
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            serialized = self.serializer_class(dataset, many=True)
+            self.many = True
 
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)

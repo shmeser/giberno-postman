@@ -1,14 +1,9 @@
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.db.models.functions import Distance
-from django.db.models import QuerySet, Prefetch, Value, IntegerField
-from django_globals import globals as g
 from rest_framework import serializers
 
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository
 from app_media.enums import MediaType, MediaFormat
-from app_media.models import MediaModel
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.mixins import CRUDSerializer
@@ -66,15 +61,11 @@ class ShopSerializer(CRUDSerializer):
         ]
 
 
-class ShopInVacancySerializer(serializers.ModelSerializer):
+class ShopInVacancySerializer(CRUDSerializer):
     walk_time = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.platform = g.request.headers.get('Platform', '').lower()
 
     def get_walk_time(self, shop):
         if chained_get(shop, 'distance'):
@@ -156,52 +147,6 @@ class VacancySerializer(CRUDSerializer):
     work_time = serializers.SerializerMethodField()
     shop = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
-
-    def fast_related_loading(self, queryset, point=None):
-        """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
-            Vacancy
-            -> Shop + Media
-            -> Distributor + Media
-        """
-        queryset = queryset.prefetch_related(
-            Prefetch(
-                'shop',
-                #  Подгрузка магазинов и вычисление расстояния от каждого до переданной точки
-                queryset=Shop.objects.annotate(  # Вычисляем расстояние, если переданы координаты
-                    distance=Distance('location', point) if point else Value(None, IntegerField())
-                ).prefetch_related(
-                    # Подгрузка медиа для магазинов
-                    Prefetch(
-                        'media',
-                        queryset=MediaModel.objects.filter(
-                            type=MediaType.LOGO.value,
-                            owner_ct_id=ContentType.objects.get_for_model(Shop).id,
-                            format=MediaFormat.IMAGE.value
-                        ),
-                        to_attr='medias'
-                    )).prefetch_related(
-                    # Подгрузка торговых сетей для магазинов
-                    Prefetch(
-                        'distributor',
-                        queryset=Distributor.objects.all().prefetch_related(
-                            # Подгрузка медиа для торговых сетей
-                            Prefetch(
-                                'media',
-                                queryset=MediaModel.objects.filter(
-                                    type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
-                                    owner_ct_id=ContentType.objects.get_for_model(
-                                        Distributor).id,
-                                    format=MediaFormat.IMAGE.value
-                                ),
-                                to_attr='medias'
-                            )
-                        )
-                    )
-                )
-            )
-        )
-
-        return queryset
 
     def get_is_favourite(self, vacancy):
         return False

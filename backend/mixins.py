@@ -4,16 +4,25 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from app_media.enums import MimeTypes
 from backend.entity import Error
+from backend.enums import Platform
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
 from backend.mappers import RequestMapper
 from backend.permissions import AbbleToPerform
 from backend.repositories import BaseRepository
-from backend.utils import create_admin_serializer, get_request_body, user_is_admin
+from backend.utils import create_admin_serializer, get_request_body, user_is_admin, chained_get
 
 
 class CRUDSerializer(serializers.ModelSerializer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.me = chained_get(kwargs, 'context', 'me')
+        self.headers = chained_get(kwargs, 'context', 'headers')
+        self.platform = chained_get(kwargs, 'context', 'headers', 'Platform', default='').lower()
+        self.mime_type = MimeTypes.PNG.value if Platform.IOS.value in self.platform else MimeTypes.SVG.value
+
     repository = None
 
     def create(self, validated_data):
