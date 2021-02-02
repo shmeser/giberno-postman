@@ -5,10 +5,9 @@ from rest_framework.response import Response
 
 from app_geo.versions.v1_0.repositories import LanguagesRepository, CountriesRepository, CitiesRepository
 from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
-from app_media.enums import MimeTypes
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_headers, chained_get
+from backend.utils import get_request_headers
 
 
 class Languages(CRUDAPIView):
@@ -113,7 +112,7 @@ class Countries(CRUDAPIView):
             # SpeedUp
             # TODO refactor 2 раза инициализируется сериалайзер
             dataset = self.repository_class.fast_related_loading(
-                dataset, mime_type=chained_get(headers, 'Platform', MimeTypes.SVG.value)
+                dataset
             )
             dataset = dataset.defer("boundary", "osm")
 

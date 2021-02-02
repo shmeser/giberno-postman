@@ -2,7 +2,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Prefetch
 
 from app_geo.models import Language, Country, City, Region
-from app_media.enums import MediaType, MediaFormat, MimeTypes
+from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
@@ -35,7 +35,7 @@ class CountriesRepository(MasterRepository):
             )
 
     @staticmethod
-    def fast_related_loading(queryset, mime_type=MimeTypes.SVG.value):
+    def fast_related_loading(queryset):
         country_ct = ContentType.objects.get_for_model(Country).id
         queryset = queryset.prefetch_related(
             Prefetch(
@@ -44,7 +44,6 @@ class CountriesRepository(MasterRepository):
                     owner_ct_id=country_ct,
                     type=MediaType.FLAG.value,
                     format=MediaFormat.IMAGE.value,
-                    mime_type=mime_type
                 ).order_by('-created_at'),
                 to_attr='medias'  # Подгружаем флаги в поле medias
             )
