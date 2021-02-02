@@ -31,7 +31,7 @@ class MediaRepository(MasterRepository):
         return self.model.objects.bulk_create(media_models)
 
     @staticmethod
-    def get_related_media_file(model_instance, data, media_type, media_format):
+    def get_related_media_file(model_instance, data, media_type, media_format, mime_type=None):
         medias_list = chained_get(data, 'medias', default=list())
         if isinstance(model_instance, QuerySet):
             # для many=True
@@ -43,9 +43,12 @@ class MediaRepository(MasterRepository):
             if medias_list:
                 file = next(filter(lambda x: x.type == media_type, chained_get(data, 'medias')), None)
             else:
-                file = MediaModel.objects.filter(
+                files = MediaModel.objects.filter(
                     owner_id=data.id, type=media_type,
                     owner_ct_id=ContentType.objects.get_for_model(data).id, format=media_format,
-                ).order_by('-created_at').first()
+                )
+                if mime_type:
+                    files = files.filter(mime_type=mime_type)
+                file = files.order_by('-created_at').first()
 
         return file

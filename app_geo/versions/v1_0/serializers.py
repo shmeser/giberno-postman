@@ -1,14 +1,10 @@
-from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch, QuerySet
-from django_globals import globals as g
 from rest_framework import serializers
 
 from app_geo.models import Language, Country, City, Region
 from app_geo.versions.v1_0.repositories import LanguagesRepository, RegionsRepository
-from app_media.enums import MediaType, MediaFormat, MimeTypes
-from app_media.models import MediaModel
+from app_media.enums import MediaType, MediaFormat
+from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
-from backend.enums import Platform
 from backend.mixins import CRUDSerializer
 
 DEFAULT_LANGUAGE = 'name:ru'
@@ -20,7 +16,7 @@ class LanguageSerializer(CRUDSerializer):
     proficiency = serializers.SerializerMethodField()
 
     def get_proficiency(self, language: Language):
-        user_language = language.userlanguage_set.filter(user=g.request.user).first()
+        user_language = language.userlanguage_set.filter(user=self.me).first()
         if user_language:
             return user_language.proficiency
         return None
@@ -48,52 +44,21 @@ class LanguageSerializer(CRUDSerializer):
         }
 
 
-class CountrySerializer(serializers.ModelSerializer):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.platform = g.request.headers.get('Platform', '').lower()
-        self.mime_type = MimeTypes.PNG.value if Platform.IOS.value in self.platform else MimeTypes.SVG.value
-
+class CountrySerializer(CRUDSerializer):
     name = serializers.SerializerMethodField()
     flag = serializers.SerializerMethodField()
-
-    def fast_related_loading(self, queryset):
-        country_ct = ContentType.objects.get_for_model(Country).id
-        queryset = queryset.prefetch_related(
-            Prefetch(
-                'media',
-                queryset=MediaModel.objects.filter(
-                    owner_ct_id=country_ct,
-                    type=MediaType.FLAG.value,
-                    format=MediaFormat.IMAGE.value,
-                    mime_type=self.mime_type
-                ).order_by('-created_at'),
-                to_attr='medias'  # Подгружаем флаги в поле medias
-            )
-        )
-
-        return queryset
 
     def get_name(self, country: Country):
         # TODO для локализации выводить соответствующее название
         return country.names.get(DEFAULT_LANGUAGE, None)
 
-    def get_flag(self, country: Country):
-        if isinstance(self.instance, QuerySet):
-            # для many=True
-            flag_file = None
-            # Берем флаг из предзагруженного поля medias
-            if hasattr(country, 'medias') and country.medias:
-                flag_file = country.medias[0]
-        else:
-            flag_file = MediaModel.objects.filter(
-                owner_id=country.id, type=MediaType.FLAG.value, mime_type=self.mime_type,
-                owner_ct_id=ContentType.objects.get_for_model(country).id, format=MediaFormat.IMAGE.value,
-            ).order_by('-created_at').first()
+    def get_flag(self, prefetched_data):
+        file = MediaRepository.get_related_media_file(
+            self.instance, prefetched_data, MediaType.FLAG.value, MediaFormat.IMAGE.value, mime_type=self.mime_type
+        )
 
-        if flag_file:
-            return MediaSerializer(flag_file, many=False).data
+        if file:
+            return MediaSerializer(file, many=False).data
         return None
 
     class Meta:
@@ -154,11 +119,6 @@ class CitySerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
     country = serializers.SerializerMethodField(read_only=True)
     region = serializers.SerializerMethodField(read_only=True)
-
-    @classmethod
-    def fast_related_loading(cls, queryset):
-        queryset = queryset.select_related('country', 'region')
-        return queryset
 
     def get_name(self, city: City):
         # TODO для локализации выводить соответствующее название
