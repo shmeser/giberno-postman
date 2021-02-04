@@ -39,14 +39,10 @@ class ShopSerializer(CRUDSerializer):
         return None
 
     def get_lon(self, instance):
-        if instance.location:
-            return instance.location.x
-        return None
+        return instance.location.x if instance.location else None
 
     def get_lat(self, instance):
-        if instance.location:
-            return instance.location.y
-        return None
+        return instance.location.y if instance.location else None
 
     class Meta:
         model = Shop

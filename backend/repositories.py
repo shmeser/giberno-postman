@@ -15,7 +15,7 @@ class BaseRepository:
             records = self.model.objects.order_by(*order_by).filter(deleted=False).all()
         else:
             records = self.model.objects.filter(deleted=False).all()
-        return records[paginator.offset:paginator.limit] if paginator else records
+        return records[paginator.offset:paginator.limit] if paginator else records[:1000]
 
     def get_by_id(self, record_id):
         try:
@@ -37,7 +37,7 @@ class BaseRepository:
                 records = self.model.objects.order_by(*order_by).filter(**kwargs)
             else:
                 records = self.model.objects.filter(**kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records
+        return records[paginator.offset:paginator.limit] if paginator else records[:100]
 
     def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
         try:
@@ -50,7 +50,7 @@ class BaseRepository:
                 records = self.model.objects.order_by(*order_by).filter(args, **kwargs)
             else:
                 records = self.model.objects.filter(args, **kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records
+        return records[paginator.offset:paginator.limit] if paginator else records[:100]
 
     def create(self, **kwargs):
         return self.model.objects.create(**kwargs)

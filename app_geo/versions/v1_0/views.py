@@ -96,7 +96,6 @@ class Countries(CRUDAPIView):
 
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        headers = get_request_headers(request)
 
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
@@ -179,7 +178,7 @@ class Cities(CRUDAPIView):
             self.many = True
             # SpeedUp
             dataset = self.repository_class.fast_related_loading(dataset)
-            dataset = dataset.defer("boundary", "position", "osm", "country__boundary", "country__osm")
+            dataset = dataset.defer("boundary", "osm", "country__boundary", "country__osm")
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,
