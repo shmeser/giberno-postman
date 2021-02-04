@@ -46,6 +46,13 @@ class Cities(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+@api_view(['GET'])
+def cities_suggestions(request):
+    if request.version in ['geo_1_0']:
+        return v1_0.cities_suggestions(request._request)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class Geocode(APIView):
     @staticmethod
     def get(request):

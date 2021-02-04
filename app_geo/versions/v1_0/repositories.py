@@ -1,4 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Prefetch
 
 from app_geo.models import Language, Country, City, Region
@@ -84,3 +85,11 @@ class CitiesRepository(MasterRepository):
     def fast_related_loading(queryset):
         queryset = queryset.select_related('country', 'region')
         return queryset
+
+    def get_suggestions(self, search, paginator=None):
+        records = self.model.objects.exclude(deleted=True).annotate(
+            similarity=TrigramSimilarity('native', search),
+        ).filter(native__trigram_similar=search).order_by('-similarity')
+
+        records = records.only('native').distinct().values_list('native', flat=True)
+        return records[paginator.offset:paginator.limit] if paginator else records[:100]

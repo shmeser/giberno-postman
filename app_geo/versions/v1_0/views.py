@@ -189,6 +189,20 @@ class Cities(CRUDAPIView):
 
 
 @api_view(['GET'])
+def cities_suggestions(request):
+    pagination = RequestMapper.pagination(request)
+    dataset = []
+    search = request.query_params.get('search') if request.query_params else None
+    if search:
+        dataset = CitiesRepository().get_suggestions(
+            # trigram_similar Поиск с использованием pg_trgm на проиндексированном поле native
+            search=search,
+            paginator=pagination
+        )
+    return Response(dataset, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
 def geocode(request):
     point = RequestMapper().geo(request, raise_exception=True)[0]
     dataset = CitiesRepository().geocode(point)
