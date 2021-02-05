@@ -37,7 +37,7 @@ class BaseRepository:
                 records = self.model.objects.order_by(*order_by).filter(**kwargs)
             else:
                 records = self.model.objects.filter(**kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records[:100]
+        return records[paginator.offset:paginator.limit] if paginator else records  # [:100]
 
     def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
         try:
