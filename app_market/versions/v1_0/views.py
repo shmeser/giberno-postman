@@ -21,13 +21,14 @@ class Distributors(CRUDAPIView):
         'title': 'title__istartswith',
     }
 
-    default_order_params = []
+    default_order_params = ['-vacancies_count']
 
     default_filters = {}
 
     order_params = {
+        'id': 'id',
         'title': 'title',
-        'id': 'id'
+        'vacancies': 'vacancies_count',
     }
 
     def get(self, request, **kwargs):
@@ -41,8 +42,12 @@ class Distributors(CRUDAPIView):
             dataset = self.repository_class().get_by_id(record_id)
         else:
             dataset = self.repository_class().filter_by_kwargs(
-                kwargs=filters, paginator=pagination, order_by=order_params
+                kwargs=filters, order_by=order_params
             )
+
+            dataset = dataset[pagination.offset:pagination.limit]
+            dataset = self.repository_class.fast_related_loading(dataset)  # Предзагрузка связанных сущностей
+
             self.many = True
 
         serialized = self.serializer_class(dataset, many=self.many, context={

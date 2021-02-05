@@ -13,10 +13,34 @@ from backend.utils import chained_get
 class DistributorSerializer(CRUDSerializer):
     repository = DistributorsRepository
 
+    logo = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
     categories = serializers.SerializerMethodField()
+    vacancies_count = serializers.SerializerMethodField()
 
     def get_categories(self, instance):
         return []
+
+    def get_vacancies_count(self, prefetched_data):
+        return chained_get(prefetched_data, 'vacancies_count')
+
+    def get_logo(self, prefetched_data):
+        file = MediaRepository.get_related_media_file(
+            self.instance, prefetched_data, MediaType.LOGO.value, MediaFormat.IMAGE.value
+        )
+
+        if file:
+            return MediaSerializer(file, many=False).data
+        return None
+
+    def get_banner(self, prefetched_data):
+        file = MediaRepository.get_related_media_file(
+            self.instance, prefetched_data, MediaType.BANNER.value, MediaFormat.IMAGE.value
+        )
+
+        if file:
+            return MediaSerializer(file, many=False).data
+        return None
 
     class Meta:
         model = Distributor
@@ -24,7 +48,10 @@ class DistributorSerializer(CRUDSerializer):
             'id',
             'title',
             'description',
+            'vacancies_count',
             'categories',
+            'logo',
+            'banner',
         ]
 
 

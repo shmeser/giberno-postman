@@ -11,12 +11,63 @@ from app_market.models import Vacancy, Profession, Skill, Distributor, Shop
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
+from backend.errors.enums import RESTErrors
+from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
 from backend.utils import ArrayRemove
 
 
 class DistributorsRepository(MasterRepository):
     model = Distributor
+
+    def __init__(self, point=None, bbox=None, time_zone=None) -> None:
+        super().__init__()
+
+        # Выражения для вычисляемых полей в annotate
+        self.vacancies_expression = Count('shop__vacancy')
+
+        # Основная часть запроса, содержащая вычисляемые поля
+        self.base_query = self.model.objects.annotate(
+            vacancies_count=self.vacancies_expression
+        )
+
+    def get_by_id(self, record_id):
+        try:
+            return self.base_query.get(id=record_id)
+        except self.model.DoesNotExist:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
+            )
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.base_query.filter(**kwargs)
+        return records[paginator.offset:paginator.limit] if paginator else records
+
+    @staticmethod
+    def fast_related_loading(queryset):
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
+                    owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+            )
+        )
+        return queryset
 
 
 class ShopsRepository(MasterRepository):
@@ -88,11 +139,9 @@ class VacanciesRepository(MasterRepository):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
         try:
             if order_by:
-                records = self.base_query.order_by(*order_by).exclude(
-                    deleted=True).filter(**kwargs)
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
             else:
-                records = self.base_query.exclude(deleted=True).filter(
-                    **kwargs)
+                records = self.base_query.exclude(deleted=True).filter(**kwargs)
         except Exception:  # no 'deleted' field
             if order_by:
                 records = self.base_query.order_by(*order_by).filter(**kwargs)
@@ -111,7 +160,7 @@ class VacanciesRepository(MasterRepository):
             if order_by:
                 records = self.base_query.order_by(*order_by).filter(args, **kwargs)
             else:
-                records = self.model.objects.annotate(distance=self.distance_expression).filter(args, **kwargs)
+                records = self.base_query.filter(args, **kwargs)
         return records[paginator.offset:paginator.limit] if paginator else records
 
     @staticmethod
