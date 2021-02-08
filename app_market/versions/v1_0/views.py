@@ -64,6 +64,7 @@ class Shops(CRUDAPIView):
 
     filter_params = {
         'title': 'title__istartswith',
+        'distributor': 'distributor_id',
     }
 
     default_order_params = []
