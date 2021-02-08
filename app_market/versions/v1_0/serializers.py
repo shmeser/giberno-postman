@@ -1,11 +1,12 @@
 from rest_framework import serializers
 
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShopsRepository
+    DistributorsRepository, ShopsRepository, ShifsRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
+from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get
 
@@ -13,9 +14,45 @@ from backend.utils import chained_get
 class DistributorSerializer(CRUDSerializer):
     repository = DistributorsRepository
 
+    logo = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
     categories = serializers.SerializerMethodField()
+    vacancies_count = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
+    reviews_count = serializers.SerializerMethodField()
+    shops = serializers.SerializerMethodField()
+
+    def get_rating(self, instance):
+        return None
+
+    def get_reviews_count(self, instance):
+        return None
 
     def get_categories(self, instance):
+        return []
+
+    def get_vacancies_count(self, prefetched_data):
+        return chained_get(prefetched_data, 'vacancies_count')
+
+    def get_logo(self, prefetched_data):
+        file = MediaRepository.get_related_media_file(
+            self.instance, prefetched_data, MediaType.LOGO.value, MediaFormat.IMAGE.value
+        )
+
+        if file:
+            return MediaSerializer(file, many=False).data
+        return None
+
+    def get_banner(self, prefetched_data):
+        file = MediaRepository.get_related_media_file(
+            self.instance, prefetched_data, MediaType.BANNER.value, MediaFormat.IMAGE.value
+        )
+
+        if file:
+            return MediaSerializer(file, many=False).data
+        return None
+
+    def get_shops(self, instance):
         return []
 
     class Meta:
@@ -24,7 +61,13 @@ class DistributorSerializer(CRUDSerializer):
             'id',
             'title',
             'description',
+            'vacancies_count',
+            'reviews_count',
+            'rating',
             'categories',
+            'logo',
+            'banner',
+            'shops',
         ]
 
 
@@ -39,14 +82,10 @@ class ShopSerializer(CRUDSerializer):
         return None
 
     def get_lon(self, instance):
-        if instance.location:
-            return instance.location.x
-        return None
+        return instance.location.x if instance.location else None
 
     def get_lat(self, instance):
-        if instance.location:
-            return instance.location.y
-        return None
+        return instance.location.y if instance.location else None
 
     class Meta:
         model = Shop
@@ -139,7 +178,7 @@ class DistributorInVacancySerializer(serializers.ModelSerializer):
         ]
 
 
-class VacancySerializer(CRUDSerializer):
+class VacanciesSerializer(CRUDSerializer):
     repository = VacanciesRepository
 
     is_favourite = serializers.SerializerMethodField()
@@ -179,6 +218,56 @@ class VacancySerializer(CRUDSerializer):
             'work_time',
             'shop',
             'distributor',
+        ]
+
+
+class VacancySerializer(VacanciesSerializer):
+    shifts = serializers.SerializerMethodField()
+    created_at = DateTimeField()
+    views_count = serializers.SerializerMethodField()
+
+    def get_shifts(self, vacancy):
+        return ShiftsSerializer(vacancy.shift_set.all(), many=True).data
+
+    def get_views_count(self, vacancy):
+        return 0
+
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id',
+            'title',
+            'description',
+            'created_at',
+            'views_count',
+            'price',
+            'features',
+            'required_docs',
+            'is_favourite',
+            'is_hot',
+            'required_experience',
+            'employment',
+            'work_time',
+            'shifts',
+            'shop',
+            'distributor',
+        ]
+
+
+class ShiftsSerializer(CRUDSerializer):
+    repository = ShifsRepository
+
+    # def get_is_favourite(self, shift):
+    #     return False
+
+    class Meta:
+        model = Shift
+        fields = [
+            'id',
+            'date_start',
+            'date_end',
+            'time_start',
+            'time_end',
         ]
 
 

@@ -96,7 +96,6 @@ class Countries(CRUDAPIView):
 
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        headers = get_request_headers(request)
 
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
@@ -179,7 +178,7 @@ class Cities(CRUDAPIView):
             self.many = True
             # SpeedUp
             dataset = self.repository_class.fast_related_loading(dataset)
-            dataset = dataset.defer("boundary", "position", "osm", "country__boundary", "country__osm")
+            dataset = dataset.defer("boundary", "osm", "country__boundary", "country__osm")
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,
@@ -187,6 +186,20 @@ class Cities(CRUDAPIView):
         })
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def cities_suggestions(request):
+    pagination = RequestMapper.pagination(request)
+    dataset = []
+    search = request.query_params.get('search') if request.query_params else None
+    if search:
+        dataset = CitiesRepository().get_suggestions(
+            # trigram_similar Поиск с использованием pg_trgm на проиндексированном поле native
+            search=search,
+            paginator=pagination
+        )
+    return Response(dataset, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])

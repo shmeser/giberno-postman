@@ -41,6 +41,13 @@ class VacanciesStats(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+@api_view(['GET'])
+def vacancies_suggestions(request):
+    if request.version in ['market_1_0']:
+        return v1_0.vacancies_suggestions(request._request)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class Professions(APIView):
     @staticmethod
     def get(request, **kwargs):

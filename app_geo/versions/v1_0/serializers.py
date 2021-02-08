@@ -119,6 +119,14 @@ class CitySerializer(CRUDSerializer):
     name = serializers.SerializerMethodField()
     country = serializers.SerializerMethodField(read_only=True)
     region = serializers.SerializerMethodField(read_only=True)
+    lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
+
+    def get_lon(self, city: City):
+        return city.position.x if city.position else None
+
+    def get_lat(self, city: City):
+        return city.position.y if city.position else None
 
     def get_name(self, city: City):
         # TODO для локализации выводить соответствующее название
@@ -140,6 +148,8 @@ class CitySerializer(CRUDSerializer):
             'id',
             'name',
             'native',
+            'lon',
+            'lat',
             'country',
             'region',
         ]

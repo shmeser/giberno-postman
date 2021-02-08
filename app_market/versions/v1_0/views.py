@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
-    DistributorSerializer, ShopSerializer
+    DistributorSerializer, ShopSerializer, VacanciesSerializer
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_body, chained_get, get_request_headers
@@ -21,13 +21,14 @@ class Distributors(CRUDAPIView):
         'title': 'title__istartswith',
     }
 
-    default_order_params = []
+    default_order_params = ['-vacancies_count']
 
     default_filters = {}
 
     order_params = {
+        'id': 'id',
         'title': 'title',
-        'id': 'id'
+        'vacancies': 'vacancies_count',
     }
 
     def get(self, request, **kwargs):
@@ -41,8 +42,12 @@ class Distributors(CRUDAPIView):
             dataset = self.repository_class().get_by_id(record_id)
         else:
             dataset = self.repository_class().filter_by_kwargs(
-                kwargs=filters, paginator=pagination, order_by=order_params
+                kwargs=filters, order_by=order_params
             )
+
+            dataset = dataset[pagination.offset:pagination.limit]
+            dataset = self.repository_class.fast_related_loading(dataset)  # Предзагрузка связанных сущностей
+
             self.many = True
 
         serialized = self.serializer_class(dataset, many=self.many, context={
@@ -93,7 +98,7 @@ class Shops(CRUDAPIView):
 
 
 class Vacancies(CRUDAPIView):
-    serializer_class = VacancySerializer
+    serializer_class = VacanciesSerializer
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
 
@@ -136,12 +141,13 @@ class Vacancies(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
+        point, bbox, radius = RequestMapper().geo(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            self.serializer_class = VacancySerializer
+            dataset = self.repository_class(point).get_by_id(record_id)
         else:
             self.many = True
-            point, bbox, radius = RequestMapper().geo(request)
             dataset = self.repository_class(point, bbox).filter_by_kwargs(
                 kwargs=filters, order_by=order_params
             )
@@ -174,6 +180,20 @@ class VacanciesStats(Vacancies):
             'all_counts': chained_get(stats, 'all_counts'),
             'result_count': chained_get(stats, 'result_count'),
         }), status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def vacancies_suggestions(request):
+    pagination = RequestMapper.pagination(request)
+    dataset = []
+    search = request.query_params.get('search') if request.query_params else None
+    if search:
+        dataset = VacanciesRepository().get_suggestions(
+            # trigram_similar Поиск с использованием pg_trgm на проиндексированном поле
+            search=search,
+            paginator=pagination
+        )
+    return Response(dataset, status=status.HTTP_200_OK)
 
 
 class Professions(CRUDAPIView):

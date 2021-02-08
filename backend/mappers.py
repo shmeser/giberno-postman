@@ -95,13 +95,13 @@ class RequestMapper:
 
     def order(self, request):
         if not self.order_params:
-            return list()
+            return self.default_order_params
 
         fields = underscoreize(request.query_params).get('order_by')
         order = request.query_params.get('order')
 
         if not fields or not order:
-            return list()
+            return self.default_order_params
 
         fields = fields if type(fields) == list else [fields]
         order = order if type(order) == list else [order]
