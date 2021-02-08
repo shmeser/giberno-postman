@@ -1,6 +1,6 @@
 from django.urls import path
 
-from app_geo.views import Languages, Countries, Cities, custom_languages, custom_countries, Geocode
+from app_geo.views import Languages, Countries, Cities, custom_languages, custom_countries, Geocode, cities_suggestions
 
 urlpatterns = [
     path('geo/languages', Languages.as_view()),
@@ -13,6 +13,7 @@ urlpatterns = [
 
     path('geo/cities', Cities.as_view()),
     path('geo/cities/<int:record_id>', Cities.as_view()),
+    path('geo/cities/suggestions', cities_suggestions),
 
     path('geo/location', Geocode.as_view()),
 ]

@@ -43,7 +43,7 @@ class MediaRepository(MasterRepository):
         if isinstance(model_instance, QuerySet):
             # для many=True
             file = None
-            # Берем флаг из предзагруженного поля medias
+            # Берем файл из предзагруженного поля medias
             if medias_list:
                 file = next(filter(
                     lambda x: cls.get_mime_cond(x, media_type, mime_type), chained_get(data, 'medias')), None)

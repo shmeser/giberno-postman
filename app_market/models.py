@@ -1,9 +1,10 @@
 import uuid as uuid
 
-from dateutil.rrule import MONTHLY, WEEKLY, DAILY
+from dateutil.rrule import MONTHLY, WEEKLY, DAILY, rrule
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.indexes import GinIndex
 
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
@@ -137,6 +138,14 @@ class Vacancy(BaseModel):
         verbose_name = 'Вакансия'
         verbose_name_plural = 'Вакансии'
 
+        indexes = [
+            GinIndex(
+                name="app_market__vacancies__title",
+                fields=("title",),
+                opclasses=("gin_trgm_ops",)
+            ),
+        ]
+
 
 class Shift(BaseModel):
     vacancy = models.ForeignKey(Vacancy, on_delete=models.CASCADE)
@@ -160,7 +169,7 @@ class Shift(BaseModel):
 
     by_weekday = ArrayField(models.PositiveIntegerField(), size=7, blank=True, null=True, verbose_name='Дни недели')
     by_monthday = ArrayField(models.PositiveIntegerField(), size=31, blank=True, null=True, verbose_name='Дни месяца')
-    by_month = ArrayField(models.PositiveIntegerField(), size=31, blank=True, null=True, verbose_name='Месяцы')
+    by_month = ArrayField(models.PositiveIntegerField(), size=12, blank=True, null=True, verbose_name='Месяцы')
 
     generated_active_dates = ArrayField(models.DateField(), blank=True, null=True, verbose_name='Даты активности смены')
 
@@ -169,6 +178,10 @@ class Shift(BaseModel):
 
     def save(self, *args, **kwargs):
         # TODO добавить генерацию списка активных дат
+        self.generated_active_dates = list(
+            rrule(self.frequency, count=100, byweekday=self.by_weekday, bymonthday=self.by_monthday,
+                  bymonth=self.by_month)
+        )
         super().save(*args, **kwargs)
 
     class Meta:
