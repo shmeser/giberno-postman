@@ -287,6 +287,7 @@ if os.name == 'nt':
     os.environ['PROJ_LIB'] = OSGEO4W + r"\share\proj"
     os.environ['PATH'] = OSGEO4W + r"\bin;" + os.environ['PATH']
 
+NEAREST_POINT_DISTANCE_MAX = 1000  # Максимальное расстояние до ближайшей точки для геокодинга координат
 # ### POSTGIS ###
 
 CONSTANCE_REDIS_CONNECTION = {
