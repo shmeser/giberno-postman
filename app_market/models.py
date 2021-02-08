@@ -4,6 +4,7 @@ from dateutil.rrule import MONTHLY, WEEKLY, DAILY, rrule
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.indexes import GinIndex
 
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
@@ -136,6 +137,14 @@ class Vacancy(BaseModel):
         db_table = 'app_market__vacancies'
         verbose_name = 'Вакансия'
         verbose_name_plural = 'Вакансии'
+
+        indexes = [
+            GinIndex(
+                name="app_market__vacancies__title",
+                fields=("title",),
+                opclasses=("gin_trgm_ops",)
+            ),
+        ]
 
 
 class Shift(BaseModel):
