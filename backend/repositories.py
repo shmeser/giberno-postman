@@ -50,7 +50,7 @@ class BaseRepository:
                 records = self.model.objects.order_by(*order_by).filter(args, **kwargs)
             else:
                 records = self.model.objects.filter(args, **kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records[:100]
+        return records[paginator.offset:paginator.limit] if paginator else records  # [:100]
 
     def create(self, **kwargs):
         return self.model.objects.create(**kwargs)

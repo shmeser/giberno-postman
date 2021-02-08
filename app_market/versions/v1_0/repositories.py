@@ -3,11 +3,12 @@ from datetime import timedelta
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
+from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch
 from django.utils.timezone import now
 
 from app_market.enums import ShiftWorkTime
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -74,6 +75,10 @@ class ShopsRepository(MasterRepository):
     model = Shop
 
 
+class ShifsRepository(MasterRepository):
+    model = Shift
+
+
 class VacanciesRepository(MasterRepository):
     model = Vacancy
 
@@ -135,6 +140,14 @@ class VacanciesRepository(MasterRepository):
             kwargs.pop('distance__lte', None)
             kwargs['shop__location__contained'] = self.bbox
 
+    def get_by_id(self, record_id):
+        try:
+            return self.base_query.get(id=record_id)
+        except self.model.DoesNotExist:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
         try:
@@ -162,6 +175,14 @@ class VacanciesRepository(MasterRepository):
             else:
                 records = self.base_query.filter(args, **kwargs)
         return records[paginator.offset:paginator.limit] if paginator else records
+
+    def get_suggestions(self, search, paginator=None):
+        records = self.model.objects.exclude(deleted=True).annotate(
+            similarity=TrigramSimilarity('title', search),
+        ).filter(title__trigram_similar=search).order_by('-similarity')
+
+        records = records.only('title').distinct().values_list('title', flat=True)
+        return records[paginator.offset:paginator.limit] if paginator else records[:100]
 
     @staticmethod
     def fast_related_loading(queryset, point=None):

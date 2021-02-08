@@ -101,6 +101,7 @@ class City(BaseModel):
 
     boundary = models.MultiPolygonField(srid=settings.SRID, blank=True, null=True)
     position = models.PointField(srid=settings.SRID, blank=True, null=True)
+    population = models.PositiveIntegerField(blank=True, null=True)
     timezone = models.CharField(
         max_length=512, null=True, blank=True, default='UTC', choices=[(tz, tz) for tz in pytz.common_timezones]
     )
