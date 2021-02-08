@@ -1,4 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Prefetch
 
@@ -8,6 +9,7 @@ from app_media.models import MediaModel
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
+from giberno.settings import NEAREST_POINT_DISTANCE_MAX
 
 
 class LanguagesRepository(MasterRepository):
@@ -79,7 +81,12 @@ class CitiesRepository(MasterRepository):
             )
 
     def geocode(self, point):
-        return self.model.objects.filter(boundary__covers=point)
+        within_boundary = self.model.objects.filter(boundary__covers=point)
+        if not within_boundary:
+            near_point = self.model.objects.annotate(distance=Distance('position', point)).filter(
+                distance__lte=NEAREST_POINT_DISTANCE_MAX).order_by('distance')
+            return near_point
+        return within_boundary
 
     @staticmethod
     def fast_related_loading(queryset):
