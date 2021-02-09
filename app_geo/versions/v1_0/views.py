@@ -179,7 +179,11 @@ class Cities(CRUDAPIView):
             self.many = True
             # SpeedUp
             dataset = self.repository_class.fast_related_loading(dataset)
-            dataset = dataset.defer("boundary", "osm", "country__boundary", "country__osm")
+            dataset = dataset.defer(
+                "boundary", "osm", "native_tsv", "names_tsv",
+                "country__boundary", "country__osm",
+                "region__boundary", "region__osm",
+            )
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,
@@ -210,7 +214,11 @@ def geocode(request):
 
     # SpeedUp
     dataset = CitiesRepository.fast_related_loading(dataset)
-    dataset = dataset.defer("boundary", "position", "osm", "country__boundary", "country__osm")
+    dataset = dataset.defer(
+        "boundary", "osm", "native_tsv", "names_tsv",
+        "country__boundary", "country__osm",
+        "region__boundary", "region__osm",
+    )
 
     serialized = CitySerializer(dataset, many=True, context={
         'me': request.user,
