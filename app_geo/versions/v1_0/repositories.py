@@ -1,7 +1,7 @@
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.search import TrigramSimilarity
-from django.db.models import Prefetch
+from django.db.models import Prefetch, F
 
 from app_geo.models import Language, Country, City, Region
 from app_media.enums import MediaType, MediaFormat
@@ -81,8 +81,13 @@ class CitiesRepository(MasterRepository):
             )
 
     def geocode(self, point):
-        within_boundary = self.model.objects.filter(boundary__covers=point)
+        # Если входит в территорию нескольких зон, то сортируем по убыванию численности населения - нулы в конце
+        within_boundary = self.model.objects.filter(boundary__covers=point).order_by(
+            F('population').desc(nulls_last=True)
+        )
         if not within_boundary:
+            # Если не входит в зоны, то ищем ближайшие точки до которых менее NEAREST_POINT_DISTANCE_MAX метров
+            # Сортировка по возрастанию удаленности
             near_point = self.model.objects.annotate(distance=Distance('position', point)).filter(
                 distance__lte=NEAREST_POINT_DISTANCE_MAX).order_by('distance')
             return near_point
