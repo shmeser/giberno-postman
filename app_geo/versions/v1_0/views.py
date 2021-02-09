@@ -1,3 +1,4 @@
+from django.db.models import F
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -152,7 +153,7 @@ class Cities(CRUDAPIView):
         'region': 'region_id'
     }
 
-    default_order_params = ['native']
+    default_order_params = [F('population').desc(nulls_last=True)]
 
     default_filters = {
     }
