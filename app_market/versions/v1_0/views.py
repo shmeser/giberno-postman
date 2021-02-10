@@ -4,9 +4,9 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShopsRepository
+    DistributorsRepository, ShopsRepository, ShifsRepository
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
-    DistributorSerializer, ShopSerializer, VacanciesSerializer
+    DistributorSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_body, chained_get, get_request_headers
@@ -155,6 +155,61 @@ class Vacancies(CRUDAPIView):
             dataset = dataset[pagination.offset:pagination.limit]
 
             dataset = self.repository_class.fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class Shifts(CRUDAPIView):
+    serializer_class = ShiftsSerializer
+    repository_class = ShifsRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        # 'from_date': 'from_date',
+        # 'to_date': 'to_date',
+        'vacancy': 'vacancy_id',
+    }
+
+    bool_filter_params = {
+    }
+
+    array_filter_params = {
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    default_filters = {}
+
+    order_params = {
+        'id': 'id'
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+        point, bbox, radius = RequestMapper().geo(request)
+
+        if record_id:
+            self.serializer_class = VacancySerializer
+            dataset = self.repository_class(point).get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class(point, bbox).filter_by_kwargs(
+                kwargs=filters, order_by=order_params
+            )
+            # dataset = dataset[pagination.offset:pagination.limit]
+
+            # dataset = self.repository_class.fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,

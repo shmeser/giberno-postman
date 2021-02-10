@@ -1,10 +1,13 @@
 from datetime import timedelta
 
+from dateutil.rrule import rrule, rrulestr
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
+from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
-from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch
+from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, DateField, \
+    ExpressionWrapper
 from django.utils.timezone import now
 
 from app_market.enums import ShiftWorkTime
@@ -77,6 +80,54 @@ class ShopsRepository(MasterRepository):
 
 class ShifsRepository(MasterRepository):
     model = Shift
+
+    def __init__(self, point=None, bbox=None, time_zone=None) -> None:
+        super().__init__()
+        self.bbox = bbox
+        #
+        #
+        #
+        self.active_dates_expression = ExpressionWrapper(list(
+            rrule(
+                freq=F('frequency'),
+                byweekday=[1, 2, 7],  # F('by_weekday'),
+                bymonth=[1, 3, 7],  # F('by_month'),
+                bymonthday=[1, 3, 7],  # F('by_monthday'),
+                dtstart=now(),
+                until=now() + timedelta(days=10),
+            )
+        ), output_field=ArrayField(DateField()))
+
+        # Основная часть запроса, содержащая вычисляемые поля
+        self.base_query = self.model.objects.annotate(
+            active_dates=self.active_dates_expression,
+        )
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.base_query.filter(**kwargs)
+        return records[paginator.offset:paginator.limit] if paginator else records
+
+    def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(args, **kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(args, **kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(args, **kwargs)
+            else:
+                records = self.base_query.filter(args, **kwargs)
+        return records[paginator.offset:paginator.limit] if paginator else records
 
 
 class VacanciesRepository(MasterRepository):

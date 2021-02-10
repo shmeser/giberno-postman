@@ -176,14 +176,6 @@ class Shift(BaseModel):
     def __str__(self):
         return f'{self.id}'
 
-    def save(self, *args, **kwargs):
-        # TODO добавить генерацию списка активных дат
-        self.generated_active_dates = list(
-            rrule(self.frequency, count=100, byweekday=self.by_weekday, bymonthday=self.by_monthday,
-                  bymonth=self.by_month)
-        )
-        super().save(*args, **kwargs)
-
     class Meta:
         db_table = 'app_market__shifts'
         verbose_name = 'Рабочая смена'
