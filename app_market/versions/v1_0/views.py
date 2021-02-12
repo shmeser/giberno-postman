@@ -170,8 +170,6 @@ class Shifts(CRUDAPIView):
     allowed_http_methods = ['get']
 
     filter_params = {
-        # 'from_date': 'from_date',
-        # 'to_date': 'to_date',
         'vacancy': 'vacancy_id',
     }
 
@@ -197,17 +195,17 @@ class Shifts(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
-        point, bbox, radius = RequestMapper().geo(request)
+        calendar_from, calendar_to = RequestMapper().calendar_range(request)
 
         if record_id:
             self.serializer_class = VacancySerializer
-            dataset = self.repository_class(point).get_by_id(record_id)
+            dataset = self.repository_class(calendar_from, calendar_to).get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class(point, bbox).filter_by_kwargs(
+            dataset = self.repository_class(calendar_from, calendar_to).filter_by_kwargs(
                 kwargs=filters, order_by=order_params
             )
-            # dataset = dataset[pagination.offset:pagination.limit]
+            dataset = dataset[pagination.offset:pagination.limit]
 
             # dataset = self.repository_class.fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
 

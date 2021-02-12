@@ -1,13 +1,12 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 
-from dateutil.rrule import rrule, rrulestr
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, DateField, \
-    ExpressionWrapper
+    Func
 from django.utils.timezone import now
 
 from app_market.enums import ShiftWorkTime
@@ -81,22 +80,23 @@ class ShopsRepository(MasterRepository):
 class ShifsRepository(MasterRepository):
     model = Shift
 
-    def __init__(self, point=None, bbox=None, time_zone=None) -> None:
+    def __init__(self, calendar_from=None, calendar_to=None) -> None:
         super().__init__()
-        self.bbox = bbox
-        #
-        #
-        #
-        self.active_dates_expression = ExpressionWrapper(list(
-            rrule(
-                freq=F('frequency'),
-                byweekday=[1, 2, 7],  # F('by_weekday'),
-                bymonth=[1, 3, 7],  # F('by_month'),
-                bymonthday=[1, 3, 7],  # F('by_monthday'),
-                dtstart=now(),
-                until=now() + timedelta(days=10),
-            )
-        ), output_field=ArrayField(DateField()))
+        self.calendar_from = datetime.now().timestamp() if calendar_from is None else calendar_from.timestamp()
+        self.calendar_to = (
+                datetime.now() + timedelta(days=10)
+        ).timestamp() if calendar_to is None else calendar_to.timestamp()
+
+        self.active_dates_expression = Func(
+            F('frequency'),
+            F('by_month'),
+            F('by_monthday'),
+            F('by_weekday'),
+            self.calendar_from,
+            self.calendar_to,
+            function='rrule_list_occurences',
+            output_field=ArrayField(DateField())
+        )
 
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(

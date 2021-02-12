@@ -8,7 +8,7 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
-from backend.utils import chained_get
+from backend.utils import chained_get, datetime_to_timestamp
 
 
 class DistributorSerializer(CRUDSerializer):
@@ -205,9 +205,14 @@ class VacanciesSerializer(CRUDSerializer):
     work_time = serializers.SerializerMethodField()
     shop = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
+    utc_offset = serializers.SerializerMethodField()
 
     def get_is_favourite(self, vacancy):
         return False
+
+    # TODO utc offset from cities
+    def get_utc_offset(self, vacancy):
+        return 3.0
 
     def get_is_hot(self, vacancy):
         return vacancy.is_hot
@@ -232,6 +237,7 @@ class VacanciesSerializer(CRUDSerializer):
             'price',
             'is_favourite',
             'is_hot',
+            'utc_offset',
             'required_experience',
             'employment',
             'work_time',
@@ -244,12 +250,16 @@ class VacancySerializer(VacanciesSerializer):
     shifts = serializers.SerializerMethodField()
     created_at = DateTimeField()
     views_count = serializers.SerializerMethodField()
+    utc_offset = serializers.SerializerMethodField()
 
     def get_shifts(self, vacancy):
         return ShiftsSerializer(vacancy.shift_set.all(), many=True).data
 
     def get_views_count(self, vacancy):
         return 0
+
+    def get_utc_offset(self, vacancy):
+        return 3.0
 
     class Meta:
         model = Vacancy
@@ -264,6 +274,7 @@ class VacancySerializer(VacanciesSerializer):
             'required_docs',
             'is_favourite',
             'is_hot',
+            'utc_offset',
             'required_experience',
             'employment',
             'work_time',
@@ -276,8 +287,12 @@ class VacancySerializer(VacanciesSerializer):
 class ShiftsSerializer(CRUDSerializer):
     repository = ShifsRepository
 
-    # def get_is_favourite(self, shift):
-    #     return False
+    active_dates = serializers.SerializerMethodField()
+
+    def get_active_dates(self, shift):
+        if chained_get(shift, 'active_dates'):
+            return list(map(lambda x: datetime_to_timestamp(x), shift.active_dates))
+        return []
 
     class Meta:
         model = Shift
@@ -287,6 +302,7 @@ class ShiftsSerializer(CRUDSerializer):
             'date_end',
             'time_start',
             'time_end',
+            'active_dates'
         ]
 
 

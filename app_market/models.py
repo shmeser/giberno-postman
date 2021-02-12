@@ -171,8 +171,6 @@ class Shift(BaseModel):
     by_monthday = ArrayField(models.PositiveIntegerField(), size=31, blank=True, null=True, verbose_name='Дни месяца')
     by_month = ArrayField(models.PositiveIntegerField(), size=12, blank=True, null=True, verbose_name='Месяцы')
 
-    generated_active_dates = ArrayField(models.DateField(), blank=True, null=True, verbose_name='Даты активности смены')
-
     def __str__(self):
         return f'{self.id}'
 
