@@ -324,11 +324,15 @@ class ShiftsSerializer(CRUDSerializer):
     repository = ShifsRepository
 
     active_dates = serializers.SerializerMethodField()
+    active_today = serializers.SerializerMethodField()
 
     def get_active_dates(self, shift):
         if chained_get(shift, 'active_dates'):
             return list(map(lambda x: datetime_to_timestamp(x), shift.active_dates))
         return []
+
+    def get_active_today(self, shift):
+        return chained_get(shift, 'active_today')
 
     class Meta:
         model = Shift
@@ -338,6 +342,7 @@ class ShiftsSerializer(CRUDSerializer):
             'date_end',
             'time_start',
             'time_end',
+            'active_today',
             'active_dates'
         ]
 

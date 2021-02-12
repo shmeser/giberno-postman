@@ -5,8 +5,7 @@ from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
-from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, DateField, \
-    Func
+from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, DateTimeField
 from django.utils.timezone import now, localtime
 from pytz import timezone
 
@@ -107,7 +106,7 @@ class ShifsRepository(MasterRepository):
             Value(self.calendar_from),
             Value(self.calendar_to),
             function='rrule_list_occurences',  # Кастомная postgres функция
-            output_field=ArrayField(DateField())
+            output_field=ArrayField(DateTimeField())
         )
 
         self.active_today_expression = Case(
