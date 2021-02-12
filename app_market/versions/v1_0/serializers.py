@@ -110,6 +110,7 @@ class ShopSerializer(CRUDSerializer):
 
 
 class ShopInVacancySerializer(CRUDSerializer):
+    """ Вложенная модель магазина в вакансии (на экране просмотра одной вакансии) """
     walk_time = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
@@ -159,8 +160,39 @@ class ShopInVacancySerializer(CRUDSerializer):
             'walk_time',
             'lon',
             'lat',
-            'rating',
-            'rates_count',
+            'logo',
+        ]
+
+
+class ShopsInVacanciesSerializer(CRUDSerializer):
+    """ Вложенная модель магазина в списке вакансий """
+    walk_time = serializers.SerializerMethodField()
+    logo = serializers.SerializerMethodField()
+
+    def get_walk_time(self, shop):
+        if chained_get(shop, 'distance'):
+            # Принимаем среднюю скорость пешеходов за 3.6км/ч = 1м/с
+            # Выводим расстояние в метрах как количество секунд
+            return int(shop.distance.m)
+        return None
+
+    def get_logo(self, prefetched_data):
+        file = MediaRepository.get_related_media_file(
+            self.instance, prefetched_data, MediaType.LOGO.value, MediaFormat.IMAGE.value
+        )
+
+        if file:
+            return MediaSerializer(file, many=False).data
+        return None
+
+    class Meta:
+        model = Shop
+        fields = [
+            'id',
+            'title',
+            'description',
+            'address',
+            'walk_time',
             'logo',
         ]
 
@@ -221,7 +253,7 @@ class VacanciesSerializer(CRUDSerializer):
         return vacancy.work_time
 
     def get_shop(self, vacancy):
-        return ShopInVacancySerializer(vacancy.shop).data
+        return ShopsInVacanciesSerializer(vacancy.shop).data
 
     def get_distributor(self, vacancy):
         if vacancy.shop and vacancy.shop.distributor:
@@ -252,6 +284,9 @@ class VacancySerializer(VacanciesSerializer):
     views_count = serializers.SerializerMethodField()
     utc_offset = serializers.SerializerMethodField()
 
+    def get_shop(self, vacancy):
+        return ShopInVacancySerializer(vacancy.shop).data
+
     def get_shifts(self, vacancy):
         return ShiftsSerializer(vacancy.shift_set.all(), many=True).data
 
@@ -259,6 +294,7 @@ class VacancySerializer(VacanciesSerializer):
         return 0
 
     def get_utc_offset(self, vacancy):
+        # TODO рассчитать сдвиг
         return 3.0
 
     class Meta:

@@ -7,8 +7,8 @@ from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, DateField, \
     Func
-from django.utils.timezone import now
-
+from django.utils.timezone import now, localtime
+from pytz import timezone
 from app_market.enums import ShiftWorkTime
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
 from app_market.versions.v1_0.mappers import ShiftMapper
@@ -18,6 +18,7 @@ from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
 from backend.utils import ArrayRemove
+from giberno.settings import SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT
 
 
 class DistributorsRepository(MasterRepository):
@@ -80,12 +81,18 @@ class ShopsRepository(MasterRepository):
 class ShifsRepository(MasterRepository):
     model = Shift
 
-    def __init__(self, calendar_from=None, calendar_to=None) -> None:
+    def __init__(self, calendar_from=None, calendar_to=None, vacancy_timezone_name='UTC') -> None:
         super().__init__()
-        self.calendar_from = datetime.now().timestamp() if calendar_from is None else calendar_from.timestamp()
-        self.calendar_to = (
-                datetime.now() + timedelta(days=10)
-        ).timestamp() if calendar_to is None else calendar_to.timestamp()
+        vacancy_timezone_name = 'Europe/Moscow'  # TODO брать из вакансии
+
+        self.calendar_from = datetime.utcnow().isoformat() if calendar_from is None else localtime(
+            calendar_from, timezone=timezone(vacancy_timezone_name)
+        ).isoformat()
+
+        self.calendar_to = localtime(
+            datetime.utcnow() + timedelta(days=SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT)
+        ).isoformat() \
+            if calendar_to is None else localtime(calendar_to, timezone=timezone(vacancy_timezone_name)).isoformat()
 
         self.active_dates_expression = Func(
             F('frequency'),
