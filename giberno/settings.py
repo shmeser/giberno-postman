@@ -302,7 +302,27 @@ CONSTANCE_CONFIG = {
     ),
 }
 
-DEBUG = True if os.getenv('DEBUG', False) in ['True', 'true', 'TRUE', True] else False
+# DEBUG = True if os.getenv('DEBUG', False) in ['True', 'true', 'TRUE', True] else False
+DEBUG = True
+
+if DEBUG:
+    SWAGGER_SETTINGS = {
+        'SECURITY_DEFINITIONS': {
+            'JWT': {
+                'type': 'apiKey',
+                'name': 'Authorization',
+                'in': 'header'
+            },
+            'Bearer': {
+                'type': 'apiKey',
+                'name': 'Authorization',
+                'in': 'header'
+            }
+        }
+    }
+
+    APP_TEST = 'app_tests.apps.AppTestsConfig'
+    INSTALLED_APPS.append(APP_TEST)
 
 ALLOWED_HOSTS = [
     os.getenv('MACHINE_HOST', '127.0.0.1'),
@@ -313,9 +333,9 @@ ALLOWED_HOSTS = [
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': os.getenv('DB_NAME', 'db-name'),
-        'USER': os.getenv('DB_USER', 'db-user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'db-password'),
+        'NAME': os.getenv('DB_NAME', 'giberno'),
+        'USER': os.getenv('DB_USER', 'admin'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'admin'),
         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
         'PORT': os.getenv('DB_PORT', '5432'),
     },
@@ -333,3 +353,10 @@ try:
         SOCIAL_AUTH_VK_OAUTH2_KEY
 except ImportError as e:
     pass
+
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', True)
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', False)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.hushmail.com')
+EMAIL_PORT = os.getenv('EMAIL_PORT', 587)
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'gibernoappcraft@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '11random11')

@@ -583,3 +583,8 @@ class DocumentSerializer(CRUDSerializer):
             'created_at',
             'media'
         ]
+
+
+######################################################################
+class SimpleEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField()

@@ -5,7 +5,7 @@ from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
@@ -18,11 +18,13 @@ from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
 from app_users.enums import NotificationType
 from app_users.mappers import TokensMapper, SocialDataMapper
-from app_users.models import JwtToken
+from app_users.models import JwtToken, UserProfile
+from app_users.permissions import IsAdmin
+from app_users.utils import EmailSender
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
     SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
-    NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer
+    NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer, SimpleEmailSerializer
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
@@ -529,3 +531,19 @@ def read_notification(request, **kwargs):
     )
 
     return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+#############################################################
+class CreateManagerByAdminAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+    serializer_class = SimpleEmailSerializer
+
+    def get_serializer(self):
+        return self.serializer_class()
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            user, created = UserProfile.objects.get_or_create(**serializer.validated_data)
+            EmailSender(user=user).send()
+            return Response(user.email)

@@ -1,5 +1,6 @@
 from django.urls import path
 
+from app_users.versions.v1_0.views import CreateManagerByAdminAPIView
 from app_users.views import AuthFirebase, AuthRefreshToken, firebase_web_auth, ReferenceCode, AuthVk, Users, \
     MyProfile, MyProfileUploads, MyProfileSocials, Notifications, NotificationsSettings, MyProfileCareer, \
     MyProfileDocuments, read_notification
@@ -28,4 +29,7 @@ urlpatterns = [
     path('notifications/<int:record_id>', Notifications.as_view()),
     path('notifications/<int:record_id>/read', read_notification),
     path('notifications/settings', NotificationsSettings.as_view()),
+
+    #############################################################
+    path('admin/managers', CreateManagerByAdminAPIView.as_view()),
 ]
