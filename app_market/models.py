@@ -1,6 +1,6 @@
 import uuid as uuid
 
-from dateutil.rrule import MONTHLY, WEEKLY, DAILY, rrule
+from dateutil.rrule import MONTHLY, WEEKLY, DAILY
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
@@ -15,12 +15,6 @@ from app_users.models import UserProfile
 from backend.models import BaseModel
 from backend.utils import choices
 from giberno import settings
-
-FREQUENCY_CHOICES = [
-    (DAILY, "Ежедневно"),
-    (WEEKLY, "Еженедельно"),
-    (MONTHLY, "Ежемесячно")
-]
 
 REQUIRED_DOCS = [
     (DocumentType.PASSPORT, 'Паспорт'),
@@ -147,6 +141,13 @@ class Vacancy(BaseModel):
         ]
 
 
+FREQUENCY_CHOICES = [
+    (DAILY, "Ежедневно"),
+    (WEEKLY, "Еженедельно"),
+    (MONTHLY, "Ежемесячно")
+]
+
+
 class Shift(BaseModel):
     vacancy = models.ForeignKey(Vacancy, on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
@@ -163,13 +164,16 @@ class Shift(BaseModel):
     date_start = models.DateField(null=True, blank=True, verbose_name='Дата начала расписания')
     date_end = models.DateField(null=True, blank=True, verbose_name='Дата окончания расписания')
 
+    # ## RRULE расписание ## #
     frequency = models.PositiveIntegerField(
-        choices=FREQUENCY_CHOICES, null=True, blank=True, verbose_name='Интервал выполнения'
+        choices=FREQUENCY_CHOICES, null=True, blank=True, verbose_name='Интервал выполнения проверки'
     )
-
+    # by_weekday - массив 0-6, где 0-понедельник
     by_weekday = ArrayField(models.PositiveIntegerField(), size=7, blank=True, null=True, verbose_name='Дни недели')
     by_monthday = ArrayField(models.PositiveIntegerField(), size=31, blank=True, null=True, verbose_name='Дни месяца')
     by_month = ArrayField(models.PositiveIntegerField(), size=12, blank=True, null=True, verbose_name='Месяцы')
+
+    # ## RRULE ## #
 
     def __str__(self):
         return f'{self.id}'

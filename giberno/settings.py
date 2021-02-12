@@ -291,8 +291,6 @@ NEAREST_POINT_DISTANCE_MAX = 1000  # Максимальное расстояни
 # ### POSTGIS ###
 
 
-SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT = 10
-
 CONSTANCE_REDIS_CONNECTION = {
     'host': os.getenv('REDIS_HOST', '127.0.0.1'),
     'port': 6379,

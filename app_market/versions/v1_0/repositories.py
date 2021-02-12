@@ -9,6 +9,7 @@ from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, C
     Func
 from django.utils.timezone import now, localtime
 from pytz import timezone
+
 from app_market.enums import ShiftWorkTime
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
 from app_market.versions.v1_0.mappers import ShiftMapper
@@ -18,7 +19,6 @@ from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
 from backend.utils import ArrayRemove
-from giberno.settings import SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT
 
 
 class DistributorsRepository(MasterRepository):
@@ -81,33 +81,49 @@ class ShopsRepository(MasterRepository):
 class ShifsRepository(MasterRepository):
     model = Shift
 
+    SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT = 10
+
     def __init__(self, calendar_from=None, calendar_to=None, vacancy_timezone_name='UTC') -> None:
         super().__init__()
         vacancy_timezone_name = 'Europe/Moscow'  # TODO брать из вакансии
 
+        # Получаем дату начала диапазона для расписани
         self.calendar_from = datetime.utcnow().isoformat() if calendar_from is None else localtime(
-            calendar_from, timezone=timezone(vacancy_timezone_name)
+            calendar_from, timezone=timezone(vacancy_timezone_name)  # Даты высчитываем в часовых поясах вакансий
         ).isoformat()
 
+        # Получаем дату окончания диапазона для расписания
         self.calendar_to = localtime(
-            datetime.utcnow() + timedelta(days=SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT)
+            datetime.utcnow() + timedelta(days=self.SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT)
         ).isoformat() \
             if calendar_to is None else localtime(calendar_to, timezone=timezone(vacancy_timezone_name)).isoformat()
 
+        # Annotation Expressions
         self.active_dates_expression = Func(
             F('frequency'),
             F('by_month'),
             F('by_monthday'),
             F('by_weekday'),
-            self.calendar_from,
-            self.calendar_to,
-            function='rrule_list_occurences',
+            Value(self.calendar_from),
+            Value(self.calendar_to),
+            function='rrule_list_occurences',  # Кастомная postgres функция
             output_field=ArrayField(DateField())
+        )
+
+        self.active_today_expression = Case(
+            When(
+                # Используем поле active_dates из предыдущего annotate
+                active_dates__contains=[localtime(now(), timezone=timezone(vacancy_timezone_name))],
+                then=True
+            ),
+            default=False,
+            output_field=BooleanField()
         )
 
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(
             active_dates=self.active_dates_expression,
+            active_today=self.active_today_expression,
         )
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
@@ -140,7 +156,7 @@ class ShifsRepository(MasterRepository):
 class VacanciesRepository(MasterRepository):
     model = Vacancy
 
-    # TODO если у вакансии несколько смен то вакансия постоянно будет горящая?
+    # TODO если у вакансии несколько смен, то вакансия постоянно будет горящая?
     IS_HOT_HOURS_THRESHOLD = 4  # Количество часов до начала смены для статуса вакансии "Горящая"
 
     def __init__(self, point=None, bbox=None, time_zone=None) -> None:

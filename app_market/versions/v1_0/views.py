@@ -174,6 +174,7 @@ class Shifts(CRUDAPIView):
     }
 
     bool_filter_params = {
+        'active_today': 'active_today',
     }
 
     array_filter_params = {
