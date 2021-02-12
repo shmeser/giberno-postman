@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -16,7 +18,7 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
-from app_users.enums import NotificationType
+from app_users.enums import NotificationType, AccountType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken, UserProfile
 from app_users.permissions import IsAdmin
@@ -542,8 +544,16 @@ class CreateManagerByAdminAPIView(APIView):
         return self.serializer_class()
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
+            username = str(uuid4())[:8]
+            password = str(uuid4())[:8]
+            account_type = AccountType.MANAGER
             user, created = UserProfile.objects.get_or_create(**serializer.validated_data)
-            EmailSender(user=user).send()
-            return Response(user.email)
+            if created:
+                user.username = username
+                user.account_type = account_type
+                user.set_password(password)
+                user.save()
+                EmailSender(user=user, password=password).send()
+            return Response(status=status.HTTP_200_OK)

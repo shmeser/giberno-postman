@@ -3,14 +3,15 @@ from django.core.mail import send_mail
 
 
 class EmailSender:
-    def __init__(self, user):
-        self.email = user.email
+    def __init__(self, user, password):
+        self.user = user
+        self.password = password
 
     def send(self):
         send_mail(
             'Subject here',
-            'Here is the message.',
+            f"""Логин:{self.user.username},  Пароль:{self.password}""",
             settings.EMAIL_HOST_USER,
-            [self.email],
-            fail_silently=False,
+            [self.user.email],
+            fail_silently=True,
         )
