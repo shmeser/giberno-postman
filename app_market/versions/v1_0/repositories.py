@@ -5,7 +5,10 @@ from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
-from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, DateTimeField
+from django.db.models import Field, DateField
+from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, DateTimeField, \
+    Lookup
+from django.db.models.functions import Cast
 from django.utils.timezone import now, localtime
 from pytz import timezone
 
@@ -77,6 +80,18 @@ class ShopsRepository(MasterRepository):
     model = Shop
 
 
+@Field.register_lookup
+class DatesArrayContains(Lookup):
+    # Кастомный lookup для приведения типов
+    lookup_name = 'dacontains'
+
+    def as_sql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+        return '%s::DATE[] @> %s' % (lhs, rhs), params
+
+
 class ShifsRepository(MasterRepository):
     model = Shift
 
@@ -105,14 +120,23 @@ class ShifsRepository(MasterRepository):
             F('by_weekday'),
             Value(self.calendar_from),
             Value(self.calendar_to),
-            function='rrule_list_occurences',  # Кастомная postgres функция
+            function='rrule_list_occurences',  # Кастомная postgres функция (возвращает массив дат вида TIMESTAMPTZ)
             output_field=ArrayField(DateTimeField())
         )
 
         self.active_today_expression = Case(
             When(
-                # Используем поле active_dates из предыдущего annotate
-                active_dates__contains=[localtime(now(), timezone=timezone(vacancy_timezone_name))],
+                # Используем поле active_dates из предыдущего annotate и кастомный lookup для приведения типов в PgSQL
+                # TIMESTAMPTZ[] -> DATE[] так как нужно проверить наличие текущей даты без времени в массиве расписания,
+                # который содержит массив дат со временем и зонами
+
+                # Можно рассмотреть вариант массива без времени, получаемого из rrule_list_occurences,
+                # чтобы не использовать кастомный lookup
+                # Для этого нужно поменять тип возвращаемых данных из кастомной функции
+                active_dates__dacontains=Cast(
+                    [localtime(now(), timezone=timezone(vacancy_timezone_name))],
+                    output_field=ArrayField(DateField())
+                ),
                 then=True
             ),
             default=False,
