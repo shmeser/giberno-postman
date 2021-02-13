@@ -3,7 +3,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('app_maket', '0015_remove_shift_generated_active_dates'),
+        ('app_maket', '0014_auto_20210208_1558'),
     ]
 
     operations = [
