@@ -2,9 +2,9 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-    dependencies = [
-        ('app_maket', '0015_remove_shift_generated_active_dates'),
-    ]
+    # dependencies = [
+    #     ('app_maket', '0015_remove_shift_generated_active_dates'),
+    # ]
 
     operations = [
         migrations.RunSQL(
