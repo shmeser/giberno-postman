@@ -16,6 +16,7 @@ services:
       - giberno_develop
     ports:
       - "${DB_PORT}:5432"
+    command: supervisord -n && apt-get update && apt-get install postgresql-plpython-13
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
