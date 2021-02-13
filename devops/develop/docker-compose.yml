@@ -10,9 +10,7 @@ services:
     networks:
       - giberno_develop
   db:
-    build:
-      context: .
-      dockerfile: Dockerfile-Postgis
+    image: postgis/postgis:13-3.0
     restart: always
     networks:
       - giberno_develop
@@ -57,6 +55,7 @@ services:
       - ./files:/code/files
   celery:
     image: registry.appcraft.team:5005/giberno/giberno-server
+    restart: always
     command: celery -A giberno worker -l info
     environment:
       REDIS_HOST: redis
@@ -77,6 +76,7 @@ services:
       - ./files:/code/files
   celery-beat:
     image: registry.appcraft.team:5005/giberno/giberno-server
+    restart: always
     command: celery -A giberno beat -l info
     environment:
       REDIS_HOST: redis
