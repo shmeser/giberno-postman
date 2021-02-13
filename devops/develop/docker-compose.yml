@@ -10,13 +10,15 @@ services:
     networks:
       - giberno_develop
   db:
-    image: postgis/postgis:13-3.0
+    build:
+      context: .
+      dockerfile: Dockerfile-Postgis
     restart: always
     networks:
       - giberno_develop
     ports:
       - "${DB_PORT}:5432"
-    command: supervisord -n && apt-get update && apt-get install postgresql-plpython-13
+    command: supervisord -n && apt-get update && apt-get
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
