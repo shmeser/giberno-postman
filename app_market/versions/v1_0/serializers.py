@@ -157,6 +157,8 @@ class ShopInVacancySerializer(CRUDSerializer):
             'title',
             'description',
             'address',
+            'rating',
+            'rates_count',
             'walk_time',
             'lon',
             'lat',
