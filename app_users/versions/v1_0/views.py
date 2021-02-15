@@ -546,14 +546,5 @@ class CreateManagerByAdminAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            username = str(uuid4())[:8]
-            password = str(uuid4())[:8]
-            account_type = AccountType.MANAGER
-            user, created = UserProfile.objects.get_or_create(**serializer.validated_data)
-            if created:
-                user.username = username
-                user.account_type = account_type
-                user.set_password(password)
-                user.save()
-                EmailSender(user=user, password=password).send()
+            ProfileRepository().get_or_create_manager(email=serializer.validated_data['email'])
             return Response(status=status.HTTP_200_OK)
