@@ -20,7 +20,7 @@ build:
   stage: build
   script:
     - docker build -t registry.appcraft.team:5005/giberno/giberno-server .
-    - docker build -t registry.appcraft.team:5005/giberno/giberno-server-db -f ./devops/docker/Dockerfile-postgis .
+    - docker build -t registry.appcraft.team:5005/giberno/giberno-server-db -f ./devops/docker/postgis/Dockerfile .
     - docker push registry.appcraft.team:5005/giberno/giberno-server
   only:
     - develop
