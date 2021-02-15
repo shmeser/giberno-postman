@@ -1,3 +1,6 @@
+import string
+from uuid import uuid4
+
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
 from rest_framework import serializers
@@ -12,7 +15,7 @@ from app_market.versions.v1_0.serializers import ProfessionSerializer, SkillSeri
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
-from app_users.enums import LanguageProficiency
+from app_users.enums import LanguageProficiency, AccountType
 from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
     NotificationsSettings, UserCity, UserCareer, Document
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository, \
@@ -409,6 +412,8 @@ class ProfileSerializer(CRUDSerializer):
             'professions',
             'cities',
             'skills',
+
+            'distributors'
         ]
 
         extra_kwargs = {
@@ -586,5 +591,54 @@ class DocumentSerializer(CRUDSerializer):
 
 
 ######################################################################
-class SimpleEmailSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+class CreateManagerByAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = [
+            'email',
+            'phone',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'distributors'
+        ]
+
+    def validate(self, attrs):
+        username = str(uuid4())[:10]
+        default_data = {
+            'username': username,
+            'account_type': AccountType.MANAGER,
+            'reg_reference': self.context['request'].user
+        }
+        attrs.update(default_data)
+        return attrs
+
+
+class UsernameSerializer(serializers.Serializer):
+    username = serializers.CharField()
+
+
+class PasswordSerializer(serializers.Serializer):
+    password = serializers.CharField()
+
+    def validate_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError('Password is too short')
+        for item in value:
+            if item not in string.punctuation \
+                    and item not in string.ascii_lowercase \
+                    and item not in string.ascii_uppercase \
+                    and item not in [number for number in range(10)]:
+                raise serializers.ValidationError('Password contains invalid symbols')
+            return value
+
+
+class UsernameWithPasswordSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField()
+
+
+class ManagerAuthenticateResponseForSwaggerSerializer(serializers.Serializer):
+    accessToken = serializers.CharField()
+    refreshToken = serializers.CharField()
+    first_login = serializers.BooleanField()

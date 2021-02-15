@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.utils.timezone import now
@@ -10,7 +8,6 @@ from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType, NotificationType
 from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification, UserCareer, \
     Document
-from app_users.utils import EmailSender
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
@@ -229,19 +226,23 @@ class ProfileRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
 
-    def get_or_create_manager(self, email):
-        user, created = self.model.objects.get_or_create(email=email)
-        if created:
-            username = str(uuid4())[:8]
-            password = str(uuid4())[:8]
-            account_type = AccountType.MANAGER
-            if created:
-                user.username = username
-                user.account_type = account_type
-                user.set_password(password)
-                user.save()
-                EmailSender(user=user, password=password).send()
-        return created
+    def get_by_username(self, username):
+        try:
+            return self.model.objects.get(username=username)
+        except self.model.DoesNotExist:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Логин введен неверно'
+            )
+
+    def get_by_username_and_password(self, validated_data):
+        user = self.get_by_username(username=validated_data['username'])
+        if not user.check_password(validated_data['password']):
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Пароль введен неверно'
+            )
+        return user
 
 
 class NotificationsRepository(MasterRepository):
