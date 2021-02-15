@@ -199,7 +199,7 @@ class Shifts(CRUDAPIView):
         calendar_from, calendar_to = RequestMapper().calendar_range(request)
 
         if record_id:
-            self.serializer_class = VacancySerializer
+            self.serializer_class = ShiftsSerializer
             dataset = self.repository_class(calendar_from, calendar_to).get_by_id(record_id)
         else:
             self.many = True
