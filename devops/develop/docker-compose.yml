@@ -11,9 +11,10 @@ services:
       - giberno_develop
   db:
 #    image: postgis/postgis:13-3.0
-    build:
-      context: .
-      dockerfile: Dockerfile-postgis
+#    build:
+#      context: .
+#      dockerfile: Dockerfile-postgis
+    image: registry.appcraft.team:5005/giberno/giberno-server-db
     restart: always
     networks:
       - giberno_develop
