@@ -1,7 +1,7 @@
 from django.urls import path
 
 from app_users.versions.v1_0.views import CreateManagerByAdminAPIView, GetManagerByUsernameAPIView, \
-    AuthenticateManagerAPIView, ChangeManagerPasswordAPIView
+    AuthenticateManagerAPIView, ChangeManagerPasswordAPIView, EditManagerProfileView
 from app_users.views import AuthFirebase, AuthRefreshToken, firebase_web_auth, ReferenceCode, AuthVk, Users, \
     MyProfile, MyProfileUploads, MyProfileSocials, Notifications, NotificationsSettings, MyProfileCareer, \
     MyProfileDocuments, read_notification
@@ -35,5 +35,6 @@ urlpatterns = [
     path('admin/managers', CreateManagerByAdminAPIView.as_view()),
     path('users/managers/username', GetManagerByUsernameAPIView.as_view()),
     path('users/managers/login', AuthenticateManagerAPIView.as_view()),
-    path('users/managers/password/change', ChangeManagerPasswordAPIView.as_view())
+    path('users/managers/password/change', ChangeManagerPasswordAPIView.as_view()),
+    path('users/managers/profile', EditManagerProfileView.as_view())
 ]

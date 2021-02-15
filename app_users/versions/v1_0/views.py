@@ -32,7 +32,7 @@ from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, 
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
     NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer, \
     CreateManagerByAdminSerializer, UsernameSerializer, UsernameWithPasswordSerializer, \
-    ManagerAuthenticateResponseForSwaggerSerializer, PasswordSerializer
+    ManagerAuthenticateResponseForSwaggerSerializer, PasswordSerializer, EditManagerProfileSerializer
 from backend.api_views import BaseAPIView
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -608,3 +608,17 @@ class ChangeManagerPasswordAPIView(BaseAPIView):
             request.user.set_password(raw_password=serializer.validated_data['password'])
             request.user.save()
             return Response(status=status.HTTP_200_OK)
+
+
+class EditManagerProfileView(BaseAPIView):
+    serializer_class = EditManagerProfileSerializer
+
+    response_description = openapi.Response('response description', ProfileSerializer)
+
+    @swagger_auto_schema(responses={200: response_description})
+    @transaction.atomic
+    def patch(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            user = ProfileRepository().update(record_id=request.user.id, **serializer.validated_data)
+            return Response(ProfileSerializer(instance=user).data)

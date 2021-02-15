@@ -56,6 +56,7 @@ class RefreshTokenSerializer(serializers.Serializer):
 class ProfileSerializer(CRUDSerializer):
     repository = ProfileRepository
 
+    account_type = serializers.SerializerMethodField(read_only=True)
     birth_date = DateTimeField(required=False)
     avatar = serializers.SerializerMethodField(read_only=True)
     documents = serializers.SerializerMethodField(read_only=True)
@@ -284,6 +285,9 @@ class ProfileSerializer(CRUDSerializer):
 
         return ret
 
+    def get_account_type(self, profile):
+        return profile.account_type
+
     def get_avatar(self, profile: UserProfile):
         avatar = MediaRepository().filter_by_kwargs({
             'owner_id': profile.id,
@@ -382,6 +386,7 @@ class ProfileSerializer(CRUDSerializer):
         model = UserProfile
         fields = [
             'id',
+            'account_type',
             'first_name',
             'last_name',
             'middle_name',
@@ -642,3 +647,13 @@ class ManagerAuthenticateResponseForSwaggerSerializer(serializers.Serializer):
     accessToken = serializers.CharField()
     refreshToken = serializers.CharField()
     first_login = serializers.BooleanField()
+
+
+class EditManagerProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = [
+            'first_name',
+            'middle_name',
+            'last_name',
+        ]
