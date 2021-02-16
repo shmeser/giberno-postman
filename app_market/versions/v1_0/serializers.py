@@ -1,3 +1,6 @@
+from datetime import datetime
+
+import pytz
 from rest_framework import serializers
 
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
@@ -8,7 +11,7 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
-from backend.utils import chained_get
+from backend.utils import chained_get, datetime_to_timestamp
 
 
 class DistributorSerializer(CRUDSerializer):
@@ -110,6 +113,7 @@ class ShopSerializer(CRUDSerializer):
 
 
 class ShopInVacancySerializer(CRUDSerializer):
+    """ Вложенная модель магазина в вакансии (на экране просмотра одной вакансии) """
     walk_time = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
@@ -156,11 +160,44 @@ class ShopInVacancySerializer(CRUDSerializer):
             'title',
             'description',
             'address',
+            'rating',
+            'rates_count',
             'walk_time',
             'lon',
             'lat',
-            'rating',
-            'rates_count',
+            'logo',
+        ]
+
+
+class ShopsInVacanciesSerializer(CRUDSerializer):
+    """ Вложенная модель магазина в списке вакансий """
+    walk_time = serializers.SerializerMethodField()
+    logo = serializers.SerializerMethodField()
+
+    def get_walk_time(self, shop):
+        if chained_get(shop, 'distance'):
+            # Принимаем среднюю скорость пешеходов за 3.6км/ч = 1м/с
+            # Выводим расстояние в метрах как количество секунд
+            return int(shop.distance.m)
+        return None
+
+    def get_logo(self, prefetched_data):
+        file = MediaRepository.get_related_media_file(
+            self.instance, prefetched_data, MediaType.LOGO.value, MediaFormat.IMAGE.value
+        )
+
+        if file:
+            return MediaSerializer(file, many=False).data
+        return None
+
+    class Meta:
+        model = Shop
+        fields = [
+            'id',
+            'title',
+            'description',
+            'address',
+            'walk_time',
             'logo',
         ]
 
@@ -205,9 +242,14 @@ class VacanciesSerializer(CRUDSerializer):
     work_time = serializers.SerializerMethodField()
     shop = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
+    utc_offset = serializers.SerializerMethodField()
 
     def get_is_favourite(self, vacancy):
         return False
+
+    # TODO utc offset from cities
+    def get_utc_offset(self, vacancy):
+        return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
 
     def get_is_hot(self, vacancy):
         return vacancy.is_hot
@@ -216,7 +258,7 @@ class VacanciesSerializer(CRUDSerializer):
         return vacancy.work_time
 
     def get_shop(self, vacancy):
-        return ShopInVacancySerializer(vacancy.shop).data
+        return ShopsInVacanciesSerializer(vacancy.shop).data
 
     def get_distributor(self, vacancy):
         if vacancy.shop and vacancy.shop.distributor:
@@ -232,6 +274,7 @@ class VacanciesSerializer(CRUDSerializer):
             'price',
             'is_favourite',
             'is_hot',
+            'utc_offset',
             'required_experience',
             'employment',
             'work_time',
@@ -241,15 +284,19 @@ class VacanciesSerializer(CRUDSerializer):
 
 
 class VacancySerializer(VacanciesSerializer):
-    shifts = serializers.SerializerMethodField()
     created_at = DateTimeField()
     views_count = serializers.SerializerMethodField()
+    utc_offset = serializers.SerializerMethodField()
 
-    def get_shifts(self, vacancy):
-        return ShiftsSerializer(vacancy.shift_set.all(), many=True).data
+    def get_shop(self, vacancy):
+        return ShopInVacancySerializer(vacancy.shop).data
 
     def get_views_count(self, vacancy):
         return 0
+
+    def get_utc_offset(self, vacancy):
+        # TODO рассчитать сдвиг
+        return 3.0
 
     class Meta:
         model = Vacancy
@@ -264,10 +311,10 @@ class VacancySerializer(VacanciesSerializer):
             'required_docs',
             'is_favourite',
             'is_hot',
+            'utc_offset',
             'required_experience',
             'employment',
             'work_time',
-            'shifts',
             'shop',
             'distributor',
         ]
@@ -276,8 +323,16 @@ class VacancySerializer(VacanciesSerializer):
 class ShiftsSerializer(CRUDSerializer):
     repository = ShifsRepository
 
-    # def get_is_favourite(self, shift):
-    #     return False
+    active_dates = serializers.SerializerMethodField()
+    active_today = serializers.SerializerMethodField()
+
+    def get_active_dates(self, shift):
+        if chained_get(shift, 'active_dates'):
+            return list(map(lambda x: datetime_to_timestamp(x), shift.active_dates))
+        return []
+
+    def get_active_today(self, shift):
+        return chained_get(shift, 'active_today')
 
     class Meta:
         model = Shift
@@ -287,6 +342,8 @@ class ShiftsSerializer(CRUDSerializer):
             'date_end',
             'time_start',
             'time_end',
+            'active_today',
+            'active_dates'
         ]
 
 

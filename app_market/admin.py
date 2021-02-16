@@ -40,6 +40,8 @@ class VacancyAdmin(FormattedAdmin):
         'id', 'title', 'description', 'requirements', 'required_experience', 'required_docs', 'features', 'price',
         'currency', 'radius'
     ]
+    
+    readonly_fields = ['required_docs']
     raw_id_fields = ['shop']
 
 

@@ -290,6 +290,7 @@ if os.name == 'nt':
 NEAREST_POINT_DISTANCE_MAX = 1000  # Максимальное расстояние до ближайшей точки для геокодинга координат
 # ### POSTGIS ###
 
+
 CONSTANCE_REDIS_CONNECTION = {
     'host': os.getenv('REDIS_HOST', '127.0.0.1'),
     'port': 6379,

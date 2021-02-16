@@ -10,7 +10,11 @@ services:
     networks:
       - giberno_develop
   db:
-    image: postgis/postgis:13-3.0
+#    image: postgis/postgis:13-3.0
+#    build:
+#      context: .
+#      dockerfile: Dockerfile-postgis
+    image: shmeser/postgis-plpython3:latest
     restart: always
     networks:
       - giberno_develop

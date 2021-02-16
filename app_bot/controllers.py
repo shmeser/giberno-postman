@@ -14,12 +14,15 @@ from giberno.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_URL
 class TelegramFormatter(logging.Formatter):
 
     def recursive_tab_str(self, data_dict, tab=0):
+        if not isinstance(data_dict, dict):
+            return data_dict
         brackets_ident = ''
         tab_str = "  "
         values_ident = tab_str
         iteration = 0
         keys_count = len(data_dict)
         i = 0
+
         while i < tab:
             brackets_ident += tab_str
             values_ident += tab_str

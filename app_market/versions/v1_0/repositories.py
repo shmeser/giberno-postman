@@ -1,11 +1,16 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
+from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
-from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch
-from django.utils.timezone import now
+from django.db.models import Field, DateField
+from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, DateTimeField, \
+    Lookup
+from django.db.models.functions import Cast
+from django.utils.timezone import now, localtime
+from pytz import timezone
 
 from app_market.enums import ShiftWorkTime
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
@@ -75,26 +80,140 @@ class ShopsRepository(MasterRepository):
     model = Shop
 
 
+class CustomLookupBase(Lookup):
+    # Кастомный lookup
+    lookup_name = 'custom'
+    parametric_string = "%s <= %s AT TIME ZONE timezone"
+
+    def as_sql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+        return self.parametric_string % (lhs, rhs), params
+
+
+@Field.register_lookup
+class DatesArrayContains(CustomLookupBase):
+    # Кастомный lookup с приведением типов для массива дат
+    lookup_name = 'dacontains'
+    parametric_string = "%s::DATE[] @> %s"
+
+
+@Field.register_lookup
+class LTETimeTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом часовых поясов
+    lookup_name = 'ltetimetz'
+    parametric_string = "%s <= %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class GTTimeTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом часовых поясов
+    lookup_name = 'gttimetz'
+    parametric_string = "%s > %s AT TIME ZONE timezone"
+
+
 class ShifsRepository(MasterRepository):
     model = Shift
+
+    SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT = 10
+
+    def __init__(self, calendar_from=None, calendar_to=None, vacancy_timezone_name='UTC') -> None:
+        super().__init__()
+        vacancy_timezone_name = 'Europe/Moscow'  # TODO брать из вакансии
+
+        # Получаем дату начала диапазона для расписани
+        self.calendar_from = datetime.utcnow().isoformat() if calendar_from is None else localtime(
+            calendar_from, timezone=timezone(vacancy_timezone_name)  # Даты высчитываем в часовых поясах вакансий
+        ).isoformat()
+
+        # Получаем дату окончания диапазона для расписания
+        self.calendar_to = localtime(
+            datetime.utcnow() + timedelta(days=self.SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT)
+        ).isoformat() \
+            if calendar_to is None else localtime(calendar_to, timezone=timezone(vacancy_timezone_name)).isoformat()
+
+        # Annotation Expressions
+        self.active_dates_expression = Func(
+            F('frequency'),
+            F('by_month'),
+            F('by_monthday'),
+            F('by_weekday'),
+            Value(self.calendar_from),
+            Value(self.calendar_to),
+            function='rrule_list_occurences',  # Кастомная postgres функция (возвращает массив дат вида TIMESTAMPTZ)
+            output_field=ArrayField(DateTimeField())
+        )
+
+        self.active_today_expression = Case(
+            When(
+                # Используем поле active_dates из предыдущего annotate и кастомный lookup для приведения типов в PgSQL
+                # TIMESTAMPTZ[] -> DATE[] так как нужно проверить наличие текущей даты без времени в массиве расписания,
+                # который содержит массив дат со временем и зонами
+
+                # Можно рассмотреть вариант массива без времени, получаемого из rrule_list_occurences,
+                # чтобы не использовать кастомный lookup
+                # Для этого нужно поменять тип возвращаемых данных из кастомной функции
+                active_dates__dacontains=Cast(
+                    [localtime(now(), timezone=timezone(vacancy_timezone_name))],
+                    output_field=ArrayField(DateField())
+                ),
+                then=True
+            ),
+            default=False,
+            output_field=BooleanField()
+        )
+
+        # Основная часть запроса, содержащая вычисляемые поля
+        self.base_query = self.model.objects.annotate(
+            active_dates=self.active_dates_expression,
+            active_today=self.active_today_expression,
+        )
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.base_query.filter(**kwargs)
+        return records[paginator.offset:paginator.limit] if paginator else records
+
+    def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(args, **kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(args, **kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(args, **kwargs)
+            else:
+                records = self.base_query.filter(args, **kwargs)
+        return records[paginator.offset:paginator.limit] if paginator else records
 
 
 class VacanciesRepository(MasterRepository):
     model = Vacancy
 
-    # TODO если у вакансии несколько смен то вакансия постоянно будет горящая?
+    # TODO если у вакансии несколько смен, то вакансия постоянно будет горящая?
     IS_HOT_HOURS_THRESHOLD = 4  # Количество часов до начала смены для статуса вакансии "Горящая"
 
-    def __init__(self, point=None, bbox=None, time_zone=None) -> None:
+    def __init__(self, point=None, bbox=None, timezone_name='Europe/Moscow') -> None:
         super().__init__()
         self.bbox = bbox
 
         # Выражения для вычисляемых полей в annotate
         self.distance_expression = Distance('shop__location', point) if point else Value(None, IntegerField())
         self.is_hot_expression = BoolOr(  # Аггрегация булевых значений (Если одно из значений true, то результат true)
-            Case(When(Q(  # Смена должна начаться в ближайшие 4 часа
-                shift__time_start__lte=now() + timedelta(hours=self.IS_HOT_HOURS_THRESHOLD),
-                shift__time_start__gt=now()
+            Case(When(Q(  # Смена должна начаться в ближайшие 4 часа #
+                # Используем кастомные lookup ltetimetz и gttimetz для учета часового пояса вакансии (лежит в timezone)
+                shift__time_start__ltetimetz=(datetime.utcnow() + timedelta(hours=self.IS_HOT_HOURS_THRESHOLD)).time(),
+                shift__time_start__gttimetz=datetime.utcnow().time()
             ), then=True), default=False, output_field=BooleanField())
         )
         morning_range = ShiftMapper.work_time_to_time_range(ShiftWorkTime.MORNING.value)
@@ -102,30 +221,42 @@ class VacanciesRepository(MasterRepository):
         evening_range = ShiftMapper.work_time_to_time_range(ShiftWorkTime.EVENING.value)
 
         # Выставляем work_time по времени начала смены - time_start
-        self.work_time_expression = ArrayRemove(ArrayAgg(  # Аггрегация значений в массив
-            Case(
-                When(Q(  # Если начинается утром
-                    shift__time_start__gte=morning_range[0],
-                    shift__time_start__lte=morning_range[1]
-                ),
-                    then=ShiftWorkTime.MORNING
-                ),
-                When(Q(  # Если начинается днем
-                    shift__time_start__gte=day_range[0],
-                    shift__time_start__lte=day_range[1]
-                ),
-                    then=ShiftWorkTime.DAY
-                ),
-                When(Q(  # Если начинается вечером
-                    shift__time_start__gte=evening_range[0],
-                    shift__time_start__lte=evening_range[1]
-                ),
-                    then=ShiftWorkTime.EVENING
-                ),
-                default=None,
-                output_field=IntegerField()
-            )
-        ), None)  # Удаляем из массива null значения
+        self.work_time_expression = ArrayRemove(  # Удаляем из массива null значения с помощью ArrayRemove
+            ArrayAgg(  # Аггрегация значений в массив
+                Case(
+                    When(Q(  # Если начинается утром
+                        shift__time_start__gte=morning_range[0],
+                        shift__time_end__gt=morning_range[0],
+                        shift__time_start__lt=morning_range[1],
+                        shift__time_end__lte=morning_range[1]
+                    ),
+                        then=ShiftWorkTime.MORNING
+                    ),
+                    When(Q(  # Если начинается днем
+                        shift__time_start__gte=day_range[0],
+                        shift__time_end__gt=day_range[0],
+                        shift__time_start__lt=day_range[1],
+                        shift__time_end__lte=day_range[1]
+                    ),
+                        then=ShiftWorkTime.DAY
+                    ),
+                    When(  # Если начинается вечером c 18 до 23:59 (0:00)
+                        Q(  # Если в смене окончание указано НЕ ровно в 0:00:00
+                            shift__time_start__gte=evening_range[0],
+                            shift__time_end__gt=evening_range[0],
+                            shift__time_start__lt=evening_range[1],
+                            shift__time_end__lte=evening_range[1]
+                        ) |
+                        Q(  # Если в смене окончание указано ровно в 0:00:00
+                            shift__time_start__gte=evening_range[0],
+                            shift__time_end=evening_range[2],
+                        ),
+                        then=ShiftWorkTime.EVENING
+                    ),
+                    default=None,
+                    output_field=IntegerField()
+                )
+            ), None)  # Удаляем из массива null значения
 
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(
