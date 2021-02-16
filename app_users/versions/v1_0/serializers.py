@@ -418,7 +418,8 @@ class ProfileSerializer(CRUDSerializer):
             'cities',
             'skills',
 
-            'distributors'
+            'distributors',
+            'position'
         ]
 
         extra_kwargs = {
@@ -605,7 +606,8 @@ class CreateManagerByAdminSerializer(serializers.ModelSerializer):
             'first_name',
             'middle_name',
             'last_name',
-            'distributors'
+            'distributors',
+            'position'
         ]
 
     def validate(self, attrs):

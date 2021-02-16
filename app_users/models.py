@@ -75,6 +75,8 @@ class UserProfile(AbstractUser, BaseModel):
     distributors = models.ManyToManyField(to='app_market.Distributor', blank=True, verbose_name='Торговая сеть',
                                           related_name='distributors')
 
+    position = models.CharField(default=None, null=True, blank=True, max_length=255)
+
     def __str__(self):
         return f'ID:{self.id} - {self.username} {self.first_name} {self.middle_name} {self.middle_name}'
 
