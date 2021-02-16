@@ -418,8 +418,7 @@ class ProfileSerializer(CRUDSerializer):
             'cities',
             'skills',
 
-            'distributors',
-            'position'
+            'distributors'
         ]
 
         extra_kwargs = {
@@ -606,8 +605,7 @@ class CreateManagerByAdminSerializer(serializers.ModelSerializer):
             'first_name',
             'middle_name',
             'last_name',
-            'distributors',
-            'position'
+            'distributors'
         ]
 
     def validate(self, attrs):
@@ -659,3 +657,15 @@ class EditManagerProfileSerializer(serializers.ModelSerializer):
             'middle_name',
             'last_name',
         ]
+
+
+# SERIALIZERS ONLY FOR SWAGGER
+class FirebaseAuthRequestDescriptor(serializers.Serializer):
+    firebase_token = serializers.CharField()
+
+
+# JUST A SERIALIZER FOR RESPONSE GENERATION ON CUSTOM SWAGGER SCHEMA
+class FirebaseAuthResponseDescriptor(serializers.Serializer):
+    refresh_token = serializers.CharField(max_length=255)
+    access_token = serializers.CharField(max_length=255)
+# SERIALIZERS ONLY FOR SWAGGER

@@ -1,17 +1,14 @@
 from uuid import uuid4
 
 from django.contrib.contenttypes.models import ContentType
-from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
-from drf_yasg import openapi
-from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
@@ -25,14 +22,13 @@ from app_users.entities import TokenEntity, SocialEntity
 from app_users.enums import NotificationType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
-from app_users.permissions import IsAdmin
 from app_users.utils import EmailSender
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
     SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
     NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer, \
     CreateManagerByAdminSerializer, UsernameSerializer, UsernameWithPasswordSerializer, \
-    ManagerAuthenticateResponseForSwaggerSerializer, PasswordSerializer, EditManagerProfileSerializer
+    PasswordSerializer, EditManagerProfileSerializer
 from backend.api_views import BaseAPIView
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -542,15 +538,10 @@ def read_notification(request, **kwargs):
     return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
-#############################################################
+# MANAGERS RELATED VIEWS
 class CreateManagerByAdminAPIView(BaseAPIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
     serializer_class = CreateManagerByAdminSerializer
 
-    response_description = openapi.Response('response description', ProfileSerializer)
-
-    @swagger_auto_schema(responses={200: response_description})
-    @transaction.atomic
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request), context={'request': request})
         if serializer.is_valid(raise_exception=True):
@@ -577,9 +568,6 @@ class AuthenticateManagerAPIView(BaseAPIView):
     permission_classes = []
     serializer_class = UsernameWithPasswordSerializer
 
-    response_description = openapi.Response('response description', ManagerAuthenticateResponseForSwaggerSerializer)
-
-    @swagger_auto_schema(responses={200: response_description})
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
@@ -613,10 +601,6 @@ class ChangeManagerPasswordAPIView(BaseAPIView):
 class EditManagerProfileView(BaseAPIView):
     serializer_class = EditManagerProfileSerializer
 
-    response_description = openapi.Response('response description', ProfileSerializer)
-
-    @swagger_auto_schema(responses={200: response_description})
-    @transaction.atomic
     def patch(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
