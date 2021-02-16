@@ -1,3 +1,6 @@
+from datetime import datetime
+
+import pytz
 from rest_framework import serializers
 
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
@@ -246,7 +249,7 @@ class VacanciesSerializer(CRUDSerializer):
 
     # TODO utc offset from cities
     def get_utc_offset(self, vacancy):
-        return 3.0
+        return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
 
     def get_is_hot(self, vacancy):
         return vacancy.is_hot
@@ -281,16 +284,12 @@ class VacanciesSerializer(CRUDSerializer):
 
 
 class VacancySerializer(VacanciesSerializer):
-    shifts = serializers.SerializerMethodField()
     created_at = DateTimeField()
     views_count = serializers.SerializerMethodField()
     utc_offset = serializers.SerializerMethodField()
 
     def get_shop(self, vacancy):
         return ShopInVacancySerializer(vacancy.shop).data
-
-    def get_shifts(self, vacancy):
-        return ShiftsSerializer(vacancy.shift_set.all(), many=True).data
 
     def get_views_count(self, vacancy):
         return 0
@@ -316,7 +315,6 @@ class VacancySerializer(VacanciesSerializer):
             'required_experience',
             'employment',
             'work_time',
-            'shifts',
             'shop',
             'distributor',
         ]

@@ -182,20 +182,19 @@ class VacanciesRepository(MasterRepository):
     # TODO если у вакансии несколько смен, то вакансия постоянно будет горящая?
     IS_HOT_HOURS_THRESHOLD = 4  # Количество часов до начала смены для статуса вакансии "Горящая"
 
-    def __init__(self, point=None, bbox=None, vacancy_timezone_name=None) -> None:
+    def __init__(self, point=None, bbox=None, timezone_name='Europe/Moscow') -> None:
         super().__init__()
         self.bbox = bbox
-        vacancy_timezone_name = 'Europe/Moscow'  # TODO брать из вакансии
 
         # Выражения для вычисляемых полей в annotate
         self.distance_expression = Distance('shop__location', point) if point else Value(None, IntegerField())
         self.is_hot_expression = BoolOr(  # Аггрегация булевых значений (Если одно из значений true, то результат true)
             Case(When(Q(  # Смена должна начаться в ближайшие 4 часа #
                 shift__time_start__lte=localtime(
-                    now() + timedelta(hours=self.IS_HOT_HOURS_THRESHOLD), timezone=timezone(vacancy_timezone_name)
+                    now() + timedelta(hours=self.IS_HOT_HOURS_THRESHOLD), timezone=timezone(timezone_name)
                 ).time(),
                 shift__time_start__gt=localtime(
-                    now(), timezone=timezone(vacancy_timezone_name)
+                    now(), timezone=timezone(timezone_name)
                 ).time()
             ), then=True), default=False, output_field=BooleanField())
         )
@@ -204,41 +203,42 @@ class VacanciesRepository(MasterRepository):
         evening_range = ShiftMapper.work_time_to_time_range(ShiftWorkTime.EVENING.value)
 
         # Выставляем work_time по времени начала смены - time_start
-        self.work_time_expression = ArrayRemove(ArrayAgg(  # Аггрегация значений в массив
-            Case(
-                When(Q(  # Если начинается утром
-                    shift__time_start__gte=morning_range[0],
-                    shift__time_end__gt=morning_range[0],
-                    shift__time_start__lt=morning_range[1],
-                    shift__time_end__lte=morning_range[1]
-                ),
-                    then=ShiftWorkTime.MORNING
-                ),
-                When(Q(  # Если начинается днем
-                    shift__time_start__gte=day_range[0],
-                    shift__time_end__gt=day_range[0],
-                    shift__time_start__lt=day_range[1],
-                    shift__time_end__lte=day_range[1]
-                ),
-                    then=ShiftWorkTime.DAY
-                ),
-                When(  # Если начинается вечером c 18 до 23:59 (0:00)
-                    Q(  # Если в смене окончание указано НЕ ровно в 0:00:00
-                        shift__time_start__gte=evening_range[0],
-                        shift__time_end__gt=evening_range[0],
-                        shift__time_start__lt=evening_range[1],
-                        shift__time_end__lte=evening_range[1]
-                    ) |
-                    Q(  # Если в смене окончание указано ровно в 0:00:00
-                        shift__time_start__gte=evening_range[0],
-                        shift__time_end=evening_range[2],
+        self.work_time_expression = ArrayRemove(  # Удаляем из массива null значения с помощью ArrayRemove
+            ArrayAgg(  # Аггрегация значений в массив
+                Case(
+                    When(Q(  # Если начинается утром
+                        shift__time_start__gte=morning_range[0],
+                        shift__time_end__gt=morning_range[0],
+                        shift__time_start__lt=morning_range[1],
+                        shift__time_end__lte=morning_range[1]
                     ),
-                    then=ShiftWorkTime.EVENING
-                ),
-                default=None,
-                output_field=IntegerField()
-            )
-        ), None)  # Удаляем из массива null значения
+                        then=ShiftWorkTime.MORNING
+                    ),
+                    When(Q(  # Если начинается днем
+                        shift__time_start__gte=day_range[0],
+                        shift__time_end__gt=day_range[0],
+                        shift__time_start__lt=day_range[1],
+                        shift__time_end__lte=day_range[1]
+                    ),
+                        then=ShiftWorkTime.DAY
+                    ),
+                    When(  # Если начинается вечером c 18 до 23:59 (0:00)
+                        Q(  # Если в смене окончание указано НЕ ровно в 0:00:00
+                            shift__time_start__gte=evening_range[0],
+                            shift__time_end__gt=evening_range[0],
+                            shift__time_start__lt=evening_range[1],
+                            shift__time_end__lte=evening_range[1]
+                        ) |
+                        Q(  # Если в смене окончание указано ровно в 0:00:00
+                            shift__time_start__gte=evening_range[0],
+                            shift__time_end=evening_range[2],
+                        ),
+                        then=ShiftWorkTime.EVENING
+                    ),
+                    default=None,
+                    output_field=IntegerField()
+                )
+            ), None)  # Удаляем из массива null значения
 
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(
