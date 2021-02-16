@@ -80,16 +80,37 @@ class ShopsRepository(MasterRepository):
     model = Shop
 
 
-@Field.register_lookup
-class DatesArrayContains(Lookup):
-    # Кастомный lookup для приведения типов
-    lookup_name = 'dacontains'
+class CustomLookupBase(Lookup):
+    # Кастомный lookup
+    lookup_name = 'custom'
+    parametric_string = "%s <= %s AT TIME ZONE timezone"
 
     def as_sql(self, compiler, connection):
         lhs, lhs_params = self.process_lhs(compiler, connection)
         rhs, rhs_params = self.process_rhs(compiler, connection)
         params = lhs_params + rhs_params
-        return '%s::DATE[] @> %s' % (lhs, rhs), params
+        return self.parametric_string % (lhs, rhs), params
+
+
+@Field.register_lookup
+class DatesArrayContains(CustomLookupBase):
+    # Кастомный lookup с приведением типов для массива дат
+    lookup_name = 'dacontains'
+    parametric_string = "%s::DATE[] @> %s"
+
+
+@Field.register_lookup
+class LTETimeTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом часовых поясов
+    lookup_name = 'ltetimetz'
+    parametric_string = "%s <= %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class GTTimeTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом часовых поясов
+    lookup_name = 'gttimetz'
+    parametric_string = "%s > %s AT TIME ZONE timezone"
 
 
 class ShifsRepository(MasterRepository):
@@ -190,12 +211,9 @@ class VacanciesRepository(MasterRepository):
         self.distance_expression = Distance('shop__location', point) if point else Value(None, IntegerField())
         self.is_hot_expression = BoolOr(  # Аггрегация булевых значений (Если одно из значений true, то результат true)
             Case(When(Q(  # Смена должна начаться в ближайшие 4 часа #
-                shift__time_start__lte=localtime(
-                    now() + timedelta(hours=self.IS_HOT_HOURS_THRESHOLD), timezone=timezone(timezone_name)
-                ).time(),
-                shift__time_start__gt=localtime(
-                    now(), timezone=timezone(timezone_name)
-                ).time()
+                # Используем кастомные lookup ltetimetz и gttimetz для учета часового пояса вакансии (лежит в timezone)
+                shift__time_start__ltetimetz=(datetime.utcnow() + timedelta(hours=self.IS_HOT_HOURS_THRESHOLD)).time(),
+                shift__time_start__gttimetz=datetime.utcnow().time()
             ), then=True), default=False, output_field=BooleanField())
         )
         morning_range = ShiftMapper.work_time_to_time_range(ShiftWorkTime.MORNING.value)
