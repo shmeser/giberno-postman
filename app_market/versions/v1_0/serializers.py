@@ -247,7 +247,6 @@ class VacanciesSerializer(CRUDSerializer):
     def get_is_favourite(self, vacancy):
         return False
 
-    # TODO utc offset from cities
     def get_utc_offset(self, vacancy):
         return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
 
@@ -295,8 +294,7 @@ class VacancySerializer(VacanciesSerializer):
         return 0
 
     def get_utc_offset(self, vacancy):
-        # TODO рассчитать сдвиг
-        return 3.0
+        return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
 
     class Meta:
         model = Vacancy
