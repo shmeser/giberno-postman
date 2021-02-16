@@ -128,9 +128,7 @@ class ShifsRepository(MasterRepository):
         ).isoformat()
 
         # Получаем дату окончания диапазона для расписания
-        self.calendar_to = localtime(
-            datetime.utcnow() + timedelta(days=self.SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT)
-        ).isoformat() \
+        self.calendar_to = (datetime.utcnow() + timedelta(days=self.SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT)).isoformat() \
             if calendar_to is None else localtime(calendar_to, timezone=timezone(vacancy_timezone_name)).isoformat()
 
         # Annotation Expressions
