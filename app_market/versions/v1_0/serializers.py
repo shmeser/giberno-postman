@@ -367,3 +367,7 @@ class SkillSerializer(CRUDSerializer):
             'name',
             'description',
         ]
+
+
+class QRCodeSerializer(serializers.Serializer):
+    qr_code = serializers.CharField()

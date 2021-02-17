@@ -3,12 +3,15 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from app_market.enums import ShiftStatus
+from app_market.models import UserShift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
-    DistributorSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
+    DistributorSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer, QRCodeSerializer
 from app_users.permissions import IsManagerOrSecurity
 from backend.api_views import BaseAPIView
+from backend.errors.http_exception import HttpException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_body, chained_get, get_request_headers
@@ -355,6 +358,26 @@ class Skills(CRUDAPIView):
 
 class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
     permission_classes = [IsManagerOrSecurity]
+    serializer_class = QRCodeSerializer
 
     def post(self, request, *args, **kwargs):
-        return Response('ok')
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                user_shift = UserShift.objects.get(qr_code=serializer.validated_data['qr_code'])
+                if request.user.is_security:
+                    return Response(status=status.HTTP_200_OK)
+
+                if request.user.is_manager:
+                    if user_shift.status == ShiftStatus.INITIAL:
+                        user_shift.status = ShiftStatus.STARTED
+                        user_shift.save()
+                        return Response(status=status.HTTP_200_OK)
+                    elif user_shift.status == ShiftStatus.INITIAL:
+                        user_shift.status = ShiftStatus.COMPLETED
+                        user_shift.qr_code = None
+                        user_shift.save()
+                        return Response(status=status.HTTP_200_OK)
+                    # QUESTIONS : 1 USERSHIFT IS FOR 1 TIME USAGE OR?,,,,
+            except UserShift.DoesNotExist:
+                raise HttpException({'detail': 'user shift not found'}, status_code=400)
