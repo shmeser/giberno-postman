@@ -41,3 +41,9 @@ urlpatterns += social_web_auth
 urlpatterns += service_urls
 
 urlpatterns += v1_0_urls
+
+if settings.DEBUG:
+    test_urls = [
+        path('test/', include('app_tests.urls'))
+    ]
+    urlpatterns += test_urls
