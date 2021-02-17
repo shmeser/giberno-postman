@@ -1,5 +1,6 @@
 from django.urls import path
 
+from app_market.versions.v1_0.views import CheckUserShiftByManagerOrSecurityAPIView
 from app_market.views import Vacancies, Professions, suggest_profession, Skills, Distributors, Shops, VacanciesStats, \
     vacancies_suggestions, Shifts
 
@@ -18,6 +19,7 @@ urlpatterns = [
 
     path('market/shifts', Shifts.as_view()),
     path('market/shifts/<int:record_id>', Shifts.as_view()),
+    path('market/shifts/check', CheckUserShiftByManagerOrSecurityAPIView.as_view()),
 
     path('market/professions', Professions.as_view()),
     path('market/professions/suggest', suggest_profession),
