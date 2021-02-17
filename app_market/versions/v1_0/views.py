@@ -378,6 +378,5 @@ class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
                         user_shift.qr_code = None
                         user_shift.save()
                         return Response(status=status.HTTP_200_OK)
-                    # QUESTIONS : 1 USERSHIFT IS FOR 1 TIME USAGE OR?,,,,
             except UserShift.DoesNotExist:
                 raise HttpException({'detail': 'user shift not found'}, status_code=400)
