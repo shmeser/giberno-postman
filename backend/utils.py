@@ -8,6 +8,7 @@ from functools import reduce
 from io import BytesIO
 from json import JSONDecodeError
 from urllib.request import urlopen, HTTPError, Request
+from uuid import UUID
 
 import exiftool
 import pytz
@@ -485,9 +486,6 @@ def remove_file_from_server(relative_url=None):
             CP(fg='yellow', bg='red').bold(e)
 
 
-from uuid import UUID
-
-
 def is_valid_uuid(uuid_to_test, version=4):
     try:
         UUID(uuid_to_test, version=version)
@@ -510,6 +508,11 @@ class ArrayRemove(SimpleFunc):
         Реализация Postgres функции array_remove, которой нет в Django
     """
     function = 'ARRAY_REMOVE'
+
+
+class RruleListOccurences(Func):
+    function = 'rrule_list_occurences'
+    template = "%(function)s(%(expressions)s, 'Zeus')"
 
 
 # ####

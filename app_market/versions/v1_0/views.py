@@ -3,10 +3,14 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from app_market.models import UserShift, Shop, Vacancy, Shift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
+from app_users.enums import AccountType
+from app_users.models import UserProfile
+from backend.api_views import BaseAPIView
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_body, chained_get, get_request_headers
@@ -170,12 +174,11 @@ class Shifts(CRUDAPIView):
     allowed_http_methods = ['get']
 
     filter_params = {
-        # 'from_date': 'from_date',
-        # 'to_date': 'to_date',
         'vacancy': 'vacancy_id',
     }
 
     bool_filter_params = {
+        'active_today': 'active_today',
     }
 
     array_filter_params = {
@@ -197,17 +200,17 @@ class Shifts(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
-        point, bbox, radius = RequestMapper().geo(request)
+        calendar_from, calendar_to = RequestMapper().calendar_range(request)
 
         if record_id:
-            self.serializer_class = VacancySerializer
-            dataset = self.repository_class(point).get_by_id(record_id)
+            self.serializer_class = ShiftsSerializer
+            dataset = self.repository_class(calendar_from, calendar_to).get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class(point, bbox).filter_by_kwargs(
+            dataset = self.repository_class(calendar_from, calendar_to).filter_by_kwargs(
                 kwargs=filters, order_by=order_params
             )
-            # dataset = dataset[pagination.offset:pagination.limit]
+            dataset = dataset[pagination.offset:pagination.limit]
 
             # dataset = self.repository_class.fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
 
@@ -350,3 +353,10 @@ class Skills(CRUDAPIView):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
+    permission_classes = []
+
+    def post(self, request, *args, **kwargs):
+        return Response('ok')

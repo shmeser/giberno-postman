@@ -1,6 +1,7 @@
 import uuid as uuid
 
-from dateutil.rrule import MONTHLY, WEEKLY, DAILY, rrule
+import pytz
+from dateutil.rrule import MONTHLY, WEEKLY, DAILY
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
@@ -15,12 +16,6 @@ from app_users.models import UserProfile
 from backend.models import BaseModel
 from backend.utils import choices
 from giberno import settings
-
-FREQUENCY_CHOICES = [
-    (DAILY, "Ежедневно"),
-    (WEEKLY, "Еженедельно"),
-    (MONTHLY, "Ежемесячно")
-]
 
 REQUIRED_DOCS = [
     (DocumentType.PASSPORT, 'Паспорт'),
@@ -127,6 +122,10 @@ class Vacancy(BaseModel):
     )
 
     radius = models.PositiveIntegerField(null=True, blank=True, verbose_name='Максимальное расстояние от места работы')
+    timezone = models.CharField(
+        max_length=512, null=True, blank=True, default='UTC', choices=[(tz, tz) for tz in pytz.all_timezones],
+        verbose_name='Часовой пояс вакансии'
+    )
 
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
 
@@ -147,6 +146,13 @@ class Vacancy(BaseModel):
         ]
 
 
+FREQUENCY_CHOICES = [
+    (DAILY, "Ежедневно"),
+    (WEEKLY, "Еженедельно"),
+    (MONTHLY, "Ежемесячно")
+]
+
+
 class Shift(BaseModel):
     vacancy = models.ForeignKey(Vacancy, on_delete=models.CASCADE)
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
@@ -160,18 +166,20 @@ class Shift(BaseModel):
     time_start = models.TimeField(null=True, blank=True, verbose_name='Время начала смены')
     time_end = models.TimeField(null=True, blank=True, verbose_name='Время окончания смены')
 
+    # ## RRULE расписание ## #
+    # TODO если понадобятся сезонные смены, то использовать date_start date_end
     date_start = models.DateField(null=True, blank=True, verbose_name='Дата начала расписания')
     date_end = models.DateField(null=True, blank=True, verbose_name='Дата окончания расписания')
 
     frequency = models.PositiveIntegerField(
-        choices=FREQUENCY_CHOICES, null=True, blank=True, verbose_name='Интервал выполнения'
+        choices=FREQUENCY_CHOICES, null=True, blank=True, verbose_name='Интервал выполнения проверки'
     )
-
+    # by_weekday - массив 0-6, где 0-понедельник
     by_weekday = ArrayField(models.PositiveIntegerField(), size=7, blank=True, null=True, verbose_name='Дни недели')
     by_monthday = ArrayField(models.PositiveIntegerField(), size=31, blank=True, null=True, verbose_name='Дни месяца')
     by_month = ArrayField(models.PositiveIntegerField(), size=12, blank=True, null=True, verbose_name='Месяцы')
 
-    generated_active_dates = ArrayField(models.DateField(), blank=True, null=True, verbose_name='Даты активности смены')
+    # ## RRULE ## #
 
     def __str__(self):
         return f'{self.id}'

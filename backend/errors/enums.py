@@ -23,6 +23,7 @@ class ErrorsCodes(EnumM):
     DELETING_REG_SOCIAL = 'Нельзя отвязать соцсеть, через которую был создан аккаунт'
 
     INVALID_COORDS = 'Некорректные географические координаты'
+    INVALID_DATE_RANGE = 'Некорректный диапазон дат'
 
 
 class SocketErrors(IntEnumM):

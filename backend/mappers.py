@@ -8,7 +8,7 @@ from app_media.mappers import MediaMapper
 from backend.entity import Pagination, Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
-from backend.utils import timestamp_to_datetime as t2d, CP, chained_get
+from backend.utils import timestamp_to_datetime as t2d, CP, chained_get, timestamp_to_datetime
 from giberno import settings
 
 
@@ -184,4 +184,27 @@ class RequestMapper:
             CP(fg='red').bold(e)
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INVALID_COORDS)),
+            ])
+
+    @classmethod
+    def calendar_range(cls, request, raise_exception=False):
+        try:
+            query_params = underscoreize(request.query_params)
+
+            _range_from_ts = chained_get(query_params, 'calendar_from')
+            _range_to_ts = chained_get(query_params, 'calendar_to')
+
+            if _range_from_ts is not None and _range_to_ts is not None:
+                range_from = timestamp_to_datetime(float(_range_from_ts))
+                range_to = timestamp_to_datetime(float(_range_to_ts))
+                return range_from, range_to
+            if raise_exception:
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),
+                ])
+            return None, None
+        except Exception as e:
+            CP(fg='red').bold(e)
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),
             ])

@@ -10,7 +10,7 @@ services:
     networks:
       - giberno_stage
   db:
-    image: postgis/postgis:13-3.0
+    image: shmeser/postgis-plpython3:latest
     restart: always
     networks:
       - giberno_stage
