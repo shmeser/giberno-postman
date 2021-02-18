@@ -199,7 +199,7 @@ class Shifts(CRUDAPIView):
         calendar_from, calendar_to = RequestMapper().calendar_range(request)
 
         if record_id:
-            self.serializer_class = VacancySerializer
+            self.serializer_class = ShiftsSerializer
             dataset = self.repository_class(calendar_from, calendar_to).get_by_id(record_id)
         else:
             self.many = True
@@ -207,8 +207,6 @@ class Shifts(CRUDAPIView):
                 kwargs=filters, order_by=order_params
             )
             dataset = dataset[pagination.offset:pagination.limit]
-
-            # dataset = self.repository_class.fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,

@@ -3,14 +3,12 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('app_geo', '0009_city_population'),
+        ('app_geo', '0010_custom_func_plpython'),
     ]
 
     operations = [
         migrations.RunSQL(
             '''
-            CREATE EXTENSION IF NOT EXISTS plpython3u;
-
             CREATE OR REPLACE FUNCTION rrule_list_occurences(
                 frequency INTEGER, 
                 by_month INTEGER[],
@@ -23,6 +21,9 @@ class Migration(migrations.Migration):
             $$
             from dateutil.rrule import rrule
             from dateutil.parser import parse
+            
+            if frequency is None:
+                return []
 
             kwargs = {}
             if by_weekday:

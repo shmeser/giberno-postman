@@ -94,6 +94,9 @@ $$
 from dateutil.rrule import rrule
 from dateutil.parser import parse
 
+if frequency is None:
+    return []
+
 kwargs = {}
 if by_weekday:
 	kwargs['byweekday']=by_weekday 

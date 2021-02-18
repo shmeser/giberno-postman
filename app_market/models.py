@@ -1,5 +1,6 @@
 import uuid as uuid
 
+import pytz
 from dateutil.rrule import MONTHLY, WEEKLY, DAILY
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
@@ -121,6 +122,10 @@ class Vacancy(BaseModel):
     )
 
     radius = models.PositiveIntegerField(null=True, blank=True, verbose_name='Максимальное расстояние от места работы')
+    timezone = models.CharField(
+        max_length=512, null=True, blank=True, default='UTC', choices=[(tz, tz) for tz in pytz.all_timezones],
+        verbose_name='Часовой пояс вакансии'
+    )
 
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
 
@@ -161,10 +166,11 @@ class Shift(BaseModel):
     time_start = models.TimeField(null=True, blank=True, verbose_name='Время начала смены')
     time_end = models.TimeField(null=True, blank=True, verbose_name='Время окончания смены')
 
+    # ## RRULE расписание ## #
+    # TODO если понадобятся сезонные смены, то использовать date_start date_end
     date_start = models.DateField(null=True, blank=True, verbose_name='Дата начала расписания')
     date_end = models.DateField(null=True, blank=True, verbose_name='Дата окончания расписания')
 
-    # ## RRULE расписание ## #
     frequency = models.PositiveIntegerField(
         choices=FREQUENCY_CHOICES, null=True, blank=True, verbose_name='Интервал выполнения проверки'
     )
