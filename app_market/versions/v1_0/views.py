@@ -8,7 +8,7 @@ from app_market.models import UserShift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
-    DistributorSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer, QRCodeSerializer
+    DistributorSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer, QRCodeSerializer, UserShiftSerializer
 from app_users.permissions import IsManagerOrSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.http_exception import HttpException
@@ -361,22 +361,21 @@ class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
     serializer_class = QRCodeSerializer
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             try:
                 user_shift = UserShift.objects.get(qr_code=serializer.validated_data['qr_code'])
                 if request.user.is_security:
-                    return Response(status=status.HTTP_200_OK)
-
+                    return Response(UserShiftSerializer(instance=user_shift).data, status=status.HTTP_200_OK)
                 if request.user.is_manager:
                     if user_shift.status == ShiftStatus.INITIAL:
                         user_shift.status = ShiftStatus.STARTED
                         user_shift.save()
-                        return Response(status=status.HTTP_200_OK)
-                    elif user_shift.status == ShiftStatus.INITIAL:
+                        return Response(UserShiftSerializer(instance=user_shift).data, status=status.HTTP_200_OK)
+                    elif user_shift.status == ShiftStatus.STARTED:
                         user_shift.status = ShiftStatus.COMPLETED
                         user_shift.qr_code = None
                         user_shift.save()
-                        return Response(status=status.HTTP_200_OK)
+                        return Response(UserShiftSerializer(instance=user_shift).data, status=status.HTTP_200_OK)
             except UserShift.DoesNotExist:
-                raise HttpException({'detail': 'user shift not found'}, status_code=400)
+                raise HttpException({'detail': 'User shift not found'}, status_code=400)
