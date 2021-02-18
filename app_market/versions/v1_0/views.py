@@ -208,8 +208,6 @@ class Shifts(CRUDAPIView):
             )
             dataset = dataset[pagination.offset:pagination.limit]
 
-            # dataset = self.repository_class.fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
-
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,
             'headers': get_request_headers(request),
