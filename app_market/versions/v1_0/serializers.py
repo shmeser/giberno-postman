@@ -6,10 +6,8 @@ from rest_framework import serializers
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
-from app_media.enums import MediaType, MediaFormat
-from app_media.versions.v1_0.repositories import MediaRepository
-from app_media.versions.v1_0.serializers import MediaSerializer
-from backend.fields import DateTimeField
+from app_media.enums import MediaType
+from backend.fields import DateTimeField, ImageField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp
 
@@ -17,8 +15,9 @@ from backend.utils import chained_get, datetime_to_timestamp
 class DistributorSerializer(CRUDSerializer):
     repository = DistributorsRepository
 
-    logo = serializers.SerializerMethodField()
-    banner = serializers.SerializerMethodField()
+    logo = ImageField(field_name='logo', media_type=MediaType.LOGO.value)
+    banner = ImageField(field_name='banner', media_type=MediaType.BANNER.value)
+
     categories = serializers.SerializerMethodField()
     vacancies_count = serializers.SerializerMethodField()
     rating = serializers.SerializerMethodField()
@@ -36,24 +35,6 @@ class DistributorSerializer(CRUDSerializer):
 
     def get_vacancies_count(self, prefetched_data):
         return chained_get(prefetched_data, 'vacancies_count')
-
-    def get_logo(self, prefetched_data):
-        file = MediaRepository.get_related_media_file(
-            self.instance, prefetched_data, MediaType.LOGO.value, MediaFormat.IMAGE.value
-        )
-
-        if file:
-            return MediaSerializer(file, many=False).data
-        return None
-
-    def get_banner(self, prefetched_data):
-        file = MediaRepository.get_related_media_file(
-            self.instance, prefetched_data, MediaType.BANNER.value, MediaFormat.IMAGE.value
-        )
-
-        if file:
-            return MediaSerializer(file, many=False).data
-        return None
 
     def get_shops(self, instance):
         return []
@@ -114,8 +95,11 @@ class ShopSerializer(CRUDSerializer):
 
 class ShopInVacancySerializer(CRUDSerializer):
     """ Вложенная модель магазина в вакансии (на экране просмотра одной вакансии) """
+
+    logo = ImageField(field_name='logo', media_type=MediaType.LOGO.value)
+    map = ImageField(field_name='map', media_type=MediaType.MAP.value)
+
     walk_time = serializers.SerializerMethodField()
-    logo = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
     rating = serializers.SerializerMethodField()
@@ -144,15 +128,6 @@ class ShopInVacancySerializer(CRUDSerializer):
             return shop.location.y
         return None
 
-    def get_logo(self, prefetched_data):
-        file = MediaRepository.get_related_media_file(
-            self.instance, prefetched_data, MediaType.LOGO.value, MediaFormat.IMAGE.value
-        )
-
-        if file:
-            return MediaSerializer(file, many=False).data
-        return None
-
     class Meta:
         model = Shop
         fields = [
@@ -166,28 +141,20 @@ class ShopInVacancySerializer(CRUDSerializer):
             'lon',
             'lat',
             'logo',
+            'map',
         ]
 
 
 class ShopsInVacanciesSerializer(CRUDSerializer):
     """ Вложенная модель магазина в списке вакансий """
     walk_time = serializers.SerializerMethodField()
-    logo = serializers.SerializerMethodField()
+    logo = ImageField(field_name='logo', media_type=MediaType.LOGO.value)
 
     def get_walk_time(self, shop):
         if chained_get(shop, 'distance'):
             # Принимаем среднюю скорость пешеходов за 3.6км/ч = 1м/с
             # Выводим расстояние в метрах как количество секунд
             return int(shop.distance.m)
-        return None
-
-    def get_logo(self, prefetched_data):
-        file = MediaRepository.get_related_media_file(
-            self.instance, prefetched_data, MediaType.LOGO.value, MediaFormat.IMAGE.value
-        )
-
-        if file:
-            return MediaSerializer(file, many=False).data
         return None
 
     class Meta:
@@ -203,26 +170,8 @@ class ShopsInVacanciesSerializer(CRUDSerializer):
 
 
 class DistributorInVacancySerializer(serializers.ModelSerializer):
-    logo = serializers.SerializerMethodField()
-    banner = serializers.SerializerMethodField()
-
-    def get_logo(self, prefetched_data):
-        file = MediaRepository.get_related_media_file(
-            self.instance, prefetched_data, MediaType.LOGO.value, MediaFormat.IMAGE.value
-        )
-
-        if file:
-            return MediaSerializer(file, many=False).data
-        return None
-
-    def get_banner(self, prefetched_data):
-        file = MediaRepository.get_related_media_file(
-            self.instance, prefetched_data, MediaType.BANNER.value, MediaFormat.IMAGE.value
-        )
-
-        if file:
-            return MediaSerializer(file, many=False).data
-        return None
+    logo = ImageField(field_name='logo', media_type=MediaType.LOGO.value)
+    banner = ImageField(field_name='banner', media_type=MediaType.BANNER.value)
 
     class Meta:
         model = Distributor
@@ -284,6 +233,7 @@ class VacanciesSerializer(CRUDSerializer):
 
 class VacancySerializer(VacanciesSerializer):
     created_at = DateTimeField()
+    banner = ImageField(field_name='banner', media_type=MediaType.BANNER.value)
     views_count = serializers.SerializerMethodField()
     utc_offset = serializers.SerializerMethodField()
 
@@ -313,6 +263,7 @@ class VacancySerializer(VacanciesSerializer):
             'required_experience',
             'employment',
             'work_time',
+            'banner',
             'shop',
             'distributor',
         ]
