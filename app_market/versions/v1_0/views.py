@@ -107,6 +107,7 @@ class Vacancies(CRUDAPIView):
         'search': 'title__istartswith',
         'country': 'city__country__id',
         'city': 'city_id',
+        'shop': 'shop_id',
         'price': 'price__gte',
         'radius': 'distance__lte',
     }
