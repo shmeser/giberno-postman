@@ -2,9 +2,8 @@ from rest_framework import serializers
 
 from app_geo.models import Language, Country, City, Region
 from app_geo.versions.v1_0.repositories import LanguagesRepository, RegionsRepository
-from app_media.enums import MediaType, MediaFormat
-from app_media.versions.v1_0.repositories import MediaRepository
-from app_media.versions.v1_0.serializers import MediaSerializer
+from app_media.enums import MediaType
+from backend.fields import ImageField
 from backend.mixins import CRUDSerializer
 
 DEFAULT_LANGUAGE = 'name:ru'
@@ -46,20 +45,11 @@ class LanguageSerializer(CRUDSerializer):
 
 class CountrySerializer(CRUDSerializer):
     name = serializers.SerializerMethodField()
-    flag = serializers.SerializerMethodField()
+    flag = ImageField(field_name='flag', media_type=MediaType.FLAG.value, check_platform=True)
 
     def get_name(self, country: Country):
         # TODO для локализации выводить соответствующее название
         return country.names.get(DEFAULT_LANGUAGE, None)
-
-    def get_flag(self, prefetched_data):
-        file = MediaRepository.get_related_media_file(
-            self.instance, prefetched_data, MediaType.FLAG.value, MediaFormat.IMAGE.value, mime_type=self.mime_type
-        )
-
-        if file:
-            return MediaSerializer(file, many=False).data
-        return None
 
     class Meta:
         model = Country

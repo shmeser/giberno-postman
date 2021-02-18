@@ -20,6 +20,7 @@ class MediaType(IntEnumM):
     LOGO = 7
     FLAG = 8
     BANNER = 9
+    MAP = 10
 
 
 class FileDownloadStatus(IntEnumM):
