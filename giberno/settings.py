@@ -114,6 +114,10 @@ CELERY_BEAT_SCHEDULE = {
     #     'task': 'subscriptions.tasks.check_subscription',
     #     'schedule': crontab(hour='*', minute='0', day_of_week='*')
     # },
+    'set_qr_code_to_user_shifts': {
+        'task': 'app_market.tasks.set_qr_code_to_user_shifts',
+        'schedule': crontab(minute='*')
+    }
 }
 
 SIMPLE_JWT = {
