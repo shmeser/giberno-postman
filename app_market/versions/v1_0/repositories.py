@@ -118,9 +118,9 @@ class ShifsRepository(MasterRepository):
 
     SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT = 10
 
-    def __init__(self, calendar_from=None, calendar_to=None, vacancy_timezone_name='UTC') -> None:
+    def __init__(self, calendar_from=None, calendar_to=None, vacancy_timezone_name='Europe/Moscow') -> None:
         super().__init__()
-        vacancy_timezone_name = 'Europe/Moscow'  # TODO брать из вакансии
+        # TODO брать из вакансии vacancy_timezone_name
 
         # Получаем дату начала диапазона для расписани
         self.calendar_from = datetime.utcnow().isoformat() if calendar_from is None else localtime(
