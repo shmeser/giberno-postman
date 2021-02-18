@@ -193,7 +193,8 @@ class VacanciesSerializer(CRUDSerializer):
     distributor = serializers.SerializerMethodField()
     utc_offset = serializers.SerializerMethodField()
 
-    def get_is_favourite(self, vacancy):
+    def get_is_favourite(self, prefetched_data):
+        # TODO брать из app_feedback из модели Like
         return False
 
     def get_utc_offset(self, vacancy):
