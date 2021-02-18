@@ -2,7 +2,9 @@ from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from app_market.versions.v1_0.mappers import ReviewsValidator
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
@@ -247,6 +249,28 @@ def vacancies_suggestions(request):
             paginator=pagination
         )
     return Response(dataset, status=status.HTTP_200_OK)
+
+
+@api_view(['post'])
+def review_vacancy(request, **kwargs):
+    body = get_request_headers(request)
+    text, value = ReviewsValidator.text_and_value(body)
+    VacanciesRepository().make_review(
+        record_id=kwargs.get('record_id'),
+        text=text,
+        value=value
+    )
+    return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class LikeVacancy(APIView):
+    def post(self, request, **kwargs):
+        # TODO
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+    def delete(self, request, **kwargs):
+        # TODO
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 class Professions(CRUDAPIView):

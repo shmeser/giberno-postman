@@ -4,7 +4,7 @@ from django.contrib.postgres.fields import ArrayField, JSONField, HStoreField
 from django.db.models import UUIDField
 from django.forms import TextInput, Textarea
 
-from app_feedback.models import Comment, Rate, Like
+from app_feedback.models import Review, Like
 
 
 class FormattedAdmin(admin.OSMGeoAdmin):
@@ -18,22 +18,14 @@ class FormattedAdmin(admin.OSMGeoAdmin):
     }
 
 
-@admin.register(Comment)
-class CommentAdmin(FormattedAdmin):
+@admin.register(Review)
+class ReviewAdmin(FormattedAdmin):
     list_display = [
-        'text', 'uuid', 'created_at', 'owner_id', 'owner_ct', 'owner_ct_name', 'target_id', 'target_ct',
+        'text', 'value', 'uuid', 'created_at', 'owner_id', 'owner_ct', 'owner_ct_name', 'target_id', 'target_ct',
         'target_ct_name'
     ]
     list_filter = ['owner_ct_name', 'target_ct_name', 'deleted']
     readonly_fields = ['uuid']
-
-
-@admin.register(Rate)
-class RateAdmin(FormattedAdmin):
-    list_display = [
-        'value', 'created_at', 'owner_id', 'owner_ct', 'owner_ct_name', 'target_id', 'target_ct', 'target_ct_name'
-    ]
-    list_filter = ['owner_ct_name', 'target_ct_name', 'deleted']
 
 
 @admin.register(Like)

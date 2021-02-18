@@ -1,7 +1,7 @@
 from django.urls import path
 
 from app_market.views import Vacancies, Professions, suggest_profession, Skills, Distributors, Shops, VacanciesStats, \
-    vacancies_suggestions, Shifts
+    vacancies_suggestions, Shifts, review_vacancy, LikeVacancy
 
 urlpatterns = [
     path('market/distributors', Distributors.as_view()),
@@ -12,6 +12,8 @@ urlpatterns = [
 
     path('market/vacancies', Vacancies.as_view()),
     path('market/vacancies/<int:record_id>', Vacancies.as_view()),
+    path('market/vacancies/<int:record_id>/review', review_vacancy),
+    path('market/vacancies/<int:record_id>/like', LikeVacancy.as_view()),
 
     path('market/vacancies/stats', VacanciesStats.as_view()),
     path('market/vacancies/suggestions', vacancies_suggestions),
