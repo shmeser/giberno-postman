@@ -7,6 +7,7 @@ from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 
+from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
     ShiftStatus
@@ -46,7 +47,12 @@ class Distributor(BaseModel):
 
     categories = models.ManyToManyField(Category, through='DistributorCategory', related_name='categories')
 
+    rating = models.FloatField(default=0, verbose_name='Рейтинг торговой сети')
+    rates_count = models.PositiveIntegerField(default=0, verbose_name='Количество оценок торговой сети')
+
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
+    reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
 
     def __str__(self):
         return f'{self.title}'
@@ -86,7 +92,11 @@ class Shop(BaseModel):
     discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
     discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
 
+    rating = models.FloatField(default=0, verbose_name='Рейтинг магазина')
+    rates_count = models.PositiveIntegerField(default=0, verbose_name='Количество оценок магазина')
+
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+    reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
 
     def __str__(self):
         return f'{self.title}'
@@ -127,7 +137,14 @@ class Vacancy(BaseModel):
         verbose_name='Часовой пояс вакансии'
     )
 
+    rating = models.FloatField(default=0, verbose_name='Рейтинг')
+    rates_count = models.PositiveIntegerField(default=0, verbose_name='Количество оценок')
+    views_count = models.PositiveIntegerField(default=0, verbose_name='Количество просмотров')
+
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
+
+    reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
+    likes = GenericRelation(Like, object_id_field='target_id', content_type_field='target_ct')
 
     def __str__(self):
         return f'{self.title}'

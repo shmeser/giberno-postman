@@ -226,6 +226,24 @@ class ProfileRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
 
+    def get_by_username(self, username):
+        try:
+            return self.model.objects.get(username=username)
+        except self.model.DoesNotExist:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Логин введен неверно'
+            )
+
+    def get_by_username_and_password(self, validated_data):
+        user = self.get_by_username(username=validated_data['username'])
+        if not user.check_password(validated_data['password']):
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Пароль введен неверно'
+            )
+        return user
+
 
 class NotificationsRepository(MasterRepository):
     model = Notification

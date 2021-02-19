@@ -5,13 +5,13 @@ from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
-from django.db.models import Field, DateField
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, DateTimeField, \
-    Lookup
+    Lookup, Field, DateField, Sum, FloatField, ExpressionWrapper, Subquery, OuterRef
 from django.db.models.functions import Cast
 from django.utils.timezone import now, localtime
 from pytz import timezone
 
+from app_feedback.models import Review
 from app_market.enums import ShiftWorkTime
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
 from app_market.versions.v1_0.mappers import ShiftMapper
@@ -78,6 +78,27 @@ class DistributorsRepository(MasterRepository):
 
 class ShopsRepository(MasterRepository):
     model = Shop
+
+    @staticmethod
+    def fast_related_loading(queryset, point=None):
+        """ Подгрузка зависимостей
+            Media
+        """
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа для магазинов
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
+                    owner_ct_id=ContentType.objects.get_for_model(Shop).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+
+            )
+        )
+
+        return queryset
 
 
 class CustomLookupBase(Lookup):
@@ -200,9 +221,13 @@ class VacanciesRepository(MasterRepository):
 
     # TODO если у вакансии несколько смен, то вакансия постоянно будет горящая?
     IS_HOT_HOURS_THRESHOLD = 4  # Количество часов до начала смены для статуса вакансии "Горящая"
+    TRIGRAM_SIMILARITY_MIN_RATE = 0.3  # Мин коэффициент сходства по pg_trigram
+    SIMILAR_VACANCIES_MAX_DISTANCE_M = 50000  # Максимальное расстояние для похожих вакансий
 
-    def __init__(self, point=None, bbox=None, timezone_name='Europe/Moscow') -> None:
+    def __init__(self, point=None, bbox=None, me=None, timezone_name='Europe/Moscow') -> None:
         super().__init__()
+
+        self.me = me
         self.bbox = bbox
 
         # Выражения для вычисляемых полей в annotate
@@ -371,6 +396,85 @@ class VacanciesRepository(MasterRepository):
         ).aggregate(all_prices=ArrayAgg('price', ordering='price'), all_counts=ArrayAgg('count', ordering='price'))
 
         return {**count, **prices}
+
+    def make_review(self, record_id, text, value):
+
+        # TODO добавить загрузку attachments
+
+        owner_content_type = ContentType.objects.get_for_model(self.me)
+        owner_ct_id = owner_content_type.id
+        owner_ct_name = owner_content_type.model
+        owner_id = self.me.id
+
+        target_content_type = ContentType.objects.get_for_model(self.model)
+        target_ct_id = target_content_type.id
+        target_ct_name = target_content_type.model
+        target_id = record_id
+
+        if not Review.objects.filter(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                deleted=False
+        ).exists():
+            Review.objects.create(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                owner_ct_name=owner_ct_name,
+
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                target_ct_name=target_ct_name,
+
+                value=value,
+                text=text
+            )
+
+            # Пересчитываем количество оценок и рейтинг у вакансии
+            Vacancy.objects.filter(pk=record_id).update(
+                # в update нельзя использовать результаты annotate
+                # используем annotate в Subquery
+                rating=Subquery(
+                    Vacancy.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rating=ExpressionWrapper(
+                            Sum('reviews__value') / Count('reviews'),
+                            output_field=FloatField()
+                        )
+                    ).values('calculated_rating')[:1]
+                ),
+                rates_count=Subquery(
+                    Vacancy.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rates_count=Count('reviews'),
+                    ).values('calculated_rates_count')[:1]
+                ),
+                updated_at=now()
+            )
+
+    def get_similar(self, record_id, pagination=None):
+        current_vacancy = self.model.objects.filter(pk=record_id, deleted=False).select_related('shop').first()
+        if current_vacancy:
+            result = self.base_query.annotate(
+                similarity=TrigramSimilarity('title', current_vacancy.title),
+                distance_from_current=Distance('shop__location', current_vacancy.shop.location)
+                if current_vacancy.shop.location else Value(None, IntegerField())
+            ).filter(
+                deleted=False,
+                similarity__gte=self.TRIGRAM_SIMILARITY_MIN_RATE,  # Минимальное сходство
+                distance_from_current__lte=self.SIMILAR_VACANCIES_MAX_DISTANCE_M  # Расстояние от текущей вакансии
+            ) \
+                .exclude(pk=record_id) \
+                .order_by('distance_from_current')
+
+            if pagination:
+                return result[pagination.offset:pagination.limit]
+            return result
+
+        return []
 
 
 class ProfessionsRepository(MasterRepository):

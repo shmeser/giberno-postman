@@ -2,11 +2,19 @@ from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from app_market.enums import ShiftStatus
+from app_market.models import UserShift
+from app_market.versions.v1_0.mappers import ReviewsValidator
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
+from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
+from app_users.permissions import IsManagerOrSecurity
+from backend.api_views import BaseAPIView
+from backend.errors.http_exception import HttpException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_body, chained_get, get_request_headers
@@ -82,14 +90,19 @@ class Shops(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
+        point, bbox, radius = RequestMapper().geo(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
         else:
+            self.many = True
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            self.many = True
+
+            dataset = dataset[pagination.offset:pagination.limit]
+
+            dataset = self.repository_class.fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,
@@ -107,6 +120,7 @@ class Vacancies(CRUDAPIView):
         'search': 'title__istartswith',
         'country': 'city__country__id',
         'city': 'city_id',
+        'shop': 'shop_id',
         'price': 'price__gte',
         'radius': 'distance__lte',
     }
@@ -249,6 +263,40 @@ def vacancies_suggestions(request):
     return Response(dataset, status=status.HTTP_200_OK)
 
 
+@api_view(['GET'])
+def similar_vacancies(request, **kwargs):
+    pagination = RequestMapper.pagination(request)
+    point, bbox, radius = RequestMapper().geo(request)
+    vacancies = VacanciesRepository(point=point, bbox=bbox, me=request.user).get_similar(
+        kwargs.get('record_id'), pagination
+    )
+
+    serializer = VacanciesSerializer(vacancies, many=True)
+    return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def review_vacancy(request, **kwargs):
+    body = get_request_body(request)
+    text, value = ReviewsValidator.text_and_value(body)
+    VacanciesRepository(me=request.user).make_review(
+        record_id=kwargs.get('record_id'),
+        text=text,
+        value=value
+    )
+    return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class LikeVacancy(APIView):
+    def post(self, request, **kwargs):
+        # TODO
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+    def delete(self, request, **kwargs):
+        # TODO
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
 class Professions(CRUDAPIView):
     serializer_class = ProfessionSerializer
     repository_class = ProfessionsRepository
@@ -347,3 +395,28 @@ class Skills(CRUDAPIView):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
+    permission_classes = [IsManagerOrSecurity]
+    serializer_class = QRCodeSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            try:
+                user_shift = UserShift.objects.get(qr_code=serializer.validated_data['qr_code'])
+                if request.user.is_security:
+                    return Response(UserShiftSerializer(instance=user_shift).data, status=status.HTTP_200_OK)
+                if request.user.is_manager:
+                    if user_shift.status == ShiftStatus.INITIAL:
+                        user_shift.status = ShiftStatus.STARTED
+                        user_shift.save()
+                        return Response(UserShiftSerializer(instance=user_shift).data, status=status.HTTP_200_OK)
+                    elif user_shift.status == ShiftStatus.STARTED:
+                        user_shift.status = ShiftStatus.COMPLETED
+                        user_shift.qr_code = None
+                        user_shift.save()
+                        return Response(UserShiftSerializer(instance=user_shift).data, status=status.HTTP_200_OK)
+            except UserShift.DoesNotExist:
+                raise HttpException({'detail': 'User shift not found'}, status_code=400)

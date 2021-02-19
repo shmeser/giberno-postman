@@ -7,7 +7,6 @@ from django.contrib.postgres.fields import ArrayField
 from django.db.models import JSONField
 
 from app_geo.models import Language, Country, City
-from app_media.enums import MediaType
 from app_media.models import MediaModel
 from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction, \
     Education, DocumentType, NotificationIcon
@@ -71,6 +70,18 @@ class UserProfile(AbstractUser, BaseModel):
 
     education = models.PositiveIntegerField(choices=choices(Education), null=True, blank=True,
                                             verbose_name='Образование')
+
+    # использовано в формате app_label.ModelName из - за циркулярного импорта
+    distributors = models.ManyToManyField(to='app_market.Distributor', blank=True, verbose_name='Торговая сеть',
+                                          related_name='distributors')
+
+    @property
+    def is_manager(self):
+        return self.account_type == AccountType.MANAGER
+
+    @property
+    def is_security(self):
+        return self.account_type == AccountType.SECURITY
 
     def __str__(self):
         return f'ID:{self.id} - {self.username} {self.first_name} {self.middle_name} {self.middle_name}'
