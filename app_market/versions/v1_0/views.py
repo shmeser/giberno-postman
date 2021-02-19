@@ -270,13 +270,12 @@ def review_vacancy(request, **kwargs):
     return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
-class LikeVacancy(APIView):
-    def post(self, request, **kwargs):
-        # TODO
-        return Response(None, status=status.HTTP_204_NO_CONTENT)
+class ToggleLikeVacancy(APIView):
+    repository = VacanciesRepository
 
-    def delete(self, request, **kwargs):
-        # TODO
+    def post(self, request, **kwargs):
+        vacancy = self.repository().get_by_id(kwargs['record_id'])
+        self.repository(me=request.user).toggle_like(vacancy=vacancy)
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 

@@ -82,18 +82,11 @@ def review_vacancy(request, **kwargs):
     raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class LikeVacancy(APIView):
+class ToggleLikeVacancy(APIView):
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
-            return v1_0.LikeVacancy().post(request, **kwargs)
-
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
-
-    @staticmethod
-    def delete(request, **kwargs):
-        if request.version in ['market_1_0']:
-            return v1_0.LikeVacancy().delete(request, **kwargs)
+            return v1_0.ToggleLikeVacancy().post(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 

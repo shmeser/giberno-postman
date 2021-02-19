@@ -11,7 +11,7 @@ from django.db.models.functions import Cast
 from django.utils.timezone import now, localtime
 from pytz import timezone
 
-from app_feedback.models import Review
+from app_feedback.models import Review, Like
 from app_market.enums import ShiftWorkTime
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
 from app_market.versions.v1_0.mappers import ShiftMapper
@@ -431,6 +431,23 @@ class VacanciesRepository(MasterRepository):
                 ),
                 updated_at=now()
             )
+
+    def toggle_like(self, vacancy):
+        owner_ct = ContentType.objects.get_for_model(self.me)
+        target_ct = ContentType.objects.get_for_model(vacancy)
+        data = {
+            'owner_ct_id': owner_ct.id,
+            'owner_ct_name': owner_ct.model,
+            'owner_id': self.me.id,
+            'target_ct_id': target_ct.id,
+            'target_ct_name': target_ct.model,
+            'target_id': vacancy.id
+        }
+
+        like, crated = Like.objects.get_or_create(**data)
+        if not crated:
+            like.deleted = not like.deleted
+            like.save()
 
 
 class ProfessionsRepository(MasterRepository):
