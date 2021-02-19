@@ -31,3 +31,6 @@ class GenericSourceTargetBase(BaseModel):
         ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='target_ct'
     )
     target = GenericForeignKey(ct_field='target_ct', fk_field='target_id')
+
+    class Meta:
+        abstract = True

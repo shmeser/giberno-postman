@@ -12,6 +12,7 @@ from django.db.models.functions import Cast
 from django.utils.timezone import now, localtime
 from pytz import timezone
 
+from app_feedback.models import Review
 from app_market.enums import ShiftWorkTime
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
 from app_market.versions.v1_0.mappers import ShiftMapper
@@ -201,8 +202,10 @@ class VacanciesRepository(MasterRepository):
     # TODO если у вакансии несколько смен, то вакансия постоянно будет горящая?
     IS_HOT_HOURS_THRESHOLD = 4  # Количество часов до начала смены для статуса вакансии "Горящая"
 
-    def __init__(self, point=None, bbox=None, timezone_name='Europe/Moscow') -> None:
+    def __init__(self, point=None, bbox=None, me=None, timezone_name='Europe/Moscow') -> None:
         super().__init__()
+
+        self.me = me
         self.bbox = bbox
 
         # Выражения для вычисляемых полей в annotate
@@ -371,6 +374,45 @@ class VacanciesRepository(MasterRepository):
         ).aggregate(all_prices=ArrayAgg('price', ordering='price'), all_counts=ArrayAgg('count', ordering='price'))
 
         return {**count, **prices}
+
+    def make_review(self, record_id, text, value):
+
+        # TODO добавить загрузку attachments
+
+        owner_content_type = ContentType.objects.get_for_model(self.me)
+        owner_ct_id = owner_content_type.id
+        owner_ct_name = owner_content_type.model
+        owner_id = self.me.id
+
+        target_content_type = ContentType.objects.get_for_model(self.model)
+        target_ct_id = target_content_type.id
+        target_ct_name = target_content_type.model
+        target_id = record_id
+
+        if not Review.objects.filter(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                deleted=False
+        ).exists():
+            Review.objects.create(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                owner_ct_name=owner_ct_name,
+
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                target_ct_name=target_ct_name,
+
+                value=value,
+                text=text
+            )
+
+            # Пересчитать количество оценок и рейтинг у вакансии
+            Vacancy.objects.filter(pk=record_id).update(
+
+            )
 
 
 class ProfessionsRepository(MasterRepository):

@@ -260,9 +260,9 @@ def vacancies_suggestions(request):
 
 @api_view(['post'])
 def review_vacancy(request, **kwargs):
-    body = get_request_headers(request)
+    body = get_request_body(request)
     text, value = ReviewsValidator.text_and_value(body)
-    VacanciesRepository().make_review(
+    VacanciesRepository(me=request.user).make_review(
         record_id=kwargs.get('record_id'),
         text=text,
         value=value

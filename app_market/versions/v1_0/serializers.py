@@ -21,8 +21,6 @@ class DistributorSerializer(CRUDSerializer):
 
     categories = serializers.SerializerMethodField()
     vacancies_count = serializers.SerializerMethodField()
-    rating = serializers.SerializerMethodField()
-    rates_count = serializers.SerializerMethodField()
     shops = serializers.SerializerMethodField()
 
     def get_logo(self, prefetched_data):
@@ -30,12 +28,6 @@ class DistributorSerializer(CRUDSerializer):
 
     def get_banner(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
-
-    def get_rating(self, instance):
-        return None
-
-    def get_rates_count(self, instance):
-        return None
 
     def get_categories(self, instance):
         return []
@@ -64,8 +56,6 @@ class DistributorSerializer(CRUDSerializer):
 
 class ShopSerializer(CRUDSerializer):
     repository = ShopsRepository
-    rating = serializers.SerializerMethodField()
-    rates_count = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
@@ -109,20 +99,12 @@ class ShopInVacancySerializer(CRUDSerializer):
     walk_time = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
-    rating = serializers.SerializerMethodField()
-    rates_count = serializers.SerializerMethodField()
 
     def get_logo(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
 
     def get_map(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.MAP.value)
-
-    def get_rating(self, instance):
-        return None
-
-    def get_rates_count(self, instance):
-        return None
 
     def get_walk_time(self, shop):
         if chained_get(shop, 'distance'):
@@ -257,7 +239,6 @@ class VacanciesSerializer(CRUDSerializer):
 class VacancySerializer(VacanciesSerializer):
     created_at = DateTimeField()
     banner = serializers.SerializerMethodField()
-    views_count = serializers.SerializerMethodField()
     utc_offset = serializers.SerializerMethodField()
 
     def get_banner(self, prefetched_data):
@@ -265,9 +246,6 @@ class VacancySerializer(VacanciesSerializer):
 
     def get_shop(self, vacancy):
         return ShopInVacancySerializer(vacancy.shop).data
-
-    def get_views_count(self, vacancy):
-        return 0
 
     def get_utc_offset(self, vacancy):
         return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
