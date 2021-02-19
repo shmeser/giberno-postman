@@ -90,14 +90,19 @@ class Shops(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
+        point, bbox, radius = RequestMapper().geo(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
         else:
+            self.many = True
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            self.many = True
+
+            dataset = dataset[pagination.offset:pagination.limit]
+
+            dataset = self.repository_class.fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,
@@ -258,7 +263,19 @@ def vacancies_suggestions(request):
     return Response(dataset, status=status.HTTP_200_OK)
 
 
-@api_view(['post'])
+@api_view(['GET'])
+def similar_vacancies(request, **kwargs):
+    pagination = RequestMapper.pagination(request)
+    point, bbox, radius = RequestMapper().geo(request)
+    vacancies = VacanciesRepository(point=point, bbox=bbox, me=request.user).get_similar(
+        kwargs.get('record_id'), pagination
+    )
+
+    serializer = VacanciesSerializer(vacancies, many=True)
+    return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
 def review_vacancy(request, **kwargs):
     body = get_request_body(request)
     text, value = ReviewsValidator.text_and_value(body)

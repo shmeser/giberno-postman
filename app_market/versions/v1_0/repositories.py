@@ -79,6 +79,27 @@ class DistributorsRepository(MasterRepository):
 class ShopsRepository(MasterRepository):
     model = Shop
 
+    @staticmethod
+    def fast_related_loading(queryset, point=None):
+        """ Подгрузка зависимостей
+            Media
+        """
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа для магазинов
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
+                    owner_ct_id=ContentType.objects.get_for_model(Shop).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+
+            )
+        )
+
+        return queryset
+
 
 class CustomLookupBase(Lookup):
     # Кастомный lookup
@@ -200,6 +221,8 @@ class VacanciesRepository(MasterRepository):
 
     # TODO если у вакансии несколько смен, то вакансия постоянно будет горящая?
     IS_HOT_HOURS_THRESHOLD = 4  # Количество часов до начала смены для статуса вакансии "Горящая"
+    TRIGRAM_SIMILARITY_MIN_RATE = 0.3  # Мин коэффициент сходства по pg_trigram
+    SIMILAR_VACANCIES_MAX_DISTANCE_M = 50000  # Максимальное расстояние для похожих вакансий
 
     def __init__(self, point=None, bbox=None, me=None, timezone_name='Europe/Moscow') -> None:
         super().__init__()
@@ -431,6 +454,27 @@ class VacanciesRepository(MasterRepository):
                 ),
                 updated_at=now()
             )
+
+    def get_similar(self, record_id, pagination=None):
+        current_vacancy = self.model.objects.filter(pk=record_id, deleted=False).select_related('shop').first()
+        if current_vacancy:
+            result = self.base_query.annotate(
+                similarity=TrigramSimilarity('title', current_vacancy.title),
+                distance_from_current=Distance('shop__location', current_vacancy.shop.location)
+                if current_vacancy.shop.location else Value(None, IntegerField())
+            ).filter(
+                deleted=False,
+                similarity__gte=self.TRIGRAM_SIMILARITY_MIN_RATE,  # Минимальное сходство
+                distance_from_current__lte=self.SIMILAR_VACANCIES_MAX_DISTANCE_M  # Расстояние от текущей вакансии
+            ) \
+                .exclude(pk=record_id) \
+                .order_by('distance_from_current')
+
+            if pagination:
+                return result[pagination.offset:pagination.limit]
+            return result
+
+        return []
 
 
 class ProfessionsRepository(MasterRepository):
