@@ -33,3 +33,8 @@ class FilledProfilePermission(permissions.IsAuthenticated):
 class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.account_type == AccountType.ADMIN
+
+
+class IsManagerOrSecurity(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.account_type == AccountType.MANAGER or request.user.account_type == AccountType.SECURITY

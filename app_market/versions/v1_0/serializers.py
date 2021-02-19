@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 from rest_framework import serializers
 
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_media.enums import MediaType
@@ -318,3 +318,13 @@ class SkillSerializer(CRUDSerializer):
             'name',
             'description',
         ]
+
+
+class UserShiftSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserShift
+        fields = '__all__'
+
+
+class QRCodeSerializer(serializers.Serializer):
+    qr_code = serializers.CharField()

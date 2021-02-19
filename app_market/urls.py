@@ -1,8 +1,7 @@
 from django.urls import path
 
-from app_market.versions.v1_0.views import CheckUserShiftByManagerOrSecurityAPIView
 from app_market.views import Vacancies, Professions, suggest_profession, Skills, Distributors, Shops, VacanciesStats, \
-    vacancies_suggestions, Shifts
+    vacancies_suggestions, Shifts, CheckUserShiftByManagerOrSecurityAPIView
 
 urlpatterns = [
     path('market/distributors', Distributors.as_view()),
