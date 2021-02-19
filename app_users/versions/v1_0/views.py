@@ -1,6 +1,9 @@
+from uuid import uuid4
+
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.utils import timezone
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
@@ -19,10 +22,14 @@ from app_users.entities import TokenEntity, SocialEntity
 from app_users.enums import NotificationType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
+from app_users.utils import EmailSender
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
     SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
-    NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer
+    NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer, \
+    CreateManagerByAdminSerializer, UsernameSerializer, UsernameWithPasswordSerializer, \
+    PasswordSerializer, EditManagerProfileSerializer
+from backend.api_views import BaseAPIView
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
@@ -529,3 +536,73 @@ def read_notification(request, **kwargs):
     )
 
     return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+# MANAGERS RELATED VIEWS
+class CreateManagerByAdminAPIView(BaseAPIView):
+    serializer_class = CreateManagerByAdminSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request), context={'request': request})
+        if serializer.is_valid(raise_exception=True):
+            user = serializer.save()
+            password = str(uuid4())[:10]
+            user.set_password(password)
+            user.save()
+            EmailSender(user=user, password=password).send()
+            return Response(ProfileSerializer(instance=user).data)
+
+
+class GetManagerByUsernameAPIView(BaseAPIView):
+    permission_classes = []
+    serializer_class = UsernameSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            ProfileRepository().get_by_username(username=serializer.validated_data['username'])
+            return Response(status=status.HTTP_200_OK)
+
+
+class AuthenticateManagerAPIView(BaseAPIView):
+    permission_classes = []
+    serializer_class = UsernameWithPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            user = ProfileRepository().get_by_username_and_password(validated_data=serializer.validated_data)
+            headers = get_request_headers(request)
+            jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
+            response_data = {
+                'accessToken': jwt_pair.access_token,
+                'refreshToken': jwt_pair.refresh_token
+            }
+            if user.last_login:
+                response_data.update({'first_login': False})
+            else:
+                response_data.update({'first_login': True})
+                user.last_login = timezone.now()
+                user.save()
+            return Response(response_data)
+
+
+class ChangeManagerPasswordAPIView(BaseAPIView):
+    serializer_class = PasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            request.user.set_password(raw_password=serializer.validated_data['password'])
+            request.user.save()
+            return Response(status=status.HTTP_200_OK)
+
+
+class EditManagerProfileView(BaseAPIView):
+    serializer_class = EditManagerProfileSerializer
+
+    def patch(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            user = ProfileRepository().update(record_id=request.user.id, **serializer.validated_data)
+            return Response(ProfileSerializer(instance=user).data)

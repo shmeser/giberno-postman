@@ -3,10 +3,14 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from app_market.models import UserShift, Shop, Vacancy, Shift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
+from app_users.enums import AccountType
+from app_users.models import UserProfile
+from backend.api_views import BaseAPIView
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_body, chained_get, get_request_headers
@@ -348,3 +352,10 @@ class Skills(CRUDAPIView):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
+    permission_classes = []
+
+    def post(self, request, *args, **kwargs):
+        return Response('ok')
