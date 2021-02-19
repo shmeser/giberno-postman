@@ -59,6 +59,14 @@ class ShopSerializer(CRUDSerializer):
     distributor = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
+    logo = serializers.SerializerMethodField()
+
+    def get_banner(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
+
+    def get_logo(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
 
     def get_distributor(self, instance):
         return None
@@ -86,6 +94,8 @@ class ShopSerializer(CRUDSerializer):
             'lat',
             'rating',
             'rates_count',
+            'logo',
+            'banner',
             'distributor',
         ]
 
