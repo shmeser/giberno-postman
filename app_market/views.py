@@ -75,6 +75,29 @@ def vacancies_suggestions(request):
     raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+@api_view(['POST'])
+def review_vacancy(request, **kwargs):
+    if request.version in ['market_1_0']:
+        return v1_0.review_vacancy(request._request, **kwargs)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class LikeVacancy(APIView):
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.LikeVacancy().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.LikeVacancy().delete(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class Professions(APIView):
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description', ProfessionSerializer)})

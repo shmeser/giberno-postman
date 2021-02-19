@@ -1,8 +1,5 @@
 from rest_framework import serializers
 
-from app_media.enums import MediaFormat
-from app_media.versions.v1_0.repositories import MediaRepository
-from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.utils import datetime_to_timestamp, timestamp_to_datetime
 
 

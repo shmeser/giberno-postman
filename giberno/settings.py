@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'app_media.apps.AppMediaConfig',
     'app_geo.apps.AppGeoConfig',
     'app_market.apps.AppMarketConfig',
+    'app_feedback.apps.AppFeedbackConfig',
 ]
 
 CHANNEL_LAYERS = {
