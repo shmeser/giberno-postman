@@ -258,6 +258,8 @@ class VacancySerializer(VacanciesSerializer):
             'description',
             'created_at',
             'views_count',
+            'rating',
+            'rates_count',
             'price',
             'features',
             'required_docs',
