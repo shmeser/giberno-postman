@@ -9,7 +9,7 @@ from giberno import settings
 from giberno.yasg import urlpatterns as doc_urls
 
 urlpatterns = [
-                  path('django/admin', admin.site.urls),
+                  path('django/admin/', admin.site.urls),
               ] \
               + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) \
               + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
@@ -41,3 +41,9 @@ urlpatterns += social_web_auth
 urlpatterns += service_urls
 
 urlpatterns += v1_0_urls
+
+if settings.DEBUG:
+    test_urls = [
+        path('test/', include('app_tests.urls'))
+    ]
+    urlpatterns += test_urls

@@ -3,11 +3,12 @@ from datetime import datetime
 import pytz
 from rest_framework import serializers
 
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_media.enums import MediaType
-from backend.fields import DateTimeField, ImageField
+from app_media.versions.v1_0.controllers import MediaController
+from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp
 
@@ -15,20 +16,18 @@ from backend.utils import chained_get, datetime_to_timestamp
 class DistributorSerializer(CRUDSerializer):
     repository = DistributorsRepository
 
-    logo = ImageField(field_name='logo', media_type=MediaType.LOGO.value)
-    banner = ImageField(field_name='banner', media_type=MediaType.BANNER.value)
+    logo = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
 
     categories = serializers.SerializerMethodField()
     vacancies_count = serializers.SerializerMethodField()
-    rating = serializers.SerializerMethodField()
-    rates_count = serializers.SerializerMethodField()
     shops = serializers.SerializerMethodField()
 
-    def get_rating(self, instance):
-        return None
+    def get_logo(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
 
-    def get_rates_count(self, instance):
-        return None
+    def get_banner(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
 
     def get_categories(self, instance):
         return []
@@ -57,8 +56,6 @@ class DistributorSerializer(CRUDSerializer):
 
 class ShopSerializer(CRUDSerializer):
     repository = ShopsRepository
-    rating = serializers.SerializerMethodField()
-    rates_count = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
@@ -96,20 +93,18 @@ class ShopSerializer(CRUDSerializer):
 class ShopInVacancySerializer(CRUDSerializer):
     """ Вложенная модель магазина в вакансии (на экране просмотра одной вакансии) """
 
-    logo = ImageField(field_name='logo', media_type=MediaType.LOGO.value)
-    map = ImageField(field_name='map', media_type=MediaType.MAP.value)
+    logo = serializers.SerializerMethodField()
+    map = serializers.SerializerMethodField()
 
     walk_time = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
-    rating = serializers.SerializerMethodField()
-    rates_count = serializers.SerializerMethodField()
 
-    def get_rating(self, instance):
-        return None
+    def get_logo(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
 
-    def get_rates_count(self, instance):
-        return None
+    def get_map(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.MAP.value)
 
     def get_walk_time(self, shop):
         if chained_get(shop, 'distance'):
@@ -148,7 +143,10 @@ class ShopInVacancySerializer(CRUDSerializer):
 class ShopsInVacanciesSerializer(CRUDSerializer):
     """ Вложенная модель магазина в списке вакансий """
     walk_time = serializers.SerializerMethodField()
-    logo = ImageField(field_name='logo', media_type=MediaType.LOGO.value)
+    logo = serializers.SerializerMethodField()
+
+    def get_logo(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
 
     def get_walk_time(self, shop):
         if chained_get(shop, 'distance'):
@@ -170,8 +168,14 @@ class ShopsInVacanciesSerializer(CRUDSerializer):
 
 
 class DistributorInVacancySerializer(serializers.ModelSerializer):
-    logo = ImageField(field_name='logo', media_type=MediaType.LOGO.value)
-    banner = ImageField(field_name='banner', media_type=MediaType.BANNER.value)
+    logo = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
+
+    def get_logo(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
+
+    def get_banner(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
 
     class Meta:
         model = Distributor
@@ -193,7 +197,8 @@ class VacanciesSerializer(CRUDSerializer):
     distributor = serializers.SerializerMethodField()
     utc_offset = serializers.SerializerMethodField()
 
-    def get_is_favourite(self, vacancy):
+    def get_is_favourite(self, prefetched_data):
+        # TODO брать из app_feedback из модели Like
         return False
 
     def get_utc_offset(self, vacancy):
@@ -233,15 +238,14 @@ class VacanciesSerializer(CRUDSerializer):
 
 class VacancySerializer(VacanciesSerializer):
     created_at = DateTimeField()
-    banner = ImageField(field_name='banner', media_type=MediaType.BANNER.value)
-    views_count = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
     utc_offset = serializers.SerializerMethodField()
+
+    def get_banner(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
 
     def get_shop(self, vacancy):
         return ShopInVacancySerializer(vacancy.shop).data
-
-    def get_views_count(self, vacancy):
-        return 0
 
     def get_utc_offset(self, vacancy):
         return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
@@ -254,6 +258,8 @@ class VacancySerializer(VacanciesSerializer):
             'description',
             'created_at',
             'views_count',
+            'rating',
+            'rates_count',
             'price',
             'features',
             'required_docs',
@@ -318,3 +324,13 @@ class SkillSerializer(CRUDSerializer):
             'name',
             'description',
         ]
+
+
+class UserShiftSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserShift
+        fields = '__all__'
+
+
+class QRCodeSerializer(serializers.Serializer):
+    qr_code = serializers.CharField()

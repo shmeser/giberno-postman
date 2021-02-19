@@ -1,9 +1,10 @@
 from rest_framework import permissions
 
+from app_users.enums import AccountType
+from app_users.models import UserProfile
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
-from app_users.models import UserProfile
 
 
 class FilledProfilePermission(permissions.IsAuthenticated):
@@ -27,3 +28,13 @@ class FilledProfilePermission(permissions.IsAuthenticated):
                 dict(Error(ErrorsCodes.SOCIAL_ALREADY_IN_USE))
             ])
         return True
+
+
+class IsAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.account_type == AccountType.ADMIN
+
+
+class IsManagerOrSecurity(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.account_type == AccountType.MANAGER or request.user.account_type == AccountType.SECURITY
