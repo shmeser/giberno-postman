@@ -5,9 +5,8 @@ from django.contrib.gis.db.models.functions import Distance
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
-from django.db.models import Field, DateField
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, DateTimeField, \
-    Lookup
+    Lookup, Field, DateField, Sum, FloatField, ExpressionWrapper, Subquery, OuterRef
 from django.db.models.functions import Cast
 from django.utils.timezone import now, localtime
 from pytz import timezone
@@ -409,9 +408,28 @@ class VacanciesRepository(MasterRepository):
                 text=text
             )
 
-            # Пересчитать количество оценок и рейтинг у вакансии
+            # Пересчитываем количество оценок и рейтинг у вакансии
             Vacancy.objects.filter(pk=record_id).update(
-
+                # в update нельзя использовать результаты annotate
+                # используем annotate в Subquery
+                rating=Subquery(
+                    Vacancy.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rating=ExpressionWrapper(
+                            Sum('reviews__value') / Count('reviews'),
+                            output_field=FloatField()
+                        )
+                    ).values('calculated_rating')[:1]
+                ),
+                rates_count=Subquery(
+                    Vacancy.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rates_count=Count('reviews'),
+                    ).values('calculated_rates_count')[:1]
+                ),
+                updated_at=now()
             )
 
 
