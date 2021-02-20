@@ -227,8 +227,9 @@ class VacanciesRepository(MasterRepository):
     def __init__(self, point=None, bbox=None, me=None, timezone_name='Europe/Moscow') -> None:
         super().__init__()
 
-        self.me = me
+        self.point = point
         self.bbox = bbox
+        self.me = me
 
         # Выражения для вычисляемых полей в annotate
         self.distance_expression = Distance('shop__location', point) if point else Value(None, IntegerField())
@@ -295,12 +296,13 @@ class VacanciesRepository(MasterRepository):
             kwargs['shop__location__contained'] = self.bbox
 
     def get_by_id(self, record_id):
-        try:
-            return self.base_query.get(id=record_id)
-        except self.model.DoesNotExist:
+        record = self.base_query.filter(id=record_id)
+        record = self.fast_related_loading(record, self.point).first()
+        if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
@@ -314,7 +316,11 @@ class VacanciesRepository(MasterRepository):
                 records = self.base_query.order_by(*order_by).filter(**kwargs)
             else:
                 records = self.base_query.filter(**kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
 
     def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
