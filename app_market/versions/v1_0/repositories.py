@@ -282,11 +282,18 @@ class VacanciesRepository(MasterRepository):
                 )
             ), None)  # Удаляем из массива null значения
 
+        # Количество свободных мест в вакансии
+        self.free_count_expression = ExpressionWrapper(
+            Sum('shift__max_employees_count') - Sum('shift__employees_count'),
+            output_field=IntegerField()
+        )
+
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(
             distance=self.distance_expression,
             is_hot=self.is_hot_expression,
             work_time=self.work_time_expression,
+            free_count=self.free_count_expression,
         )
 
     def modify_kwargs(self, kwargs):
