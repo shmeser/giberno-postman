@@ -76,7 +76,7 @@ def vacancies_suggestions(request):
     raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class ReviewVacancy(BaseAPIView):
+class VacancyReviewsAPIView(BaseAPIView):
     serializer_class = POSTReviewSerializer
 
     @staticmethod
@@ -92,6 +92,46 @@ class ReviewVacancy(BaseAPIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacancyReviewsAPIView().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class ShopReviewsAPIView(BaseAPIView):
+    serializer_class = POSTReviewSerializer
+
+    @staticmethod
+    @swagger_auto_schema(responses={204: 'No Content'})
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.ShopReviewsAPIView().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.ShopReviewsAPIView().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class DistributorReviewsAPIView(BaseAPIView):
+    serializer_class = POSTReviewSerializer
+
+    @staticmethod
+    @swagger_auto_schema(responses={204: 'No Content'})
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.DistributorReviewsAPIView().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.DistributorReviewsAPIView().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 

@@ -23,11 +23,76 @@ from backend.mixins import MasterRepository
 from backend.utils import ArrayRemove
 
 
-class DistributorsRepository(MasterRepository):
+class MakeReviewMethodProviderRepository(MasterRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    def make_review(self, record_id, text, value):
+        # TODO добавить загрузку attachments
+
+        owner_content_type = ContentType.objects.get_for_model(self.me)
+        owner_ct_id = owner_content_type.id
+        owner_ct_name = owner_content_type.model
+        owner_id = self.me.id
+
+        target_content_type = ContentType.objects.get_for_model(self.model)
+        target_ct_id = target_content_type.id
+        target_ct_name = target_content_type.model
+        target_id = record_id
+
+        if not Review.objects.filter(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                deleted=False
+        ).exists():
+            Review.objects.create(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                owner_ct_name=owner_ct_name,
+
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                target_ct_name=target_ct_name,
+
+                value=value,
+                text=text
+            )
+
+            # Пересчитываем количество оценок и рейтинг
+            self.model.objects.filter(pk=record_id).update(
+                # в update нельзя использовать результаты annotate
+                # используем annotate в Subquery
+                rating=Subquery(
+                    self.model.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rating=ExpressionWrapper(
+                            Sum('reviews__value') / Count('reviews'),
+                            output_field=FloatField()
+                        )
+                    ).values('calculated_rating')[:1]
+                ),
+                rates_count=Subquery(
+                    self.model.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rates_count=Count('reviews'),
+                    ).values('calculated_rates_count')[:1]
+                ),
+                updated_at=now()
+            )
+
+
+class DistributorsRepository(MakeReviewMethodProviderRepository):
     model = Distributor
 
-    def __init__(self, point=None, bbox=None, time_zone=None) -> None:
+    def __init__(self, point=None, bbox=None, time_zone=None, me=None) -> None:
         super().__init__()
+
+        self.me = me
 
         # Выражения для вычисляемых полей в annotate
         self.vacancies_expression = Count('shop__vacancy')
@@ -76,7 +141,7 @@ class DistributorsRepository(MasterRepository):
         return queryset
 
 
-class ShopsRepository(MasterRepository):
+class ShopsRepository(MakeReviewMethodProviderRepository):
     model = Shop
 
 
@@ -195,7 +260,7 @@ class ShifsRepository(MasterRepository):
         return records[paginator.offset:paginator.limit] if paginator else records
 
 
-class VacanciesRepository(MasterRepository):
+class VacanciesRepository(MakeReviewMethodProviderRepository):
     model = Vacancy
 
     # TODO если у вакансии несколько смен, то вакансия постоянно будет горящая?
@@ -373,64 +438,6 @@ class VacanciesRepository(MasterRepository):
         ).aggregate(all_prices=ArrayAgg('price', ordering='price'), all_counts=ArrayAgg('count', ordering='price'))
 
         return {**count, **prices}
-
-    def make_review(self, record_id, text, value):
-
-        # TODO добавить загрузку attachments
-
-        owner_content_type = ContentType.objects.get_for_model(self.me)
-        owner_ct_id = owner_content_type.id
-        owner_ct_name = owner_content_type.model
-        owner_id = self.me.id
-
-        target_content_type = ContentType.objects.get_for_model(self.model)
-        target_ct_id = target_content_type.id
-        target_ct_name = target_content_type.model
-        target_id = record_id
-
-        if not Review.objects.filter(
-                owner_ct_id=owner_ct_id,
-                owner_id=owner_id,
-                target_ct_id=target_ct_id,
-                target_id=target_id,
-                deleted=False
-        ).exists():
-            Review.objects.create(
-                owner_ct_id=owner_ct_id,
-                owner_id=owner_id,
-                owner_ct_name=owner_ct_name,
-
-                target_ct_id=target_ct_id,
-                target_id=target_id,
-                target_ct_name=target_ct_name,
-
-                value=value,
-                text=text
-            )
-
-            # Пересчитываем количество оценок и рейтинг у вакансии
-            Vacancy.objects.filter(pk=record_id).update(
-                # в update нельзя использовать результаты annotate
-                # используем annotate в Subquery
-                rating=Subquery(
-                    Vacancy.objects.filter(
-                        id=OuterRef('id')
-                    ).annotate(
-                        calculated_rating=ExpressionWrapper(
-                            Sum('reviews__value') / Count('reviews'),
-                            output_field=FloatField()
-                        )
-                    ).values('calculated_rating')[:1]
-                ),
-                rates_count=Subquery(
-                    Vacancy.objects.filter(
-                        id=OuterRef('id')
-                    ).annotate(
-                        calculated_rates_count=Count('reviews'),
-                    ).values('calculated_rates_count')[:1]
-                ),
-                updated_at=now()
-            )
 
     def toggle_like(self, vacancy):
         owner_ct = ContentType.objects.get_for_model(self.me)

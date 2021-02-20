@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer
 from app_market.enums import ShiftStatus
-from app_market.models import UserShift
+from app_market.models import UserShift, Distributor
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer
@@ -259,14 +259,15 @@ def vacancies_suggestions(request):
     return Response(dataset, status=status.HTTP_200_OK)
 
 
-class VacancyReviewsAPIView(BaseAPIView):
+class ReviewsBaseAPIView(BaseAPIView):
     serializer_class = POSTReviewSerializer
-    repository_class = ReviewsRepository
+    get_request_repository_class = None
+    post_request_repository_class = None
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            VacanciesRepository(me=request.user).make_review(
+            self.post_request_repository_class(me=request.user).make_review(
                 record_id=kwargs.get('record_id'),
                 text=serializer.validated_data['text'],
                 value=serializer.validated_data['value']
@@ -279,8 +280,26 @@ class VacancyReviewsAPIView(BaseAPIView):
             'target_id': kwargs['record_id'],
             'deleted': False
         }
-        queryset = self.repository_class().filter_by_kwargs(kwargs=kwargs, paginator=pagination)
+        queryset = self.get_request_repository_class().filter_by_kwargs(kwargs=kwargs, paginator=pagination)
         return Response(ReviewModelSerializer(instance=queryset, many=True).data)
+
+
+class VacancyReviewsAPIView(ReviewsBaseAPIView):
+    serializer_class = POSTReviewSerializer
+    get_request_repository_class = ReviewsRepository
+    post_request_repository_class = VacanciesRepository
+
+
+class ShopReviewsAPIView(ReviewsBaseAPIView):
+    serializer_class = POSTReviewSerializer
+    get_request_repository_class = ReviewsRepository
+    post_request_repository_class = ShopsRepository
+
+
+class DistributorReviewsAPIView(ReviewsBaseAPIView):
+    serializer_class = POSTReviewSerializer
+    get_request_repository_class = ReviewsRepository
+    post_request_repository_class = DistributorsRepository
 
 
 class ToggleLikeVacancy(APIView):
