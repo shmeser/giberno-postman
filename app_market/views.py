@@ -3,6 +3,7 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 
+from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer
 from app_market.versions.v1_0 import views as v1_0
 from app_market.versions.v1_0.serializers import DistributorSerializer, ProfessionSerializer, ShiftsSerializer, \
     ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer
@@ -75,15 +76,29 @@ def vacancies_suggestions(request):
     raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-@api_view(['POST'])
-def review_vacancy(request, **kwargs):
-    if request.version in ['market_1_0']:
-        return v1_0.review_vacancy(request._request, **kwargs)
-    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+class ReviewVacancy(BaseAPIView):
+    serializer_class = POSTReviewSerializer
+
+    @staticmethod
+    @swagger_auto_schema(responses={204: 'No Content'})
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.VacancyReviewsAPIView().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.VacancyReviewsAPIView().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
 class ToggleLikeVacancy(APIView):
     @staticmethod
+    @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.ToggleLikeVacancy().post(request, **kwargs)

@@ -4,9 +4,10 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from app_feedback.versions.v1_0.repositories import ReviewsRepository
+from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer
 from app_market.enums import ShiftStatus
 from app_market.models import UserShift
-from app_market.versions.v1_0.mappers import ReviewsValidator
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer
@@ -258,16 +259,28 @@ def vacancies_suggestions(request):
     return Response(dataset, status=status.HTTP_200_OK)
 
 
-@api_view(['post'])
-def review_vacancy(request, **kwargs):
-    body = get_request_body(request)
-    text, value = ReviewsValidator.text_and_value(body)
-    VacanciesRepository(me=request.user).make_review(
-        record_id=kwargs.get('record_id'),
-        text=text,
-        value=value
-    )
-    return Response(None, status=status.HTTP_204_NO_CONTENT)
+class VacancyReviewsAPIView(BaseAPIView):
+    serializer_class = POSTReviewSerializer
+    repository_class = ReviewsRepository
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            VacanciesRepository(me=request.user).make_review(
+                record_id=kwargs.get('record_id'),
+                text=serializer.validated_data['text'],
+                value=serializer.validated_data['value']
+            )
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+    def get(self, request, *args, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        kwargs = {
+            'target_id': kwargs['record_id'],
+            'deleted': False
+        }
+        queryset = self.repository_class().filter_by_kwargs(kwargs=kwargs, paginator=pagination)
+        return Response(ReviewModelSerializer(instance=queryset, many=True).data)
 
 
 class ToggleLikeVacancy(APIView):

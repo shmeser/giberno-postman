@@ -232,6 +232,7 @@ class VacanciesSerializer(CRUDSerializer):
             'work_time',
             'shop',
             'distributor',
+            'rating'
         ]
 
 
