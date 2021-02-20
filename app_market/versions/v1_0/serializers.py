@@ -206,6 +206,7 @@ class VacanciesSerializer(CRUDSerializer):
     shop = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
     utc_offset = serializers.SerializerMethodField()
+    free_count = serializers.SerializerMethodField()
 
     def get_is_favourite(self, prefetched_data):
         # TODO брать из app_feedback из модели Like
@@ -216,6 +217,9 @@ class VacanciesSerializer(CRUDSerializer):
 
     def get_is_hot(self, vacancy):
         return vacancy.is_hot
+
+    def get_free_count(self, vacancy):
+        return vacancy.free_count
 
     def get_work_time(self, vacancy):
         return vacancy.work_time
@@ -238,6 +242,7 @@ class VacanciesSerializer(CRUDSerializer):
             'is_favourite',
             'is_hot',
             'utc_offset',
+            'free_count',
             'required_experience',
             'employment',
             'work_time',
@@ -270,6 +275,7 @@ class VacancySerializer(VacanciesSerializer):
             'views_count',
             'rating',
             'rates_count',
+            'free_count',
             'price',
             'features',
             'required_docs',

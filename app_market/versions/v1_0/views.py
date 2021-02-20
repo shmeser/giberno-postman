@@ -143,6 +143,7 @@ class Vacancies(CRUDAPIView):
     default_filters = {}
 
     order_params = {
+        'free_count': 'free_count',
         'distance': 'distance',
         'title': 'title',
         'price': 'price',
