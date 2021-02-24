@@ -103,13 +103,13 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
         )
 
     def get_by_id(self, record_id):
-        try:
-            return self.base_query.get(id=record_id)
-        except self.model.DoesNotExist:
+        record = self.base_query.filter(id=record_id)
+        record = self.fast_related_loading(record).first()
+        if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
-                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
-            )
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         try:
@@ -122,7 +122,10 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
                 records = self.base_query.order_by(*order_by).filter(**kwargs)
             else:
                 records = self.base_query.filter(**kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
 
     @staticmethod
     def fast_related_loading(queryset):
@@ -137,7 +140,7 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
                 ),
                 to_attr='medias'
             )
-        )
+        ).prefetch_related('categories')  # Категории из m2m поля categories
         return queryset
 
 
@@ -406,7 +409,10 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                 records = self.base_query.order_by(*order_by).filter(args, **kwargs)
             else:
                 records = self.base_query.filter(args, **kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
 
     def get_suggestions(self, search, paginator=None):
         records = self.model.objects.exclude(deleted=True).annotate(
