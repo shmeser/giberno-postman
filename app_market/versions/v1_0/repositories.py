@@ -42,14 +42,7 @@ class MakeReviewMethodProviderRepository(MasterRepository):
         target_ct_name = target_content_type.model
         target_id = record_id
 
-        if point:
-            regions = Region.objects.filter(boundary__covers=point)
-            if regions:
-                region = regions.first()
-            else:
-                region = None
-        else:
-            region = None
+        region = Region.objects.filter(boundary__covers=point).first() if point else None
 
         if not Review.objects.filter(
                 owner_ct_id=owner_ct_id,
@@ -155,14 +148,7 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
             )
         )
 
-        if point:
-            regions = Region.objects.filter(boundary__covers=point)
-            if regions:
-                region = regions.first()
-            else:
-                region = None
-        else:
-            region = None
+        region = Region.objects.filter(boundary__covers=point).first() if point else None
 
         if region and me:
             queryset = queryset.prefetch_related(

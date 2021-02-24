@@ -49,9 +49,9 @@ class Distributors(CRUDAPIView):
         point, bbox, radius = RequestMapper().geo(request)
 
         if record_id:
-            dataset = self.repository_class(point=point).get_by_id(record_id)
+            dataset = self.repository_class(point=point, me=request.user).get_by_id(record_id)
         else:
-            dataset = self.repository_class(point=point).filter_by_kwargs(
+            dataset = self.repository_class(point=point, me=request.user).filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
