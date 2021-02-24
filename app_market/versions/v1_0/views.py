@@ -12,7 +12,7 @@ from app_market.versions.v1_0.repositories import VacanciesRepository, Professio
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
-    DistributorSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
+    DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.http_exception import HttpException
@@ -22,12 +22,12 @@ from backend.utils import get_request_body, chained_get, get_request_headers
 
 
 class Distributors(CRUDAPIView):
-    serializer_class = DistributorSerializer
+    serializer_class = DistributorsSerializer
     repository_class = DistributorsRepository
     allowed_http_methods = ['get']
 
     filter_params = {
-        'title': 'title__istartswith',
+        'search': 'title__istartswith',
     }
 
     default_order_params = ['-vacancies_count']
@@ -69,7 +69,7 @@ class Shops(CRUDAPIView):
     allowed_http_methods = ['get']
 
     filter_params = {
-        'title': 'title__istartswith',
+        'search': 'title__istartswith',
         'distributor': 'distributor_id',
     }
 
@@ -78,8 +78,9 @@ class Shops(CRUDAPIView):
     default_filters = {}
 
     order_params = {
+        'id': 'id',
         'title': 'title',
-        'id': 'id'
+        'distance': 'distance',
     }
 
     def get(self, request, **kwargs):
@@ -91,16 +92,12 @@ class Shops(CRUDAPIView):
         point, bbox, radius = RequestMapper().geo(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class(point=point).get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class(point=point).filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-
-            dataset = dataset[pagination.offset:pagination.limit]
-
-            dataset = self.repository_class.fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,
@@ -267,7 +264,7 @@ def similar_vacancies(request, **kwargs):
         kwargs.get('record_id'), pagination
     )
 
-    serializer = VacanciesSerializer(vacancies, many=True)
+    serializer = VacanciesSerializer(vacancies, many=True, context={'me': request.user})
     return Response(camelize(serializer.data), status=status.HTTP_200_OK)
 
 
