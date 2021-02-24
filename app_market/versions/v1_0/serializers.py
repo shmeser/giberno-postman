@@ -208,9 +208,8 @@ class VacanciesSerializer(CRUDSerializer):
     utc_offset = serializers.SerializerMethodField()
     free_count = serializers.SerializerMethodField()
 
-    def get_is_favourite(self, prefetched_data):
-        # TODO брать из app_feedback из модели Like
-        return False
+    def get_is_favourite(self, vacancy):
+        return vacancy.likes.filter(owner_id=self.me.id, target_id=vacancy.id, deleted=False).exists()
 
     def get_utc_offset(self, vacancy):
         return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
@@ -248,6 +247,7 @@ class VacanciesSerializer(CRUDSerializer):
             'work_time',
             'shop',
             'distributor',
+            'rating'
         ]
 
 
