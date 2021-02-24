@@ -12,6 +12,7 @@ from django.utils.timezone import now, localtime
 from pytz import timezone
 
 from app_feedback.models import Review, Like
+from app_geo.models import Region
 from app_market.enums import ShiftWorkTime
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
 from app_market.versions.v1_0.mappers import ShiftMapper
@@ -28,7 +29,7 @@ class MakeReviewMethodProviderRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-    def make_review(self, record_id, text, value):
+    def make_review(self, record_id, text, value, point=None):
         # TODO добавить загрузку attachments
 
         owner_content_type = ContentType.objects.get_for_model(self.me)
@@ -40,6 +41,11 @@ class MakeReviewMethodProviderRepository(MasterRepository):
         target_ct_id = target_content_type.id
         target_ct_name = target_content_type.model
         target_id = record_id
+
+        if point:
+            region = Region.objects.filter(boundary__covers=point)
+        else:
+            region = None
 
         if not Review.objects.filter(
                 owner_ct_id=owner_ct_id,
@@ -58,7 +64,8 @@ class MakeReviewMethodProviderRepository(MasterRepository):
                 target_ct_name=target_ct_name,
 
                 value=value,
-                text=text
+                text=text,
+                region=region
             )
 
             # Пересчитываем количество оценок и рейтинг
@@ -125,7 +132,7 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
         return records[paginator.offset:paginator.limit] if paginator else records
 
     @staticmethod
-    def fast_related_loading(queryset):
+    def fast_related_loading(queryset, request_user, point=None):
         queryset = queryset.prefetch_related(
             # Подгрузка медиа
             Prefetch(
@@ -138,6 +145,25 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
                 to_attr='medias'
             )
         )
+
+        if point:
+            region = Region.objects.filter(boundary__covers=point)
+        else:
+            region = None
+
+        if region:
+            queryset = queryset.prefetch_related(
+                # подгрузка отзывов по региону в котором находится пользователь
+                Prefetch(
+                    'reviews',
+                    queryset=Review.objects.filter(
+                        owner_id=request_user.id,
+                        target_ct=ContentType.objects.get_for_model(Distributor),
+                        region=region
+                    )
+                )
+            )
+
         return queryset
 
 

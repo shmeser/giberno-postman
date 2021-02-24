@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pytz
+from django.db.models import Avg
 from rest_framework import serializers
 
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift
@@ -22,6 +23,7 @@ class DistributorSerializer(CRUDSerializer):
     categories = serializers.SerializerMethodField()
     vacancies_count = serializers.SerializerMethodField()
     shops = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
 
     def get_logo(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
@@ -37,6 +39,9 @@ class DistributorSerializer(CRUDSerializer):
 
     def get_shops(self, instance):
         return []
+
+    def get_rating(self, instance):
+        return instance.rating
 
     class Meta:
         model = Distributor

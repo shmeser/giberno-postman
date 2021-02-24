@@ -46,6 +46,7 @@ class Distributors(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
+        point, bbox, radius = RequestMapper().geo(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
@@ -55,7 +56,7 @@ class Distributors(CRUDAPIView):
             )
 
             dataset = dataset[pagination.offset:pagination.limit]
-            dataset = self.repository_class.fast_related_loading(dataset)  # Предзагрузка связанных сущностей
+            dataset = self.repository_class.fast_related_loading(dataset, request.user, point)  # Предзагрузка связанных сущностей
 
             self.many = True
 
@@ -281,11 +282,14 @@ class ReviewsBaseAPIView(BaseAPIView):
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
+        point, bbox, radius = RequestMapper().geo(request)
+
         if serializer.is_valid(raise_exception=True):
             self.post_request_repository_class(me=request.user).make_review(
                 record_id=kwargs.get('record_id'),
                 text=serializer.validated_data['text'],
-                value=serializer.validated_data['value']
+                value=serializer.validated_data['value'],
+                point=point
             )
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
