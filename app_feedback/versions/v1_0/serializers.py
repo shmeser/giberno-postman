@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 # from app_feedback.models import Comment
 from app_feedback.models import Review
+from backend.fields import DateTimeField
 
 
 # class CommentSerializer(serializers.ModelSerializer):
@@ -32,6 +33,14 @@ class POSTReviewSerializer(serializers.Serializer):
 
 
 class ReviewModelSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+
     class Meta:
         model = Review
-        fields = '__all__'
+        fields = [
+            'id',
+            'uuid',
+            'text',
+            'owner_id',
+            'created_at'
+        ]
