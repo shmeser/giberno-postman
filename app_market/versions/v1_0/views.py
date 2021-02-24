@@ -51,11 +51,8 @@ class Distributors(CRUDAPIView):
             dataset = self.repository_class().get_by_id(record_id)
         else:
             dataset = self.repository_class().filter_by_kwargs(
-                kwargs=filters, order_by=order_params
+                kwargs=filters, order_by=order_params, paginator=pagination
             )
-
-            dataset = dataset[pagination.offset:pagination.limit]
-            dataset = self.repository_class.fast_related_loading(dataset)  # Предзагрузка связанных сущностей
 
             self.many = True
 
