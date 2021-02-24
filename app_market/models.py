@@ -177,7 +177,7 @@ class Shift(BaseModel):
     price = models.PositiveIntegerField(null=True, blank=True, verbose_name='Ставка за час')
     currency = models.PositiveIntegerField(choices=choices(Currency), default=Currency.RUB, verbose_name='Валюта')
 
-    employees_count = models.PositiveIntegerField(default=0, verbose_name='Число работников')
+    employees_count = models.PositiveIntegerField(default=0, verbose_name='Число работников сейчас')
     max_employees_count = models.PositiveIntegerField(default=1, verbose_name='Максимальное число работников')
 
     time_start = models.TimeField(null=True, blank=True, verbose_name='Время начала смены')

@@ -11,7 +11,7 @@ from django.db.models.functions import Cast
 from django.utils.timezone import now, localtime
 from pytz import timezone
 
-from app_feedback.models import Review
+from app_feedback.models import Review, Like
 from app_market.enums import ShiftWorkTime
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
 from app_market.versions.v1_0.mappers import ShiftMapper
@@ -23,11 +23,76 @@ from backend.mixins import MasterRepository
 from backend.utils import ArrayRemove
 
 
-class DistributorsRepository(MasterRepository):
+class MakeReviewMethodProviderRepository(MasterRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    def make_review(self, record_id, text, value):
+        # TODO добавить загрузку attachments
+
+        owner_content_type = ContentType.objects.get_for_model(self.me)
+        owner_ct_id = owner_content_type.id
+        owner_ct_name = owner_content_type.model
+        owner_id = self.me.id
+
+        target_content_type = ContentType.objects.get_for_model(self.model)
+        target_ct_id = target_content_type.id
+        target_ct_name = target_content_type.model
+        target_id = record_id
+
+        if not Review.objects.filter(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                deleted=False
+        ).exists():
+            Review.objects.create(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                owner_ct_name=owner_ct_name,
+
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                target_ct_name=target_ct_name,
+
+                value=value,
+                text=text
+            )
+
+            # Пересчитываем количество оценок и рейтинг
+            self.model.objects.filter(pk=record_id).update(
+                # в update нельзя использовать результаты annotate
+                # используем annotate в Subquery
+                rating=Subquery(
+                    self.model.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rating=ExpressionWrapper(
+                            Sum('reviews__value') / Count('reviews'),
+                            output_field=FloatField()
+                        )
+                    ).values('calculated_rating')[:1]
+                ),
+                rates_count=Subquery(
+                    self.model.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rates_count=Count('reviews'),
+                    ).values('calculated_rates_count')[:1]
+                ),
+                updated_at=now()
+            )
+
+
+class DistributorsRepository(MakeReviewMethodProviderRepository):
     model = Distributor
 
-    def __init__(self, point=None, bbox=None, time_zone=None) -> None:
+    def __init__(self, point=None, bbox=None, time_zone=None, me=None) -> None:
         super().__init__()
+
+        self.me = me
 
         # Выражения для вычисляемых полей в annotate
         self.vacancies_expression = Count('shop__vacancy')
@@ -38,13 +103,13 @@ class DistributorsRepository(MasterRepository):
         )
 
     def get_by_id(self, record_id):
-        try:
-            return self.base_query.get(id=record_id)
-        except self.model.DoesNotExist:
+        record = self.base_query.filter(id=record_id)
+        record = self.fast_related_loading(record).first()
+        if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
-                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
-            )
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         try:
@@ -57,7 +122,10 @@ class DistributorsRepository(MasterRepository):
                 records = self.base_query.order_by(*order_by).filter(**kwargs)
             else:
                 records = self.base_query.filter(**kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
 
     @staticmethod
     def fast_related_loading(queryset):
@@ -72,11 +140,11 @@ class DistributorsRepository(MasterRepository):
                 ),
                 to_attr='medias'
             )
-        )
+        ).prefetch_related('categories')  # Категории из m2m поля categories
         return queryset
 
 
-class ShopsRepository(MasterRepository):
+class ShopsRepository(MakeReviewMethodProviderRepository):
     model = Shop
 
     @staticmethod
@@ -216,7 +284,7 @@ class ShifsRepository(MasterRepository):
         return records[paginator.offset:paginator.limit] if paginator else records
 
 
-class VacanciesRepository(MasterRepository):
+class VacanciesRepository(MakeReviewMethodProviderRepository):
     model = Vacancy
 
     # TODO если у вакансии несколько смен, то вакансия постоянно будет горящая?
@@ -227,8 +295,9 @@ class VacanciesRepository(MasterRepository):
     def __init__(self, point=None, bbox=None, me=None, timezone_name='Europe/Moscow') -> None:
         super().__init__()
 
-        self.me = me
+        self.point = point
         self.bbox = bbox
+        self.me = me
 
         # Выражения для вычисляемых полей в annotate
         self.distance_expression = Distance('shop__location', point) if point else Value(None, IntegerField())
@@ -281,11 +350,18 @@ class VacanciesRepository(MasterRepository):
                 )
             ), None)  # Удаляем из массива null значения
 
+        # Количество свободных мест в вакансии
+        self.free_count_expression = ExpressionWrapper(
+            Sum('shift__max_employees_count') - Sum('shift__employees_count'),
+            output_field=IntegerField()
+        )
+
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(
             distance=self.distance_expression,
             is_hot=self.is_hot_expression,
             work_time=self.work_time_expression,
+            free_count=self.free_count_expression,
         )
 
     def modify_kwargs(self, kwargs):
@@ -295,12 +371,13 @@ class VacanciesRepository(MasterRepository):
             kwargs['shop__location__contained'] = self.bbox
 
     def get_by_id(self, record_id):
-        try:
-            return self.base_query.get(id=record_id)
-        except self.model.DoesNotExist:
+        record = self.base_query.filter(id=record_id)
+        record = self.fast_related_loading(record, self.point).first()
+        if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
@@ -314,7 +391,11 @@ class VacanciesRepository(MasterRepository):
                 records = self.base_query.order_by(*order_by).filter(**kwargs)
             else:
                 records = self.base_query.filter(**kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
 
     def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
@@ -328,7 +409,10 @@ class VacanciesRepository(MasterRepository):
                 records = self.base_query.order_by(*order_by).filter(args, **kwargs)
             else:
                 records = self.base_query.filter(args, **kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
 
     def get_suggestions(self, search, paginator=None):
         records = self.model.objects.exclude(deleted=True).annotate(
@@ -397,63 +481,22 @@ class VacanciesRepository(MasterRepository):
 
         return {**count, **prices}
 
-    def make_review(self, record_id, text, value):
+    def toggle_like(self, vacancy):
+        owner_ct = ContentType.objects.get_for_model(self.me)
+        target_ct = ContentType.objects.get_for_model(vacancy)
+        data = {
+            'owner_ct_id': owner_ct.id,
+            'owner_ct_name': owner_ct.model,
+            'owner_id': self.me.id,
+            'target_ct_id': target_ct.id,
+            'target_ct_name': target_ct.model,
+            'target_id': vacancy.id
+        }
 
-        # TODO добавить загрузку attachments
-
-        owner_content_type = ContentType.objects.get_for_model(self.me)
-        owner_ct_id = owner_content_type.id
-        owner_ct_name = owner_content_type.model
-        owner_id = self.me.id
-
-        target_content_type = ContentType.objects.get_for_model(self.model)
-        target_ct_id = target_content_type.id
-        target_ct_name = target_content_type.model
-        target_id = record_id
-
-        if not Review.objects.filter(
-                owner_ct_id=owner_ct_id,
-                owner_id=owner_id,
-                target_ct_id=target_ct_id,
-                target_id=target_id,
-                deleted=False
-        ).exists():
-            Review.objects.create(
-                owner_ct_id=owner_ct_id,
-                owner_id=owner_id,
-                owner_ct_name=owner_ct_name,
-
-                target_ct_id=target_ct_id,
-                target_id=target_id,
-                target_ct_name=target_ct_name,
-
-                value=value,
-                text=text
-            )
-
-            # Пересчитываем количество оценок и рейтинг у вакансии
-            Vacancy.objects.filter(pk=record_id).update(
-                # в update нельзя использовать результаты annotate
-                # используем annotate в Subquery
-                rating=Subquery(
-                    Vacancy.objects.filter(
-                        id=OuterRef('id')
-                    ).annotate(
-                        calculated_rating=ExpressionWrapper(
-                            Sum('reviews__value') / Count('reviews'),
-                            output_field=FloatField()
-                        )
-                    ).values('calculated_rating')[:1]
-                ),
-                rates_count=Subquery(
-                    Vacancy.objects.filter(
-                        id=OuterRef('id')
-                    ).annotate(
-                        calculated_rates_count=Count('reviews'),
-                    ).values('calculated_rates_count')[:1]
-                ),
-                updated_at=now()
-            )
+        like, crated = Like.objects.get_or_create(**data)
+        if not crated:
+            like.deleted = not like.deleted
+            like.save()
 
     def get_similar(self, record_id, pagination=None):
         current_vacancy = self.model.objects.filter(pk=record_id, deleted=False).select_related('shop').first()

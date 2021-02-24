@@ -4,9 +4,10 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from app_feedback.versions.v1_0.repositories import ReviewsRepository
+from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer
 from app_market.enums import ShiftStatus
 from app_market.models import UserShift
-from app_market.versions.v1_0.mappers import ReviewsValidator
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer
@@ -143,6 +144,7 @@ class Vacancies(CRUDAPIView):
     default_filters = {}
 
     order_params = {
+        'free_count': 'free_count',
         'distance': 'distance',
         'title': 'title',
         'price': 'price',
@@ -164,11 +166,8 @@ class Vacancies(CRUDAPIView):
         else:
             self.many = True
             dataset = self.repository_class(point, bbox).filter_by_kwargs(
-                kwargs=filters, order_by=order_params
+                kwargs=filters, order_by=order_params, paginator=pagination
             )
-            dataset = dataset[pagination.offset:pagination.limit]
-
-            dataset = self.repository_class.fast_related_loading(dataset, point)  # Предзагрузка связанных сущностей
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,
@@ -275,25 +274,55 @@ def similar_vacancies(request, **kwargs):
     return Response(camelize(serializer.data), status=status.HTTP_200_OK)
 
 
-@api_view(['POST'])
-def review_vacancy(request, **kwargs):
-    body = get_request_body(request)
-    text, value = ReviewsValidator.text_and_value(body)
-    VacanciesRepository(me=request.user).make_review(
-        record_id=kwargs.get('record_id'),
-        text=text,
-        value=value
-    )
-    return Response(None, status=status.HTTP_204_NO_CONTENT)
+class ReviewsBaseAPIView(BaseAPIView):
+    serializer_class = POSTReviewSerializer
+    get_request_repository_class = None
+    post_request_repository_class = None
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            self.post_request_repository_class(me=request.user).make_review(
+                record_id=kwargs.get('record_id'),
+                text=serializer.validated_data['text'],
+                value=serializer.validated_data['value']
+            )
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+    def get(self, request, *args, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        kwargs = {
+            'target_id': kwargs['record_id'],
+            'deleted': False
+        }
+        queryset = self.get_request_repository_class().filter_by_kwargs(kwargs=kwargs, paginator=pagination)
+        return Response(ReviewModelSerializer(instance=queryset, many=True).data)
 
 
-class LikeVacancy(APIView):
+class VacancyReviewsAPIView(ReviewsBaseAPIView):
+    serializer_class = POSTReviewSerializer
+    get_request_repository_class = ReviewsRepository
+    post_request_repository_class = VacanciesRepository
+
+
+class ShopReviewsAPIView(ReviewsBaseAPIView):
+    serializer_class = POSTReviewSerializer
+    get_request_repository_class = ReviewsRepository
+    post_request_repository_class = ShopsRepository
+
+
+class DistributorReviewsAPIView(ReviewsBaseAPIView):
+    serializer_class = POSTReviewSerializer
+    get_request_repository_class = ReviewsRepository
+    post_request_repository_class = DistributorsRepository
+
+
+class ToggleLikeVacancy(APIView):
+    repository = VacanciesRepository
+
     def post(self, request, **kwargs):
-        # TODO
-        return Response(None, status=status.HTTP_204_NO_CONTENT)
-
-    def delete(self, request, **kwargs):
-        # TODO
+        vacancy = self.repository().get_by_id(kwargs['record_id'])
+        self.repository(me=request.user).toggle_like(vacancy=vacancy)
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
