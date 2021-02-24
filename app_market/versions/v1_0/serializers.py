@@ -122,6 +122,7 @@ class ShopInVacancySerializer(CRUDSerializer):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
 
     def get_map(self, prefetched_data):
+        # TODO добавить загрузку файла карт с гугла после получения платного аккаунта
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.MAP.value)
 
     def get_walk_time(self, shop):
