@@ -2,7 +2,6 @@ from rest_framework import serializers
 
 # from app_feedback.models import Comment
 from app_feedback.models import Review
-from backend.fields import DateTimeField
 
 
 # class CommentSerializer(serializers.ModelSerializer):

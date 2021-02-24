@@ -59,6 +59,14 @@ class ShopSerializer(CRUDSerializer):
     distributor = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
+    logo = serializers.SerializerMethodField()
+
+    def get_banner(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
+
+    def get_logo(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
 
     def get_distributor(self, instance):
         return None
@@ -86,6 +94,8 @@ class ShopSerializer(CRUDSerializer):
             'lat',
             'rating',
             'rates_count',
+            'logo',
+            'banner',
             'distributor',
         ]
 
@@ -196,6 +206,7 @@ class VacanciesSerializer(CRUDSerializer):
     shop = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
     utc_offset = serializers.SerializerMethodField()
+    free_count = serializers.SerializerMethodField()
 
     def get_is_favourite(self, vacancy):
         return vacancy.likes.filter(owner_id=self.me.id, target_id=vacancy.id, deleted=False).exists()
@@ -205,6 +216,9 @@ class VacanciesSerializer(CRUDSerializer):
 
     def get_is_hot(self, vacancy):
         return vacancy.is_hot
+
+    def get_free_count(self, vacancy):
+        return vacancy.free_count
 
     def get_work_time(self, vacancy):
         return vacancy.work_time
@@ -227,6 +241,7 @@ class VacanciesSerializer(CRUDSerializer):
             'is_favourite',
             'is_hot',
             'utc_offset',
+            'free_count',
             'required_experience',
             'employment',
             'work_time',
@@ -260,6 +275,7 @@ class VacancySerializer(VacanciesSerializer):
             'views_count',
             'rating',
             'rates_count',
+            'free_count',
             'price',
             'features',
             'required_docs',
