@@ -21,7 +21,7 @@ class CategoriesSerializer(serializers.ModelSerializer):
         ]
 
 
-class DistributorSerializer(CRUDSerializer):
+class DistributorsSerializer(CRUDSerializer):
     repository = DistributorsRepository
 
     logo = serializers.SerializerMethodField()
@@ -29,7 +29,6 @@ class DistributorSerializer(CRUDSerializer):
 
     categories = serializers.SerializerMethodField()
     vacancies_count = serializers.SerializerMethodField()
-    shops = serializers.SerializerMethodField()
 
     def get_logo(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
@@ -43,9 +42,6 @@ class DistributorSerializer(CRUDSerializer):
     def get_vacancies_count(self, prefetched_data):
         return chained_get(prefetched_data, 'vacancies_count')
 
-    def get_shops(self, instance):
-        return []
-
     class Meta:
         model = Distributor
         fields = [
@@ -57,27 +53,34 @@ class DistributorSerializer(CRUDSerializer):
             'rating',
             'categories',
             'logo',
-            'banner',
-            'shops',
+            'banner'
         ]
 
 
 class ShopSerializer(CRUDSerializer):
     repository = ShopsRepository
-    distributor = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
     banner = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
+    walk_time = serializers.SerializerMethodField()
+    vacancies_count = serializers.SerializerMethodField()
+
+    def get_walk_time(self, shop):
+        if chained_get(shop, 'distance'):
+            # Принимаем среднюю скорость пешеходов за 3.6км/ч = 1м/с
+            # Выводим расстояние в метрах как количество секунд
+            return int(shop.distance.m)
+        return None
+
+    def get_vacancies_count(self, prefetched_data):
+        return chained_get(prefetched_data, 'vacancies_count')
 
     def get_banner(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
 
     def get_logo(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
-
-    def get_distributor(self, instance):
-        return None
 
     def get_rating(self, instance):
         return None
@@ -98,13 +101,14 @@ class ShopSerializer(CRUDSerializer):
             'title',
             'description',
             'address',
+            'walk_time',
+            'vacancies_count',
             'lon',
             'lat',
             'rating',
             'rates_count',
             'logo',
             'banner',
-            'distributor',
         ]
 
 

@@ -147,6 +147,67 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
 class ShopsRepository(MakeReviewMethodProviderRepository):
     model = Shop
 
+    def __init__(self, point=None, bbox=None, me=None) -> None:
+        super().__init__()
+
+        self.point = point
+        self.bbox = bbox
+        self.me = me
+
+        # Выражения для вычисляемых полей в annotate
+        self.distance_expression = Distance('location', point) if point else Value(None, IntegerField())
+
+        # Выражения для вычисляемых полей в annotate
+        self.vacancies_expression = Count('vacancy')
+
+        # Основная часть запроса, содержащая вычисляемые поля
+        self.base_query = self.model.objects.annotate(
+            distance=self.distance_expression,
+            vacancies_count=self.vacancies_expression
+        )
+
+    def get_by_id(self, record_id):
+        record = self.base_query.filter(id=record_id)
+        record = self.fast_related_loading(record).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.base_query.filter(**kwargs)
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
+
+    def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(args, **kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(args, **kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(args, **kwargs)
+            else:
+                records = self.base_query.filter(args, **kwargs)
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
+
     @staticmethod
     def fast_related_loading(queryset, point=None):
         """ Подгрузка зависимостей
