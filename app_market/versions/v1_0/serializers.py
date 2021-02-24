@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 from rest_framework import serializers
 
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_media.enums import MediaType
@@ -11,6 +11,14 @@ from app_media.versions.v1_0.controllers import MediaController
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp
+
+
+class CategoriesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = [
+            'id', 'title'
+        ]
 
 
 class DistributorSerializer(CRUDSerializer):
@@ -29,8 +37,8 @@ class DistributorSerializer(CRUDSerializer):
     def get_banner(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
 
-    def get_categories(self, instance):
-        return []
+    def get_categories(self, prefetched_data):
+        return CategoriesSerializer(prefetched_data.categories, many=True).data
 
     def get_vacancies_count(self, prefetched_data):
         return chained_get(prefetched_data, 'vacancies_count')
