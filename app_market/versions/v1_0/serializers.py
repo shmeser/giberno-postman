@@ -41,7 +41,7 @@ class DistributorSerializer(CRUDSerializer):
         return []
 
     def get_rating(self, instance):
-        return instance.reviews.all().aggregate(Avg('value'))
+        return instance.reviews.all().aggregate(Avg('value'))['value__avg']
 
     class Meta:
         model = Distributor
