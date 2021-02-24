@@ -43,7 +43,11 @@ class MakeReviewMethodProviderRepository(MasterRepository):
         target_id = record_id
 
         if point:
-            region = Region.objects.filter(boundary__covers=point)
+            regions = Region.objects.filter(boundary__covers=point)
+            if regions:
+                region = regions.first()
+            else:
+                region = None
         else:
             region = None
 
@@ -147,7 +151,11 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
         )
 
         if point:
-            region = Region.objects.filter(boundary__covers=point)
+            regions = Region.objects.filter(boundary__covers=point)
+            if regions:
+                region = regions.first()
+            else:
+                region = None
         else:
             region = None
 
