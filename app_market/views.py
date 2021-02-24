@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer
 from app_market.versions.v1_0 import views as v1_0
-from app_market.versions.v1_0.serializers import DistributorSerializer, ProfessionSerializer, ShiftsSerializer, \
+from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
     ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -14,7 +14,7 @@ from backend.errors.http_exception import HttpException
 
 class Distributors(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', DistributorSerializer)})
+    @swagger_auto_schema(responses={200: openapi.Response('response description', DistributorsSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Distributors().get(request, **kwargs)

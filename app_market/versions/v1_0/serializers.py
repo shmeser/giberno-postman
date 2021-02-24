@@ -4,9 +4,9 @@ import pytz
 from django.db.models import Avg
 from rest_framework import serializers
 
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShopsRepository, ShifsRepository
+    DistributorsRepository, ShifsRepository
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
 from backend.fields import DateTimeField
@@ -14,7 +14,15 @@ from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp
 
 
-class DistributorSerializer(CRUDSerializer):
+class CategoriesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = [
+            'id', 'title'
+        ]
+
+
+class DistributorsSerializer(CRUDSerializer):
     repository = DistributorsRepository
 
     logo = serializers.SerializerMethodField()
@@ -22,7 +30,6 @@ class DistributorSerializer(CRUDSerializer):
 
     categories = serializers.SerializerMethodField()
     vacancies_count = serializers.SerializerMethodField()
-    shops = serializers.SerializerMethodField()
     rating = serializers.SerializerMethodField()
 
     def get_logo(self, prefetched_data):
@@ -31,17 +38,14 @@ class DistributorSerializer(CRUDSerializer):
     def get_banner(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
 
-    def get_categories(self, instance):
-        return []
+    def get_categories(self, prefetched_data):
+        return CategoriesSerializer(prefetched_data.categories, many=True).data
 
     def get_vacancies_count(self, prefetched_data):
         return chained_get(prefetched_data, 'vacancies_count')
 
-    def get_shops(self, instance):
-        return []
-
     def get_rating(self, instance):
-        return instance.reviews.all().aggregate(Avg('value'))
+        return instance.reviews.all().aggregate(avg=Avg('value'))['avg']
 
     class Meta:
         model = Distributor
@@ -54,33 +58,49 @@ class DistributorSerializer(CRUDSerializer):
             'rating',
             'categories',
             'logo',
-            'banner',
-            'shops',
+            'banner'
         ]
 
 
-class ShopSerializer(CRUDSerializer):
-    repository = ShopsRepository
-    distributor = serializers.SerializerMethodField()
-    lon = serializers.SerializerMethodField()
-    lat = serializers.SerializerMethodField()
-    banner = serializers.SerializerMethodField()
+class ShopsSerializer(CRUDSerializer):
+    """ Список магазинов """
+    walk_time = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
-
-    def get_banner(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
 
     def get_logo(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
 
-    def get_distributor(self, instance):
+    def get_walk_time(self, shop):
+        if chained_get(shop, 'distance'):
+            # Принимаем среднюю скорость пешеходов за 3.6км/ч = 1м/с
+            # Выводим расстояние в метрах как количество секунд
+            return int(shop.distance.m)
         return None
 
-    def get_rating(self, instance):
-        return None
+    class Meta:
+        model = Shop
+        fields = [
+            'id',
+            'title',
+            'description',
+            'address',
+            'walk_time',
+            'logo',
+        ]
 
-    def get_rates_count(self, instance):
-        return None
+
+class ShopSerializer(ShopsSerializer):
+    """ Магазин """
+    lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
+    vacancies_count = serializers.SerializerMethodField()
+
+    def get_vacancies_count(self, prefetched_data):
+        return chained_get(prefetched_data, 'vacancies_count')
+
+    def get_banner(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
 
     def get_lon(self, instance):
         return instance.location.x if instance.location else None
@@ -95,38 +115,28 @@ class ShopSerializer(CRUDSerializer):
             'title',
             'description',
             'address',
-            'lon',
-            'lat',
+            'walk_time',
+            'vacancies_count',
             'rating',
             'rates_count',
+            'lon',
+            'lat',
             'logo',
             'banner',
-            'distributor',
         ]
 
 
-class ShopInVacancySerializer(CRUDSerializer):
+class ShopInVacancySerializer(ShopsSerializer):
     """ Вложенная модель магазина в вакансии (на экране просмотра одной вакансии) """
 
-    logo = serializers.SerializerMethodField()
     map = serializers.SerializerMethodField()
 
-    walk_time = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
 
-    def get_logo(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
-
     def get_map(self, prefetched_data):
+        # TODO добавить загрузку файла карт с гугла после получения платного аккаунта
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.MAP.value)
-
-    def get_walk_time(self, shop):
-        if chained_get(shop, 'distance'):
-            # Принимаем среднюю скорость пешеходов за 3.6км/ч = 1м/с
-            # Выводим расстояние в метрах как количество секунд
-            return int(shop.distance.m)
-        return None
 
     def get_lon(self, shop):
         if shop.location:
@@ -145,40 +155,13 @@ class ShopInVacancySerializer(CRUDSerializer):
             'title',
             'description',
             'address',
+            'walk_time',
             'rating',
             'rates_count',
-            'walk_time',
             'lon',
             'lat',
             'logo',
             'map',
-        ]
-
-
-class ShopsInVacanciesSerializer(CRUDSerializer):
-    """ Вложенная модель магазина в списке вакансий """
-    walk_time = serializers.SerializerMethodField()
-    logo = serializers.SerializerMethodField()
-
-    def get_logo(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
-
-    def get_walk_time(self, shop):
-        if chained_get(shop, 'distance'):
-            # Принимаем среднюю скорость пешеходов за 3.6км/ч = 1м/с
-            # Выводим расстояние в метрах как количество секунд
-            return int(shop.distance.m)
-        return None
-
-    class Meta:
-        model = Shop
-        fields = [
-            'id',
-            'title',
-            'description',
-            'address',
-            'walk_time',
-            'logo',
         ]
 
 
@@ -229,7 +212,7 @@ class VacanciesSerializer(CRUDSerializer):
         return vacancy.work_time
 
     def get_shop(self, vacancy):
-        return ShopsInVacanciesSerializer(vacancy.shop).data
+        return ShopsSerializer(vacancy.shop).data
 
     def get_distributor(self, vacancy):
         if vacancy.shop and vacancy.shop.distributor:

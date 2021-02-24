@@ -100,6 +100,7 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
         super().__init__()
 
         self.me = me
+        self.point = point
 
         # Выражения для вычисляемых полей в annotate
         self.vacancies_expression = Count('shop__vacancy')
@@ -110,13 +111,13 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
         )
 
     def get_by_id(self, record_id):
-        try:
-            return self.base_query.get(id=record_id)
-        except self.model.DoesNotExist:
+        record = self.base_query.filter(id=record_id)
+        record = self.fast_related_loading(record, self.me, self.point).first()
+        if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
-                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
-            )
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         try:
@@ -129,10 +130,14 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
                 records = self.base_query.order_by(*order_by).filter(**kwargs)
             else:
                 records = self.base_query.filter(**kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            me=self.me
+        )
 
     @staticmethod
-    def fast_related_loading(queryset, request_user, point=None):
+    def fast_related_loading(queryset, me, point=None):
         queryset = queryset.prefetch_related(
             # Подгрузка медиа
             Prefetch(
@@ -151,13 +156,13 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
         else:
             region = None
 
-        if region:
+        if region and me:
             queryset = queryset.prefetch_related(
                 # подгрузка отзывов по региону в котором находится пользователь
                 Prefetch(
                     'reviews',
                     queryset=Review.objects.filter(
-                        owner_id=request_user.id,
+                        owner_id=me.id,
                         target_ct=ContentType.objects.get_for_model(Distributor),
                         region=region
                     )
@@ -169,6 +174,67 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
 
 class ShopsRepository(MakeReviewMethodProviderRepository):
     model = Shop
+
+    def __init__(self, point=None, bbox=None, me=None) -> None:
+        super().__init__()
+
+        self.point = point
+        self.bbox = bbox
+        self.me = me
+
+        # Выражения для вычисляемых полей в annotate
+        self.distance_expression = Distance('location', point) if point else Value(None, IntegerField())
+
+        # Выражения для вычисляемых полей в annotate
+        self.vacancies_expression = Count('vacancy')
+
+        # Основная часть запроса, содержащая вычисляемые поля
+        self.base_query = self.model.objects.annotate(
+            distance=self.distance_expression,
+            vacancies_count=self.vacancies_expression
+        )
+
+    def get_by_id(self, record_id):
+        record = self.base_query.filter(id=record_id)
+        record = self.fast_related_loading(record).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.base_query.filter(**kwargs)
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
+
+    def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(args, **kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(args, **kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(args, **kwargs)
+            else:
+                records = self.base_query.filter(args, **kwargs)
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
 
     @staticmethod
     def fast_related_loading(queryset, point=None):
@@ -432,7 +498,10 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                 records = self.base_query.order_by(*order_by).filter(args, **kwargs)
             else:
                 records = self.base_query.filter(args, **kwargs)
-        return records[paginator.offset:paginator.limit] if paginator else records
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
 
     def get_suggestions(self, search, paginator=None):
         records = self.model.objects.exclude(deleted=True).annotate(
