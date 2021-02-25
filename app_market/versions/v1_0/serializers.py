@@ -66,6 +66,14 @@ class ShopsSerializer(CRUDSerializer):
     """ Список магазинов """
     walk_time = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
+
+    def get_lon(self, instance):
+        return instance.location.x if instance.location else None
+
+    def get_lat(self, instance):
+        return instance.location.y if instance.location else None
 
     def get_logo(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
@@ -85,14 +93,14 @@ class ShopsSerializer(CRUDSerializer):
             'description',
             'address',
             'walk_time',
+            'lon',
+            'lat',
             'logo',
         ]
 
 
 class ShopSerializer(ShopsSerializer):
     """ Магазин """
-    lon = serializers.SerializerMethodField()
-    lat = serializers.SerializerMethodField()
     banner = serializers.SerializerMethodField()
     vacancies_count = serializers.SerializerMethodField()
 
@@ -101,12 +109,6 @@ class ShopSerializer(ShopsSerializer):
 
     def get_banner(self, prefetched_data):
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
-
-    def get_lon(self, instance):
-        return instance.location.x if instance.location else None
-
-    def get_lat(self, instance):
-        return instance.location.y if instance.location else None
 
     class Meta:
         model = Shop
@@ -131,22 +133,9 @@ class ShopInVacancySerializer(ShopsSerializer):
 
     map = serializers.SerializerMethodField()
 
-    lon = serializers.SerializerMethodField()
-    lat = serializers.SerializerMethodField()
-
     def get_map(self, prefetched_data):
         # TODO добавить загрузку файла карт с гугла после получения платного аккаунта
         return MediaController(self.instance).get_related_image(prefetched_data, MediaType.MAP.value)
-
-    def get_lon(self, shop):
-        if shop.location:
-            return shop.location.x
-        return None
-
-    def get_lat(self, shop):
-        if shop.location:
-            return shop.location.y
-        return None
 
     class Meta:
         model = Shop
