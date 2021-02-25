@@ -12,6 +12,7 @@ from django.utils.timezone import now, localtime
 from pytz import timezone
 
 from app_feedback.models import Review, Like
+from app_geo.models import Region
 from app_market.enums import ShiftWorkTime
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
 from app_market.versions.v1_0.mappers import ShiftMapper
@@ -28,7 +29,7 @@ class MakeReviewMethodProviderRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-    def make_review(self, record_id, text, value):
+    def make_review(self, record_id, text, value, point=None):
         # TODO добавить загрузку attachments
 
         owner_content_type = ContentType.objects.get_for_model(self.me)
@@ -40,6 +41,8 @@ class MakeReviewMethodProviderRepository(MasterRepository):
         target_ct_id = target_content_type.id
         target_ct_name = target_content_type.model
         target_id = record_id
+
+        region = Region.objects.filter(boundary__covers=point).first() if point else None
 
         if not Review.objects.filter(
                 owner_ct_id=owner_ct_id,
@@ -58,7 +61,8 @@ class MakeReviewMethodProviderRepository(MasterRepository):
                 target_ct_name=target_ct_name,
 
                 value=value,
-                text=text
+                text=text,
+                region=region
             )
 
             # Пересчитываем количество оценок и рейтинг
@@ -93,6 +97,7 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
         super().__init__()
 
         self.me = me
+        self.point = point
 
         # Выражения для вычисляемых полей в annotate
         self.vacancies_expression = Count('shop__vacancy')
@@ -104,7 +109,7 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
 
     def get_by_id(self, record_id):
         record = self.base_query.filter(id=record_id)
-        record = self.fast_related_loading(record).first()
+        record = self.fast_related_loading(record, self.me, self.point).first()
         if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
@@ -125,10 +130,11 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
 
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            me=self.me
         )
 
     @staticmethod
-    def fast_related_loading(queryset):
+    def fast_related_loading(queryset, me, point=None):
         queryset = queryset.prefetch_related(
             # Подгрузка медиа
             Prefetch(
@@ -140,7 +146,23 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
                 ),
                 to_attr='medias'
             )
-        ).prefetch_related('categories')  # Категории из m2m поля categories
+        )
+
+        region = Region.objects.filter(boundary__covers=point).first() if point else None
+
+        if region and me:
+            queryset = queryset.prefetch_related(
+                # подгрузка отзывов по региону в котором находится пользователь
+                Prefetch(
+                    'reviews',
+                    queryset=Review.objects.filter(
+                        owner_id=me.id,
+                        target_ct=ContentType.objects.get_for_model(Distributor),
+                        region=region
+                    )
+                )
+            )
+
         return queryset
 
 

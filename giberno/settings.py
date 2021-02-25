@@ -310,7 +310,6 @@ CONSTANCE_CONFIG = {
 
 DEBUG = True if os.getenv('DEBUG', False) in ['True', 'true', 'TRUE', True] else False
 
-
 if DEBUG:
     SWAGGER_SETTINGS = {
         'SECURITY_DEFINITIONS': {

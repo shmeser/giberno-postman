@@ -4,6 +4,7 @@ from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
+from app_geo.models import Region
 from app_media.models import MediaModel
 from backend.models import GenericSourceTargetBase
 
@@ -22,6 +23,8 @@ class Review(GenericSourceTargetBase):
     target_ct = models.ForeignKey(
         ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='review_target_ct'
     )
+
+    region = models.ForeignKey(to=Region, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return f'{self.id} - {self.owner_ct_name}=>{self.target_ct_name} - {self.text}'
