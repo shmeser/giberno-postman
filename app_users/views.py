@@ -246,6 +246,27 @@ def read_notification(request, **kwargs):
     raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+# PUSH SUBSCRIBE
+@api_view(['POST'])
+def push_subscribe(request, **kwargs):
+    if request.version in ['users_1_0']:
+        return v1_0.push_subscribe(request._request)
+
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+# PUSH UNSUBSCRIBE
+class PushUnsubscribe(APIView):
+    permission_classes = (AllowAny,)
+
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.PushUnsubscribe.post(request)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 # MANAGERS RELATED VIEWS
 class CreateManagerByAdminAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]

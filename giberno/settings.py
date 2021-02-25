@@ -243,6 +243,8 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_BOT_PASSWORD = os.getenv('TELEGRAM_BOT_PASSWORD', '')
 TELEGRAM_URL = 'https://api.telegram.org/bot'
 
+FCM_MAX_DEVICES_PER_REQUEST = 500  # Количество пушей за один запрос в Firebase
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
