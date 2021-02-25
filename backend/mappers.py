@@ -8,7 +8,7 @@ from app_media.mappers import MediaMapper
 from backend.entity import Pagination, Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
-from backend.utils import timestamp_to_datetime as t2d, CP, chained_get, timestamp_to_datetime
+from backend.utils import timestamp_to_datetime as t2d, CP, chained_get, timestamp_to_datetime, get_request_body
 from giberno import settings
 
 
@@ -143,18 +143,21 @@ class RequestMapper:
     @classmethod
     def geo(cls, request, raise_exception=False):
         try:
-            query_params = underscoreize(request.query_params)
+            if request.body:
+                data = get_request_body(request)
+            else:
+                data = underscoreize(request.query_params)
 
-            _lon = chained_get(query_params, 'lon')
-            _lat = chained_get(query_params, 'lat')
+            _lon = chained_get(data, 'lon')
+            _lat = chained_get(data, 'lat')
 
             _radius = chained_get(request.query_params, 'radius')
             radius = int(_radius) if _radius else None
 
-            _sw_lon = chained_get(query_params, 'sw_lon')
-            _sw_lat = chained_get(query_params, 'sw_lat')
-            _ne_lon = chained_get(query_params, 'ne_lon')
-            _ne_lat = chained_get(query_params, 'ne_lat')
+            _sw_lon = chained_get(data, 'sw_lon')
+            _sw_lat = chained_get(data, 'sw_lat')
+            _ne_lon = chained_get(data, 'ne_lon')
+            _ne_lat = chained_get(data, 'ne_lat')
 
             if None in [_sw_lon, _sw_lat, _ne_lon, _ne_lat]:
                 bbox = None
