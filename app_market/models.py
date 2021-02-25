@@ -149,6 +149,10 @@ class Vacancy(BaseModel):
     def __str__(self):
         return f'{self.title}'
 
+    def increment_views_count(self):
+        self.views_count += 1
+        self.save()
+
     class Meta:
         db_table = 'app_market__vacancies'
         verbose_name = 'Вакансия'
