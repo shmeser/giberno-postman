@@ -1,6 +1,7 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.utils.timezone import now
+from fcm_django.models import FCMDevice
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -247,6 +248,10 @@ class ProfileRepository(MasterRepository):
 
 class NotificationsRepository(MasterRepository):
     model = Notification
+
+
+class FCMDeviceRepository(MasterRepository):
+    model = FCMDevice
 
 
 class NotificationsSettingsRepository(MasterRepository):

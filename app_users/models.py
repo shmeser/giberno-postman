@@ -4,7 +4,6 @@ from django.contrib.auth.models import AbstractUser
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
-from django.db.models import JSONField
 
 from app_geo.models import Language, Country, City
 from app_media.models import MediaModel
@@ -187,11 +186,7 @@ class Notification(BaseModel):
     read_at = models.DateTimeField(null=True, blank=True, verbose_name='Время прочтения')
 
     push_tokens_android = ArrayField(models.CharField(max_length=1024), blank=True, null=True)
-    firebase_response_android = JSONField(blank=True, null=True)
     push_tokens_ios = ArrayField(models.CharField(max_length=1024), blank=True, null=True)
-    firebase_response_ios = JSONField(blank=True, null=True)
-
-    sent_at = models.DateTimeField(null=True, blank=True, verbose_name='Отправлено в Firebase')
 
     icon_type = models.IntegerField(
         choices=choices(NotificationIcon), default=NotificationIcon.DEFAULT, verbose_name='Тип иконки'
