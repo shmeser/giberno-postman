@@ -158,6 +158,7 @@ class Vacancies(CRUDAPIView):
         if record_id:
             self.serializer_class = VacancySerializer
             dataset = self.repository_class(point).get_by_id(record_id)
+            dataset.increment_views_count()
         else:
             self.many = True
             dataset = self.repository_class(point, bbox).filter_by_kwargs(
