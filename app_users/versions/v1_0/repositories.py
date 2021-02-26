@@ -1,3 +1,4 @@
+from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.utils.timezone import now
@@ -215,6 +216,15 @@ class JwtRepository:
         return JwtToken.objects.create(**JwtTokenEntity(user, access_token, refresh_token).get_kwargs())
 
 
+class AsyncJwtRepository(JwtRepository):
+    def __init__(self) -> None:
+        super().__init__()
+
+    @database_sync_to_async
+    def get_user(self, token):
+        return super().get_user(token)
+
+
 class ProfileRepository(MasterRepository):
     model = UserProfile
 
@@ -244,6 +254,19 @@ class ProfileRepository(MasterRepository):
                 detail=f'Пароль введен неверно'
             )
         return user
+
+
+class AsyncProfileRepository(ProfileRepository):
+    def __init__(self) -> None:
+        super().__init__()
+
+    @database_sync_to_async
+    def get_by_id(self, record_id):
+        return super().get_by_id(record_id)
+
+    @database_sync_to_async
+    def update_location(self, user: UserProfile, lon, lat):
+        return super().update_location(user, lon, lat)
 
 
 class NotificationsRepository(MasterRepository):
