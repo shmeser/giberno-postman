@@ -3,10 +3,10 @@ import logging
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
 from backend.errors.client_error import SocketError
-from backend.utils import socket_print
+from backend.utils import CP
 from app_sockets.controllers import AsyncSocketController
-from sockets.enums import SocketEventType
-from sockets.mappers.request_models import SocketEventRM
+from app_sockets.enums import SocketEventType
+from app_sockets.mappers.request_models import SocketEventRM
 
 
 class Consumer(AsyncJsonWebsocketConsumer):
@@ -38,28 +38,28 @@ class Consumer(AsyncJsonWebsocketConsumer):
     async def leave_group(self, event: SocketEventRM):
         try:
             self.user = await self.socket_controller.leave_group(event.token, event.group_name)
-            socket_print(self.user, event.event_type, event.group_name)
+            # socket_print(self.user, event.event_type, event.group_name)
         except SocketError as error:
             await self.socket_controller.send_system_message(error.code, error.message)
 
     async def update_location(self, event: SocketEventRM):
         try:
             self.user = await self.socket_controller.update_location(event.token, event.lon, event.lat)
-            socket_print(self.user, event.event_type, "%s, %s" % (event.lon, event.lat))
+            # socket_print(self.user, event.event_type, "%s, %s" % (event.lon, event.lat))
         except SocketError as error:
             await self.socket_controller.send_system_message(error.code, error.message)
 
     async def register_profiles(self, event: SocketEventRM):
         try:
             self.user = await self.socket_controller.register_profiles(event.token, event.profile_id)
-            socket_print(self.user, event.event_type, event.profile_id)
+            # socket_print(self.user, event.event_type, event.profile_id)
         except SocketError as error:
             await self.socket_controller.send_system_message(error.code, error.message)
 
     """ type = event_message хендлер для типа серверных сообщений"""
 
     async def server_event(self, event):
-        socket_print(self.user, event.get('eventType'), event.get('data'))
+        # socket_print(self.user, event.get('eventType'), event.get('data'))
         await self.send_json(
             {
                 'data': event.get('data'),

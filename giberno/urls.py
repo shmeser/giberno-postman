@@ -27,6 +27,7 @@ service_urls = [
     path('policy', PolicyView.as_view()),
     path('agreement', AgreementView.as_view()),
     path('bot/', include(('app_bot.urls', 'bot_1_0'))),
+    path('sockets/', include(('app_sockets.urls', 'sockets_1_0'))),
 ]
 
 v1_0 = 'v1.0/'
