@@ -1,6 +1,7 @@
 import inflection
 from django.contrib.gis.geos import GEOSGeometry
 from djangorestframework_camel_case.util import underscoreize
+from numpy import pi, cos, sqrt, sin
 
 from app_media.enums import MediaType
 from app_media.forms import FileForm
@@ -162,11 +163,35 @@ class RequestMapper:
             if None in [_sw_lon, _sw_lat, _ne_lon, _ne_lat]:
                 bbox = None
             else:
-                coords_str = f'{_sw_lon} {_sw_lat},' \
-                    f'{_sw_lon} {_ne_lat},' \
-                    f'{_ne_lon} {_ne_lat},' \
-                    f'{_ne_lon} {_sw_lat},' \
-                    f'{_sw_lon} {_sw_lat}'
+                x1 = float(_sw_lon)
+                y1 = float(_sw_lat)  # First diagonal point
+                x2 = float(_ne_lon)
+                y2 = float(_ne_lat)  # Second diagonal point
+
+                xc = (x1 + x2) / 2
+                yc = (y1 + y2) / 2  # Center point
+                xd = (x1 - x2) / 2
+                yd = (y1 - y2) / 2  # Half - diagonal
+
+                # TODO усовершенствовать для разных широт
+                a = 6378137.0
+                e2 = 0.00669437999014
+                delta = (pi * a * cos(yc)) / (180 * sqrt(1 - e2 * sin(yc) ** 2))
+                ####
+
+                # Third corner
+                x3 = xc - yd
+                y3 = yc + xd
+
+                # Fourth corner
+                x4 = xc + yd
+                y4 = yc - xd
+
+                coords_str = f'{x1} {y1},' \
+                    f'{x3} {y3},' \
+                    f'{x2} {y2},' \
+                    f'{x4} {y4},' \
+                    f'{x1} {y1}'
 
                 bbox = GEOSGeometry(f'POLYGON(({coords_str}))', srid=settings.SRID)
 
