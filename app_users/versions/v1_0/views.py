@@ -1,3 +1,4 @@
+import json
 from uuid import uuid4
 
 from django.contrib.contenttypes.models import ContentType
@@ -6,6 +7,7 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
+from fcm_django.api.rest_framework import FCMDeviceAuthorizedViewSet
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -24,18 +26,19 @@ from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
 from app_users.utils import EmailSender
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
-    SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository
+    SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository, FCMDeviceRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
     NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer, \
     CreateManagerByAdminSerializer, UsernameSerializer, UsernameWithPasswordSerializer, \
     PasswordSerializer, EditManagerProfileSerializer
 from backend.api_views import BaseAPIView
 from backend.entity import Error
+from backend.enums import Platform
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_headers, get_request_body
+from backend.utils import get_request_headers, get_request_body, chained_get
 
 
 @api_view(['GET'])
@@ -536,6 +539,55 @@ def read_notification(request, **kwargs):
     )
 
     return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+def push_subscribe(request):
+    request = request._request
+    data = get_request_body(request)
+    headers = get_request_headers(request)
+
+    token = chained_get(data, 'token')
+    platform = chained_get(headers, 'Platform')
+
+    if platform:
+        platform = platform.lower()
+        platform = Platform.ANDROID.value if Platform.ANDROID.value in platform else platform
+        platform = Platform.IOS.value if Platform.IOS.value in platform else platform
+
+    if not token:
+        raise CustomException(errors=[
+            dict(Error(ErrorsCodes.EMPTY_REQUIRED_FIELDS, **{'detail': 'Необходимо указать поле token'}))
+        ])
+
+    if platform is None:
+        raise CustomException(errors=[
+            dict(
+                Error(
+                    ErrorsCodes.EMPTY_REQUIRED_FIELDS,
+                    **{'detail': 'Необходимо указать заголовок запроса Platform'}
+                )
+            )
+        ])
+
+    data["type"] = platform
+    data["registration_id"] = token
+    body = json.dumps(data).encode('utf-8')
+    request._body = body
+    FCMDeviceAuthorizedViewSet.as_view({'post': 'create'})(request)
+    return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class PushUnsubscribe(APIView):
+    permission_classes = (AllowAny,)
+
+    @staticmethod
+    def post(request):
+        data = get_request_body(request)
+        FCMDeviceRepository().filter_by_kwargs({
+            'registration_id': data.get('token')
+        }).update(active=False)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 # MANAGERS RELATED VIEWS

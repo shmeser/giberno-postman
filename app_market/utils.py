@@ -13,10 +13,6 @@ class QRHandler:
         self.qr = segno.make(self.info_to_encode)
         self.qr.save(self.qr_image_name)
 
-    # def to_qr(self):
-    #     qr = segno.make(self.info_to_encode)
-    #     qr.save(self.qr_image_name)
-
     def to_bas64(self):
         return base64.b64encode(open(self.qr_image_name, "rb").read())
 

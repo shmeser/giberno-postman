@@ -50,7 +50,7 @@ class SocialModelAdmin(FormattedAdmin):
 @admin.register(Notification)
 class NotificationAdmin(FormattedAdmin):
     list_display = (
-        "id", "user_id", "subject_id", "title", "message", "type", "action", "read_at", "sent_at"
+        "id", "user_id", "subject_id", "title", "message", "type", "action", "read_at"
     )
 
     list_filter = ["type", "action"]
