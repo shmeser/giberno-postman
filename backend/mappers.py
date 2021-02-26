@@ -173,12 +173,6 @@ class RequestMapper:
                 xd = (x1 - x2) / 2
                 yd = (y1 - y2) / 2  # Half - diagonal
 
-                # TODO усовершенствовать для разных широт
-                a = 6378137.0
-                e2 = 0.00669437999014
-                delta = (pi * a * cos(yc)) / (180 * sqrt(1 - e2 * sin(yc) ** 2))
-                ####
-
                 # Third corner
                 x3 = xc - yd
                 y3 = yc + xd
