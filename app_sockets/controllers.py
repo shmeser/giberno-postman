@@ -12,6 +12,7 @@ from app_users.versions.v1_0.serializers import ProfileSerializer
 from backend.errors.client_error import SocketError
 from backend.errors.enums import SocketErrors
 from backend.errors.exceptions import EntityDoesNotExistException
+from giberno.settings import DEBUG
 
 
 class AsyncSocketController:
@@ -62,6 +63,8 @@ class AsyncSocketController:
             await self.send_profile(profile)
 
             return me
+        except Exception as e:
+            print(e)
         except EntityDoesNotExistException:
             raise SocketError(SocketErrors.NOT_FOUND, SocketErrors.NOT_FOUND.name)
 
@@ -76,6 +79,18 @@ class AsyncSocketController:
 
     async def disconnect(self):
         await AsyncSocketsRepository(self.consumer.user).remove_socket(self.consumer.channel_name)
+
+    async def send_system_message(self, code, message):
+        try:
+            await self.consumer.channel_layer.send(self.consumer.channel_name, {
+                'type': 'system_message',
+                'code': code,
+                'message': message,
+            })
+        except Exception as exc:
+            if DEBUG is True:
+                print('[SOCKET ERROR] chats.controllers.send_system_message():')
+                print('[ERROR MESSAGE] ' + str(exc))
 
 
 class SocketController:

@@ -2,11 +2,10 @@ import logging
 
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
-from backend.errors.client_error import SocketError
-from backend.utils import CP
 from app_sockets.controllers import AsyncSocketController
 from app_sockets.enums import SocketEventType
 from app_sockets.mappers.request_models import SocketEventRM
+from backend.errors.client_error import SocketError
 
 
 class Consumer(AsyncJsonWebsocketConsumer):
@@ -14,11 +13,24 @@ class Consumer(AsyncJsonWebsocketConsumer):
         super().__init__(*args, **kwargs)
         self.user = None
         self.socket_controller = None
+        self.room_name = None
+        self.room_id = None
+        self.room_group_name = None
         self.logger = logging.getLogger(__name__)
 
     async def connect(self):
         self.socket_controller = AsyncSocketController(self)
-        await self.accept()
+        self.user = self.scope["user"]
+
+        self.room_id = self.scope['url_route']['kwargs']['id']
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
+
+        self.room_group_name = f'{self.room_name}_{self.room_id}'
+
+        if self.user.is_authenticated:  # also you can add more restrictions here
+            await self.accept()
+        else:
+            await self.close()
 
     async def receive_json(self, content, **kwargs):
         socket_event = SocketEventRM(content)
@@ -33,7 +45,6 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
         if socket_event.event_type == SocketEventType.REGISTER_PROFILE:
             await self.register_profiles(socket_event)
-            return
 
     async def leave_group(self, event: SocketEventRM):
         try:
@@ -82,12 +93,19 @@ class Consumer(AsyncJsonWebsocketConsumer):
             },
         )
 
+    # Системное - предупреждение, информация
+    async def system_message(self, system):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SYSTEM_MESSAGE,
+                'message': system['message'],
+            },
+        )
+
     async def disconnect(self, code):
         try:
             await self.socket_controller.disconnect()
-            await self.close()
         except SocketError as error:
             await self.socket_controller.send_system_message(error.code, error.message)
         except Exception as e:
             print("DISCONNECT_ERROR", e)
-        await super().websocket_disconnect({'code': 200})
