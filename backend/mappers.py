@@ -1,7 +1,6 @@
 import inflection
 from django.contrib.gis.geos import GEOSGeometry
 from djangorestframework_camel_case.util import underscoreize
-from numpy import pi, cos, sqrt, sin
 
 from app_media.enums import MediaType
 from app_media.forms import FileForm
@@ -230,3 +229,23 @@ class RequestMapper:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),
             ])
+
+
+class DataMapper:
+    @staticmethod
+    def geo_point(data, raise_exception=False):
+        _lon = chained_get(data, 'lon')
+        _lat = chained_get(data, 'lat')
+        if _lat is not None and _lon is not None:
+            lon = float(_lon)
+            lat = float(_lat)
+            if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.INVALID_COORDS)),
+                ])
+            return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID)
+        if raise_exception:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.INVALID_COORDS)),
+            ])
+        return None

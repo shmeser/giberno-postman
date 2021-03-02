@@ -16,6 +16,7 @@ class SocketEventType(IntEnumM):
     REGISTER_PROFILE = 2
 
     SYSTEM_MESSAGE = 100
+
     SERVER_PROFILE_UPDATED = 101
 
     NOTIFICATION = 200

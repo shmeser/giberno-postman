@@ -14,6 +14,7 @@ from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException, CustomException
+from backend.mappers import DataMapper
 from backend.mixins import MasterRepository
 from backend.repositories import BaseRepository
 from backend.utils import is_valid_uuid
@@ -228,6 +229,10 @@ class AsyncJwtRepository(JwtRepository):
 class ProfileRepository(MasterRepository):
     model = UserProfile
 
+    def __init__(self, me=None) -> None:
+        self.me = me
+        super().__init__()
+
     def get_by_id(self, record_id):
         try:
             return self.model.objects.get(id=record_id, is_staff=False)
@@ -255,18 +260,26 @@ class ProfileRepository(MasterRepository):
             )
         return user
 
+    def update_location(self, data):
+        point = DataMapper.geo_point(data)
+        self.me.location = point
+        self.me.save()
+        return self.me
+
 
 class AsyncProfileRepository(ProfileRepository):
-    def __init__(self) -> None:
+    def __init__(self, me=None) -> None:
         super().__init__()
+        self.me = me
 
     @database_sync_to_async
     def get_by_id(self, record_id):
         return super().get_by_id(record_id)
 
     @database_sync_to_async
-    def update_location(self, user: UserProfile, lon, lat):
-        return super().update_location(user, lon, lat)
+    def update_location(self, event):
+        super().__init__(self.me)
+        return super().update_location(event)
 
 
 class NotificationsRepository(MasterRepository):

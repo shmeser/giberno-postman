@@ -11,6 +11,7 @@ from app_users.enums import Gender, Status, AccountType, LanguageProficiency, No
     Education, DocumentType, NotificationIcon
 from backend.models import BaseModel
 from backend.utils import choices
+from giberno import settings
 
 
 class UserProfile(AbstractUser, BaseModel):
@@ -73,6 +74,8 @@ class UserProfile(AbstractUser, BaseModel):
     # использовано в формате app_label.ModelName из - за циркулярного импорта
     distributors = models.ManyToManyField(to='app_market.Distributor', blank=True, verbose_name='Торговая сеть',
                                           related_name='distributors')
+
+    location = models.PointField(srid=settings.SRID, blank=True, null=True, verbose_name='Геопозиция')
 
     @property
     def is_manager(self):

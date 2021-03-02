@@ -36,9 +36,8 @@ class AsyncSocketController:
         except EntityDoesNotExistException:
             raise SocketError(SocketErrors.NOT_FOUND.name, SocketErrors.NOT_FOUND)
 
-    async def update_location(self, token, lon, lat):
-        user = await AsyncJwtRepository().get_user(token)
-        user = await AsyncProfileRepository().update_location(user, lon, lat)
+    async def update_location(self, event):
+        user = await AsyncProfileRepository(me=self.consumer.scope['user']).update_location(event)
         return user
 
     async def register_profiles(self, token, profile_id):
