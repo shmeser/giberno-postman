@@ -234,3 +234,15 @@ input {
     color: #fd3838;
     padding: 5px;
 }
+
+.connection-route {
+    color: #2fa75f;
+    font-weight: 700;
+}
+
+.jwt {
+    word-break: break-all;
+    font-size: 12px;
+    padding: 5px;
+    color: #9d00ff;
+}
