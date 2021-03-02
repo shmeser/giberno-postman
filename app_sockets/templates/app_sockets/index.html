@@ -4,31 +4,32 @@
 {% block header_text %}Sockets{% endblock %}
 
 {% block content %}
-    <div class="creds-container">
-        <label for="jwt-token">
-            JWT
-        </label>
-        <input
-                placeholder="Token"
-                value="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjE0ODQzOTQwLCJqdGkiOiIyNTBhOGUzODEwMDk0M2FhYjljMzhlZTgwYzIwM2JhNCIsInVzZXJfaWQiOjEzfQ.9un2Wc3eb29oOuytK_AeD9foaviAEIyqMz5HJQojQp4"
-                id="jwt-token" type="text" required="required"
-        />
-        <label for="sockets-route">
-            SOCKET ROUTE
-        </label>
-        <div class="routes-block">
+    <div class="sockets-container">
 
+        <div class="creds-container">
+            <label for="jwt-token">
+                JWT
+            </label>
             <input
-                    placeholder="/sockets/chats/1"
-                    value="/sockets"
-                    id="sockets-route" type="text" required="required"
+                    placeholder="Token"
+                    value="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjE0ODQzOTQwLCJqdGkiOiIyNTBhOGUzODEwMDk0M2FhYjljMzhlZTgwYzIwM2JhNCIsInVzZXJfaWQiOjEzfQ.9un2Wc3eb29oOuytK_AeD9foaviAEIyqMz5HJQojQp4"
+                    id="jwt-token" type="text" required="required"
             />
-            <input type="button" value="connect" id="connect-button">
+            <label for="sockets-route">
+                SOCKET ROUTE
+            </label>
+            <div class="routes-block">
+
+                <input
+                        placeholder="/sockets/chats/1"
+                        value="/sockets"
+                        id="sockets-route" type="text" required="required"
+                />
+                <input type="button" value="connect" id="connect-button">
+            </div>
         </div>
-    </div>
 
-    <div class="connections-container" id="connections">
-
+        <div class="connections-container" id="connections"></div>
     </div>
 
 {% endblock %}
@@ -88,11 +89,9 @@
                         </div>
                         <input type='number' step='0.000001' placeholder='lon' id='lon-${connectionId}'>
                         <input type='number' step='0.000001' placeholder='lat' id='lat-${connectionId}'>
-                        <button id="send-location" onclick=sendLocation(${connectionId})>Send Location</button>
+                        <button onclick=sendLocation(${connectionId})>Send Location</button>
                     </div>
-                    <div class="messages" id="messages-history-${connectionId}">
-                        <pre id="json"></pre>
-                    </div>
+                    <div class="messages" id="messages-history-${connectionId}"></div>
                 </div>`
             )
         };
