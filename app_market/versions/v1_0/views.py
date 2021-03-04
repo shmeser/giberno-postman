@@ -46,7 +46,7 @@ class Distributors(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
-        point, bbox, radius = RequestMapper().geo(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         if record_id:
             dataset = self.repository_class(point=point, me=request.user).get_by_id(record_id)
@@ -90,7 +90,7 @@ class Shops(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
-        point, bbox, radius = RequestMapper().geo(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         if record_id:
             dataset = self.repository_class(point=point).get_by_id(record_id)
@@ -153,7 +153,7 @@ class Vacancies(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
-        point, bbox, radius = RequestMapper().geo(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         if record_id:
             self.serializer_class = VacancySerializer
@@ -161,7 +161,7 @@ class Vacancies(CRUDAPIView):
             dataset.increment_views_count()
         else:
             self.many = True
-            dataset = self.repository_class(point, bbox).filter_by_kwargs(
+            dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
@@ -230,8 +230,8 @@ class VacanciesStats(Vacancies):
         filters = RequestMapper(self).filters(request) or dict()
         order_params = RequestMapper(self).order(request)
 
-        point, bbox, radius = RequestMapper().geo(request)
-        dataset = self.repository_class(point, bbox).filter_by_kwargs(
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
+        dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
             kwargs=filters, order_by=order_params
         )
 
@@ -261,8 +261,9 @@ def vacancies_suggestions(request):
 @api_view(['GET'])
 def similar_vacancies(request, **kwargs):
     pagination = RequestMapper.pagination(request)
-    point, bbox, radius = RequestMapper().geo(request)
-    vacancies = VacanciesRepository(point=point, bbox=bbox, me=request.user).get_similar(
+    point, screen_diagonal_points, radius = RequestMapper().geo(request)
+    vacancies = VacanciesRepository(point=point, screen_diagonal_points=screen_diagonal_points,
+                                    me=request.user).get_similar(
         kwargs.get('record_id'), pagination
     )
 
@@ -277,7 +278,7 @@ class ReviewsBaseAPIView(BaseAPIView):
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
-        point, bbox, radius = RequestMapper().geo(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         if serializer.is_valid(raise_exception=True):
             self.post_request_repository_class(me=request.user).make_review(

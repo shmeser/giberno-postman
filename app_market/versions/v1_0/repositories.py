@@ -1,7 +1,8 @@
 from datetime import timedelta, datetime
 
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.db.models.functions import Distance
+from django.contrib.gis.db.models import GeometryField
+from django.contrib.gis.db.models.functions import Distance, BoundingCircle
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
@@ -93,7 +94,7 @@ class MakeReviewMethodProviderRepository(MasterRepository):
 class DistributorsRepository(MakeReviewMethodProviderRepository):
     model = Distributor
 
-    def __init__(self, point=None, bbox=None, time_zone=None, me=None) -> None:
+    def __init__(self, point=None, screen_diagonal_points=None, time_zone=None, me=None) -> None:
         super().__init__()
 
         self.me = me
@@ -169,11 +170,11 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
 class ShopsRepository(MakeReviewMethodProviderRepository):
     model = Shop
 
-    def __init__(self, point=None, bbox=None, me=None) -> None:
+    def __init__(self, point=None, screen_diagonal_points=None, me=None) -> None:
         super().__init__()
 
         self.point = point
-        self.bbox = bbox
+        self.screen_diagonal_points = screen_diagonal_points
         self.me = me
 
         # Выражения для вычисляемых полей в annotate
@@ -187,6 +188,14 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
             distance=self.distance_expression,
             vacancies_count=self.vacancies_expression
         )
+
+        if self.screen_diagonal_points:
+            self.base_query = self.base_query.filter(
+                shop__location__contained=ExpressionWrapper(
+                    BoundingCircle(screen_diagonal_points),
+                    output_field=GeometryField()
+                )
+            )
 
     def get_by_id(self, record_id):
         record = self.base_query.filter(id=record_id)
@@ -375,11 +384,11 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
     TRIGRAM_SIMILARITY_MIN_RATE = 0.3  # Мин коэффициент сходства по pg_trigram
     SIMILAR_VACANCIES_MAX_DISTANCE_M = 50000  # Максимальное расстояние для похожих вакансий
 
-    def __init__(self, point=None, bbox=None, me=None, timezone_name='Europe/Moscow') -> None:
+    def __init__(self, point=None, screen_diagonal_points=None, me=None, timezone_name='Europe/Moscow') -> None:
         super().__init__()
 
         self.point = point
-        self.bbox = bbox
+        self.screen_diagonal_points = screen_diagonal_points
         self.me = me
 
         # Выражения для вычисляемых полей в annotate
@@ -447,11 +456,18 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             free_count=self.free_count_expression,
         )
 
+        if self.screen_diagonal_points:
+            self.base_query = self.base_query.filter(
+                shop__location__contained=ExpressionWrapper(
+                    BoundingCircle(screen_diagonal_points),
+                    output_field=GeometryField()
+                )
+            )
+
     def modify_kwargs(self, kwargs):
-        if self.bbox:
+        if self.screen_diagonal_points:
             # Если передана область на карте, то радиус поиска от указанной точки не учитывается в фильтрации
             kwargs.pop('distance__lte', None)
-            kwargs['shop__location__contained'] = self.bbox
 
     def get_by_id(self, record_id):
         record = self.base_query.filter(id=record_id)
