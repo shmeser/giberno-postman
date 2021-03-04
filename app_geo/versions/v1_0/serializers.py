@@ -5,6 +5,7 @@ from app_geo.versions.v1_0.repositories import LanguagesRepository, RegionsRepos
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
 from backend.mixins import CRUDSerializer
+from backend.utils import chained_get
 
 DEFAULT_LANGUAGE = 'name:ru'
 
@@ -149,10 +150,16 @@ class CitySerializer(CRUDSerializer):
 
 
 class CityClusterSerializer(CitySerializer):
+    geometries_count = serializers.SerializerMethodField()
+
+    def get_geometries_count(self, data):
+        return chained_get(data, 'geometries_count')
+
     class Meta:
         model = City
         fields = [
             'id',
+            'geometries_count',
             'name',
             'native',
             'lon',

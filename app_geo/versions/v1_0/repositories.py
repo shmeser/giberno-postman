@@ -1,5 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.db.models import GeometryField
+from django.contrib.gis.db.models import GeometryField, FilteredRelation, Q, Exists, OuterRef
 from django.contrib.gis.db.models.functions import Distance, BoundingCircle
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Prefetch, F, ExpressionWrapper
@@ -129,6 +129,46 @@ class CitiesRepository(MasterRepository):
                 distance__lte=NEAREST_POINT_DISTANCE_MAX).order_by('distance')
             return near_point
         return within_boundary
+
+    def map(self, kwargs, paginator=None, order_by: list = None):
+        queryset = self.filter_by_kwargs(kwargs, paginator, order_by)
+
+        return self.clustering(queryset)
+
+    def clustering(self, queryset):
+        raw_sql = f'''
+                SELECT
+                    c.id,
+                    cl.geometries_count,
+                    cl.centroid,
+                    c.native
+                FROM 
+                    (
+                        SELECT 
+                            cluster_geometries,
+                            ST_Centroid (cluster_geometries) AS centroid,
+                            ST_NumGeometries(cluster_geometries) as geometries_count,
+                            ST_ClosestPoint(
+                                cluster_geometries, 
+                                ST_GeomFromGeoJSON('{self.point.geojson}')
+                            ) AS closest_point
+                        FROM 
+                            UNNEST(
+                                (
+                                    SELECT 
+                                        ST_ClusterWithin(position,5000/111111.0) 
+                                    FROM 
+                                        (
+                                        {queryset.only('position', 'country', 'region').query}
+                                        ) subquery
+                                )
+                            ) cluster_geometries
+                    ) cl
+                JOIN app_geo__cities c ON (c.position=cl.closest_point) -- JOIN с ближайшей точкой 
+
+                ORDER BY 2 DESC
+                '''
+        return self.model.objects.raw(raw_sql)
 
     @staticmethod
     def fast_related_loading(queryset, point=None):
