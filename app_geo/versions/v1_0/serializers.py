@@ -149,14 +149,33 @@ class CitySerializer(CRUDSerializer):
         ]
 
 
-class CityClusterSerializer(CitySerializer):
+class CityClusterSerializer(serializers.Serializer):
+    id = serializers.SerializerMethodField()
     geometries_count = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+    native = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+
+    def get_id(self, data):
+        return chained_get(data, 'id')
 
     def get_geometries_count(self, data):
         return chained_get(data, 'geometries_count')
 
+    def get_name(self, data):
+        return chained_get(data, 'names', DEFAULT_LANGUAGE)
+
+    def get_native(self, data):
+        return chained_get(data, 'native')
+
+    def get_lon(self, data):
+        return chained_get(data, 'lon')
+
+    def get_lat(self, data):
+        return chained_get(data, 'lat')
+
     class Meta:
-        model = City
         fields = [
             'id',
             'geometries_count',
@@ -164,6 +183,4 @@ class CityClusterSerializer(CitySerializer):
             'native',
             'lon',
             'lat',
-            'country',
-            'region',
         ]

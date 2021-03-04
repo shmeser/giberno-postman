@@ -140,13 +140,17 @@ class CitiesRepository(MasterRepository):
             SELECT
                 c.id,
                 cl.geometries_count,
-                cl.centroid,
+--                 cl.centroid,
+                cl.lat,
+                cl.lon,
                 c.native
             FROM 
                 (
                     SELECT 
                         cluster_geometries,
-                        ST_Centroid (cluster_geometries) AS centroid,
+--                         ST_Centroid (cluster_geometries) AS centroid,
+                        ST_X(ST_Centroid (cluster_geometries)) AS lon,
+                        ST_Y(ST_Centroid (cluster_geometries)) AS lat,
                         ST_NumGeometries(cluster_geometries) as geometries_count,
                         ST_ClosestPoint(
                             cluster_geometries, 
