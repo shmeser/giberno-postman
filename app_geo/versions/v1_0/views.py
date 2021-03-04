@@ -209,7 +209,7 @@ class CitiesClusteredMap(Cities):
         #     kwargs=filters, paginator=pagination, order_by=order_params
         # )
 
-        dataset = self.repository_class(point, screen_diagonal_points).map(kwargs=filters, paginator=pagination, order_by=order_params)
+        dataset = self.repository_class(point, screen_diagonal_points).map(kwargs=filters, order_by=order_params)
 
         # # Не запрашиваем ненужные тяжелые данные
         # dataset = dataset.defer(

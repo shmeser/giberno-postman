@@ -137,37 +137,37 @@ class CitiesRepository(MasterRepository):
 
     def clustering(self, queryset):
         raw_sql = f'''
-                SELECT
-                    c.id,
-                    cl.geometries_count,
-                    cl.centroid,
-                    c.native
-                FROM 
-                    (
-                        SELECT 
-                            cluster_geometries,
-                            ST_Centroid (cluster_geometries) AS centroid,
-                            ST_NumGeometries(cluster_geometries) as geometries_count,
-                            ST_ClosestPoint(
-                                cluster_geometries, 
-                                ST_GeomFromGeoJSON('{self.point.geojson}')
-                            ) AS closest_point
-                        FROM 
-                            UNNEST(
-                                (
-                                    SELECT 
-                                        ST_ClusterWithin(position,5000/111111.0) 
-                                    FROM 
-                                        (
-                                        {queryset.only('position', 'country', 'region').query}
-                                        ) subquery
-                                )
-                            ) cluster_geometries
-                    ) cl
-                JOIN app_geo__cities c ON (c.position=cl.closest_point) -- JOIN с ближайшей точкой 
+            SELECT
+                c.id,
+                cl.geometries_count,
+                cl.centroid,
+                c.native
+            FROM 
+                (
+                    SELECT 
+                        cluster_geometries,
+                        ST_Centroid (cluster_geometries) AS centroid,
+                        ST_NumGeometries(cluster_geometries) as geometries_count,
+                        ST_ClosestPoint(
+                            cluster_geometries, 
+                            ST_GeomFromGeoJSON('{self.point.geojson}')
+                        ) AS closest_point
+                    FROM 
+                        UNNEST(
+                            (
+                                SELECT 
+                                    ST_ClusterWithin(position,5000/111111.0) 
+                                FROM 
+                                    (
+                                    {queryset.only('position', 'country', 'region').query}
+                                    ) subquery
+                            )
+                        ) cluster_geometries
+                ) cl
+            JOIN app_geo__cities c ON (c.position=cl.closest_point) -- JOIN с ближайшей точкой 
 
-                ORDER BY 2 DESC
-                '''
+            ORDER BY 2 DESC
+        '''
         return self.model.objects.raw(raw_sql)
 
     @staticmethod
