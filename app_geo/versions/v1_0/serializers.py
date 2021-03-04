@@ -146,3 +146,17 @@ class CitySerializer(CRUDSerializer):
             'country',
             'region',
         ]
+
+
+class CityClusterSerializer(CitySerializer):
+    class Meta:
+        model = City
+        fields = [
+            'id',
+            'name',
+            'native',
+            'lon',
+            'lat',
+            'country',
+            'region',
+        ]

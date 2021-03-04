@@ -173,9 +173,9 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
     def __init__(self, point=None, screen_diagonal_points=None, me=None) -> None:
         super().__init__()
 
+        self.me = me
         self.point = point
         self.screen_diagonal_points = screen_diagonal_points
-        self.me = me
 
         # Выражения для вычисляемых полей в annotate
         self.distance_expression = Distance('location', point) if point else Value(None, IntegerField())
@@ -189,6 +189,7 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
             vacancies_count=self.vacancies_expression
         )
 
+        # Фильтрация по вхождению в область на карте
         if self.screen_diagonal_points:
             self.base_query = self.base_query.filter(
                 shop__location__contained=ExpressionWrapper(
@@ -456,6 +457,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             free_count=self.free_count_expression,
         )
 
+        # Фильтрация по вхождению в область на карте
         if self.screen_diagonal_points:
             self.base_query = self.base_query.filter(
                 shop__location__contained=ExpressionWrapper(

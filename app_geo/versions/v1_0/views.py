@@ -5,7 +5,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from app_geo.versions.v1_0.repositories import LanguagesRepository, CountriesRepository, CitiesRepository
-from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
+from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer, \
+    CityClusterSerializer
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers
@@ -169,21 +170,51 @@ class Cities(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
         else:
-            dataset = self.repository_class().filter_by_kwargs(
+            self.many = True
+            dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            self.many = True
-            # SpeedUp
-            dataset = self.repository_class.fast_related_loading(dataset)
+
+            # Не запрашиваем ненужные тяжелые данные
             dataset = dataset.defer(
                 "boundary", "osm", "native_tsv", "names_tsv",
                 "country__boundary", "country__osm",
                 "region__boundary", "region__osm",
             )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class CitiesClusteredMap(Cities):
+    serializer_class = CityClusterSerializer
+
+    def get(self, request, **kwargs):
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
+
+        self.many = True
+        dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
+            kwargs=filters, paginator=pagination, order_by=order_params
+        )
+
+        # Не запрашиваем ненужные тяжелые данные
+        dataset = dataset.defer(
+            "boundary", "osm", "native_tsv", "names_tsv",
+            "country__boundary", "country__osm",
+            "region__boundary", "region__osm",
+        )
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,
@@ -214,6 +245,7 @@ def geocode(request):
 
     # SpeedUp
     dataset = CitiesRepository.fast_related_loading(dataset)
+    # Не запрашиваем ненужные тяжелые данные
     dataset = dataset.defer(
         "boundary", "osm", "native_tsv", "names_tsv",
         "country__boundary", "country__osm",
