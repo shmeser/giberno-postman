@@ -6,7 +6,8 @@ from rest_framework.views import APIView
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer
 from app_market.versions.v1_0 import views as v1_0
 from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
-    ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer
+    ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer, \
+    VacanciesClusteredSerializer
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException
@@ -38,6 +39,15 @@ class Vacancies(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Vacancies().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class VacanciesClusteredMap(APIView):
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesClusteredSerializer)})
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.VacanciesClusteredMap().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 

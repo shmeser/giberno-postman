@@ -5,6 +5,7 @@ from app_geo.versions.v1_0.repositories import LanguagesRepository, RegionsRepos
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
 from backend.mixins import CRUDSerializer
+from backend.utils import chained_get
 
 DEFAULT_LANGUAGE = 'name:ru'
 
@@ -145,4 +146,41 @@ class CitySerializer(CRUDSerializer):
             'lat',
             'country',
             'region',
+        ]
+
+
+class CityClusterSerializer(serializers.Serializer):
+    id = serializers.SerializerMethodField()
+    clustered_count = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+    native = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+
+    def get_id(self, data):
+        return chained_get(data, 'id')
+
+    def get_clustered_count(self, data):
+        return chained_get(data, 'clustered_count')
+
+    def get_name(self, data):
+        return chained_get(data, 'names', DEFAULT_LANGUAGE)
+
+    def get_native(self, data):
+        return chained_get(data, 'native')
+
+    def get_lon(self, data):
+        return chained_get(data, 'lon')
+
+    def get_lat(self, data):
+        return chained_get(data, 'lat')
+
+    class Meta:
+        fields = [
+            'id',
+            'clustered_count',
+            'name',
+            'native',
+            'lon',
+            'lat',
         ]

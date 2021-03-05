@@ -228,6 +228,59 @@ class VacanciesSerializer(CRUDSerializer):
         ]
 
 
+class VacanciesClusteredSerializer(serializers.Serializer):
+    id = serializers.SerializerMethodField()
+    clustered_count = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
+    vacancies = serializers.SerializerMethodField()
+    shop = serializers.SerializerMethodField()
+
+    def get_id(self, data):
+        return chained_get(data, 'id')
+
+    def get_clustered_count(self, data):
+        return chained_get(data, 'clustered_count')
+
+    def get_lon(self, data):
+        return chained_get(data, 'lon')
+
+    def get_lat(self, data):
+        return chained_get(data, 'lat')
+
+    def get_vacancies(self, data):
+        return [{
+            'id': 1,
+            "title": "Фасовщик",
+            "price": 400,
+            "banner": {
+                "uuid": "0fb7ce74-fabc-46fa-a061-db92d3520a3a",
+                "title": "Баннер для вакансии",
+                "file": "/media/vacancy_banner.jpg",
+                "preview": "/media/preview/vacancy_banner.jpg",
+                "format": 2,
+                "type": 9,
+                "mimeType": "image/png"
+            },
+        }]
+
+    def get_shop(self, shop):
+        # Возвращается модель магазина уже итак
+        return ShopsSerializer(shop).data
+
+    class Meta:
+        fields = [
+            'id',
+            'clustered_count',
+            'lon',
+            'lat',
+            'title',
+            'price',
+            'banner',
+            'shop',
+        ]
+
+
 class VacancySerializer(VacanciesSerializer):
     created_at = DateTimeField()
     banner = serializers.SerializerMethodField()

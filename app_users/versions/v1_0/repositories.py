@@ -1,3 +1,4 @@
+from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.utils.timezone import now
@@ -13,6 +14,7 @@ from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException, CustomException
+from backend.mappers import DataMapper
 from backend.mixins import MasterRepository
 from backend.repositories import BaseRepository
 from backend.utils import is_valid_uuid
@@ -215,8 +217,21 @@ class JwtRepository:
         return JwtToken.objects.create(**JwtTokenEntity(user, access_token, refresh_token).get_kwargs())
 
 
+class AsyncJwtRepository(JwtRepository):
+    def __init__(self) -> None:
+        super().__init__()
+
+    @database_sync_to_async
+    def get_user(self, token):
+        return super().get_user(token)
+
+
 class ProfileRepository(MasterRepository):
     model = UserProfile
+
+    def __init__(self, me=None) -> None:
+        self.me = me
+        super().__init__()
 
     def get_by_id(self, record_id):
         try:
@@ -244,6 +259,27 @@ class ProfileRepository(MasterRepository):
                 detail=f'Пароль введен неверно'
             )
         return user
+
+    def update_location(self, data):
+        point = DataMapper.geo_point(data)
+        self.me.location = point
+        self.me.save()
+        return self.me
+
+
+class AsyncProfileRepository(ProfileRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    @database_sync_to_async
+    def get_by_id(self, record_id):
+        return super().get_by_id(record_id)
+
+    @database_sync_to_async
+    def update_location(self, event):
+        super().__init__(self.me)
+        return super().update_location(event)
 
 
 class NotificationsRepository(MasterRepository):

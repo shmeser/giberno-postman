@@ -1,7 +1,6 @@
 import inflection
-from django.contrib.gis.geos import GEOSGeometry
+from django.contrib.gis.geos import GEOSGeometry, MultiPoint
 from djangorestframework_camel_case.util import underscoreize
-from numpy import pi, cos, sqrt, sin
 
 from app_media.enums import MediaType
 from app_media.forms import FileForm
@@ -161,33 +160,20 @@ class RequestMapper:
             _ne_lat = chained_get(data, 'ne_lat')
 
             if None in [_sw_lon, _sw_lat, _ne_lon, _ne_lat]:
-                bbox = None
+                screen_diagonal_points = None
             else:
+                # First diagonal point
                 x1 = float(_sw_lon)
-                y1 = float(_sw_lat)  # First diagonal point
+                y1 = float(_sw_lat)
+                # Second diagonal point
                 x2 = float(_ne_lon)
-                y2 = float(_ne_lat)  # Second diagonal point
+                y2 = float(_ne_lat)
 
-                xc = (x1 + x2) / 2
-                yc = (y1 + y2) / 2  # Center point
-                xd = (x1 - x2) / 2
-                yd = (y1 - y2) / 2  # Half - diagonal
-
-                # Third corner
-                x3 = xc - yd
-                y3 = yc + xd
-
-                # Fourth corner
-                x4 = xc + yd
-                y4 = yc - xd
-
-                coords_str = f'{x1} {y1},' \
-                    f'{x3} {y3},' \
-                    f'{x2} {y2},' \
-                    f'{x4} {y4},' \
-                    f'{x1} {y1}'
-
-                bbox = GEOSGeometry(f'POLYGON(({coords_str}))', srid=settings.SRID)
+                screen_diagonal_points = MultiPoint(
+                    GEOSGeometry(f'POINT({x1} {y1})', srid=settings.SRID),
+                    GEOSGeometry(f'POINT({x2} {y2})', srid=settings.SRID),
+                    srid=settings.SRID
+                )
 
             if _lat is not None and _lon is not None:
                 lon = float(_lon)
@@ -196,12 +182,12 @@ class RequestMapper:
                     raise CustomException(errors=[
                         dict(Error(ErrorsCodes.INVALID_COORDS)),
                     ])
-                return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID), bbox, radius
+                return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID), screen_diagonal_points, radius
             if raise_exception:
                 raise CustomException(errors=[
                     dict(Error(ErrorsCodes.INVALID_COORDS)),
                 ])
-            return None, bbox, radius
+            return None, screen_diagonal_points, radius
         except Exception as e:
             CP(fg='red').bold(e)
             raise CustomException(errors=[
@@ -230,3 +216,23 @@ class RequestMapper:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),
             ])
+
+
+class DataMapper:
+    @staticmethod
+    def geo_point(data, raise_exception=False):
+        _lon = chained_get(data, 'lon')
+        _lat = chained_get(data, 'lat')
+        if _lat is not None and _lon is not None:
+            lon = float(_lon)
+            lat = float(_lat)
+            if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.INVALID_COORDS)),
+                ])
+            return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID)
+        if raise_exception:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.INVALID_COORDS)),
+            ])
+        return None
