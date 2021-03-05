@@ -139,7 +139,7 @@ class CitiesRepository(MasterRepository):
         raw_sql = f'''
             SELECT
                 c.id,
-                cl.geometries_count,
+                cl.clustered_count,
 --                 cl.centroid,
                 cl.lat,
                 cl.lon,
@@ -151,7 +151,7 @@ class CitiesRepository(MasterRepository):
 --                         ST_Centroid (cluster_geometries) AS centroid,
                         ST_X(ST_Centroid (cluster_geometries)) AS lon,
                         ST_Y(ST_Centroid (cluster_geometries)) AS lat,
-                        ST_NumGeometries(cluster_geometries) as geometries_count,
+                        ST_NumGeometries(cluster_geometries) as clustered_count,
                         ST_ClosestPoint(
                             cluster_geometries, 
                             ST_GeomFromGeoJSON('{self.point.geojson}')
@@ -163,7 +163,7 @@ class CitiesRepository(MasterRepository):
                                     ST_ClusterWithin(position,5000/111111.0) 
                                 FROM 
                                     (
-                                    {queryset.only('position', 'country', 'region').query}
+                                        {queryset.only('position', 'country', 'region').query}
                                     ) subquery
                             )
                         ) cluster_geometries

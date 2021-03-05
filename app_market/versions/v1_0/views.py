@@ -10,7 +10,7 @@ from app_market.enums import ShiftStatus
 from app_market.models import UserShift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
-from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer
+from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusteredSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
@@ -164,6 +164,30 @@ class Vacancies(CRUDAPIView):
             dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class VacanciesClusteredMap(CRUDAPIView):
+    repository_class = ShopsRepository  # Кластеризуем по магазинам(местоположение есть у магазинов, но не у вакансий)
+    serializer_class = VacanciesClusteredSerializer
+    allowed_http_methods = ['get']
+
+    def get(self, request, **kwargs):
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
+
+        self.many = True
+        dataset = self.repository_class(point, screen_diagonal_points).map(
+            kwargs=filters, order_by=order_params
+        )
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,

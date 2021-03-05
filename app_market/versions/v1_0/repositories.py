@@ -192,7 +192,7 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
         # Фильтрация по вхождению в область на карте
         if self.screen_diagonal_points:
             self.base_query = self.base_query.filter(
-                shop__location__contained=ExpressionWrapper(
+                location__contained=ExpressionWrapper(
                     BoundingCircle(screen_diagonal_points),
                     output_field=GeometryField()
                 )
@@ -260,6 +260,46 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
         )
 
         return queryset
+
+    def map(self, kwargs, paginator=None, order_by: list = None):
+        queryset = self.filter_by_kwargs(kwargs, paginator, order_by)
+
+        return self.clustering(queryset)
+
+    def clustering(self, queryset):
+        raw_sql = f'''
+            WITH clusters AS (
+                SELECT 
+                    cluster_geometries,
+                    ST_Centroid (cluster_geometries) AS centroid,
+                    ST_NumGeometries(cluster_geometries) as clustered_count
+                FROM 
+                    UNNEST(
+                        (
+                            SELECT 
+                                ST_ClusterWithin(location, 500/111111.0) 
+                            FROM 
+                                (
+                                    {queryset.only('location').query}
+                                ) subquery
+                        ) 
+                    ) cluster_geometries
+            )
+            ------======================================-------
+
+            SELECT
+                s.id,
+                s.title,
+                clusters.clustered_count,
+                ST_X(ST_Centroid (cluster_geometries)) AS lon,
+                ST_Y(ST_Centroid (cluster_geometries)) AS lat
+--                 clusters.centroid
+--                 ST_DistanceSphere(s.location, ST_GeomFromGeoJSON('{self.point.geojson}')) AS distance
+            FROM clusters
+            JOIN app_market__shops s ON (s.location=ST_ClosestPoint(clusters.cluster_geometries, ST_GeomFromGeoJSON('{self.point.geojson}'))) -- JOIN с ближайшей точкой 
+            ORDER BY 3 DESC
+        '''
+        return self.model.objects.raw(raw_sql)
 
 
 class CustomLookupBase(Lookup):
