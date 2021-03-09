@@ -566,11 +566,21 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
     @staticmethod
     def fast_related_loading(queryset, point=None):
         """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
-            Vacancy
+            Vacancy + Media
             -> Shop + Media
             -> Distributor + Media
         """
         queryset = queryset.prefetch_related(
+            # Подгрузка медиа для магазинов
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    type=MediaType.BANNER.value,
+                    owner_ct_id=ContentType.objects.get_for_model(Vacancy).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+            )).prefetch_related(
             Prefetch(
                 'shop',
                 #  Подгрузка магазинов и вычисление расстояния от каждого до переданной точки
