@@ -35,7 +35,7 @@ class PushController:
         # Отфильтровываем по настройкам уведомлений у пользователей
         if notification_type == NotificationType.SYSTEM.value:
             users_to_send_queryset = users_to_send_queryset.filter(
-                notificationssettings__enabled_types__contains=notification_type
+                notificationssettings__enabled_types__contains=[notification_type]
             )
 
         # Разделяем пуштокены iOS и Android, записываем в модель уведомления
@@ -98,11 +98,11 @@ class PushController:
         push_data = camelize({
             'type': str(notification_type),
             'action': str(action),
-            'subject_id': str(subject_id),
+            'icon_type': str(icon_type),
+            'subject_id': str(subject_id) if subject_id else '',
             'title': str(title),
             'message': str(message),
-            'created_at': str(datetime_to_timestamp(now())),
-            'icon_type': str(icon_type)
+            'created_at': str(datetime_to_timestamp(now()))
         })
 
         self.send_push(title, message, push_data, devices_ids)

@@ -460,6 +460,7 @@ class NotificationSerializer(CRUDSerializer):
         model = Notification
         fields = [
             'id',
+            'uuid',
             'subject_id',
             'title',
             'message',

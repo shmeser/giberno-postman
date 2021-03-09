@@ -27,4 +27,9 @@ class ErrorsCodes(EnumM):
 
 
 class SocketErrors(IntEnumM):
-    USER_NOT_FOUND = 1004
+    # Диапазон 3000-4999
+    BAD_REQUEST = 4000
+    NOT_AUTHORIZED = 4001
+    FORBIDDEN = 4003
+    NOT_FOUND = 4004
+    CUSTOM_DETAILED_ERROR = 4099

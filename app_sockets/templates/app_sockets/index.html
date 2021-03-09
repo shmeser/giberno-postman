@@ -1,0 +1,150 @@
+{% extends "app_sockets/base.html" %}
+
+{% block title %}Sockets{% endblock %}
+{% block header_text %}Sockets{% endblock %}
+
+{% block content %}
+    <div class="sockets-container">
+
+        <div class="creds-container">
+            <label for="jwt-token">
+                JWT
+            </label>
+            <input
+                    placeholder="Token"
+                    value="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjE0ODQzOTQwLCJqdGkiOiIyNTBhOGUzODEwMDk0M2FhYjljMzhlZTgwYzIwM2JhNCIsInVzZXJfaWQiOjEzfQ.9un2Wc3eb29oOuytK_AeD9foaviAEIyqMz5HJQojQp4"
+                    id="jwt-token" type="text" required="required"
+            />
+            <label for="sockets-route">
+                SOCKET ROUTE
+            </label>
+            <div class="routes-block">
+
+                <input
+                        placeholder="/sockets/chats/1"
+                        value="/sockets"
+                        id="sockets-route" type="text" required="required"
+                />
+                <input type="button" value="connect" id="connect-button">
+            </div>
+        </div>
+
+        <div class="connections-container" id="connections"></div>
+    </div>
+
+{% endblock %}
+
+
+{% block extra_body %}
+    <script>
+        let protocol = 'ws://';
+        protocol = '{{ ws_protocol }}';
+
+        let socket;
+
+        let socketConnections = []; // Массив подключенных сокетов
+
+        const disconnect = (connectionId) => {
+            const connection = socketConnections.find(e => e.id === connectionId);
+            connection.socket.close();
+            $('#connections').find(`#${connectionId}`).remove()
+        };
+
+        const sendLocation = (connectionId) => {
+            let data = JSON.stringify({
+                "eventType": 1,
+                "lat": document.getElementById(`lat-${connectionId}`).value,
+                "lon": document.getElementById(`lon-${connectionId}`).value,
+            }, undefined, 4);
+
+            sendEvent(connectionId, data);
+
+        };
+
+        const sendEvent = (connectionId, data) => {
+            let messagesHistoryEl = document.getElementById(`messages-history-${connectionId}`);
+
+            let messageOutcommingHTML = document.createElement('pre');
+            messageOutcommingHTML.className = 'outcomming';
+            messageOutcommingHTML.innerHTML = data;
+            messagesHistoryEl.prepend(messageOutcommingHTML);
+
+            console.log(socketConnections);
+            console.log(connectionId);
+
+            const connection = socketConnections.find(e => e.id === connectionId);
+            connection.socket.send(data)
+
+        };
+
+
+        const addConnectionBlock = (connectionId, jwt, route) => {
+            $('#connections').prepend(
+                `<div class="connection" id="${connectionId}">
+                    <div class="dashboard">
+                        <div class="connection-status">
+                            <div class="jwt">${jwt}</div>
+                            <label class="connection-route" for="disconnect-button">${route}</label>
+                            <input type="button" value="disconnect" onclick="disconnect(${connectionId});">
+                        </div>
+                        <input type='number' step='0.000001' placeholder='lon' id='lon-${connectionId}'>
+                        <input type='number' step='0.000001' placeholder='lat' id='lat-${connectionId}'>
+                        <button onclick=sendLocation(${connectionId})>Send Location</button>
+                    </div>
+                    <div class="messages" id="messages-history-${connectionId}"></div>
+                </div>`
+            )
+        };
+
+
+        document.getElementById('connect-button').onclick = () => {
+            let id = Date.now();
+            let socket = new WebSocket(
+                protocol + window.location.host +
+                document.getElementById('sockets-route').value +
+                '?jwt=' + document.getElementById('jwt-token').value
+            );
+
+            socket.onopen = (event) => {
+                console.log('Connected to chat socket', event);
+            };
+            socket.onclose = (event) => {
+                console.log('Disconnected from chat socket', event);
+            };
+
+            socket.onerror = (error) => {
+                alert('error');
+                console.log('Socket error', error);
+            };
+
+            socket.onmessage = function (message) {
+                let data = JSON.parse(message.data);
+                console.log(data);
+                // Handle errors
+                if (data.error) {
+                    console.log(data.error);
+                }
+                let messagesHistoryEl = document.getElementById(`messages-history-${id}`);
+
+                let messageIncommingHTML = document.createElement('pre');
+                messageIncommingHTML.className = 'incomming';
+                messageIncommingHTML.innerHTML = JSON.stringify(data, undefined, 4);
+                messagesHistoryEl.prepend(messageIncommingHTML);
+            };
+
+            socketConnections.push(
+                {
+                    id: id,
+                    socket: socket
+                }
+            );
+
+            addConnectionBlock(
+                id,
+                document.getElementById('jwt-token').value,
+                document.getElementById('sockets-route').value
+            );
+            return false;
+        };
+    </script>
+{% endblock %}

@@ -143,6 +143,7 @@ class Vacancy(BaseModel):
 
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE)
 
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
     reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
     likes = GenericRelation(Like, object_id_field='target_id', content_type_field='target_ct')
 

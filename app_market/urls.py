@@ -2,7 +2,7 @@ from django.urls import path
 
 from app_market.views import Vacancies, Professions, suggest_profession, Skills, Distributors, Shops, VacanciesStats, \
     vacancies_suggestions, Shifts, CheckUserShiftByManagerOrSecurityAPIView, similar_vacancies, ToggleLikeVacancy, \
-    VacancyReviewsAPIView, ShopReviewsAPIView, DistributorReviewsAPIView
+    VacancyReviewsAPIView, ShopReviewsAPIView, DistributorReviewsAPIView, VacanciesClusteredMap
 
 urlpatterns = [
     path('market/distributors', Distributors.as_view()),
@@ -14,6 +14,7 @@ urlpatterns = [
     path('market/shops/<int:record_id>/reviews', ShopReviewsAPIView.as_view()),
 
     path('market/vacancies', Vacancies.as_view()),
+    path('market/vacancies/map', VacanciesClusteredMap.as_view()),
     path('market/vacancies/<int:record_id>', Vacancies.as_view()),
     path('market/vacancies/<int:record_id>/similar', similar_vacancies),
     path('market/vacancies/<int:record_id>/reviews', VacancyReviewsAPIView.as_view()),

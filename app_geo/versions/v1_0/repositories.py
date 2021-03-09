@@ -1,7 +1,8 @@
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.db.models.functions import Distance
+from django.contrib.gis.db.models import GeometryField, FilteredRelation, Q, Exists, OuterRef
+from django.contrib.gis.db.models.functions import Distance, BoundingCircle
 from django.contrib.postgres.search import TrigramSimilarity
-from django.db.models import Prefetch, F
+from django.db.models import Prefetch, F, ExpressionWrapper
 
 from app_geo.models import Language, Country, City, Region
 from app_media.enums import MediaType, MediaFormat
@@ -71,6 +72,42 @@ class RegionsRepository(MasterRepository):
 class CitiesRepository(MasterRepository):
     model = City
 
+    def __init__(self, point=None, screen_diagonal_points=None, me=None) -> None:
+        super().__init__()
+
+        self.me = me
+        self.point = point
+        self.screen_diagonal_points = screen_diagonal_points
+
+        # Основная часть запроса, содержащая вычисляемые поля
+        self.base_query = self.model.objects
+
+        # Фильтрация по вхождению в область на карте
+        if self.screen_diagonal_points:
+            self.base_query = self.base_query.filter(
+                position__contained=ExpressionWrapper(
+                    BoundingCircle(screen_diagonal_points),
+                    output_field=GeometryField()
+                )
+            )
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.base_query.filter(**kwargs)
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
+
     def get_by_id(self, record_id):
         try:
             return self.model.objects.get(id=record_id)
@@ -93,8 +130,52 @@ class CitiesRepository(MasterRepository):
             return near_point
         return within_boundary
 
+    def map(self, kwargs, paginator=None, order_by: list = None):
+        queryset = self.filter_by_kwargs(kwargs, paginator, order_by)
+
+        return self.clustering(queryset)
+
+    def clustering(self, queryset):
+        raw_sql = f'''
+            SELECT
+                c.id,
+                cl.clustered_count,
+--                 cl.centroid,
+                cl.lat,
+                cl.lon,
+                c.native
+            FROM 
+                (
+                    SELECT 
+                        cluster_geometries,
+--                         ST_Centroid (cluster_geometries) AS centroid,
+                        ST_X(ST_Centroid (cluster_geometries)) AS lon,
+                        ST_Y(ST_Centroid (cluster_geometries)) AS lat,
+                        ST_NumGeometries(cluster_geometries) as clustered_count,
+                        ST_ClosestPoint(
+                            cluster_geometries, 
+                            ST_GeomFromGeoJSON('{self.point.geojson}')
+                        ) AS closest_point
+                    FROM 
+                        UNNEST(
+                            (
+                                SELECT 
+                                    ST_ClusterWithin(position,5000/111111.0) 
+                                FROM 
+                                    (
+                                        {queryset.only('position', 'country', 'region').query}
+                                    ) subquery
+                            )
+                        ) cluster_geometries
+                ) cl
+            JOIN app_geo__cities c ON (c.position=cl.closest_point) -- JOIN с ближайшей точкой 
+
+            ORDER BY 2 DESC
+        '''
+        return self.model.objects.raw(raw_sql)
+
     @staticmethod
-    def fast_related_loading(queryset):
+    def fast_related_loading(queryset, point=None):
         queryset = queryset.select_related('country', 'region')
         return queryset
 

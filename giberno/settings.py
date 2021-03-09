@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'app_geo.apps.AppGeoConfig',
     'app_market.apps.AppMarketConfig',
     'app_feedback.apps.AppFeedbackConfig',
+    'app_sockets.apps.AppSocketsConfig',
 ]
 
 CHANNEL_LAYERS = {
@@ -356,6 +357,8 @@ try:
         FCM_DJANGO_SETTINGS, \
         ALLOWED_HOSTS, \
         DEBUG, \
+        CHANNEL_LAYERS, \
+        CONSTANCE_REDIS_CONNECTION, \
         CONSTANCE_CONFIG, \
         SOCIAL_AUTH_VK_OAUTH2_KEY
 except ImportError as e:
