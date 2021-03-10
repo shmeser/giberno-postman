@@ -30,6 +30,7 @@ daphne==3.0.1
 defusedxml==0.7.0rc1
 Django==3.1.4
 django-constance==2.8.0
+django-debug-toolbar==3.2
 django-globals==0.3.2
 django-timezone-field==4.1.1
 django-uuidfield==0.5.0

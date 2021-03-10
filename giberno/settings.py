@@ -15,6 +15,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'debug_toolbar',
     'django.contrib.gis',
     'django.contrib.postgres',
     'rest_framework',
@@ -52,6 +53,7 @@ CELERY_RESULT_SERIALIZER = 'json'
 WORKER_MAX_MEMORY_PER_CHILD = 200000
 
 MIDDLEWARE = [
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -313,7 +315,7 @@ CONSTANCE_CONFIG = {
 
 DEBUG = True if os.getenv('DEBUG', False) in ['True', 'true', 'TRUE', True] else False
 
-if DEBUG:
+if DEBUG is not False:
     SWAGGER_SETTINGS = {
         'SECURITY_DEFINITIONS': {
             'JWT': {
@@ -370,3 +372,7 @@ EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = os.getenv('EMAIL_PORT', 587)
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'gibernoappcraft@gmail.com')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '11random11')
+
+INTERNAL_IPS = [
+    '127.0.0.1',
+]

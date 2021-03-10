@@ -1,3 +1,4 @@
+import debug_toolbar
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
@@ -36,15 +37,15 @@ v1_0_urls = [
     path(v1_0, include(('app_geo.urls', 'geo_1_0'))),
     path(v1_0, include(('app_market.urls', 'market_1_0'))),
 ]
-
-urlpatterns += doc_urls
 urlpatterns += social_web_auth
 urlpatterns += service_urls
 
 urlpatterns += v1_0_urls
 
-if settings.DEBUG:
+if settings.DEBUG is not False:
     test_urls = [
-        path('test/', include('app_tests.urls'))
+        path('test/', include('app_tests.urls')),
+        path('__debug__/', include(debug_toolbar.urls)),
     ]
     urlpatterns += test_urls
+    urlpatterns += doc_urls
