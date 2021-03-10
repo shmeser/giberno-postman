@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'fcm_django',
     'drf_yasg',
     'celery',
+    'debug_toolbar',
     'constance',
     'social_django',
     'backend.apps.BackendConfig',
@@ -52,6 +53,7 @@ CELERY_RESULT_SERIALIZER = 'json'
 WORKER_MAX_MEMORY_PER_CHILD = 200000
 
 MIDDLEWARE = [
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -60,6 +62,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+INTERNAL_IPS = ("127.0.0.1",)  # DebugToolbar
 
 GEOIP_PATH = os.path.join('backend')
 ROOT_URLCONF = 'giberno.urls'
