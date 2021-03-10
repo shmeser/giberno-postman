@@ -1,3 +1,4 @@
+import debug_toolbar
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
@@ -42,9 +43,9 @@ urlpatterns += social_web_auth
 urlpatterns += service_urls
 
 urlpatterns += v1_0_urls
-
 if settings.DEBUG:
     test_urls = [
-        path('test/', include('app_tests.urls'))
+        path('__debug__/', include(debug_toolbar.urls)),
+        path('test/', include('app_tests.urls')),
     ]
     urlpatterns += test_urls

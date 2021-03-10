@@ -224,13 +224,13 @@ class VacanciesSerializer(CRUDSerializer):
             'is_hot',
             'utc_offset',
             'free_count',
+            'rating',
             'required_experience',
             'employment',
             'work_time',
             'banner',
             'shop',
             'distributor',
-            'rating'
         ]
 
 
@@ -255,23 +255,11 @@ class VacanciesClusteredSerializer(serializers.Serializer):
         return chained_get(data, 'lat')
 
     def get_vacancies(self, data):
-        return [{
-            'id': 1,
-            "title": "Фасовщик",
-            "price": 400,
-            "banner": {
-                "uuid": "0fb7ce74-fabc-46fa-a061-db92d3520a3a",
-                "title": "Баннер для вакансии",
-                "file": "/media/vacancy_banner.jpg",
-                "preview": "/media/preview/vacancy_banner.jpg",
-                "format": 2,
-                "type": 9,
-                "mimeType": "image/png"
-            },
-        }]
+        return VacanciesSerializer(self.context['prefetched'].filter(shop_id__in=data.clustered_ids), many=True, context=self.context).data
 
     def get_shop(self, shop):
         # Возвращается модель магазина уже итак
+        # Ближайший пользователю магазин
         return ShopsSerializer(shop).data
 
     class Meta:

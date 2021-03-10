@@ -1,5 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.db.models import GeometryField, FilteredRelation, Q, Exists, OuterRef
+from django.contrib.gis.db.models import GeometryField
 from django.contrib.gis.db.models.functions import Distance, BoundingCircle
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Prefetch, F, ExpressionWrapper
@@ -123,7 +123,7 @@ class CitiesRepository(MasterRepository):
             F('population').desc(nulls_last=True)
         )
         if not within_boundary:
-            # Если не входит в зоны, то ищем ближайшие точки до которых менее NEAREST_POINT_DISTANCE_MAX метров
+            # Если не входит в зоны, то ищем ближайшие точки, до которых менее NEAREST_POINT_DISTANCE_MAX метров
             # Сортировка по возрастанию удаленности
             near_point = self.model.objects.annotate(distance=Distance('position', point)).filter(
                 distance__lte=NEAREST_POINT_DISTANCE_MAX).order_by('distance')
@@ -143,7 +143,8 @@ class CitiesRepository(MasterRepository):
 --                 cl.centroid,
                 cl.lat,
                 cl.lon,
-                c.native
+                c.native,
+                cl.clustered_ids
             FROM 
                 (
                     SELECT 
@@ -155,7 +156,14 @@ class CitiesRepository(MasterRepository):
                         ST_ClosestPoint(
                             cluster_geometries, 
                             ST_GeomFromGeoJSON('{self.point.geojson}')
-                        ) AS closest_point
+                        ) AS closest_point,
+                        (
+                            SELECT 
+                                ARRAY_AGG(id) 
+                            FROM app_geo__cities
+                            WHERE ST_Intersects(cluster_geometries, position)
+                        ) AS clustered_ids
+                        
                     FROM 
                         UNNEST(
                             (
