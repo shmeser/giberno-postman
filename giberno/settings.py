@@ -364,6 +364,7 @@ try:
         CHANNEL_LAYERS, \
         CONSTANCE_REDIS_CONNECTION, \
         CONSTANCE_CONFIG, \
+        LOGGING, \
         SOCIAL_AUTH_VK_OAUTH2_KEY
 except ImportError as e:
     pass

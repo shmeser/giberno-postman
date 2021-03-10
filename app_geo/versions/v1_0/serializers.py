@@ -169,10 +169,11 @@ class CityClusterSerializer(serializers.Serializer):
         return chained_get(data, 'lat')
 
     def get_cities(self, data):
-        return CitySerializer(
-            self.context['prefetched'].filter(
-                id__in=data.clustered_ids), many=True, context=self.context
-        ).data
+        return None
+        # return CitySerializer(
+        #     self.context['prefetched'].filter(
+        #         id__in=data.clustered_ids), many=True, context=self.context
+        # ).data
 
     class Meta:
         fields = [

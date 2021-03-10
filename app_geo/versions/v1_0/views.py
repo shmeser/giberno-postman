@@ -200,7 +200,6 @@ class CitiesClusteredMap(Cities):
 
     def get(self, request, **kwargs):
         filters = RequestMapper(self).filters(request) or dict()
-        pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
         point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
@@ -208,19 +207,14 @@ class CitiesClusteredMap(Cities):
 
         clusters = self.repository_class(point, screen_diagonal_points).map(kwargs=filters, order_by=order_params)
 
-        prefetched_cities = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
-            kwargs=filters, order_by=order_params
-        )
-
         # Не запрашиваем ненужные тяжелые данные
-        prefetched_cities = prefetched_cities.defer(
-            "boundary", "osm", "native_tsv", "names_tsv",
-            "country__boundary", "country__osm",
-            "region__boundary", "region__osm",
-        )
+        # clusters = clusters.defer(
+        #     "boundary", "osm", "native_tsv", "names_tsv",
+        #     "country__boundary", "country__osm",
+        #     "region__boundary", "region__osm",
+        # )
 
         serialized = self.serializer_class(clusters, many=self.many, context={
-            'prefetched': prefetched_cities,
             'me': request.user,
             'headers': get_request_headers(request),
         })
