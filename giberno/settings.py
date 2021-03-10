@@ -63,6 +63,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+INTERNAL_IPS = ("127.0.0.1",)  # DebugToolbar
+
 GEOIP_PATH = os.path.join('backend')
 ROOT_URLCONF = 'giberno.urls'
 

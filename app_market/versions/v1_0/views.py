@@ -185,11 +185,14 @@ class VacanciesClusteredMap(CRUDAPIView):
         point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         self.many = True
-        dataset = self.repository_class(point, screen_diagonal_points).map(
+        clusters = self.repository_class(point, screen_diagonal_points).map(
             kwargs=filters, order_by=order_params
         )
 
-        serialized = self.serializer_class(dataset, many=self.many, context={
+        prefetched_vacancies = VacanciesRepository(point, screen_diagonal_points).filter_by_kwargs(kwargs=filters, order_by=order_params)
+
+        serialized = self.serializer_class(clusters, many=self.many, context={
+            'prefetched': prefetched_vacancies,
             'me': request.user,
             'headers': get_request_headers(request),
         })
