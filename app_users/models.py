@@ -77,6 +77,8 @@ class UserProfile(AbstractUser, BaseModel):
 
     location = models.PointField(srid=settings.SRID, blank=True, null=True, verbose_name='Геопозиция')
 
+    password_changed = models.BooleanField(default=False)
+
     @property
     def is_manager(self):
         return self.account_type == AccountType.MANAGER
