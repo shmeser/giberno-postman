@@ -152,10 +152,9 @@ class CitySerializer(CRUDSerializer):
 class CityClusterSerializer(serializers.Serializer):
     id = serializers.SerializerMethodField()
     clustered_count = serializers.SerializerMethodField()
-    name = serializers.SerializerMethodField()
-    native = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
+    cities = serializers.SerializerMethodField()
 
     def get_id(self, data):
         return chained_get(data, 'id')
@@ -163,24 +162,23 @@ class CityClusterSerializer(serializers.Serializer):
     def get_clustered_count(self, data):
         return chained_get(data, 'clustered_count')
 
-    def get_name(self, data):
-        return chained_get(data, 'names', DEFAULT_LANGUAGE)
-
-    def get_native(self, data):
-        return chained_get(data, 'native')
-
     def get_lon(self, data):
         return chained_get(data, 'lon')
 
     def get_lat(self, data):
         return chained_get(data, 'lat')
 
+    def get_cities(self, data):
+        return CitySerializer(
+            self.context['prefetched'].filter(
+                id__in=data.clustered_ids), many=True, context=self.context
+        ).data
+
     class Meta:
         fields = [
             'id',
             'clustered_count',
-            'name',
-            'native',
             'lon',
             'lat',
+            'cities',
         ]

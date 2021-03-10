@@ -291,6 +291,12 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
                 s.id,
                 s.title,
                 clusters.clustered_count,
+                (
+                    SELECT 
+                        ARRAY_AGG(id) 
+                    FROM app_market__shops
+                    WHERE ST_Intersects(cluster_geometries, location)
+                ) AS clustered_ids,
                 ST_X(ST_Centroid (cluster_geometries)) AS lon,
                 ST_Y(ST_Centroid (cluster_geometries)) AS lat
 --                 clusters.centroid

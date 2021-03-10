@@ -143,7 +143,8 @@ class CitiesRepository(MasterRepository):
 --                 cl.centroid,
                 cl.lat,
                 cl.lon,
-                c.native
+                c.native,
+                cl.clustered_ids
             FROM 
                 (
                     SELECT 
@@ -155,7 +156,14 @@ class CitiesRepository(MasterRepository):
                         ST_ClosestPoint(
                             cluster_geometries, 
                             ST_GeomFromGeoJSON('{self.point.geojson}')
-                        ) AS closest_point
+                        ) AS closest_point,
+                        (
+                            SELECT 
+                                ARRAY_AGG(id) 
+                            FROM app_geo__cities
+                            WHERE ST_Intersects(cluster_geometries, position)
+                        ) AS clustered_ids
+                        
                     FROM 
                         UNNEST(
                             (
