@@ -12,8 +12,7 @@ from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
 from giberno import settings
-from giberno.settings import NEAREST_POINT_DISTANCE_MAX, CLUSTER_MIN_POINTS_COUNT, \
-    CLUSTER_NESTED_ITEMS_COUNT
+from giberno.settings import NEAREST_POINT_DISTANCE_MAX, CLUSTER_MIN_POINTS_COUNT, CLUSTER_NESTED_ITEMS_COUNT
 
 
 class LanguagesRepository(MasterRepository):
@@ -172,7 +171,7 @@ class CitiesRepository(MasterRepository):
                                 eps := ST_Distance(
                                     ST_GeomFromGeoJSON('{self.screen_diagonal_points[0].geojson}'),
                                     ST_GeomFromGeoJSON('{self.screen_diagonal_points[1].geojson}')
-                                )/10.0, 
+                                )/10.0, -- 1/10 диагонали
                                 minpoints := {CLUSTER_MIN_POINTS_COUNT}
                             ) OVER() AS cid, 
                             position

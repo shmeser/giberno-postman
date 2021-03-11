@@ -302,7 +302,6 @@ if os.name == 'nt':
 NEAREST_POINT_DISTANCE_MAX = 1000  # Максимальное расстояние до ближайшей точки для геокодинга координат
 CLUSTER_NESTED_ITEMS_COUNT = 10
 CLUSTER_MIN_POINTS_COUNT = 2
-CLUSTER_DISTANCE = 5000/111111.0
 CLUSTER_ID_FIELD_NAME = 'cid'
 
 # ### POSTGIS ###

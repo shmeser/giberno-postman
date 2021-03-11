@@ -7,8 +7,8 @@ from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
-from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, DateTimeField, \
-    Lookup, Field, DateField, Sum, FloatField, ExpressionWrapper, Subquery, OuterRef
+from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
+    DateTimeField, Lookup, Field, DateField, Sum, FloatField, ExpressionWrapper, Subquery, OuterRef
 from django.db.models.functions import Cast
 from django.utils.timezone import now, localtime
 from pytz import timezone
