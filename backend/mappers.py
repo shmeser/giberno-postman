@@ -2,7 +2,7 @@ import itertools
 import operator
 
 import inflection
-from django.contrib.gis.geos import GEOSGeometry, MultiPoint
+from django.contrib.gis.geos import GEOSGeometry
 from django.db.models.query import RawQuerySet
 from djangorestframework_camel_case.util import underscoreize
 
@@ -173,11 +173,8 @@ class RequestMapper:
                 x2 = float(_ne_lon)
                 y2 = float(_ne_lat)
 
-                screen_diagonal_points = MultiPoint(
-                    GEOSGeometry(f'POINT({x1} {y1})', srid=settings.SRID),
-                    GEOSGeometry(f'POINT({x2} {y2})', srid=settings.SRID),
-                    srid=settings.SRID
-                )
+                screen_diagonal_points = GEOSGeometry(f'POINT({x1} {y1})', srid=settings.SRID), GEOSGeometry(
+                    f'POINT({x2} {y2})', srid=settings.SRID)
 
             if _lat is not None and _lon is not None:
                 lon = float(_lon)

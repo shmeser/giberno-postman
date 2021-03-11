@@ -1,6 +1,7 @@
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models import GeometryField
 from django.contrib.gis.db.models.functions import Distance, BoundingCircle
+from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Prefetch, F, ExpressionWrapper
 
@@ -10,6 +11,7 @@ from app_media.models import MediaModel
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
+from giberno import settings
 from giberno.settings import NEAREST_POINT_DISTANCE_MAX, CLUSTER_DISTANCE, CLUSTER_MIN_POINTS_COUNT, \
     CLUSTER_NESTED_ITEMS_COUNT
 
@@ -87,7 +89,11 @@ class CitiesRepository(MasterRepository):
         if self.screen_diagonal_points:
             self.base_query = self.base_query.filter(
                 position__contained=ExpressionWrapper(
-                    BoundingCircle(screen_diagonal_points),
+                    BoundingCircle(
+                        MultiPoint(
+                            self.screen_diagonal_points[0], self.screen_diagonal_points[1], srid=settings.SRID
+                        )
+                    ),
                     output_field=GeometryField()
                 )
             )
@@ -161,7 +167,14 @@ class CitiesRepository(MasterRepository):
                 FROM (
                         SELECT 
                             id, 
-                            ST_ClusterDBSCAN(position, eps := {CLUSTER_DISTANCE}, minpoints := {CLUSTER_MIN_POINTS_COUNT}) OVER() AS cid, 
+                            ST_ClusterDBSCAN(
+                                position, 
+                                eps := ST_Distance(
+                                    ST_GeomFromGeoJSON('{self.screen_diagonal_points[0].geojson}'),
+                                    ST_GeomFromGeoJSON('{self.screen_diagonal_points[1].geojson}')
+                                )/10.0, 
+                                minpoints := {CLUSTER_MIN_POINTS_COUNT}
+                            ) OVER() AS cid, 
                             position
                         FROM 
                             (
