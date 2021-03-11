@@ -10,7 +10,8 @@ from app_media.models import MediaModel
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
-from giberno.settings import NEAREST_POINT_DISTANCE_MAX
+from giberno.settings import NEAREST_POINT_DISTANCE_MAX, CLUSTER_DISTANCE, CLUSTER_MIN_POINTS_COUNT, \
+    CLUSTER_NESTED_ITEMS_COUNT
 
 
 class LanguagesRepository(MasterRepository):
@@ -160,7 +161,7 @@ class CitiesRepository(MasterRepository):
                 FROM (
                         SELECT 
                             id, 
-                            ST_ClusterDBSCAN(position, eps := 5000/111111.0, minpoints := 2) OVER() AS cid, 
+                            ST_ClusterDBSCAN(position, eps := {CLUSTER_DISTANCE}, minpoints := {CLUSTER_MIN_POINTS_COUNT}) OVER() AS cid, 
                             position
                         FROM 
                             (
@@ -176,6 +177,7 @@ class CitiesRepository(MasterRepository):
             SELECT 
                 s.id,
                 s.native,
+                s.position::bytea,
                 ST_DistanceSphere(s.position, ST_GeomFromGeoJSON('{self.point.geojson}')) AS distance,
                 c.cid, 
                 c.lat, 
@@ -189,10 +191,10 @@ class CitiesRepository(MasterRepository):
             SELECT * FROM (
                 SELECT 
                     *,
-                    ROW_NUMBER() OVER (PARTITION BY cid ORDER BY distance DESC) AS n
+                    ROW_NUMBER() OVER (PARTITION BY cid ORDER BY distance ASC) AS n
                 FROM computed
             ) a
-            WHERE n<100
+            WHERE n<={CLUSTER_NESTED_ITEMS_COUNT}
         '''
         return self.model.objects.raw(raw_sql)
 

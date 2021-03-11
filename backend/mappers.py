@@ -1,5 +1,9 @@
+import itertools
+import operator
+
 import inflection
 from django.contrib.gis.geos import GEOSGeometry, MultiPoint
+from django.db.models.query import RawQuerySet
 from djangorestframework_camel_case.util import underscoreize
 
 from app_media.enums import MediaType
@@ -236,3 +240,21 @@ class DataMapper:
                 dict(Error(ErrorsCodes.INVALID_COORDS)),
             ])
         return None
+
+    @staticmethod
+    def clustering_raw_qs(data, key):
+        new_list = []
+        if isinstance(data, RawQuerySet):
+            get_attr = operator.attrgetter(key)
+            for k, g in itertools.groupby(data, get_attr):
+                grouped = list(g)
+                cluster = {
+                    'cid': k,
+                    'lat': getattr(grouped[0], 'lat'),
+                    'lon': getattr(grouped[0], 'lon'),
+                    'clustered_count': getattr(grouped[0], 'clustered_count'),
+                    'clustered_items': grouped
+                }
+                new_list.append(cluster)
+
+        return new_list
