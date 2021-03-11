@@ -1,7 +1,7 @@
 from datetime import timedelta, datetime
 
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.db.models import GeometryField
+from django.contrib.gis.db.models import GeometryField, CharField
 from django.contrib.gis.db.models.functions import Distance, Envelope
 from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
@@ -9,7 +9,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, Lookup, Field, DateField, Sum, FloatField, ExpressionWrapper, Subquery, OuterRef
-from django.db.models.functions import Cast
+from django.db.models.functions import Cast, Concat
 from django.utils.timezone import now, localtime
 from pytz import timezone
 
@@ -635,6 +635,116 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         )
 
         return queryset
+
+    def map(self, kwargs, paginator=None, order_by: list = None):
+        queryset = self.model.objects.exclude(deleted=True).filter(**kwargs).annotate(
+            location=F('shop__location'),
+            logo=Concat(
+                Value(f"'{settings.MEDIA_URL}'", output_field=CharField()),
+                Subquery(
+                    MediaModel.objects.filter(
+                        owner_id=OuterRef('shop_id'),
+                        type=MediaType.LOGO.value,
+                        owner_ct_id=ContentType.objects.get_for_model(Shop).id,
+                        format=MediaFormat.IMAGE.value
+                    ).values('file')[:1],
+                    output_field=CharField()
+                )
+            )
+        )
+        # Фильтрация по вхождению в область на карте
+        if self.screen_diagonal_points:
+            queryset = queryset.filter(
+                shop__location__contained=ExpressionWrapper(
+                    Envelope(  # BoundingCircle использовался для описывающего круга
+                        MultiPoint(
+                            self.screen_diagonal_points[0], self.screen_diagonal_points[1], srid=settings.SRID
+                        )
+                    ),
+                    output_field=GeometryField()
+                )
+            )
+
+        return self.clustering(queryset)
+
+    def clustering(self, queryset):
+        """
+        :param queryset: Отфильтрованные по области на экране данные
+        :return:
+        """
+
+        shop_ct = ContentType.objects.get_for_model(Shop)
+        vacancy_ct = ContentType.objects.get_for_model(Vacancy)
+
+        raw_sql = f'''
+            WITH clusters AS (
+                SELECT 
+                    cid, 
+                    ST_Collect(location) AS cluster_geometries, 
+                    ST_Centroid (ST_Collect(location)) AS centroid,
+                    ST_X(ST_Centroid (ST_Collect(location))) AS c_lon,
+                    ST_Y(ST_Centroid (ST_Collect(location))) AS c_lat,
+                    ARRAY_AGG(id) AS ids_in_cluster,
+                    ST_NumGeometries(ST_Collect(location)) as clustered_count,
+                    logo
+                FROM (
+                        SELECT 
+                            id, 
+                            ST_ClusterDBSCAN(
+                                location, 
+                                eps := ST_Distance(
+                                    ST_GeomFromGeoJSON('{self.screen_diagonal_points[0].geojson}'),
+                                    ST_GeomFromGeoJSON('{self.screen_diagonal_points[1].geojson}')
+                                )/10.0, -- 1/10 диагонали
+                                minpoints := {settings.CLUSTER_MIN_POINTS_COUNT}
+                            ) OVER() AS cid, 
+                            location,
+                            logo
+                        FROM 
+                            (
+                                {queryset.query}
+                            ) external_subquery
+
+                ) sq
+                GROUP BY cid, logo
+            ),
+
+            computed AS (
+
+                SELECT 
+                    v.id,
+                    v.title,
+                    v.price,
+--                     v.banner,
+                    
+                    s.address,
+                    ST_X(s.location) AS lon,
+                    ST_Y(s.location) AS lat,
+                    ST_DistanceSphere(s.location, ST_GeomFromGeoJSON('{self.point.geojson}')) AS distance,
+                    
+                    c.logo,
+                    c.cid, 
+                    c.c_lat, 
+                    c.c_lon, 
+                    c.clustered_count 
+                FROM app_market__vacancies v
+                INNER JOIN "app_market__shops" s ON ( v."shop_id" = s."id" ) 
+                JOIN clusters c ON (s.id=ANY(c.ids_in_cluster))
+                LEFT JOIN app_media m ON (
+                    s.id=m.owner_id
+                )
+
+            )
+
+            SELECT * FROM (
+                SELECT 
+                    *,
+                    ROW_NUMBER() OVER (PARTITION BY cid ORDER BY distance ASC) AS n
+                FROM computed
+            ) a
+            WHERE n<={settings.CLUSTER_NESTED_ITEMS_COUNT}
+        '''
+        return self.model.objects.raw(raw_sql)
 
     @staticmethod
     def aggregate_stats(queryset):

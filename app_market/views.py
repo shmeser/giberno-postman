@@ -7,7 +7,7 @@ from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewM
 from app_market.versions.v1_0 import views as v1_0
 from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
     ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer, \
-    VacanciesClusteredSerializer
+    VacanciesClusterSerializer
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException
@@ -44,7 +44,7 @@ class Vacancies(APIView):
 
 class VacanciesClusteredMap(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesClusteredSerializer)})
+    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesClusterSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacanciesClusteredMap().get(request, **kwargs)

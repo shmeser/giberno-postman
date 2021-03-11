@@ -10,13 +10,13 @@ from app_market.enums import ShiftStatus
 from app_market.models import UserShift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
-from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusteredSerializer
+from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.http_exception import HttpException
-from backend.mappers import RequestMapper
+from backend.mappers import RequestMapper, DataMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_body, chained_get, get_request_headers
 
@@ -173,26 +173,21 @@ class Vacancies(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class VacanciesClusteredMap(CRUDAPIView):
-    repository_class = ShopsRepository  # Кластеризуем по магазинам(местоположение есть у магазинов, но не у вакансий)
-    serializer_class = VacanciesClusteredSerializer
+class VacanciesClusteredMap(Vacancies):
+    serializer_class = VacanciesClusterSerializer
     allowed_http_methods = ['get']
 
     def get(self, request, **kwargs):
         filters = RequestMapper(self).filters(request) or dict()
-        pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
         point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         self.many = True
-        clusters = self.repository_class(point, screen_diagonal_points).map(
-            kwargs=filters, order_by=order_params
-        )
+        clustered = self.repository_class(point, screen_diagonal_points).map(kwargs=filters, order_by=order_params)
 
-        prefetched_vacancies = VacanciesRepository(point, screen_diagonal_points).filter_by_kwargs(kwargs=filters, order_by=order_params)
+        clusters = DataMapper.clustering_raw_qs(clustered, 'cid')
 
         serialized = self.serializer_class(clusters, many=self.many, context={
-            'prefetched': prefetched_vacancies,
             'me': request.user,
             'headers': get_request_headers(request),
         })
