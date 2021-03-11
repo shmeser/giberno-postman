@@ -418,7 +418,7 @@ class ProfileSerializer(CRUDSerializer):
             'cities',
             'skills',
 
-            'manager_position'
+            'manager_position',
             'distributors'
         ]
 
