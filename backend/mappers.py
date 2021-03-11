@@ -247,8 +247,8 @@ class DataMapper:
                 grouped = list(g)
                 cluster = {
                     'cid': k,
-                    'lat': getattr(grouped[0], 'lat'),
-                    'lon': getattr(grouped[0], 'lon'),
+                    'lat': getattr(grouped[0], 'c_lat'),
+                    'lon': getattr(grouped[0], 'c_lon'),
                     'clustered_count': getattr(grouped[0], 'clustered_count'),
                     'clustered_items': grouped
                 }

@@ -234,16 +234,55 @@ class VacanciesSerializer(CRUDSerializer):
         ]
 
 
-class VacanciesClusteredSerializer(serializers.Serializer):
+class VacancyInCluster(serializers.Serializer):
+    id = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
+    walk_time = serializers.SerializerMethodField()
+
+    address = serializers.SerializerMethodField()
+    logo = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
+
+    def get_id(self, data):
+        return chained_get(data, 'id')
+
+    def get_title(self, data):
+        return chained_get(data, 'title')
+
+    def get_lon(self, data):
+        return chained_get(data, 'lon')
+
+    def get_lat(self, data):
+        return chained_get(data, 'lat')
+
+    def get_price(self, data):
+        return chained_get(data, 'price')
+
+    def get_address(self, data):
+        return chained_get(data, 'address')
+
+    def get_walk_time(self, data):
+        return chained_get(data, 'distance')
+
+    def get_logo(self, data):
+        return chained_get(data, 'logo')
+
+    def get_banner(self, data):
+        return chained_get(data, 'banner')
+
+
+class VacanciesClusterSerializer(serializers.Serializer):
     id = serializers.SerializerMethodField()
     clustered_count = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
     vacancies = serializers.SerializerMethodField()
-    shop = serializers.SerializerMethodField()
 
     def get_id(self, data):
-        return chained_get(data, 'id')
+        return chained_get(data, 'cid')
 
     def get_clustered_count(self, data):
         return chained_get(data, 'clustered_count')
@@ -255,12 +294,10 @@ class VacanciesClusteredSerializer(serializers.Serializer):
         return chained_get(data, 'lat')
 
     def get_vacancies(self, data):
-        return VacanciesSerializer(self.context['prefetched'].filter(shop_id__in=data.clustered_ids), many=True, context=self.context).data
-
-    def get_shop(self, shop):
-        # Возвращается модель магазина уже итак
-        # Ближайший пользователю магазин
-        return ShopsSerializer(shop).data
+        vacancies = chained_get(data, 'clustered_items')
+        return VacancyInCluster(
+            vacancies, many=True, context=self.context
+        ).data
 
     class Meta:
         fields = [
