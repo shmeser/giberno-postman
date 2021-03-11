@@ -79,6 +79,9 @@ class UserProfile(AbstractUser, BaseModel):
 
     password_changed = models.BooleanField(default=False)
 
+    # Конкретная Должность Пользователя со статусом manager
+    manager_position = models.CharField(null=True, blank=True, max_length=512)
+
     @property
     def is_manager(self):
         return self.account_type == AccountType.MANAGER
