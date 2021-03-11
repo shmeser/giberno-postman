@@ -300,6 +300,10 @@ if os.name == 'nt':
     os.environ['PATH'] = OSGEO4W + r"\bin;" + os.environ['PATH']
 
 NEAREST_POINT_DISTANCE_MAX = 1000  # Максимальное расстояние до ближайшей точки для геокодинга координат
+CLUSTER_NESTED_ITEMS_COUNT = 10
+CLUSTER_MIN_POINTS_COUNT = 2
+CLUSTER_ID_FIELD_NAME = 'cid'
+
 # ### POSTGIS ###
 
 
@@ -364,6 +368,7 @@ try:
         CHANNEL_LAYERS, \
         CONSTANCE_REDIS_CONNECTION, \
         CONSTANCE_CONFIG, \
+        LOGGING, \
         SOCIAL_AUTH_VK_OAUTH2_KEY
 except ImportError as e:
     pass

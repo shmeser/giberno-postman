@@ -1,6 +1,7 @@
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models import GeometryField
-from django.contrib.gis.db.models.functions import Distance, BoundingCircle
+from django.contrib.gis.db.models.functions import Distance, Envelope
+from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Prefetch, F, ExpressionWrapper
 
@@ -10,7 +11,8 @@ from app_media.models import MediaModel
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
-from giberno.settings import NEAREST_POINT_DISTANCE_MAX
+from giberno import settings
+from giberno.settings import NEAREST_POINT_DISTANCE_MAX, CLUSTER_MIN_POINTS_COUNT, CLUSTER_NESTED_ITEMS_COUNT
 
 
 class LanguagesRepository(MasterRepository):
@@ -86,12 +88,16 @@ class CitiesRepository(MasterRepository):
         if self.screen_diagonal_points:
             self.base_query = self.base_query.filter(
                 position__contained=ExpressionWrapper(
-                    BoundingCircle(screen_diagonal_points),
+                    Envelope(  # BoundingCircle использовался для описывающего круга
+                        MultiPoint(
+                            self.screen_diagonal_points[0], self.screen_diagonal_points[1], srid=settings.SRID
+                        )
+                    ),
                     output_field=GeometryField()
                 )
             )
 
-    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None, prefetch=True):
         try:
             if order_by:
                 records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
@@ -103,10 +109,13 @@ class CitiesRepository(MasterRepository):
             else:
                 records = self.base_query.filter(**kwargs)
 
-        return self.fast_related_loading(  # Предзагрузка связанных сущностей
-            queryset=records[paginator.offset:paginator.limit] if paginator else records,
-            point=self.point
-        )
+        if prefetch:
+            return self.fast_related_loading(  # Предзагрузка связанных сущностей
+                queryset=records[paginator.offset:paginator.limit] if paginator else records,
+                point=self.point
+            )
+        else:
+            return records[paginator.offset:paginator.limit] if paginator else records
 
     def get_by_id(self, record_id):
         try:
@@ -131,54 +140,73 @@ class CitiesRepository(MasterRepository):
         return within_boundary
 
     def map(self, kwargs, paginator=None, order_by: list = None):
-        queryset = self.filter_by_kwargs(kwargs, paginator, order_by)
+        queryset = self.filter_by_kwargs(kwargs, paginator, order_by, prefetch=False)
 
         return self.clustering(queryset)
+        # return self.fast_related_loading(  # Предзагрузка связанных сущностей
+        #     queryset=self.clustering(queryset),
+        #     point=self.point
+        # )
 
     def clustering(self, queryset):
+        """
+        :param queryset: Отфильтрованные по области на экране данные
+        :return:
+        """
         raw_sql = f'''
-            SELECT
-                c.id,
-                cl.clustered_count,
---                 cl.centroid,
-                cl.lat,
-                cl.lon,
-                c.native,
-                cl.clustered_ids
-            FROM 
-                (
-                    SELECT 
-                        cluster_geometries,
---                         ST_Centroid (cluster_geometries) AS centroid,
-                        ST_X(ST_Centroid (cluster_geometries)) AS lon,
-                        ST_Y(ST_Centroid (cluster_geometries)) AS lat,
-                        ST_NumGeometries(cluster_geometries) as clustered_count,
-                        ST_ClosestPoint(
-                            cluster_geometries, 
-                            ST_GeomFromGeoJSON('{self.point.geojson}')
-                        ) AS closest_point,
-                        (
-                            SELECT 
-                                ARRAY_AGG(id) 
-                            FROM app_geo__cities
-                            WHERE ST_Intersects(cluster_geometries, position)
-                        ) AS clustered_ids
-                        
-                    FROM 
-                        UNNEST(
+            WITH clusters AS (
+                SELECT 
+                    cid, 
+                    ST_Collect(position) AS cluster_geometries, 
+                    ST_Centroid (ST_Collect(position)) AS centroid,
+                    ST_X(ST_Centroid (ST_Collect(position))) AS lon,
+                    ST_Y(ST_Centroid (ST_Collect(position))) AS lat,
+                    ARRAY_AGG(id) AS ids_in_cluster,
+                    ST_NumGeometries(ST_Collect(position)) as clustered_count
+                FROM (
+                        SELECT 
+                            id, 
+                            ST_ClusterDBSCAN(
+                                position, 
+                                eps := ST_Distance(
+                                    ST_GeomFromGeoJSON('{self.screen_diagonal_points[0].geojson}'),
+                                    ST_GeomFromGeoJSON('{self.screen_diagonal_points[1].geojson}')
+                                )/10.0, -- 1/10 диагонали
+                                minpoints := {CLUSTER_MIN_POINTS_COUNT}
+                            ) OVER() AS cid, 
+                            position
+                        FROM 
                             (
-                                SELECT 
-                                    ST_ClusterWithin(position,5000/111111.0) 
-                                FROM 
-                                    (
-                                        {queryset.only('position', 'country', 'region').query}
-                                    ) subquery
-                            )
-                        ) cluster_geometries
-                ) cl
-            JOIN app_geo__cities c ON (c.position=cl.closest_point) -- JOIN с ближайшей точкой 
-
-            ORDER BY 2 DESC
+                                {queryset.query}
+                            ) external_subquery
+                        
+                ) sq
+                GROUP BY cid
+            ),
+            
+            computed AS (
+            
+            SELECT 
+                s.id,
+                s.native,
+                s.position::bytea,
+                ST_DistanceSphere(s.position, ST_GeomFromGeoJSON('{self.point.geojson}')) AS distance,
+                c.cid, 
+                c.lat, 
+                c.lon, 
+                c.clustered_count 
+            FROM app_geo__cities s
+            JOIN clusters c ON (s.id=ANY(c.ids_in_cluster))
+            
+            )
+            
+            SELECT * FROM (
+                SELECT 
+                    *,
+                    ROW_NUMBER() OVER (PARTITION BY cid ORDER BY distance ASC) AS n
+                FROM computed
+            ) a
+            WHERE n<={CLUSTER_NESTED_ITEMS_COUNT}
         '''
         return self.model.objects.raw(raw_sql)
 
