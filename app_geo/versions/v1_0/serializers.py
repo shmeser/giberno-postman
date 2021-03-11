@@ -149,25 +149,37 @@ class CitySerializer(CRUDSerializer):
         ]
 
 
-class CityClusterSerializer(serializers.Serializer):
+class CityInCluster(serializers.Serializer):
     id = serializers.SerializerMethodField()
-    clustered_count = serializers.SerializerMethodField()
-    name = serializers.SerializerMethodField()
     native = serializers.SerializerMethodField()
-    lat = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
 
     def get_id(self, data):
         return chained_get(data, 'id')
 
-    def get_clustered_count(self, data):
-        return chained_get(data, 'clustered_count')
-
-    def get_name(self, data):
-        return chained_get(data, 'names', DEFAULT_LANGUAGE)
-
     def get_native(self, data):
         return chained_get(data, 'native')
+
+    def get_lon(self, city: City):
+        return city.position.x if city.position else None
+
+    def get_lat(self, city: City):
+        return city.position.y if city.position else None
+
+
+class CitiesClusterSerializer(serializers.Serializer):
+    id = serializers.SerializerMethodField()
+    clustered_count = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+    cities = serializers.SerializerMethodField()
+
+    def get_id(self, data):
+        return chained_get(data, 'cid')
+
+    def get_clustered_count(self, data):
+        return chained_get(data, 'clustered_count')
 
     def get_lon(self, data):
         return chained_get(data, 'lon')
@@ -175,12 +187,8 @@ class CityClusterSerializer(serializers.Serializer):
     def get_lat(self, data):
         return chained_get(data, 'lat')
 
-    class Meta:
-        fields = [
-            'id',
-            'clustered_count',
-            'name',
-            'native',
-            'lon',
-            'lat',
-        ]
+    def get_cities(self, data):
+        cities = chained_get(data, 'clustered_items')
+        return CityInCluster(
+            cities, many=True, context=self.context
+        ).data

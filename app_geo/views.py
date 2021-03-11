@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from app_geo.versions.v1_0 import views as v1_0
 from app_geo.versions.v1_0.serializers import CitySerializer, CountrySerializer, LanguageSerializer, \
-    CityClusterSerializer
+    CitiesClusterSerializer
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException
@@ -56,7 +56,7 @@ class Cities(BaseAPIView):
 
 
 class CitiesClusteredMap(BaseAPIView):
-    serializer_class = CityClusterSerializer
+    serializer_class = CitiesClusterSerializer
 
     @staticmethod
     def get(request, **kwargs):

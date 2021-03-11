@@ -6,8 +6,8 @@ from rest_framework.response import Response
 
 from app_geo.versions.v1_0.repositories import LanguagesRepository, CountriesRepository, CitiesRepository
 from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer, \
-    CityClusterSerializer
-from backend.mappers import RequestMapper
+    CitiesClusterSerializer
+from backend.mappers import RequestMapper, DataMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers
 
@@ -196,29 +196,27 @@ class Cities(CRUDAPIView):
 
 
 class CitiesClusteredMap(Cities):
-    serializer_class = CityClusterSerializer
+    serializer_class = CitiesClusterSerializer
 
     def get(self, request, **kwargs):
         filters = RequestMapper(self).filters(request) or dict()
-        pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
         point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         self.many = True
-        # dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
-        #     kwargs=filters, paginator=pagination, order_by=order_params
-        # )
 
-        dataset = self.repository_class(point, screen_diagonal_points).map(kwargs=filters, order_by=order_params)
+        clustered = self.repository_class(point, screen_diagonal_points).map(kwargs=filters, order_by=order_params)
 
-        # # Не запрашиваем ненужные тяжелые данные
-        # dataset = dataset.defer(
+        # Не запрашиваем ненужные тяжелые данные
+        # clusters = clusters.defer(
         #     "boundary", "osm", "native_tsv", "names_tsv",
         #     "country__boundary", "country__osm",
         #     "region__boundary", "region__osm",
         # )
 
-        serialized = self.serializer_class(dataset, many=self.many, context={
+        clusters = DataMapper.clustering_raw_qs(clustered, 'cid')
+
+        serialized = self.serializer_class(clusters, many=self.many, context={
             'me': request.user,
             'headers': get_request_headers(request),
         })

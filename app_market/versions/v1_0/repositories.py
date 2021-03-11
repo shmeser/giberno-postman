@@ -2,12 +2,13 @@ from datetime import timedelta, datetime
 
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models import GeometryField
-from django.contrib.gis.db.models.functions import Distance, BoundingCircle
+from django.contrib.gis.db.models.functions import Distance, Envelope
+from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
-from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, DateTimeField, \
-    Lookup, Field, DateField, Sum, FloatField, ExpressionWrapper, Subquery, OuterRef
+from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
+    DateTimeField, Lookup, Field, DateField, Sum, FloatField, ExpressionWrapper, Subquery, OuterRef
 from django.db.models.functions import Cast
 from django.utils.timezone import now, localtime
 from pytz import timezone
@@ -23,6 +24,7 @@ from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
 from backend.utils import ArrayRemove
+from giberno import settings
 
 
 class MakeReviewMethodProviderRepository(MasterRepository):
@@ -193,7 +195,11 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
         if self.screen_diagonal_points:
             self.base_query = self.base_query.filter(
                 location__contained=ExpressionWrapper(
-                    BoundingCircle(screen_diagonal_points),
+                    Envelope(
+                        MultiPoint(
+                            self.screen_diagonal_points[0], self.screen_diagonal_points[1], srid=settings.SRID
+                        )
+                    ),
                     output_field=GeometryField()
                 )
             )
@@ -291,6 +297,12 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
                 s.id,
                 s.title,
                 clusters.clustered_count,
+                (
+                    SELECT 
+                        ARRAY_AGG(id) 
+                    FROM app_market__shops
+                    WHERE ST_Intersects(cluster_geometries, location)
+                ) AS clustered_ids,
                 ST_X(ST_Centroid (cluster_geometries)) AS lon,
                 ST_Y(ST_Centroid (cluster_geometries)) AS lat
 --                 clusters.centroid
@@ -501,7 +513,11 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         if self.screen_diagonal_points:
             self.base_query = self.base_query.filter(
                 shop__location__contained=ExpressionWrapper(
-                    BoundingCircle(screen_diagonal_points),
+                    Envelope(  # BoundingCircle использовался для описывающего круга
+                        MultiPoint(
+                            self.screen_diagonal_points[0], self.screen_diagonal_points[1], srid=settings.SRID
+                        )
+                    ),
                     output_field=GeometryField()
                 )
             )
