@@ -418,6 +418,7 @@ class ProfileSerializer(CRUDSerializer):
             'cities',
             'skills',
 
+            'manager_position'
             'distributors'
         ]
 
@@ -647,7 +648,7 @@ class UsernameWithPasswordSerializer(serializers.Serializer):
 class ManagerAuthenticateResponseForSwaggerSerializer(serializers.Serializer):
     accessToken = serializers.CharField()
     refreshToken = serializers.CharField()
-    first_login = serializers.BooleanField()
+    password_changed = serializers.BooleanField()
 
 
 class EditManagerProfileSerializer(serializers.ModelSerializer):

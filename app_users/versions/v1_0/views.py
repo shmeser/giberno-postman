@@ -4,7 +4,6 @@ from uuid import uuid4
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.shortcuts import render
-from django.utils import timezone
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
 from fcm_django.api.rest_framework import FCMDeviceAuthorizedViewSet
@@ -628,14 +627,9 @@ class AuthenticateManagerAPIView(BaseAPIView):
             jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
             response_data = {
                 'accessToken': jwt_pair.access_token,
-                'refreshToken': jwt_pair.refresh_token
+                'refreshToken': jwt_pair.refresh_token,
+                'password_changed': user.password_changed
             }
-            if user.last_login:
-                response_data.update({'first_login': False})
-            else:
-                response_data.update({'first_login': True})
-                user.last_login = timezone.now()
-                user.save()
             return Response(response_data)
 
 
@@ -646,6 +640,7 @@ class ChangeManagerPasswordAPIView(BaseAPIView):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             request.user.set_password(raw_password=serializer.validated_data['password'])
+            request.user.password_changed = True
             request.user.save()
             return Response(status=status.HTTP_200_OK)
 
