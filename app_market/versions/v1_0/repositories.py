@@ -2,7 +2,7 @@ from datetime import timedelta, datetime
 
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models import GeometryField
-from django.contrib.gis.db.models.functions import Distance, BoundingCircle
+from django.contrib.gis.db.models.functions import Distance, Envelope
 from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
@@ -195,7 +195,7 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
         if self.screen_diagonal_points:
             self.base_query = self.base_query.filter(
                 location__contained=ExpressionWrapper(
-                    BoundingCircle(
+                    Envelope(
                         MultiPoint(
                             self.screen_diagonal_points[0], self.screen_diagonal_points[1], srid=settings.SRID
                         )
@@ -513,7 +513,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         if self.screen_diagonal_points:
             self.base_query = self.base_query.filter(
                 shop__location__contained=ExpressionWrapper(
-                    BoundingCircle(
+                    Envelope(  # BoundingCircle использовался для описывающего круга
                         MultiPoint(
                             self.screen_diagonal_points[0], self.screen_diagonal_points[1], srid=settings.SRID
                         )

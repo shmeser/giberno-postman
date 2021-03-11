@@ -1,6 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models import GeometryField
-from django.contrib.gis.db.models.functions import Distance, BoundingCircle
+from django.contrib.gis.db.models.functions import Distance, Envelope
 from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Prefetch, F, ExpressionWrapper
@@ -12,7 +12,7 @@ from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
 from giberno import settings
-from giberno.settings import NEAREST_POINT_DISTANCE_MAX, CLUSTER_DISTANCE, CLUSTER_MIN_POINTS_COUNT, \
+from giberno.settings import NEAREST_POINT_DISTANCE_MAX, CLUSTER_MIN_POINTS_COUNT, \
     CLUSTER_NESTED_ITEMS_COUNT
 
 
@@ -89,7 +89,7 @@ class CitiesRepository(MasterRepository):
         if self.screen_diagonal_points:
             self.base_query = self.base_query.filter(
                 position__contained=ExpressionWrapper(
-                    BoundingCircle(
+                    Envelope(  # BoundingCircle использовался для описывающего круга
                         MultiPoint(
                             self.screen_diagonal_points[0], self.screen_diagonal_points[1], srid=settings.SRID
                         )
