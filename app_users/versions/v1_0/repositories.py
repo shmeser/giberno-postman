@@ -1,10 +1,12 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.utils.timezone import now
 from fcm_django.models import FCMDevice
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from app_media.enums import MediaType, MediaFormat
+from app_media.models import MediaModel
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType, NotificationType
@@ -284,6 +286,51 @@ class AsyncProfileRepository(ProfileRepository):
 
 class NotificationsRepository(MasterRepository):
     model = Notification
+
+    def get_by_id(self, record_id):
+        record = self.model.objects.filter(id=record_id)
+        record = self.fast_related_loading(record).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.model.objects.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.model.objects.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.model.objects.filter(**kwargs)
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
+
+    @staticmethod
+    def fast_related_loading(queryset, point=None):
+        """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
+             Media
+        """
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа для магазинов
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    type=MediaType.NOTIFICATION_ICON.value,
+                    owner_ct_id=ContentType.objects.get_for_model(Notification).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+            )
+        )
+
+        return queryset
 
 
 class FCMDeviceRepository(MasterRepository):

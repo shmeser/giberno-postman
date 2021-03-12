@@ -25,7 +25,7 @@
                         value="/sockets"
                         id="sockets-route" type="text" required="required"
                 />
-                <input type="button" value="connect" id="connect-button">
+                <input type="button" value="add connection" id="connect-button">
             </div>
         </div>
 
@@ -61,20 +61,37 @@
 
         };
 
-        const sendEvent = (connectionId, data) => {
-            let messagesHistoryEl = document.getElementById(`messages-history-${connectionId}`);
+        const disableConnectionBlock = (connectionId) => {
+            let connectionBlock = document.getElementById(`${connectionId}`);
+            let disconnectButton = document.getElementById(`disconnect-${connectionId}`);
 
-            let messageOutcommingHTML = document.createElement('pre');
-            messageOutcommingHTML.className = 'outcomming';
-            messageOutcommingHTML.innerHTML = data;
-            messagesHistoryEl.prepend(messageOutcommingHTML);
+            let buttons = document.getElementsByClassName('action-button');
+            for (let b of buttons) {
+                b.setAttribute('disabled', 'disabled');
+            }
+
+            disconnectButton.value = 'remove block';
+
+            connectionBlock.classList.add('closed')
+
+        };
+
+        const addMessage = (id, data, className = 'system') => {
+            let messagesHistoryEl = document.getElementById(`messages-history-${id}`);
+            let messageHTML = document.createElement('pre');
+            messageHTML.className = className;
+            messageHTML.innerHTML = data;
+            messagesHistoryEl.prepend(messageHTML);
+        };
+
+        const sendEvent = (connectionId, data) => {
+            addMessage(connectionId, data, 'outcomming');
 
             console.log(socketConnections);
             console.log(connectionId);
 
             const connection = socketConnections.find(e => e.id === connectionId);
             connection.socket.send(data)
-
         };
 
 
@@ -85,11 +102,11 @@
                         <div class="connection-status">
                             <div class="jwt">${jwt}</div>
                             <label class="connection-route" for="disconnect-button">${route}</label>
-                            <input type="button" value="disconnect" onclick="disconnect(${connectionId});">
+                            <input id="disconnect-${connectionId}" type="button" value="disconnect" onclick="disconnect(${connectionId});">
                         </div>
                         <input type='number' step='0.000001' placeholder='lon' id='lon-${connectionId}'>
                         <input type='number' step='0.000001' placeholder='lat' id='lat-${connectionId}'>
-                        <button onclick=sendLocation(${connectionId})>Send Location</button>
+                        <button class="action-button" onclick=sendLocation(${connectionId})>Send Location</button>
                     </div>
                     <div class="messages" id="messages-history-${connectionId}"></div>
                 </div>`
@@ -109,11 +126,25 @@
                 console.log('Connected to chat socket', event);
             };
             socket.onclose = (event) => {
+                let data = JSON.stringify({
+                    "connection": id,
+                    "type": event.type,
+                    "code": event.code,
+                }, undefined, 4);
+
+                addMessage(id, data, 'system');
+
+                disableConnectionBlock(id);
                 console.log('Disconnected from chat socket', event);
             };
 
             socket.onerror = (error) => {
-                alert('error');
+                let data = JSON.stringify({
+                    "connection": id,
+                    "error": error,
+                }, undefined, 4);
+
+                addMessage(id, data, 'error');
                 console.log('Socket error', error);
             };
 
@@ -124,12 +155,10 @@
                 if (data.error) {
                     console.log(data.error);
                 }
-                let messagesHistoryEl = document.getElementById(`messages-history-${id}`);
 
-                let messageIncommingHTML = document.createElement('pre');
-                messageIncommingHTML.className = 'incomming';
-                messageIncommingHTML.innerHTML = JSON.stringify(data, undefined, 4);
-                messagesHistoryEl.prepend(messageIncommingHTML);
+                data = JSON.stringify(data, undefined, 4);
+
+                addMessage(id, data, 'incomming');
             };
 
             socketConnections.push(

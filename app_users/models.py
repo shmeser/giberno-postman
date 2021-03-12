@@ -200,6 +200,8 @@ class Notification(BaseModel):
         choices=choices(NotificationIcon), default=NotificationIcon.DEFAULT, verbose_name='Тип иконки'
     )
 
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
     def __str__(self):
         return f'{self.title}'
 

@@ -225,6 +225,9 @@ input {
     border: 1px solid green;
 }
 
+.connection.closed {
+}
+
 .connection-status {
     display: flex;
     flex-flow: column;
@@ -238,13 +241,29 @@ input {
 }
 
 .incomming {
+    color: #fd826c;
+    padding: 5px;
+}
+
+.system {
+    color: #868686;
+    padding: 5px;
+    border: 1px solid #868686;
+}
+
+.error {
     color: #fd3838;
     padding: 5px;
+    border: 1px solid #fd3838;
 }
 
 .connection-route {
     color: #2fa75f;
     font-weight: 700;
+}
+
+.closed .connection-route {
+    color: #ababab;
 }
 
 .jwt {
