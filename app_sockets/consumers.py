@@ -18,7 +18,7 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         self.room_name = None
         self.room_id = None
         self.room_group_name = None
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(__name__)  # TODO loguru добавить
 
     async def connect(self):
         self.socket_controller = AsyncSocketController(self)
@@ -27,9 +27,11 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         self.room_id = chained_get(self.scope, 'url_route', 'kwargs', 'id')
         self.room_name = chained_get(self.scope, 'url_route', 'kwargs', 'room_name')
 
-        self.room_group_name = f'{self.room_name}_{self.room_id}' if self.room_id and self.room_name else None
+        self.room_group_name = f'{self.room_name}{self.room_id}' if self.room_id and self.room_name else None
 
-        if self.user.is_authenticated:  # Проверка авторизации подключаемого соединения
+        if self.user.is_authenticated:  # Проверка авторизации подключаемого соединения TODO проверка других разрешений
+            # Добавляем соединение в группу
+            await self.channel_layer.group_add(self.room_group_name, self.channel_name)
             await self.accept()  # Принимаем соединение
         else:
             # Принимаем соединение и сразу закрываем, чтобы не было ERR_CONNECTION_REFUSED
@@ -37,67 +39,34 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
 
     async def receive_json(self, content, **kwargs):
-        socket_event = SocketEventRM(content)
 
-        if socket_event.event_type == SocketEventType.LEAVE_GROUP:
-            await self.leave_group(socket_event)
-            return
+        await self.channel_layer.group_send(self.room_group_name, {
+            'type': 'system_message',
+            'text': 'text'
+        })
+        # socket_event = SocketEventRM(content)
 
-        if socket_event.event_type == SocketEventType.REGISTER_PROFILE:
-            await self.register_profiles(socket_event)
+        # if socket_event.event_type == SocketEventType.LEAVE_GROUP:
+        #     await self.leave_group(socket_event)
+        #     return
+        #
+        # if socket_event.event_type == SocketEventType.REGISTER_PROFILE:
+        #     await self.register_profiles(socket_event)
 
-    async def leave_group(self, event: SocketEventRM):
-        try:
-            self.user = await self.socket_controller.leave_group(event.token, event.group_name)
-            # socket_print(self.user, event.event_type, event.group_name)
-        except SocketError as error:
-            await self.socket_controller.send_system_message(error.code, error.message)
-
-    async def register_profiles(self, event: SocketEventRM):
-        try:
-            self.user = await self.socket_controller.register_profiles(event.token, event.profile_id)
-            # socket_print(self.user, event.event_type, event.profile_id)
-        except SocketError as error:
-            await self.socket_controller.send_system_message(error.code, error.message)
-
-    """ type = event_message хендлер для типа серверных сообщений"""
-
-    async def server_event(self, event):
-        # socket_print(self.user, event.get('eventType'), event.get('data'))
+    # # Системное - предупреждение, информация
+    async def system_message(self, data):
         await self.send_json(
             {
-                'data': event.get('data'),
-                'eventType': event.get('eventType')
-            }
-        )
-
-    async def notification_message(self, notification):
-        await self.send_json(
-            {
-                'id': notification.get('id'),
-                'receiver': notification.get('receiver'),
-                'created': notification.get('created'),
-                'data': notification.get('data'),
-                'uuid': notification.get('uuid'),
-                'title': notification.get('title'),
-                'body': notification.get('body'),
-                'notificationType': notification.get('notification_type'),
-                'eventType': SocketEventType.NOTIFICATION,
-            },
-        )
-
-    # Системное - предупреждение, информация
-    async def system_message(self, system):
-        await self.send_json(
-            {
-                'eventType': SocketEventType.SYSTEM_MESSAGE,
-                'message': system['message'],
+                'text': data['text'],
             },
         )
 
     async def disconnect(self, code):
         try:
-            await self.socket_controller.disconnect()
+            # Удаляем из группы
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+
+            # await self.socket_controller.disconnect()
         except SocketError as error:
             await self.socket_controller.send_system_message(error.code, error.message)
         except Exception as e:
