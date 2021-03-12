@@ -13,6 +13,7 @@ from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySeriali
 from app_market.models import UserProfession, Profession, UserSkill, Skill
 from app_market.versions.v1_0.serializers import ProfessionSerializer, SkillSerializer
 from app_media.enums import MediaType, MediaFormat
+from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import LanguageProficiency, AccountType
@@ -456,6 +457,10 @@ class NotificationSerializer(CRUDSerializer):
 
     created_at = DateTimeField()
     read_at = DateTimeField()
+    icon = serializers.SerializerMethodField()
+
+    def get_icon(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.NOTIFICATION_ICON.value)
 
     class Meta:
         model = Notification
@@ -470,6 +475,7 @@ class NotificationSerializer(CRUDSerializer):
             'action',
             'read_at',
             'created_at',
+            'icon'
         ]
 
 

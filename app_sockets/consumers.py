@@ -34,7 +34,7 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         else:
             # Принимаем соединение и сразу закрываем, чтобы не было ERR_CONNECTION_REFUSED
             await self.accept()
-            await self.close(code=SocketErrors.NOT_AUTHORIZED)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
+            await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
 
     async def receive_json(self, content, **kwargs):
         socket_event = SocketEventRM(content)
@@ -120,7 +120,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
         else:
             # Принимаем соединение и сразу закрываем, чтобы не было ERR_CONNECTION_REFUSED
             await self.accept()
-            await self.close(code=SocketErrors.NOT_AUTHORIZED)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
+            await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
 
     async def receive_json(self, content, **kwargs):
         socket_event = SocketEventRM(content)
