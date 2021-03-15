@@ -1,6 +1,7 @@
 import logging
 
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from loguru import logger
 
 from app_sockets.controllers import AsyncSocketController
 from app_sockets.enums import SocketEventType
@@ -18,7 +19,6 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         self.room_name = None
         self.room_id = None
         self.room_group_name = None
-        self.logger = logging.getLogger(__name__)  # TODO loguru добавить
 
     async def connect(self):
         self.socket_controller = AsyncSocketController(self)
@@ -39,6 +39,8 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
 
     async def receive_json(self, content, **kwargs):
+
+        logger.debug(content)
 
         await self.channel_layer.group_send(self.room_group_name, {
             'type': 'system_message',
@@ -65,7 +67,6 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         try:
             # Удаляем из группы
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
-
             # await self.socket_controller.disconnect()
         except SocketError as error:
             await self.socket_controller.send_system_message(error.code, error.message)
@@ -84,6 +85,8 @@ class Consumer(AsyncJsonWebsocketConsumer):
         self.socket_controller = AsyncSocketController(self)
         self.user = self.scope["user"]
 
+        # TODO запрещать создание дублирующего соединения
+
         if self.user.is_authenticated:  # Проверка авторизации подключаемого соединения
             await self.accept()  # Принимаем соединение
         else:
@@ -92,6 +95,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
             await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
 
     async def receive_json(self, content, **kwargs):
+        logger.debug(content)
         socket_event = SocketEventRM(content)
 
         if socket_event.event_type == SocketEventType.LEAVE_GROUP:
@@ -131,7 +135,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
     async def system_message(self, system):
         await self.send_json(
             {
-                'eventType': SocketEventType.SYSTEM_MESSAGE,
+                'eventType': SocketEventType.SYSTEM_MESSAGE.value,
                 'message': system['message'],
             },
         )
