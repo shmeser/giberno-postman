@@ -1,25 +1,12 @@
 from django.contrib.auth.models import User, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis import admin
-from django.contrib.gis.db import models
-from django.contrib.postgres.fields import JSONField, ArrayField
-from django.db.models import UUIDField
-from django.forms import TextInput, Textarea
 
 from app_users.models import SocialModel, UserProfile, Notification, NotificationsSettings
+from backend.mixins import FormattedAdmin
 
 admin.site.register(User, admin.OSMGeoAdmin)
 admin.site.register(ContentType, admin.OSMGeoAdmin)
-
-
-class FormattedAdmin(admin.OSMGeoAdmin):
-    formfield_overrides = {
-        ArrayField: {'widget': TextInput(attrs={'size': '150'})},
-        models.CharField: {'widget': TextInput(attrs={'size': '150'})},
-        UUIDField: {'widget': TextInput(attrs={'size': '150'})},
-        models.TextField: {'widget': Textarea(attrs={'rows': 10, 'cols': 150})},
-        JSONField: {'widget': Textarea(attrs={'rows': 10, 'cols': 150})},
-    }
 
 
 @admin.register(Permission)
