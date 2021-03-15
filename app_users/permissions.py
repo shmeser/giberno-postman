@@ -35,6 +35,11 @@ class IsAdmin(permissions.BasePermission):
         return request.user.account_type == AccountType.ADMIN
 
 
+class IsManager(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.account_type == AccountType.MANAGER
+
+
 class IsManagerOrSecurity(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.account_type == AccountType.MANAGER or request.user.account_type == AccountType.SECURITY

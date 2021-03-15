@@ -9,6 +9,7 @@ from app_market.versions.v1_0.repositories import VacanciesRepository, Professio
     DistributorsRepository, ShifsRepository
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
+from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp
@@ -346,6 +347,44 @@ class VacancySerializer(VacanciesSerializer):
             'shop',
             'distributor',
         ]
+
+
+class VacanciesListForManagerSerializer(CRUDSerializer):
+    media = serializers.SerializerMethodField(read_only=True)
+
+    @staticmethod
+    def get_media(instance):
+        return MediaSerializer(instance=instance.media.first()).data
+
+    applied_users = serializers.SerializerMethodField(read_only=True)
+
+    @staticmethod
+    def get_applied_users(instance):
+        return 'Тут будет список с данни откликнувшихся пользователей'
+
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id', 'title', 'media', 'places_count', 'applied_users'
+        ]
+
+
+class SingleVacancyForManagerSerializer(VacanciesListForManagerSerializer):
+    shifts = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_shifts(instance):
+        return ShiftsSerializer(instance=Shift.objects.filter(vacancy=instance), many=True).data
+
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id', 'title', 'media', 'places_count', 'applied_users', 'shifts'
+        ]
+
+
+class AppliedUsersByVacancyForManagerSerializer(CRUDSerializer):
+    pass
 
 
 class ShiftsSerializer(CRUDSerializer):
