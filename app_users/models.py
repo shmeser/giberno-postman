@@ -82,6 +82,10 @@ class UserProfile(AbstractUser, BaseModel):
     # Конкретная Должность Пользователя со статусом manager
     manager_position = models.CharField(null=True, blank=True, max_length=512)
 
+    # конкретные магазины к которым прикреплен менеджер
+    manager_shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Торговая сеть',
+                                           related_name='manager_shops')
+
     @property
     def is_manager(self):
         return self.account_type == AccountType.MANAGER

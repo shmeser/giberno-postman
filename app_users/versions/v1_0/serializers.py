@@ -651,12 +651,6 @@ class UsernameWithPasswordSerializer(serializers.Serializer):
     password = serializers.CharField()
 
 
-class ManagerAuthenticateResponseForSwaggerSerializer(serializers.Serializer):
-    accessToken = serializers.CharField()
-    refreshToken = serializers.CharField()
-    password_changed = serializers.BooleanField()
-
-
 class EditManagerProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
@@ -672,8 +666,13 @@ class FirebaseAuthRequestDescriptor(serializers.Serializer):
     firebase_token = serializers.CharField()
 
 
-# JUST A SERIALIZER FOR RESPONSE GENERATION ON CUSTOM SWAGGER SCHEMA
 class FirebaseAuthResponseDescriptor(serializers.Serializer):
     refresh_token = serializers.CharField(max_length=255)
     access_token = serializers.CharField(max_length=255)
+
+
+class ManagerAuthenticateResponseForSwagger(serializers.Serializer):
+    accessToken = serializers.CharField()
+    refreshToken = serializers.CharField()
+    password_changed = serializers.BooleanField()
 # SERIALIZERS ONLY FOR SWAGGER

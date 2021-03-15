@@ -1,3 +1,5 @@
+from datetime import timedelta, datetime
+
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -10,7 +12,8 @@ from app_market.enums import ShiftStatus
 from app_market.models import UserShift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
-from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer
+from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
+    VacanciesListForManagerSerializer, SingleVacancyForManagerSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
@@ -171,6 +174,76 @@ class Vacancies(CRUDAPIView):
         })
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class GetVacanciesByManagerShopAPIView(CRUDAPIView):
+    serializer_class = VacanciesListForManagerSerializer
+    repository_class = VacanciesRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'available_from': 'available_from__gt'
+    }
+
+    order_params = {
+        'title': 'title',
+        'created_at': 'created_at',
+        'id': 'id'
+    }
+
+    def get(self, request, *args, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        filters.update({
+            'shop_id__in': request.user.manager_shops.all()
+        })
+
+        available_from = filters.get('available_from__gt')
+        if available_from:
+            next_day = datetime.strptime(available_from, '%Y-%m-%d') + timedelta(days=1)
+            filters.update({
+                'available_from__lt': next_day
+            })
+
+        dataset = self.repository_class().filter_by_kwargs(
+            kwargs=filters, order_by=order_params, paginator=pagination
+        )
+
+        serialized = self.serializer_class(dataset, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class GetSingleVacancyForManagerAPIView(CRUDAPIView):
+    serializer_class = SingleVacancyForManagerSerializer
+    repository_class = VacanciesRepository
+    allowed_http_methods = ['get']
+
+    def get(self, request, *args, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        filters.update({
+            'shop_id__in': request.user.manager_shops.all()
+        })
+
+        dataset = self.repository_class().get_by_id(record_id)
+
+        serialized = self.serializer_class(dataset, many=False, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class GetAppliedUsersByVacancyForManagerAPIView(CRUDAPIView):
+    pass
 
 
 class VacanciesClusteredMap(Vacancies):

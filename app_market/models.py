@@ -6,6 +6,7 @@ from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
+from django.utils.timezone import now
 
 from app_feedback.models import Review, Like
 from app_geo.models import Country, City
@@ -132,10 +133,17 @@ class Vacancy(BaseModel):
     )
 
     radius = models.PositiveIntegerField(null=True, blank=True, verbose_name='Максимальное расстояние от места работы')
+
     timezone = models.CharField(
         max_length=512, null=True, blank=True, default='UTC', choices=[(tz, tz) for tz in pytz.all_timezones],
         verbose_name='Часовой пояс вакансии'
     )
+
+    # список вакансий у менеджера отображается на 7 ближайших дней
+    available_from = models.DateTimeField(default=now)
+
+    # количество мест
+    places_count = models.PositiveIntegerField(default=1)
 
     rating = models.FloatField(default=0, verbose_name='Рейтинг')
     rates_count = models.PositiveIntegerField(default=0, verbose_name='Количество оценок')
