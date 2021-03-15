@@ -3,9 +3,8 @@ from urllib.parse import parse_qs
 from channels.auth import AuthMiddlewareStack
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
+from loguru import logger
 from rest_framework_simplejwt.authentication import JWTAuthentication
-
-from backend.utils import CP
 
 
 @database_sync_to_async
@@ -14,7 +13,7 @@ def get_user(jwt):
         validated_token = JWTAuthentication().get_validated_token(jwt)
         return JWTAuthentication().get_user(validated_token)
     except Exception as e:
-        CP(bg='red').bold(e)
+        logger.error(e)
         return AnonymousUser()
 
 
@@ -29,6 +28,7 @@ class TokenAuthMiddleware:
             jwt = query_string.get('jwt')[0]
             scope['user'] = await get_user(jwt)
         except Exception as e:
+            logger.error(e)
             scope['user'] = AnonymousUser()
 
         return await self.app(scope, receive, send)

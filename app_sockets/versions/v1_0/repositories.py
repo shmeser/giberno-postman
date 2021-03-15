@@ -1,7 +1,6 @@
 import datetime
 
 from channels.db import database_sync_to_async
-from django.utils.timezone import now
 
 from app_sockets.models import Socket
 from app_users.models import UserProfile
@@ -12,18 +11,23 @@ class SocketsRepository:
         super().__init__()
         self.user = user
 
-    def append_socket(self, socket_id, group_type, group_id):
-        Socket.objects.filter(user=self.user).delete()
-        return Socket.objects.create(
+    def add_socket(self, socket_id, room_name=None, room_id=None):
+        Socket.objects.create(
             user=self.user,
             socket_id=socket_id,
-            group_type=group_type,
-            group_id=group_id,
-            connected_at=now()
+            room_name=room_name,
+            room_id=room_id
         )
+
+    def clear(self):
+        # Удаляет все сокеты при запуске сервера
+        Socket.objects.all().delete()
 
     def remove_socket(self, socket_id):
         Socket.objects.filter(socket_id=socket_id).delete()
+
+    def check_if_connected(self, room_name=None, room_id=None):
+        return Socket.objects.filter(user=self.user, room_name=room_name, room_id=room_id).exists()
 
     def get_connected_groups_ids(self, group_type):
         return Socket.objects.filter(group_type=group_type).values_list('group_id', flat=True)
@@ -56,12 +60,16 @@ class AsyncSocketsRepository(SocketsRepository):
         super().__init__(user)
 
     @database_sync_to_async
-    def append_socket(self, socket_id, group_type=None, group_id=None):
-        return super().append_socket(socket_id, group_type, group_id)
+    def add_socket(self, socket_id, room_name=None, room_id=None):
+        return super().add_socket(socket_id, room_name, room_id)
 
     @database_sync_to_async
     def remove_socket(self, socket_id):
         super().remove_socket(socket_id)
+
+    @database_sync_to_async
+    def check_if_connected(self, room_name=None, room_id=None):
+        return super().check_if_connected(room_name, room_id)
 
     @database_sync_to_async
     def get_connected_groups_ids(self, group_type):
