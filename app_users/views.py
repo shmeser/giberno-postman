@@ -12,7 +12,7 @@ from app_users.permissions import IsAdmin
 from app_users.versions.v1_0 import views as v1_0
 from app_users.versions.v1_0.serializers import FirebaseAuthRequestDescriptor, FirebaseAuthResponseDescriptor, \
     RefreshTokenSerializer, CreateManagerByAdminSerializer, ProfileSerializer, UsernameSerializer, \
-    UsernameWithPasswordSerializer, ManagerAuthenticateResponseForSwaggerSerializer, PasswordSerializer, \
+    UsernameWithPasswordSerializer, ManagerAuthenticateResponseForSwagger, PasswordSerializer, \
     EditManagerProfileSerializer, NotificationSerializer, NotificationsSettingsSerializer, CareerSerializer, \
     DocumentSerializer, SocialSerializer
 from backend.api_views import BaseAPIView
@@ -57,7 +57,8 @@ class AuthFirebase(BaseAPIView):
     serializer_class = FirebaseAuthRequestDescriptor
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, FirebaseAuthResponseDescriptor)})
+    @swagger_auto_schema(
+        responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, FirebaseAuthResponseDescriptor)})
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.AuthFirebase.post(request)
@@ -70,7 +71,8 @@ class AuthRefreshToken(BaseAPIView):
     serializer_class = RefreshTokenSerializer
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, FirebaseAuthResponseDescriptor)})
+    @swagger_auto_schema(
+        responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, FirebaseAuthResponseDescriptor)})
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.AuthRefreshToken().post(request)
@@ -227,14 +229,16 @@ class Notifications(APIView):
 
 class NotificationsSettings(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, NotificationsSettingsSerializer)})
+    @swagger_auto_schema(
+        responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, NotificationsSettingsSerializer)})
     def get(request):
         if request.version in ['users_1_0']:
             return v1_0.NotificationsSettings().get(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, NotificationsSettingsSerializer)})
+    @swagger_auto_schema(
+        responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, NotificationsSettingsSerializer)})
     def put(request):
         if request.version in ['users_1_0']:
             return v1_0.NotificationsSettings().put(request)
@@ -298,7 +302,7 @@ class AuthenticateManagerAPIView(BaseAPIView):
     permission_classes = []
     serializer_class = UsernameWithPasswordSerializer
 
-    response_description = openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, ManagerAuthenticateResponseForSwaggerSerializer)
+    response_description = openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, ManagerAuthenticateResponseForSwagger)
 
     @swagger_auto_schema(responses={200: response_description})
     def post(self, request, *args, **kwargs):
