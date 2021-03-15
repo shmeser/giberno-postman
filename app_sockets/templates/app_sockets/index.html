@@ -19,7 +19,6 @@
                 SOCKET ROUTE
             </label>
             <div class="routes-block">
-
                 <input
                         placeholder="/sockets/chats/1"
                         value="/sockets"
@@ -77,10 +76,8 @@
             let connectionBlock = document.getElementById(`${connectionId}`);
             let disconnectButton = document.getElementById(`disconnect-${connectionId}`);
 
-            let buttons = document.getElementsByClassName('action-button');
-            for (let b of buttons) {
-                b.setAttribute('disabled', 'disabled');
-            }
+            let button = document.getElementById(`action-${connectionId}`);
+            button.setAttribute('disabled', 'disabled');
 
             disconnectButton.value = 'Remove Block';
             connectionBlock.classList.add('closed')
@@ -155,7 +152,7 @@
                             <button class="message-type-button" onclick="formatMessage(${connectionId}, 2)">Message</button>
                         </div>
                         <textarea rows="10" id="message-${connectionId}"/>
-                        <button class="action-button connection-button" onclick=sendMessage(${connectionId})>Send Data</button>
+                        <button class="action-button connection-button" id="action-${connectionId}" onclick=sendMessage(${connectionId})>Send Data</button>
                     </div>
                     <div class="messages" id="messages-history-${connectionId}"></div>
                 </div>`

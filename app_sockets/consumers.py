@@ -20,22 +20,27 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
 
     async def connect(self):
         self.socket_controller = AsyncSocketController(self)
-        self.user = self.scope["user"]
+        try:
+            self.user = self.scope["user"]
 
-        self.room_id = chained_get(self.scope, 'url_route', 'kwargs', 'id')
-        self.room_name = chained_get(self.scope, 'url_route', 'kwargs', 'room_name')
+            self.room_id = chained_get(self.scope, 'url_route', 'kwargs', 'id')
+            self.room_name = chained_get(self.scope, 'url_route', 'kwargs', 'room_name')
 
-        self.group_name = f'{self.room_name}{self.room_id}' if self.room_id and self.room_name else None
+            self.group_name = f'{self.room_name}{self.room_id}' if self.room_id and self.room_name else None
 
-        await self.accept()  # Принимаем соединение
+            await self.accept()  # Принимаем соединение
 
-        if self.user.is_authenticated:  # Проверка авторизации подключаемого соединения TODO проверка других разрешений
-            # Добавляем соединение в группу
-            await self.channel_layer.group_add(self.group_name, self.channel_name)
-            await self.socket_controller.store_group_connection()
-        else:
-            # Принимаем соединение и сразу закрываем, чтобы не было ERR_CONNECTION_REFUSED
-            await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
+            # Проверка авторизации подключаемого соединения TODO проверка других разрешений
+            if self.user.is_authenticated:
+                # Добавляем соединение в группу
+                await self.channel_layer.group_add(self.group_name, self.channel_name)
+                await self.socket_controller.store_group_connection()
+            else:
+                # Принимаем соединение и сразу закрываем, чтобы не было ERR_CONNECTION_REFUSED
+                await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
+        except Exception as e:
+            logger.error(e)
+            await self.close(code=SocketErrors.BAD_REQUEST.value)  # Закрываем соединение с кодом BAD REQUEST
 
     async def receive_json(self, content, **kwargs):
 
@@ -84,32 +89,29 @@ class Consumer(AsyncJsonWebsocketConsumer):
         self.socket_controller = None
 
     async def connect(self):
-        self.socket_controller = AsyncSocketController(self)
-        self.user = self.scope["user"]
+        try:
+            self.socket_controller = AsyncSocketController(self)
+            self.user = self.scope["user"]
 
-        # TODO запрещать создание дублирующего соединения
+            await self.accept()  # Принимаем соединение
 
-        already_connected = await self.socket_controller.check_if_connected()
-
-        await self.accept()  # Принимаем соединение
-
-        if self.user.is_authenticated:  # Проверка авторизации подключаемого соединения
-            if already_connected:
-                # Если уже есть соединение к этому роуту, то отклоняем новое соединение с ошибкой
-                await self.close(code=SocketErrors.FORBIDDEN.value)  # Закрываем соединение с кодом ЗАПРЕЩЕНО
+            if self.user.is_authenticated:  # Проверка авторизации подключаемого соединения
+                if await self.socket_controller.check_if_connected():
+                    # Если уже есть соединение к этому роуту, то отклоняем новое соединение с ошибкой
+                    await self.close(code=SocketErrors.FORBIDDEN.value)  # Закрываем соединение с кодом ЗАПРЕЩЕНО
+                else:
+                    await self.socket_controller.store_single_connection()
             else:
-                await self.socket_controller.store_single_connection()
-        else:
-            # После установления сразу закрываем содинение, чтобы не было ERR_CONNECTION_REFUSED
-            await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
+                # После установления сразу закрываем содинение, чтобы не было ERR_CONNECTION_REFUSED
+                await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
+        except Exception as e:
+            logger.error(e)
+            await self.close(code=SocketErrors.BAD_REQUEST.value)  # Закрываем соединение с кодом BAD REQUEST
 
     async def receive_json(self, content, **kwargs):
         logger.debug(content)
 
         socket_event = SocketEventRM(content)
-
-        if socket_event.event_type == SocketEventType.LEAVE_GROUP:
-            await self.leave_group(socket_event)
 
         if socket_event.event_type == SocketEventType.LOCATION:
             await self.update_location(socket_event)
