@@ -36,7 +36,7 @@ class MediaMapper:
         name = str(file_entity.uuid)
         parts = file_data.name.split('.')
 
-        # CP(bg='green', fg='yellow').bold(f'Uploaded File Name - "{file_data.name}" - uuid {file_entity.uuid}')
+        # logger.debug(f'Uploaded File Name - "{file_data.name}" - uuid {file_entity.uuid}')
 
         if parts.__len__() > 1:
             extension = f'.{parts[-1].lower()}'

@@ -5,6 +5,7 @@ import inflection
 from django.contrib.gis.geos import GEOSGeometry
 from django.db.models.query import RawQuerySet
 from djangorestframework_camel_case.util import underscoreize
+from loguru import logger
 
 from app_media.enums import MediaType
 from app_media.forms import FileForm
@@ -190,7 +191,7 @@ class RequestMapper:
                 ])
             return None, screen_diagonal_points, radius
         except Exception as e:
-            CP(fg='red').bold(e)
+            logger.error(e)
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INVALID_COORDS)),
             ])
@@ -213,7 +214,7 @@ class RequestMapper:
                 ])
             return None, None
         except Exception as e:
-            CP(fg='red').bold(e)
+            logger.error(e)
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),
             ])

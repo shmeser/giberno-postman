@@ -4,6 +4,7 @@ from django.db.models import Case, When, CharField, F
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
 from fcm_django.models import FCMDevice
+from loguru import logger
 
 from app_users.enums import NotificationType
 from app_users.models import UserProfile, Notification
@@ -110,11 +111,9 @@ class PushController:
     @staticmethod
     def send_push(title, message, push_data, devices_ids=[]):
 
-        print('>>>> DEVICES COUNT', len(devices_ids))
-
         # Разбиваем весь список на группы по FCM_MAX_DEVICES_PER_REQUEST штук
         devices_ids_chunked = chunks(devices_ids, FCM_MAX_DEVICES_PER_REQUEST)
-        print('>>>> DEVICES CHUNKS COUNT', len(devices_ids_chunked))
+        logger.info(f'>>>> DEVICES COUNT {len(devices_ids)} | CHUNKS COUNT {len(devices_ids_chunked)}')
 
         jobs = group(  # Создаем группы асинхронных задач
             [async_send_push.s(title, message, push_data, ids_chunk) for ids_chunk in devices_ids_chunked]

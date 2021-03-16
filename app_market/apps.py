@@ -1,5 +1,4 @@
 from django.apps import AppConfig
-from loguru import logger
 
 
 class AppMarketConfig(AppConfig):
@@ -7,11 +6,3 @@ class AppMarketConfig(AppConfig):
 
     def ready(self):
         import app_market.signals  # Импортируем сигналы
-
-        from app_sockets.models import Socket
-
-        try:
-            # Удаляем старые сокеты из бд при запуске сервера
-            Socket.objects.all().delete()
-        except Exception as e:
-            logger.error(e)

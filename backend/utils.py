@@ -19,6 +19,7 @@ from django.db.models.expressions import Func, Expression, F, Value as V
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 from ffmpy import FFmpeg
+from loguru import logger
 
 from app_media.enums import MediaFormat, FileDownloadStatus, MimeTypes
 from backend.entity import File as FileEntity
@@ -160,7 +161,7 @@ def datetime_to_timestamp(date_time, milliseconds=True):
         large_timestamp = int(diff.total_seconds() * multiplier)
         return large_timestamp
     except Exception as e:
-        CP(sp=1, fg='yellow').bold(e)
+        logger.error(e)
         return None
 
 
@@ -228,7 +229,7 @@ def rotate_image(img):
         #####
         return img
     except Exception as e:
-        CP(bg='red').bold(e)
+        logger.error(e)
         return img
 
 
@@ -290,7 +291,7 @@ def resize_image(file_entity: FileEntity):
         file_entity.height = img_height
         file_entity.size = result.size
     except Exception as e:
-        CP(bg='red').bold(e)
+        logger.error(e)
         file_entity.file = None
         file_entity.preview = None
         file_entity.width = None
@@ -395,7 +396,7 @@ def convert_video(file_entity: FileEntity):
         file_entity.duration = _RESULT_META['duration']
         file_entity.size = _RESULT_META['size']
     except Exception as e:
-        CP(bg='red').bold(e)
+        logger.error(e)
         file_entity.file = None
 
 
@@ -474,7 +475,7 @@ def get_remote_file(remote_url):
         if e.code == RESTErrors.NOT_FOUND.value:
             status = FileDownloadStatus.NOT_EXIST.value
     except Exception as e:
-        CP(fg='yellow', bg='red').bold(e)
+        logger.error(e)
     return downloaded_file, content_type, size, status
 
 
@@ -483,7 +484,7 @@ def remove_file_from_server(relative_url=None):
         try:
             os.remove(os.path.join(settings.MEDIA_ROOT, relative_url))
         except Exception as e:
-            CP(fg='yellow', bg='red').bold(e)
+            logger.error(e)
 
 
 def is_valid_uuid(uuid_to_test, version=4):

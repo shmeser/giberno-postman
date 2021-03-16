@@ -1,18 +1,12 @@
 # from fcm_django.models import FCMDevice
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from djangorestframework_camel_case.util import camelize
 from loguru import logger
 
-from app_sockets.enums import SocketGroupPrefix, SocketEventType
-from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository
+from app_sockets.enums import SocketEventType
+from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository, SocketsRepository
 from app_users.models import UserProfile
-from app_users.versions.v1_0.repositories import AsyncJwtRepository
 from app_users.versions.v1_0.repositories import AsyncProfileRepository
-from app_users.versions.v1_0.serializers import ProfileSerializer
-from backend.errors.client_error import SocketError
-from backend.errors.enums import SocketErrors
-from backend.errors.exceptions import EntityDoesNotExistException
 from giberno.settings import DEBUG
 
 
@@ -56,15 +50,6 @@ class AsyncSocketController:
         user = await AsyncProfileRepository(me=self.consumer.scope['user']).update_location(event)
         return user
 
-    @staticmethod
-    async def send_profile(profile: UserProfile):
-        channel_layer = get_channel_layer()
-        await channel_layer.group_send(SocketGroupPrefix.PROFILE.value + str(profile.id), {
-            'type': 'server_event',  # обязательное поле для определения хэндлера
-            'eventType': SocketEventType.SERVER_PROFILE_UPDATED,
-            'data': camelize(ProfileSerializer(profile).data)
-        })
-
     async def send_system_message(self, code, message):
         try:
             await self.consumer.channel_layer.send(self.consumer.channel_name, {
@@ -83,11 +68,24 @@ class SocketController:
         super().__init__()
         self.me = me
 
+    def send_single_notification(self, prepared_data):
+        # Отправка уведомления в одиночный канал подключенного пользователя
+        connection = SocketsRepository(self.me).get_user_single_connection()
+
+        if connection:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.send)(connection.socket_id, {
+                'type': 'server_event',
+                'eventType': SocketEventType.NOTIFICATION.value,
+                'data': prepared_data
+            })
+
     @staticmethod
-    def send_profile(profile: UserProfile):
+    def send_group_notification(group_name, prepared_data):
+        # Отправка уведомления в групповой канал
         channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(SocketGroupPrefix.PROFILE.value + str(profile.id), {
+        async_to_sync(channel_layer.group_send)(group_name, {
             'type': 'server_event',
-            'eventType': SocketEventType.SERVER_PROFILE_UPDATED,
-            'data': camelize(ProfileSerializer(profile).data)
+            'eventType': SocketEventType.NOTIFICATION.value,
+            'data': prepared_data
         })
