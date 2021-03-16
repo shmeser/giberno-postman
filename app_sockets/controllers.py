@@ -2,8 +2,9 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from djangorestframework_camel_case.util import camelize
+from loguru import logger
 
-from app_sockets.enums import SocketGroupPrefix, SocketEventType, SocketGroupType
+from app_sockets.enums import SocketGroupPrefix, SocketEventType
 from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository
 from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import AsyncJwtRepository
@@ -20,52 +21,40 @@ class AsyncSocketController:
         super().__init__()
         self.consumer = consumer
 
-    async def leave_group(self, token, group_name):
+    async def store_single_connection(self):
         try:
-            me = await AsyncJwtRepository().get_user(token)
-            await self.consumer.channel_layer.group_discard(
-                str(group_name),
-                self.consumer.channel_name
+            me = self.consumer.scope['user']  # Прользователь текущего соединения
+
+            await AsyncSocketsRepository(me).add_socket(
+                self.consumer.channel_name  # ид соединения
             )
-            await self.consumer.send_json({
-                "eventType": SocketEventType.SYSTEM_MESSAGE,
-                "leave": str(group_name),
-                "title": self.consumer.channel_name,
-            })
-            return me
-        except EntityDoesNotExistException:
-            raise SocketError(SocketErrors.NOT_FOUND.name, SocketErrors.NOT_FOUND)
+        except Exception as e:
+            logger.error(e)
+
+    async def store_group_connection(self):
+        try:
+            me = self.consumer.scope['user']  # Прользователь текущего соединения
+
+            await AsyncSocketsRepository(me).add_socket(
+                self.consumer.channel_name,  # ид соединения,
+                self.consumer.room_name,  # имя комнаты
+                self.consumer.room_id  # ид комнаты
+            )
+
+        except Exception as e:
+            logger.error(e)
+
+    async def disconnect(self):
+        me = self.consumer.scope['user']  # Прользователь текущего соединения
+        await AsyncSocketsRepository(me).remove_socket(self.consumer.channel_name)
+
+    async def check_if_connected(self):
+        me = self.consumer.scope['user']  # Прользователь текущего соединения
+        return await AsyncSocketsRepository(me).check_if_connected()
 
     async def update_location(self, event):
         user = await AsyncProfileRepository(me=self.consumer.scope['user']).update_location(event)
         return user
-
-    async def register_profiles(self, token, profile_id):
-        try:
-            me = await AsyncJwtRepository().get_user(token)
-            await AsyncSocketsRepository(me).append_socket(
-                self.consumer.channel_name,
-                SocketGroupType.PROFILE.value,
-                profile_id)
-
-            profile = await AsyncProfileRepository.get_by_id(profile_id)
-            await self.consumer.send_json({
-                "eventType": SocketEventType.SYSTEM_MESSAGE,
-                "join": SocketGroupPrefix.PROFILE.value + str(profile.id),
-                "title": self.consumer.channel_name,
-            })
-            await self.consumer.channel_layer.group_add(
-                SocketGroupPrefix.PROFILE.value + str(profile.id),
-                self.consumer.channel_name
-            )
-
-            await self.send_profile(profile)
-
-            return me
-        except Exception as e:
-            print(e)
-        except EntityDoesNotExistException:
-            raise SocketError(SocketErrors.NOT_FOUND, SocketErrors.NOT_FOUND.name)
 
     @staticmethod
     async def send_profile(profile: UserProfile):
@@ -75,9 +64,6 @@ class AsyncSocketController:
             'eventType': SocketEventType.SERVER_PROFILE_UPDATED,
             'data': camelize(ProfileSerializer(profile).data)
         })
-
-    async def disconnect(self):
-        await AsyncSocketsRepository(self.consumer.user).remove_socket(self.consumer.channel_name)
 
     async def send_system_message(self, code, message):
         try:
