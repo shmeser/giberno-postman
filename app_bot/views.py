@@ -2,12 +2,13 @@ import requests
 from constance import config
 from django.http import JsonResponse
 from django.views import View
+from loguru import logger
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from app_bot.enums import TelegramBotNotificationType, TelegramBotMessageType, TelegramBotCommand
 from app_bot.repositories import BotRepository
-from backend.utils import get_request_body, timestamp_to_datetime, CP, chained_get
+from backend.utils import get_request_body, timestamp_to_datetime, chained_get
 from giberno.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_URL
 
 
@@ -30,7 +31,7 @@ class TelegramBotView(View):
 
     def post(self, request, *args, **kwargs):
         t_data = get_request_body(request)
-        # CP(fg='cyan').bold(t_data)
+        # logger.debug(t_data)
 
         if TelegramBotMessageType.PRIVATE.value in t_data:
             message_type = TelegramBotMessageType.PRIVATE.value
@@ -103,7 +104,7 @@ class TelegramBotView(View):
             "chat_type": t_chat.get("type", None)
         })
 
-        CP(fg='cyan').bold(t_data)
+        logger.debug(t_data)
 
         return JsonResponse({
             "ok": "POST request processed",

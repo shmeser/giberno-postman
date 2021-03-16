@@ -30,6 +30,7 @@ services:
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
       HOST_DOMAIN: ${ST_HOST_DOMAIN}
+      HOST_IP: ${ST_HOST_IP}
       DB_HOST: db
       DB_NAME: ${ST_POSTGRES_DB}
       DB_USER: ${ST_POSTGRES_USER}

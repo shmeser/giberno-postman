@@ -159,8 +159,8 @@ class CitiesRepository(MasterRepository):
                     cid, 
                     ST_Collect(position) AS cluster_geometries, 
                     ST_Centroid (ST_Collect(position)) AS centroid,
-                    ST_X(ST_Centroid (ST_Collect(position))) AS lon,
-                    ST_Y(ST_Centroid (ST_Collect(position))) AS lat,
+                    ST_X(ST_Centroid (ST_Collect(position))) AS c_lon,
+                    ST_Y(ST_Centroid (ST_Collect(position))) AS c_lat,
                     ARRAY_AGG(id) AS ids_in_cluster,
                     ST_NumGeometries(ST_Collect(position)) as clustered_count
                 FROM (
@@ -192,8 +192,8 @@ class CitiesRepository(MasterRepository):
                 s.position::bytea,
                 ST_DistanceSphere(s.position, ST_GeomFromGeoJSON('{self.point.geojson}')) AS distance,
                 c.cid, 
-                c.lat, 
-                c.lon, 
+                c.c_lat, 
+                c.c_lon, 
                 c.clustered_count 
             FROM app_geo__cities s
             JOIN clusters c ON (s.id=ANY(c.ids_in_cluster))

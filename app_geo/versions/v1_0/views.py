@@ -207,13 +207,6 @@ class CitiesClusteredMap(Cities):
 
         clustered = self.repository_class(point, screen_diagonal_points).map(kwargs=filters, order_by=order_params)
 
-        # Не запрашиваем ненужные тяжелые данные
-        # clusters = clusters.defer(
-        #     "boundary", "osm", "native_tsv", "names_tsv",
-        #     "country__boundary", "country__osm",
-        #     "region__boundary", "region__osm",
-        # )
-
         clusters = DataMapper.clustering_raw_qs(clustered, 'cid')
 
         serialized = self.serializer_class(clusters, many=self.many, context={

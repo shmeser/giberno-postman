@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from app_sockets.controllers import SocketController
 from app_users.models import UserProfile
 from backend.controllers import PushController
 from backend.utils import get_request_body, chained_get
@@ -32,4 +33,14 @@ class SendTestPush(APIView):
             notification_type=chained_get(body, 'notification_type'),
             icon_type=chained_get(body, 'icon_type'),
         )
+
+        # Отправка уведомления по сокетам
+        SocketController(request.user).send_single_notification({
+            'title': chained_get(body, 'title') or '',
+            'message': chained_get(body, 'message') or '',
+            'action': chained_get(body, 'action'),
+            'subjectId': chained_get(body, 'subject_id'),
+            'notificationType': chained_get(body, 'notification_type'),
+            'iconType': chained_get(body, 'icon_type'),
+        })
         return Response(camelize(body), status=status.HTTP_200_OK)

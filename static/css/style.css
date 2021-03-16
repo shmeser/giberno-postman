@@ -19,6 +19,10 @@ time, mark, audio, video {
     vertical-align: baseline;
 }
 
+* {
+    box-sizing: border-box;
+}
+
 /* HTML5 display-role reset for older browsers */
 article, aside, details, figcaption, figure,
 footer, header, hgroup, menu, nav, section {
@@ -73,7 +77,7 @@ header a {
 
 /* Body */
 section {
-    width: 800px;
+    width: 960px;
     margin: 0 auto;
     height: 100%;
 }
@@ -86,75 +90,6 @@ p {
     color: #666;
     font-style: italic;
 }
-
-.rooms li {
-    padding: 5px 7px;
-    background: #def;
-    display: inline;
-    margin: 5px 2px;
-    border: 1px solid #bcd;
-    border-radius: 2px;
-    cursor: pointer;
-}
-
-.rooms li.joined {
-    background: #5898D9;
-    border: 1px solid #35485C;
-}
-
-
-#chats .room {
-    border: 1px solid #ccc;
-    padding: 5px;
-    margin: 30px 0 0 0;
-}
-
-#chats h2 {
-    color: #333;
-    margin: 2px 0 5px 0;
-    font-weight: bold;
-}
-
-#chats .messages {
-    height: 200px;
-    overflow: auto;
-    background: #eee;
-    margin: 2px 0 5px 0;
-}
-
-#chats .username {
-    display: inline-block;
-    color: #C07A36;
-    width: 100px;
-    font-weight: bold;
-}
-
-#chats .contextual-message {
-    text-align: center;
-    margin: 5px 5px 5px 5px;
-}
-
-#chats .text-muted {
-    opacity: .6;
-    font-style: italic;
-}
-
-#chats .text-danger {
-    color: #a94442;
-    font-weight: bold;
-}
-
-#chats .text-warning {
-    color: #DCAD5C;
-    font-weight: bold;
-    font-style: italic;
-}
-
-.share-desciption {
-    font-size: 18px;
-    font-weight: 600;
-}
-
 
 label {
     margin-top: 10px;
@@ -179,7 +114,6 @@ input {
     justify-content: center;
     align-items: center;
     border: 1px dashed deepskyblue;
-    margin-bottom: 10px;
     padding: 5px;
 }
 
@@ -207,7 +141,7 @@ input {
 
 .connection {
     width: 100%;
-    min-height: 400px;
+    height: 480px;
     border: 1px solid #887dff;
     display: flex;
     flex-flow: row;
@@ -215,19 +149,66 @@ input {
     align-items: start;
     box-sizing: border-box;
     padding: 5px;
-    margin-bottom: 10px;
 }
 
 .connection > div {
     flex: 1 1 30%;
-    height: 300px;
+    height: 100%;
     overflow-y: auto;
     border: 1px solid green;
+    padding: 5px;
+}
+
+.connection.closed {
+}
+
+.connection-button {
+    width: 100%;
+    border-radius: 5px;
+    height: 45px;
+    font-size: 18px;
+}
+.connection-button:disabled, .connection-button:disabled:hover{
+    background: #c5d0ca;
+    border: 2px solid rgba(55, 96, 133, 0.33);
+    color: rgba(7, 3, 0, 0.57);
+    cursor: not-allowed;
+}
+
+.connection-button:hover {
+    cursor: pointer;
+}
+
+.action-button {
+    background: #afffaf;
+    border: 2px solid #68b8fd;
+}
+
+.disconnect-button {
+    background: #ffab97;
+    border: 2px solid #fd3317;
+}
+
+.disconnect-button:hover {
+    background: #ff7e5b;
+    color: #a22400;
+}
+
+.action-button:hover {
+    background: #48ff44;
+    color: #437dff;
 }
 
 .connection-status {
     display: flex;
     flex-flow: column;
+    justify-content: space-around;
+    align-items: center;
+}
+
+.event-options {
+    display: flex;
+    flex-flow: row;
     justify-content: space-around;
     align-items: center;
 }
@@ -238,13 +219,58 @@ input {
 }
 
 .incomming {
+    color: #fd826c;
+    padding: 5px;
+}
+
+.system {
+    color: #868686;
+    padding: 5px;
+    border: 1px solid #868686;
+}
+
+.error {
     color: #fd3838;
     padding: 5px;
+    border: 1px solid #fd3838;
+}
+
+.dashboard {
+    flex: 3;
+}
+
+.messages {
+    flex: 2;
+}
+
+.dashboard textarea {
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .connection-route {
     color: #2fa75f;
     font-weight: 700;
+}
+
+.message-block {
+    display: flex;
+    flex-flow: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 5px;
+    border-bottom: 1px dashed lightgray;
+}
+
+.message-datetime {
+    font-size: 12px;
+    color: #848484;
+    margin: 0 0 5px;
+    text-decoration: underline;
+}
+
+.closed .connection-route {
+    color: #ababab;
 }
 
 .jwt {

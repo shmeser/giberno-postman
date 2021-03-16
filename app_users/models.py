@@ -82,6 +82,10 @@ class UserProfile(AbstractUser, BaseModel):
     # Конкретная Должность Пользователя со статусом manager
     manager_position = models.CharField(null=True, blank=True, max_length=512)
 
+    # конкретные магазины к которым прикреплен менеджер
+    manager_shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины',
+                                           related_name='manager_shops')
+
     @property
     def is_manager(self):
         return self.account_type == AccountType.MANAGER
@@ -199,6 +203,8 @@ class Notification(BaseModel):
     icon_type = models.IntegerField(
         choices=choices(NotificationIcon), default=NotificationIcon.DEFAULT, verbose_name='Тип иконки'
     )
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
         return f'{self.title}'

@@ -369,7 +369,8 @@ try:
         CONSTANCE_REDIS_CONNECTION, \
         CONSTANCE_CONFIG, \
         LOGGING, \
-        SOCIAL_AUTH_VK_OAUTH2_KEY
+        SOCIAL_AUTH_VK_OAUTH2_KEY, \
+        DEBUG_TOOLBAR_PANELS
 except ImportError as e:
     pass
 

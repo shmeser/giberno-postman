@@ -6,26 +6,25 @@
 {% block content %}
     <div class="sockets-container">
 
-        <div class="creds-container">
+        <div class="creds-container mb-10">
             <label for="jwt-token">
                 JWT
             </label>
             <input
                     placeholder="Token"
-                    value="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjE1NDQ5MTE2LCJqdGkiOiJmZTMzN2JlMmRlNjc0NTUxOTk5YzI3YzhkNDk0NzJlMyIsInVzZXJfaWQiOjEzfQ.LritMq-yKQB8Yuk6PHqHPPVexUBNLU0RFh52BIy1e-Y"
+                    value="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjE2MDU4MjUwLCJqdGkiOiJjNTkwNzg4MDVhNzI0M2JlODNmYmY5Zjk5Mjc4NThmOSIsInVzZXJfaWQiOjEzfQ.sAPyHybXiyoGb1NGA5KqIFfxwFRvEZGpfHlBpsZlhdQ"
                     id="jwt-token" type="text" required="required"
             />
             <label for="sockets-route">
                 SOCKET ROUTE
             </label>
             <div class="routes-block">
-
                 <input
                         placeholder="/sockets/chats/1"
                         value="/sockets"
                         id="sockets-route" type="text" required="required"
                 />
-                <input type="button" value="connect" id="connect-button">
+                <input type="button" value="add connection" id="connect-button">
             </div>
         </div>
 
@@ -44,52 +43,116 @@
 
         let socketConnections = []; // Массив подключенных сокетов
 
+
         const disconnect = (connectionId) => {
-            const connection = socketConnections.find(e => e.id === connectionId);
-            connection.socket.close();
-            $('#connections').find(`#${connectionId}`).remove()
+            const connection = socketConnections.find(e => e.id === connectionId); // Ищем нужное соединение
+
+            if (connection) {
+                connection.socket.close(); // Закрываем соединение
+                removeClosedConnection(connectionId); // Удаляем закрытое соединение
+            } else {
+                $('#connections').find(`#${connectionId}`).remove(); // Удаляем из DOM блок соединения
+            }
         };
 
-        const sendLocation = (connectionId) => {
-            let data = JSON.stringify({
-                "eventType": 1,
-                "lat": document.getElementById(`lat-${connectionId}`).value,
-                "lon": document.getElementById(`lon-${connectionId}`).value,
-            }, undefined, 4);
+        const removeClosedConnection = (connectionId) => {
+            socketConnections = socketConnections.filter(e => e.id !== connectionId);
+        };
 
-            sendEvent(connectionId, data);
+        const sendMessage = (connectionId) => {
+            let data = JSON.stringify(
+                JSON.parse( // Парсим полученную JSON-строку из поля ввода тела сообщения
+                    document.getElementById(`message-${connectionId}`).value
+                )
+                , undefined, 4 // Форматируем красиво
+            );
 
+            sendEvent(connectionId, data); // Отправляем
+
+        };
+
+        const disableConnectionBlock = (connectionId) => {
+            // Отключение кнопок при отсоединении от сокетов
+            let connectionBlock = document.getElementById(`${connectionId}`);
+            let disconnectButton = document.getElementById(`disconnect-${connectionId}`);
+
+            let button = document.getElementById(`action-${connectionId}`);
+            button.setAttribute('disabled', 'disabled');
+
+            disconnectButton.value = 'Remove Block';
+            connectionBlock.classList.add('closed')
+        };
+
+        const addMessageToHistory = (id, data, className = 'system') => {
+            let messagesHistoryEl = document.getElementById(`messages-history-${id}`); // Блок истории сообщений
+
+            // Создаем элемент с данными сообщения
+            let messageHTML = document.createElement('pre');
+            messageHTML.className = className;
+            messageHTML.innerHTML = data;
+            // Создаем элемент для времени и даты
+            let messageDateTime = document.createElement('p');
+            messageDateTime.appendChild(document.createTextNode((new Date()).toISOString()));
+            messageDateTime.className = 'message-datetime';
+            // Создаем блок-контейнер для сообщения
+            let messageBlock = document.createElement('div');
+            messageBlock.className = 'message-block';
+
+            messageBlock.appendChild(messageDateTime);
+            messageBlock.appendChild(messageHTML);
+
+            messagesHistoryEl.prepend(messageBlock); // Добавляем блок в историю
         };
 
         const sendEvent = (connectionId, data) => {
-            let messagesHistoryEl = document.getElementById(`messages-history-${connectionId}`);
+            addMessageToHistory(connectionId, data, 'outcomming'); // Добавляем в блок истории
 
-            let messageOutcommingHTML = document.createElement('pre');
-            messageOutcommingHTML.className = 'outcomming';
-            messageOutcommingHTML.innerHTML = data;
-            messagesHistoryEl.prepend(messageOutcommingHTML);
+            const connection = socketConnections.find(e => e.id === connectionId); // Ищем нужное соединение
+            connection.socket.send(data) // Отправляем данные
+        };
 
-            console.log(socketConnections);
-            console.log(connectionId);
 
-            const connection = socketConnections.find(e => e.id === connectionId);
-            connection.socket.send(data)
+        const formatMessage = (connectionId, eventType) => {
+            let messageBody = document.getElementById(`message-${connectionId}`);
+
+            //eventType из енума SocketEventType
+            if (eventType === 1) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "lat": 55,
+                    "lon": 37,
+                }, undefined, 4);
+            }
+
+
+            if (eventType === 2) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "attachmentType": null, // 1 - image, 2 - audio, 3 - video
+                    "attachmentPreviewUrl": "/media/preview/sample.jpeg",
+                    "attachmentUrl": "/media/sample.jpeg",
+                    "text": "тестовое сообщение",
+                }, undefined, 4);
+            }
 
         };
 
 
         const addConnectionBlock = (connectionId, jwt, route) => {
             $('#connections').prepend(
-                `<div class="connection" id="${connectionId}">
+                `<div class="connection mb-10" id="${connectionId}">
                     <div class="dashboard">
-                        <div class="connection-status">
+                        <div class="connection-status mb-10 pb-10">
                             <div class="jwt">${jwt}</div>
                             <label class="connection-route" for="disconnect-button">${route}</label>
-                            <input type="button" value="disconnect" onclick="disconnect(${connectionId});">
+                            <input id="disconnect-${connectionId}" type="button" class="connection-button disconnect-button" value="Disconnect" onclick="disconnect(${connectionId});">
                         </div>
-                        <input type='number' step='0.000001' placeholder='lon' id='lon-${connectionId}'>
-                        <input type='number' step='0.000001' placeholder='lat' id='lat-${connectionId}'>
-                        <button onclick=sendLocation(${connectionId})>Send Location</button>
+                        <div class="event-options mb-10">
+                            <button class="message-type-button" onclick="formatMessage(${connectionId}, 1)">Location</button>
+                            <button class="message-type-button" onclick="formatMessage(${connectionId}, 2)">Message</button>
+                        </div>
+                        <textarea rows="10" id="message-${connectionId}"/>
+                        <button class="action-button connection-button" id="action-${connectionId}" onclick=sendMessage(${connectionId})>Send Data</button>
                     </div>
                     <div class="messages" id="messages-history-${connectionId}"></div>
                 </div>`
@@ -106,14 +169,30 @@
             );
 
             socket.onopen = (event) => {
-                console.log('Connected to chat socket', event);
+                console.log('Connected to socket', event);
             };
             socket.onclose = (event) => {
-                console.log('Disconnected from chat socket', event);
+                let data = JSON.stringify({
+                    "connection": id,
+                    "type": event.type,
+                    "code": event.code,
+                }, undefined, 4);
+
+                addMessageToHistory(id, data, 'system');
+
+                disableConnectionBlock(id);
+                removeClosedConnection(id);
+
+                console.log('Disconnected from socket', event);
             };
 
             socket.onerror = (error) => {
-                alert('error');
+                let data = JSON.stringify({
+                    "connection": id,
+                    "error": error,
+                }, undefined, 4);
+
+                addMessageToHistory(id, data, 'error');
                 console.log('Socket error', error);
             };
 
@@ -124,12 +203,10 @@
                 if (data.error) {
                     console.log(data.error);
                 }
-                let messagesHistoryEl = document.getElementById(`messages-history-${id}`);
 
-                let messageIncommingHTML = document.createElement('pre');
-                messageIncommingHTML.className = 'incomming';
-                messageIncommingHTML.innerHTML = JSON.stringify(data, undefined, 4);
-                messagesHistoryEl.prepend(messageIncommingHTML);
+                data = JSON.stringify(data, undefined, 4);
+
+                addMessageToHistory(id, data, 'incomming');
             };
 
             socketConnections.push(

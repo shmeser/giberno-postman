@@ -13,6 +13,7 @@ from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySeriali
 from app_market.models import UserProfession, Profession, UserSkill, Skill
 from app_market.versions.v1_0.serializers import ProfessionSerializer, SkillSerializer
 from app_media.enums import MediaType, MediaFormat
+from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import LanguageProficiency, AccountType
@@ -419,7 +420,8 @@ class ProfileSerializer(CRUDSerializer):
             'skills',
 
             'manager_position',
-            'distributors'
+            'distributors',
+            'manager_shops'
         ]
 
         extra_kwargs = {
@@ -456,6 +458,10 @@ class NotificationSerializer(CRUDSerializer):
 
     created_at = DateTimeField()
     read_at = DateTimeField()
+    icon = serializers.SerializerMethodField()
+
+    def get_icon(self, prefetched_data):
+        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.NOTIFICATION_ICON.value)
 
     class Meta:
         model = Notification
@@ -470,6 +476,7 @@ class NotificationSerializer(CRUDSerializer):
             'action',
             'read_at',
             'created_at',
+            'icon'
         ]
 
 
@@ -607,7 +614,8 @@ class CreateManagerByAdminSerializer(serializers.ModelSerializer):
             'first_name',
             'middle_name',
             'last_name',
-            'distributors'
+            'distributors',
+            'manager_shops'
         ]
 
     def validate(self, attrs):
@@ -644,11 +652,11 @@ class UsernameWithPasswordSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()
 
-
-class ManagerAuthenticateResponseForSwaggerSerializer(serializers.Serializer):
-    accessToken = serializers.CharField()
-    refreshToken = serializers.CharField()
-    password_changed = serializers.BooleanField()
+    def validate(self, attrs):
+        username = attrs.get('username')
+        if username:
+            attrs['username'] = username.lower()
+        return attrs
 
 
 class EditManagerProfileSerializer(serializers.ModelSerializer):
@@ -666,8 +674,13 @@ class FirebaseAuthRequestDescriptor(serializers.Serializer):
     firebase_token = serializers.CharField()
 
 
-# JUST A SERIALIZER FOR RESPONSE GENERATION ON CUSTOM SWAGGER SCHEMA
 class FirebaseAuthResponseDescriptor(serializers.Serializer):
     refresh_token = serializers.CharField(max_length=255)
     access_token = serializers.CharField(max_length=255)
+
+
+class ManagerAuthenticateResponseForSwagger(serializers.Serializer):
+    accessToken = serializers.CharField()
+    refreshToken = serializers.CharField()
+    password_changed = serializers.BooleanField()
 # SERIALIZERS ONLY FOR SWAGGER

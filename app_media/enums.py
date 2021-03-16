@@ -21,6 +21,7 @@ class MediaType(IntEnumM):
     FLAG = 8
     BANNER = 9
     MAP = 10
+    NOTIFICATION_ICON = 11
 
 
 class FileDownloadStatus(IntEnumM):

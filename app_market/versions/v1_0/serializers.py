@@ -9,6 +9,7 @@ from app_market.versions.v1_0.repositories import VacanciesRepository, Professio
     DistributorsRepository, ShifsRepository
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
+from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp
@@ -234,16 +235,55 @@ class VacanciesSerializer(CRUDSerializer):
         ]
 
 
-class VacanciesClusteredSerializer(serializers.Serializer):
+class VacancyInCluster(serializers.Serializer):
+    id = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
+    walk_time = serializers.SerializerMethodField()
+
+    address = serializers.SerializerMethodField()
+    logo = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
+    lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
+
+    def get_id(self, data):
+        return chained_get(data, 'id')
+
+    def get_title(self, data):
+        return chained_get(data, 'title')
+
+    def get_lon(self, data):
+        return chained_get(data, 'lon')
+
+    def get_lat(self, data):
+        return chained_get(data, 'lat')
+
+    def get_price(self, data):
+        return chained_get(data, 'price')
+
+    def get_address(self, data):
+        return chained_get(data, 'address')
+
+    def get_walk_time(self, data):
+        return chained_get(data, 'distance')
+
+    def get_logo(self, data):
+        return chained_get(data, 'logo')
+
+    def get_banner(self, data):
+        return chained_get(data, 'banner')
+
+
+class VacanciesClusterSerializer(serializers.Serializer):
     id = serializers.SerializerMethodField()
     clustered_count = serializers.SerializerMethodField()
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
     vacancies = serializers.SerializerMethodField()
-    shop = serializers.SerializerMethodField()
 
     def get_id(self, data):
-        return chained_get(data, 'id')
+        return chained_get(data, 'cid')
 
     def get_clustered_count(self, data):
         return chained_get(data, 'clustered_count')
@@ -255,12 +295,10 @@ class VacanciesClusteredSerializer(serializers.Serializer):
         return chained_get(data, 'lat')
 
     def get_vacancies(self, data):
-        return VacanciesSerializer(self.context['prefetched'].filter(shop_id__in=data.clustered_ids), many=True, context=self.context).data
-
-    def get_shop(self, shop):
-        # Возвращается модель магазина уже итак
-        # Ближайший пользователю магазин
-        return ShopsSerializer(shop).data
+        vacancies = chained_get(data, 'clustered_items')
+        return VacancyInCluster(
+            vacancies, many=True, context=self.context
+        ).data
 
     class Meta:
         fields = [
@@ -309,6 +347,44 @@ class VacancySerializer(VacanciesSerializer):
             'shop',
             'distributor',
         ]
+
+
+class VacanciesListForManagerSerializer(CRUDSerializer):
+    media = serializers.SerializerMethodField(read_only=True)
+
+    @staticmethod
+    def get_media(instance):
+        return MediaSerializer(instance=instance.media.first()).data
+
+    applied_users = serializers.SerializerMethodField(read_only=True)
+
+    @staticmethod
+    def get_applied_users(instance):
+        return 'Тут будет список с данни откликнувшихся пользователей'
+
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id', 'title', 'media', 'places_count', 'applied_users'
+        ]
+
+
+class SingleVacancyForManagerSerializer(VacanciesListForManagerSerializer):
+    shifts = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_shifts(instance):
+        return ShiftsSerializer(instance=Shift.objects.filter(vacancy=instance), many=True).data
+
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id', 'title', 'media', 'places_count', 'applied_users', 'shifts'
+        ]
+
+
+class AppliedUsersByVacancyForManagerSerializer(CRUDSerializer):
+    pass
 
 
 class ShiftsSerializer(CRUDSerializer):

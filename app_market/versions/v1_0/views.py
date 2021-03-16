@@ -1,3 +1,5 @@
+from datetime import timedelta, datetime
+
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -10,13 +12,14 @@ from app_market.enums import ShiftStatus
 from app_market.models import UserShift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
-from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusteredSerializer
+from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
+    VacanciesListForManagerSerializer, SingleVacancyForManagerSerializer, AppliedUsersByVacancyForManagerSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.http_exception import HttpException
-from backend.mappers import RequestMapper
+from backend.mappers import RequestMapper, DataMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_body, chained_get, get_request_headers
 
@@ -173,26 +176,92 @@ class Vacancies(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class VacanciesClusteredMap(CRUDAPIView):
-    repository_class = ShopsRepository  # Кластеризуем по магазинам(местоположение есть у магазинов, но не у вакансий)
-    serializer_class = VacanciesClusteredSerializer
+class GetVacanciesByManagerShopAPIView(CRUDAPIView):
+    serializer_class = VacanciesListForManagerSerializer
+    repository_class = VacanciesRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'available_from': 'available_from__gt'
+    }
+
+    order_params = {
+        'title': 'title',
+        'created_at': 'created_at',
+        'id': 'id'
+    }
+
+    def get(self, request, *args, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        filters.update({
+            'shop_id__in': request.user.manager_shops.all()
+        })
+
+        available_from = filters.get('available_from__gt')
+        if available_from:
+            next_day = datetime.strptime(available_from, '%Y-%m-%d') + timedelta(days=1)
+            filters.update({
+                'available_from__lt': next_day
+            })
+
+        dataset = self.repository_class().filter_by_kwargs(
+            kwargs=filters, order_by=order_params, paginator=pagination
+        )
+
+        serialized = self.serializer_class(dataset, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class GetSingleVacancyForManagerAPIView(CRUDAPIView):
+    serializer_class = SingleVacancyForManagerSerializer
+    repository_class = VacanciesRepository
+    allowed_http_methods = ['get']
+
+    def get(self, request, *args, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        filters.update({
+            'shop_id__in': request.user.manager_shops.all()
+        })
+
+        dataset = self.repository_class().get_by_id(record_id)
+
+        serialized = self.serializer_class(dataset, many=False, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class GetAppliedUsersByVacancyForManagerAPIView(CRUDAPIView):
+    serializer_class = AppliedUsersByVacancyForManagerSerializer
+    pass
+
+
+class VacanciesClusteredMap(Vacancies):
+    serializer_class = VacanciesClusterSerializer
     allowed_http_methods = ['get']
 
     def get(self, request, **kwargs):
         filters = RequestMapper(self).filters(request) or dict()
-        pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
         point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         self.many = True
-        clusters = self.repository_class(point, screen_diagonal_points).map(
-            kwargs=filters, order_by=order_params
-        )
+        clustered = self.repository_class(point, screen_diagonal_points).map(kwargs=filters, order_by=order_params)
 
-        prefetched_vacancies = VacanciesRepository(point, screen_diagonal_points).filter_by_kwargs(kwargs=filters, order_by=order_params)
+        clusters = DataMapper.clustering_raw_qs(clustered, 'cid')
 
         serialized = self.serializer_class(clusters, many=self.many, context={
-            'prefetched': prefetched_vacancies,
             'me': request.user,
             'headers': get_request_headers(request),
         })

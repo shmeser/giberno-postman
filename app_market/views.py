@@ -1,13 +1,16 @@
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.decorators import api_view
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer
 from app_market.versions.v1_0 import views as v1_0
 from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
     ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer, \
-    VacanciesClusteredSerializer
+    VacanciesClusterSerializer, VacanciesListForManagerSerializer, SingleVacancyForManagerSerializer, \
+    AppliedUsersByVacancyForManagerSerializer
+from app_users.permissions import IsManager
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException
@@ -42,9 +45,52 @@ class Vacancies(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+class GetVacanciesByManagerShopAPIView(BaseAPIView):
+    """
+    Получение списка вакансий, которые закреплены за  магазином\магазинами менеджера
+    возможные query параметры :
+    available_from=год-месяц-день
+    Это дата с которой вакансия доступна
+    """
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesListForManagerSerializer)})
+    def get(request, *args, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.GetVacanciesByManagerShopAPIView().get(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class GetSingleVacancyForManagerAPIView(BaseAPIView):
+    """
+    Просмотр конкретной вакансии со стороны менеджера
+    """
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', SingleVacancyForManagerSerializer)})
+    def get(request, *args, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.GetSingleVacancyForManagerAPIView().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class GetAppliedUsersByVacancyForManagerAPIView(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description',
+                                                          AppliedUsersByVacancyForManagerSerializer)})
+    def get(request, *args, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.GetAppliedUsersByVacancyForManagerAPIView().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class VacanciesClusteredMap(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesClusteredSerializer)})
+    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesClusterSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacanciesClusteredMap().get(request, **kwargs)
@@ -61,6 +107,10 @@ class Shifts(APIView):
 
 
 class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
+    """
+    Проверка QR CODE со стороны охранника или менеджера
+    Если проверяющий -охранник, то статус смены остается неизменным
+    """
     serializer_class = QRCodeSerializer
 
     @staticmethod
@@ -99,6 +149,9 @@ class VacancyReviewsAPIView(BaseAPIView):
     @staticmethod
     @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
+        '''
+        Оставить отзыв о вакансии
+        '''
         if request.version in ['market_1_0']:
             return v1_0.VacancyReviewsAPIView().post(request, **kwargs)
 
@@ -107,6 +160,9 @@ class VacancyReviewsAPIView(BaseAPIView):
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
     def get(request, **kwargs):
+        '''
+        Получить список отзывов о вакансии
+        '''
         if request.version in ['market_1_0']:
             return v1_0.VacancyReviewsAPIView().get(request, **kwargs)
 
@@ -119,6 +175,9 @@ class ShopReviewsAPIView(BaseAPIView):
     @staticmethod
     @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
+        '''
+        Oставить отзыв о магазине
+        '''
         if request.version in ['market_1_0']:
             return v1_0.ShopReviewsAPIView().post(request, **kwargs)
 
@@ -127,6 +186,9 @@ class ShopReviewsAPIView(BaseAPIView):
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
     def get(request, **kwargs):
+        '''
+        Получить список отзывов о магазине
+        '''
         if request.version in ['market_1_0']:
             return v1_0.ShopReviewsAPIView().get(request, **kwargs)
 
@@ -139,6 +201,9 @@ class DistributorReviewsAPIView(BaseAPIView):
     @staticmethod
     @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
+        '''
+        Оставить отзыв к торговой сети
+        '''
         if request.version in ['market_1_0']:
             return v1_0.DistributorReviewsAPIView().post(request, **kwargs)
 
@@ -147,6 +212,9 @@ class DistributorReviewsAPIView(BaseAPIView):
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
     def get(request, **kwargs):
+        '''
+        Получить список отзывов торговой сети
+        '''
         if request.version in ['market_1_0']:
             return v1_0.DistributorReviewsAPIView().get(request, **kwargs)
 
@@ -154,6 +222,10 @@ class DistributorReviewsAPIView(BaseAPIView):
 
 
 class ToggleLikeVacancy(APIView):
+    """
+    Лайкнуть/отлайкнуть. работает один и тот же метод. Если нет лайка - добавит. Если есть - удалит
+    """
+
     @staticmethod
     @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
