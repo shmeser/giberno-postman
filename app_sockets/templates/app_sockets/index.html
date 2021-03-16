@@ -10,11 +10,13 @@
             <label for="jwt-token">
                 JWT
             </label>
-            <input
-                    placeholder="Token"
-                    value="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjE2MDU4MjUwLCJqdGkiOiJjNTkwNzg4MDVhNzI0M2JlODNmYmY5Zjk5Mjc4NThmOSIsInVzZXJfaWQiOjEzfQ.sAPyHybXiyoGb1NGA5KqIFfxwFRvEZGpfHlBpsZlhdQ"
-                    id="jwt-token" type="text" required="required"
-            />
+            <div class="flex flex-row w-100 jc-around">
+                <input
+                        placeholder="JWT Token"
+                        id="jwt-token" type="text"
+                />
+                <button class="clear-jwt" id="clear-jwt" onclick="clearJWT()">✖</button>
+            </div>
             <label for="sockets-route">
                 SOCKET ROUTE
             </label>
@@ -43,6 +45,21 @@
 
         let socketConnections = []; // Массив подключенных сокетов
 
+
+        const clearJWT = () => {
+            document.getElementById('jwt-token').value = '';
+            document.getElementById('clear-jwt').blur();
+            localStorage.removeItem('socket-jwt');
+        };
+
+        const getJWT = () => {
+            document.getElementById('jwt-token').value = localStorage.getItem('socket-jwt');
+        };
+
+        const setJWT = () => {
+            const jwt = document.getElementById('jwt-token').value;
+            localStorage.setItem('socket-jwt', jwt);
+        };
 
         const disconnect = (connectionId) => {
             const connection = socketConnections.find(e => e.id === connectionId); // Ищем нужное соединение
@@ -169,6 +186,7 @@
             );
 
             socket.onopen = (event) => {
+                setJWT(); // Сохраняем JWT при успешном соединении
                 console.log('Connected to socket', event);
             };
             socket.onclose = (event) => {
@@ -223,5 +241,9 @@
             );
             return false;
         };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            getJWT();
+        });
     </script>
 {% endblock %}
