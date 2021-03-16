@@ -83,6 +83,20 @@ section {
     height: 100%;
 }
 
+
+.connections-container::-webkit-scrollbar, .messages::-webkit-scrollbar, body::-webkit-scrollbar {
+    width: 2px;
+}
+
+.connections-container::-webkit-scrollbar-track, .messages::-webkit-scrollbar-track, body::-webkit-scrollbar-track {
+    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+}
+
+.connections-container::-webkit-scrollbar-thumb, .messages::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb {
+    background-color: darkgrey;
+    outline: 1px solid slategrey;
+}
+
 p {
     margin: 1em 0 2em 0;
 }
@@ -160,19 +174,6 @@ input, button {
     overflow-y: auto;
 }
 
-.connections-container::-webkit-scrollbar {
-    width: 2px;
-}
-
-.connections-container::-webkit-scrollbar-track {
-    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
-}
-
-.connections-container::-webkit-scrollbar-thumb {
-    background-color: darkgrey;
-    outline: 1px solid slategrey;
-}
-
 .connection {
     width: 100%;
     height: 480px;
@@ -193,11 +194,13 @@ input, button {
     border: 1px solid #6d8e7d;
     padding: 5px;
 }
-.connection > div:nth-child(odd){
+
+.connection > div:nth-child(odd) {
     border-radius: 5px 0 0 5px;
 }
-.connection > div:nth-child(even){
-   border-radius: 0 5px 5px 0;
+
+.connection > div:nth-child(even) {
+    border-radius: 0 5px 5px 0;
 }
 
 .connection.closed {
@@ -259,7 +262,7 @@ input, button {
     align-items: center;
 }
 
-.message-type-button{
+.message-type-button {
     width: 40%;
 }
 
@@ -273,16 +276,16 @@ input, button {
     padding: 5px 5px 5px 15px;
 }
 
-.incomming::before, .error::before{
+.incomming::before, .error::before {
     content: "\2193";
     position: absolute;
-    left:5px;
+    left: 5px;
 }
 
-.outcomming::before{
+.outcomming::before {
     content: "\2191";
     position: absolute;
-    left:5px;
+    left: 5px;
 }
 
 .system {
@@ -303,19 +306,6 @@ input, button {
 
 .messages {
     flex: 2;
-}
-
-.messages::-webkit-scrollbar {
-    width: 2px;
-}
-
-.messages::-webkit-scrollbar-track {
-    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
-}
-
-.messages::-webkit-scrollbar-thumb {
-    background-color: darkgrey;
-    outline: 1px solid slategrey;
 }
 
 .dashboard textarea {
