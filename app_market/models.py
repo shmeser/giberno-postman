@@ -176,6 +176,17 @@ class Vacancy(BaseModel):
         ]
 
 
+class VacancyAppeal(BaseModel):
+    user = models.ForeignKey(to=UserProfile, on_delete=models.CASCADE)
+    vacancy = models.ForeignKey(to=Vacancy, on_delete=models.CASCADE, related_name='appeals')
+    confirmed = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'app_market__vacancy_appeals'
+        verbose_name = 'Отклики на вакансию'
+        verbose_name_plural = 'Отклики на вакансию'
+
+
 FREQUENCY_CHOICES = [
     (DAILY, "Ежедневно"),
     (WEEKLY, "Еженедельно"),

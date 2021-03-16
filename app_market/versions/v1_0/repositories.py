@@ -16,7 +16,7 @@ from pytz import timezone
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -347,7 +347,7 @@ class GTTimeTZ(CustomLookupBase):
     parametric_string = "%s > %s AT TIME ZONE timezone"
 
 
-class ShifsRepository(MasterRepository):
+class ShiftsRepository(MasterRepository):
     model = Shift
 
     SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT = 10
@@ -427,6 +427,10 @@ class ShifsRepository(MasterRepository):
             else:
                 records = self.base_query.filter(args, **kwargs)
         return records[paginator.offset:paginator.limit] if paginator else records
+
+
+class UserShiftRepository(MasterRepository):
+    model = UserShift
 
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):

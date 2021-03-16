@@ -9,8 +9,8 @@ from app_market.versions.v1_0 import views as v1_0
 from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
     ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer, \
     VacanciesClusterSerializer, VacanciesListForManagerSerializer, SingleVacancyForManagerSerializer, \
-    AppliedUsersByVacancyForManagerSerializer
-from app_users.permissions import IsManager
+    AppliedUsersByVacancyForManagerSerializer, ApplyToVacancyResponseSerializer
+from app_users.permissions import IsManager, IsSelfEmployed
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException
@@ -42,6 +42,30 @@ class Vacancies(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Vacancies().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class ApplyToVacancyAPIView(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsSelfEmployed]
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', ApplyToVacancyResponseSerializer)})
+    def get(request, **kwargs):
+        '''
+        Откликнуться на вакансию
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.ApplyToVacancyAPIView().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={204: openapi.Response('No Content')})
+    def delete(request, **kwargs):
+        '''
+        Удалить отклик на вакансию
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.ApplyToVacancyAPIView().delete(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
@@ -103,6 +127,21 @@ class Shifts(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Shifts().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class UserShiftsAPIView(BaseAPIView):
+    """
+    Возвращает список смен пользователя
+    можно фильтровать по статусу смены.
+    """
+    permission_classes = [IsAuthenticated, IsSelfEmployed]
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', UserShiftSerializer)})
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.UserShiftsAPIView().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 

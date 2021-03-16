@@ -4,9 +4,9 @@ import pytz
 from django.db.models import Avg
 from rest_framework import serializers
 
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category, VacancyAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShifsRepository
+    DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -383,12 +383,18 @@ class SingleVacancyForManagerSerializer(VacanciesListForManagerSerializer):
         ]
 
 
+class ApplyToVacancyResponseSerializer(CRUDSerializer):
+    class Meta:
+        model = VacancyAppeal
+        fields = '__all__'
+
+
 class AppliedUsersByVacancyForManagerSerializer(CRUDSerializer):
     pass
 
 
 class ShiftsSerializer(CRUDSerializer):
-    repository = ShifsRepository
+    repository = ShiftsRepository
 
     active_dates = serializers.SerializerMethodField()
     active_today = serializers.SerializerMethodField()

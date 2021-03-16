@@ -337,4 +337,5 @@ env.bak/
 venv.bak/
 
 local_settings.py
+to_do.txt
 

@@ -41,6 +41,7 @@ class ShiftStatus(IntEnumM):
     INITIAL = 0
     STARTED = 1
     COMPLETED = 2
+    REJECTED = 3
 
 
 class ShiftWorkTime(IntEnumM):

@@ -1,7 +1,7 @@
 from django.contrib.gis import admin
 
 from app_market.models import Distributor, Shop, Vacancy, Shift, UserShift, Order, Transaction, Coupon, Profession, \
-    UserProfession, DistributorCategory, Category
+    UserProfession, DistributorCategory, Category, VacancyAppeal
 from backend.mixins import FormattedAdmin
 
 _ITEMS_PER_ITERATION = 5
@@ -28,6 +28,11 @@ class VacancyAdmin(FormattedAdmin):
 
     readonly_fields = ['required_docs']
     raw_id_fields = ['shop']
+
+
+@admin.register(VacancyAppeal)
+class VacancyAppealAdmin(FormattedAdmin):
+    list_display = ['id', 'user', 'vacancy']
 
 
 @admin.register(Shift)
