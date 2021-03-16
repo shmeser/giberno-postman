@@ -26,7 +26,7 @@ class CRUDSerializer(serializers.ModelSerializer):
         self.me = chained_get(kwargs, 'context', 'me')
         self.headers = chained_get(kwargs, 'context', 'headers')
         self.platform = chained_get(kwargs, 'context', 'headers', 'Platform', default='').lower()
-        self.mime_type = MimeTypes.PNG.value if Platform.IOS.value in self.platform else MimeTypes.SVG.value
+        self.mime_type = MimeTypes.PNG.value  # if Platform.IOS.value in self.platform else MimeTypes.SVG.value
 
     repository = None
 
