@@ -7,13 +7,14 @@ from cairosvg import svg2png
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.uploadedfile import UploadedFile
 from fcm_django.models import FCMDevice
+from loguru import logger
 
 from app_geo.models import Country
 from app_geo.versions.v1_0.repositories import CountriesRepository
 from app_media.enums import FileDownloadStatus, MediaType, MimeTypes
 from app_media.mappers import MediaMapper
 from app_media.versions.v1_0.repositories import MediaRepository
-from backend.utils import get_remote_file, CP
+from backend.utils import get_remote_file
 from giberno.celery import app
 
 
@@ -55,7 +56,7 @@ def countries_update_flag(countries_ids: list = None):
                     mapped_entities.append(mapped_file)
 
         except Exception as e:
-            CP(bg='red').bold(e)
+            logger.error(e)
 
     if mapped_entities:
         MediaRepository().bulk_create(mapped_entities)
@@ -103,7 +104,7 @@ def countries_add_png_flag_from_svg(countries_ids: list = None):
                 mapped_entities.append(mapped_file)
 
         except Exception as e:
-            CP(bg='red').bold(e)
+            logger.error(e)
 
     if mapped_entities:
         MediaRepository().bulk_create(mapped_entities)

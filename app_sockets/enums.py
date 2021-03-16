@@ -1,12 +1,4 @@
-from backend.enums import IntEnumM, EnumM
-
-
-class SocketGroupType(IntEnumM):
-    PROFILE = 1
-
-
-class SocketGroupPrefix(EnumM):
-    PROFILE = 'profile_'
+from backend.enums import IntEnumM
 
 
 class SocketEventType(IntEnumM):

@@ -130,7 +130,6 @@ class Consumer(AsyncJsonWebsocketConsumer):
                 'lon': event.lon,
             })
             # self.user = await self.socket_controller.update_location(event)
-            # socket_print(self.user, event.event_type, "%s, %s" % (event.lon, event.lat))
         except SocketError as error:
             await self.socket_controller.send_system_message(error.code, error.message)
 
@@ -147,5 +146,13 @@ class Consumer(AsyncJsonWebsocketConsumer):
             {
                 'eventType': SocketEventType.SYSTEM_MESSAGE.value,
                 'message': system['message'],
+            },
+        )
+
+    async def server_event(self, event):
+        await self.send_json(
+            {
+                'eventType': event['eventType'],
+                'data': event['data'],
             },
         )
