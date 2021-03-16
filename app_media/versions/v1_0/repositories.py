@@ -33,8 +33,10 @@ class MediaRepository(MasterRepository):
     @staticmethod
     def get_mime_cond(x, media_type, mime_type=None):
         if mime_type:
+            # Сравниваем по media_type и mime_type
             return x.type == media_type and x.mime_type == mime_type
         else:
+            # Сравниваем только по media_type
             return x.type == media_type
 
     @classmethod
@@ -45,11 +47,11 @@ class MediaRepository(MasterRepository):
             file = None
             # Берем файл из предзагруженного поля medias
             if medias_list:
-                file = next(filter(
+                file = next(filter(  # Отфильтровываем по mime_type и берем один элемент
                     lambda x: cls.get_mime_cond(x, media_type, mime_type), chained_get(data, 'medias')), None)
         else:
             if medias_list:
-                file = next(filter(
+                file = next(filter(  # Отфильтровываем по mime_type и берем один элемент
                     lambda x: cls.get_mime_cond(x, media_type, mime_type), chained_get(data, 'medias')), None)
             else:
                 files = MediaModel.objects.filter(
