@@ -276,6 +276,11 @@ class PushUnsubscribe(APIView):
 
 # MANAGERS RELATED VIEWS
 class CreateManagerByAdminAPIView(BaseAPIView):
+    """
+    Создание менеджера через админ.панель Суперменеджера.
+    Логин и пароль для первого входа менеджера автоматически отправляются ему на e-mail
+    в момент его создания.
+    """
     permission_classes = [IsAuthenticated, IsAdmin]
     serializer_class = CreateManagerByAdminSerializer
     response_description = openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, ProfileSerializer)
@@ -289,6 +294,9 @@ class CreateManagerByAdminAPIView(BaseAPIView):
 
 
 class GetManagerByUsernameAPIView(BaseAPIView):
+    """
+    Ввод логина со стороны менеджера
+    """
     permission_classes = []
     serializer_class = UsernameSerializer
 
@@ -299,6 +307,10 @@ class GetManagerByUsernameAPIView(BaseAPIView):
 
 
 class AuthenticateManagerAPIView(BaseAPIView):
+    """
+    Ввод логина и пароля со стороны менеджера
+
+    """
     permission_classes = []
     serializer_class = UsernameWithPasswordSerializer
 
@@ -312,6 +324,10 @@ class AuthenticateManagerAPIView(BaseAPIView):
 
 
 class ChangeManagerPasswordAPIView(BaseAPIView):
+    """
+    Изменение пароля со стороны менеджера.
+    (В случае первого входа Пользователю предлагается создать собственный пароль.)
+    """
     serializer_class = PasswordSerializer
 
     def post(self, request, *args, **kwargs):
@@ -321,6 +337,9 @@ class ChangeManagerPasswordAPIView(BaseAPIView):
 
 
 class EditManagerProfileView(BaseAPIView):
+    """
+    Редактирование профиля менеджера : доступно изменение полей: Имя, Отчество и Фамилия.
+    """
     serializer_class = EditManagerProfileSerializer
 
     response_description = openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, ProfileSerializer)

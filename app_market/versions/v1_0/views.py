@@ -13,7 +13,7 @@ from app_market.models import UserShift
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShifsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
-    VacanciesListForManagerSerializer, SingleVacancyForManagerSerializer
+    VacanciesListForManagerSerializer, SingleVacancyForManagerSerializer, AppliedUsersByVacancyForManagerSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
@@ -243,6 +243,7 @@ class GetSingleVacancyForManagerAPIView(CRUDAPIView):
 
 
 class GetAppliedUsersByVacancyForManagerAPIView(CRUDAPIView):
+    serializer_class = AppliedUsersByVacancyForManagerSerializer
     pass
 
 

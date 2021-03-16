@@ -652,6 +652,12 @@ class UsernameWithPasswordSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()
 
+    def validate(self, attrs):
+        username = attrs.get('username')
+        if username:
+            attrs['username'] = username.lower()
+        return attrs
+
 
 class EditManagerProfileSerializer(serializers.ModelSerializer):
     class Meta:
