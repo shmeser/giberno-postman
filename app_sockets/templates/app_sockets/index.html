@@ -12,7 +12,7 @@
             </label>
             <div class="flex flex-row w-100 jc-around">
                 <input
-                        placeholder="JWT Token"
+                        placeholder="JWT Token (сохраняется в LocalStorage при успешном соединении)"
                         id="jwt-token" type="text"
                 />
                 <button class="clear-jwt" id="clear-jwt" onclick="clearJWT()">✖</button>
@@ -216,7 +216,6 @@
 
             socket.onmessage = function (message) {
                 let data = JSON.parse(message.data);
-                console.log(data);
                 // Handle errors
                 if (data.error) {
                     console.log(data.error);
