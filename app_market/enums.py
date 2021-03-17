@@ -44,6 +44,12 @@ class ShiftStatus(IntEnumM):
     REJECTED = 3
 
 
+class ShiftAppealStatus(IntEnumM):
+    INITIAL = 0
+    CONFIRMED = 1
+    REJECTED = 3
+
+
 class ShiftWorkTime(IntEnumM):
     # Тип времени смены (время начала)
     MORNING = 0  # Утренняя

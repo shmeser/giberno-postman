@@ -10,11 +10,12 @@ from rest_framework.views import APIView
 from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer
 from app_market.enums import ShiftStatus
-from app_market.models import UserShift, VacancyAppeal
+from app_market.models import UserShift, ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, VacancyAppealsRepository
+    DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
-    VacanciesListForManagerSerializer, SingleVacancyForManagerSerializer, VacancyAppealsSerializer
+    VacanciesForManagerSerializer, ShiftAppealsListSerializer, \
+    SingleShiftAppealSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
@@ -182,31 +183,30 @@ class Vacancies(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class ApplyToVacancyAPIView(CRUDAPIView):
-    serializer_class = VacancyAppealsSerializer
-    repository_class = VacanciesRepository
+class ApplyToShiftAPIView(CRUDAPIView):
+    repository_class = ShiftsRepository
 
     def get(self, request, *args, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        vacancy = self.repository_class().get_by_id(record_id)
-        appeal, created = VacancyAppeal.objects.get_or_create(user=request.user, vacancy=vacancy)
-        return Response(self.serializer_class(instance=appeal).data)
+        shift = self.repository_class().get_by_id(record_id)
+        ShiftAppeal.objects.get_or_create(applier=request.user, shift=shift)
+        return Response(None, status=status.HTTP_200_OK)
 
     def delete(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        vacancy = self.repository_class().get_by_id(record_id)
-        appeal, created = VacancyAppeal.objects.get_or_create(user=request.user, vacancy=vacancy)
+        shift = self.repository_class().get_by_id(record_id)
+        appeal, created = ShiftAppeal.objects.get_or_create(applier=request.user, shift=shift)
         appeal.delete()
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 class GetVacanciesByManagerShopAPIView(CRUDAPIView):
-    serializer_class = VacanciesListForManagerSerializer
+    serializer_class = VacanciesForManagerSerializer
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
 
     filter_params = {
-        'available_from': 'available_from__gt'
+        'available_from': 'available_from__range'
     }
 
     order_params = {
@@ -224,15 +224,12 @@ class GetVacanciesByManagerShopAPIView(CRUDAPIView):
             'shop_id__in': request.user.manager_shops.all()
         })
 
-        available_from = filters.get('available_from__gt')
+        available_from = filters.get('available_from__range')
 
         if available_from:
             available_from = timezone.make_aware(datetime.fromtimestamp(int(available_from) / 1000))
-            filters['available_from__gt'] = available_from
             next_day = available_from + timedelta(days=1)
-            filters.update({
-                'available_from__lt': next_day
-            })
+            filters['available_from__range'] = [available_from, next_day]
 
         dataset = self.repository_class().filter_by_kwargs(
             kwargs=filters, order_by=order_params, paginator=pagination
@@ -247,7 +244,7 @@ class GetVacanciesByManagerShopAPIView(CRUDAPIView):
 
 
 class GetSingleVacancyForManagerAPIView(CRUDAPIView):
-    serializer_class = SingleVacancyForManagerSerializer
+    serializer_class = VacanciesForManagerSerializer
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
 
@@ -270,30 +267,36 @@ class GetSingleVacancyForManagerAPIView(CRUDAPIView):
 
 
 class GetVacancyAppealsForManagerAPIView(CRUDAPIView):
-    serializer_class = VacancyAppealsSerializer
-    repository_class = VacancyAppealsRepository
+    serializer_class = ShiftAppealsListSerializer
+    repository_class = ShiftAppealsRepository
     allowed_http_methods = ['get']
     filter_params = {}
-    order_params = {
-        'title': 'title',
-        'created_at': 'created_at',
-        'id': 'id'
-    }
+    order_params = {}
 
     def get(self, request, **kwargs):
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
         filters = RequestMapper(self).filters(request) or dict()
         vacancy = VacanciesRepository().get_by_id(record_id=kwargs.get('record_id'))
-        filters.update({'vacancy': vacancy})
-        dataset = self.repository_class().filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
+        filters.update({'shift__vacancy': vacancy})
 
+        dataset = self.repository_class().filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
         serialized = self.serializer_class(dataset, many=True, context={
             'me': request.user,
             'headers': get_request_headers(request),
         })
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class GetSingleAppealForManagerAPIView(CRUDAPIView):
+    repository_class = ShiftAppealsRepository
+    serializer_class = SingleShiftAppealSerializer
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        appeal = self.repository_class().get_by_id(record_id)
+        return Response(self.serializer_class(instance=appeal).data)
 
 
 class VacanciesClusteredMap(Vacancies):

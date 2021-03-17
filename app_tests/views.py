@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app_market.models import Distributor, Shop, Vacancy, Shift, VacancyAppeal
+from app_market.models import Distributor, Shop, Vacancy, Shift, ShiftAppeal
 from app_sockets.controllers import SocketController
 from app_users.enums import AccountType
 from app_users.models import UserProfile
@@ -78,7 +78,7 @@ class SeedDataForMarketAppAPIView(APIView):
             for item in range(limit * limit):
                 Shop.objects.create(
                     distributor=random.choice(distributors),
-                    title=f"""Shop {item}"""
+                    title=f"""Shop {item +1}"""
                 )
 
         print('Shops seed complete')
@@ -93,7 +93,7 @@ class SeedDataForMarketAppAPIView(APIView):
             for item in range(limit * limit):
                 Vacancy.objects.create(
                     shop=random.choice(shops),
-                    title=f"""Vacancy {item}"""
+                    title=f"""Vacancy {item+1}"""
                 )
 
         print('Vacancies seed complete')
@@ -109,11 +109,10 @@ class SeedDataForMarketAppAPIView(APIView):
         shifts = Shift.objects.all()
 
         self_employed_users = users.filter(account_type=AccountType.SELF_EMPLOYED)
-        VacancyAppeal.objects.all().delete()
+        ShiftAppeal.objects.all().delete()
         for user in self_employed_users:
-            VacancyAppeal.objects.create(user=user, vacancy=random.choice(vacancies))
-
-        print('VacancyAppeal seed complete')
+            ShiftAppeal.objects.create(applier=user, shift=random.choice(shifts))
+        print('ShiftAppeal seed complete')
         return Response('seed complete')
 
 

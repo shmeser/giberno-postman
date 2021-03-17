@@ -16,7 +16,7 @@ from pytz import timezone
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, VacancyAppeal
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -735,8 +735,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         return []
 
 
-class VacancyAppealsRepository(MasterRepository):
-    model = VacancyAppeal
+class ShiftAppealsRepository(MasterRepository):
+    model = ShiftAppeal
 
 
 class ProfessionsRepository(MasterRepository):

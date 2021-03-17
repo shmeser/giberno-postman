@@ -3,8 +3,8 @@ from django.urls import path
 from app_market.views import Vacancies, Professions, suggest_profession, Skills, Distributors, Shops, VacanciesStats, \
     vacancies_suggestions, Shifts, CheckUserShiftByManagerOrSecurityAPIView, similar_vacancies, ToggleLikeVacancy, \
     VacancyReviewsAPIView, ShopReviewsAPIView, DistributorReviewsAPIView, VacanciesClusteredMap, \
-    GetVacanciesByManagerShopAPIView, GetSingleVacancyForManagerAPIView, ApplyToVacancyAPIView, UserShiftsAPIView, \
-    GetVacancyAppealsForManagerAPIView, SelfEmployedUserReviewsByAdminOrManagerAPIView
+    GetVacanciesByManagerShopAPIView, GetSingleVacancyForManagerAPIView, ApplyToShiftAPIView, UserShiftsAPIView, \
+    GetVacancyAppealsForManagerAPIView, SelfEmployedUserReviewsByAdminOrManagerAPIView, GetSingleAppealForManagerAPIView
 
 urlpatterns = [
     path('market/distributors', Distributors.as_view()),
@@ -21,7 +21,7 @@ urlpatterns = [
     path('market/vacancies/<int:record_id>/similar', similar_vacancies),
     path('market/vacancies/<int:record_id>/reviews', VacancyReviewsAPIView.as_view()),
     path('market/vacancies/<int:record_id>/toggle_like', ToggleLikeVacancy.as_view()),
-    path('market/vacancies/<int:record_id>/apply', ApplyToVacancyAPIView.as_view()),
+    path('market/shifts/<int:record_id>/apply', ApplyToShiftAPIView.as_view()),
 
     path('market/vacancies/stats', VacanciesStats.as_view()),
     path('market/vacancies/suggestions', vacancies_suggestions),
@@ -33,6 +33,7 @@ urlpatterns = [
     path('market/managers/vacancies/<int:record_id>', GetSingleVacancyForManagerAPIView.as_view()),
     path('market/managers/vacancies/<int:record_id>/appeals',
          GetVacancyAppealsForManagerAPIView.as_view()),
+    path('market/managers/vacancies/appeals/<int:record_id>', GetSingleAppealForManagerAPIView.as_view()),
 
     path('market/shifts', Shifts.as_view()),
     path('market/shifts/<int:record_id>', Shifts.as_view()),

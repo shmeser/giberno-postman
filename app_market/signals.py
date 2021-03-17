@@ -7,8 +7,5 @@ from app_market.models import Vacancy
 @receiver(pre_save, sender=Vacancy)
 def set_timezone_to_vacancy(sender, instance, **kwargs):
     # Устанавливаем для вакансии часовой пояс из города, в котором она находится
-    if instance.shop.city:
-        instance.timezone = instance.shop.city.timezone
-    else:
-        instance.timezone = 'Europe/Moscow'
+    instance.timezone = instance.shop.city.timezone if instance.shop.city else 'Europe/Moscow'
     # Поменял чтоб код не ломался при seed когда нет городов в базе данных и instance.shop.city == None

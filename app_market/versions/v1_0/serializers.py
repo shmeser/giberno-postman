@@ -4,7 +4,7 @@ import pytz
 from django.db.models import Avg
 from rest_framework import serializers
 
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category, VacancyAppeal
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category, ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType
@@ -350,43 +350,17 @@ class VacancySerializer(VacanciesSerializer):
         ]
 
 
-class VacanciesListForManagerSerializer(CRUDSerializer):
+class VacanciesForManagerSerializer(CRUDSerializer):
     media = serializers.SerializerMethodField(read_only=True)
 
     @staticmethod
     def get_media(instance):
         return MediaSerializer(instance=instance.media.first()).data
 
-    applied_users = serializers.SerializerMethodField(read_only=True)
-
-    @staticmethod
-    def get_applied_users(instance):
-        return [
-            {
-                'id': appeal.user.id,
-                'media': MediaSerializer(instance=appeal.user.media.all(), many=True).data
-            }
-            for appeal in instance.appeals.all()
-        ]
-
     class Meta:
         model = Vacancy
         fields = [
-            'id', 'title', 'media', 'places_count', 'applied_users'
-        ]
-
-
-class SingleVacancyForManagerSerializer(VacanciesListForManagerSerializer):
-    shifts = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_shifts(instance):
-        return ShiftsSerializer(instance=Shift.objects.filter(vacancy=instance), many=True).data
-
-    class Meta:
-        model = Vacancy
-        fields = [
-            'id', 'title', 'media', 'places_count', 'applied_users', 'shifts'
+            'id', 'title', 'media', 'places_count'
         ]
 
 
@@ -402,16 +376,56 @@ class UserProfileLightSerializer(CRUDSerializer):
         fields = ['first_name', 'birth_date', 'media', 'rating']
 
 
-class VacancyAppealsSerializer(CRUDSerializer):
+class ShiftAppealsListSerializer(CRUDSerializer):
     user = serializers.SerializerMethodField()
 
     @staticmethod
     def get_user(instance):
-        return UserProfileLightSerializer(instance=instance.user).data
+        return UserProfileLightSerializer(instance=instance.applier).data
 
     class Meta:
-        model = VacancyAppeal
+        model = ShiftAppeal
         fields = '__all__'
+
+
+class UserProfileInSingleAppealSerializer(CRUDSerializer):
+    media = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_media(instance):
+        return MediaSerializer(instance=instance.media.all(), many=True).data
+
+    experience = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_experience(instance):
+        return f"""Опыт работы. 
+        В данном блоке отображается рейтинг пользователя сгруппированный, 
+        в отличии от общего, по типам вакансий с указанием количества оценок;
+        """
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            'id', 'first_name', 'birth_date', 'media', 'rating', 'experience'
+        ]
+
+
+class SingleShiftAppealSerializer(CRUDSerializer):
+
+    appeals = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_appeals(instance):
+        print(instance)
+        return {
+            'shift': instance.shift.id,
+            'appliers': UserProfileInSingleAppealSerializer(instance=instance.applier).data
+        }
+
+    class Meta:
+        model = ShiftAppeal
+        exclude = ['shift', 'applier']
 
 
 class ShiftsSerializer(CRUDSerializer):
