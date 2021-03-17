@@ -17,7 +17,7 @@ from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException, CustomException
 from backend.mappers import DataMapper
-from backend.mixins import MasterRepository
+from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
 from backend.repositories import BaseRepository
 from backend.utils import is_valid_uuid
 
@@ -228,12 +228,12 @@ class AsyncJwtRepository(JwtRepository):
         return super().get_user(token)
 
 
-class ProfileRepository(MasterRepository):
+class ProfileRepository(MakeReviewMethodProviderRepository):
     model = UserProfile
 
     def __init__(self, me=None) -> None:
-        self.me = me
         super().__init__()
+        self.me = me
 
     def get_by_id(self, record_id):
         try:

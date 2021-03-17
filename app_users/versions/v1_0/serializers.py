@@ -74,6 +74,7 @@ class ProfileSerializer(CRUDSerializer):
 
     rating_place = serializers.SerializerMethodField(read_only=True)
     notifications_count = serializers.SerializerMethodField(read_only=True)
+    rating_by_vacancies = serializers.SerializerMethodField(read_only=True)
 
     def validate(self, attrs):
         errors = []
@@ -383,6 +384,10 @@ class ProfileSerializer(CRUDSerializer):
             return True
         return False
 
+    @staticmethod
+    def get_rating_by_vacancies(instance):
+        return 'тут надо вернуть rating по вакансиям'
+
     class Meta:
         model = UserProfile
         fields = [
@@ -421,7 +426,9 @@ class ProfileSerializer(CRUDSerializer):
 
             'manager_position',
             'distributors',
-            'manager_shops'
+            'manager_shops',
+            'rating',
+            'rating_by_vacancies'
         ]
 
         extra_kwargs = {

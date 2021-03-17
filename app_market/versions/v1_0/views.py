@@ -11,13 +11,13 @@ from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewM
 from app_market.enums import ShiftStatus
 from app_market.models import UserShift, VacancyAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository
+    DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, VacancyAppealsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
-    VacanciesListForManagerSerializer, SingleVacancyForManagerSerializer, AppliedUsersByVacancyForManagerSerializer, \
-    ApplyToVacancyResponseSerializer
+    VacanciesListForManagerSerializer, SingleVacancyForManagerSerializer, VacancyAppealsSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
+from app_users.versions.v1_0.repositories import ProfileRepository
 from backend.api_views import BaseAPIView
 from backend.errors.http_exception import HttpException
 from backend.mappers import RequestMapper, DataMapper
@@ -182,7 +182,7 @@ class Vacancies(CRUDAPIView):
 
 
 class ApplyToVacancyAPIView(CRUDAPIView):
-    serializer_class = ApplyToVacancyResponseSerializer
+    serializer_class = VacancyAppealsSerializer
     repository_class = VacanciesRepository
 
     def get(self, request, *args, **kwargs):
@@ -265,9 +265,31 @@ class GetSingleVacancyForManagerAPIView(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class GetAppliedUsersByVacancyForManagerAPIView(CRUDAPIView):
-    serializer_class = AppliedUsersByVacancyForManagerSerializer
-    pass
+class GetVacancyAppealsForManagerAPIView(CRUDAPIView):
+    serializer_class = VacancyAppealsSerializer
+    repository_class = VacancyAppealsRepository
+    allowed_http_methods = ['get']
+    filter_params = {}
+    order_params = {
+        'title': 'title',
+        'created_at': 'created_at',
+        'id': 'id'
+    }
+
+    def get(self, request, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+        filters = RequestMapper(self).filters(request) or dict()
+        vacancy = VacanciesRepository().get_by_id(record_id=kwargs.get('record_id'))
+        filters.update({'vacancy': vacancy})
+        dataset = self.repository_class().filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
+
+        serialized = self.serializer_class(dataset, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class VacanciesClusteredMap(Vacancies):
@@ -478,6 +500,12 @@ class DistributorReviewsAPIView(ReviewsBaseAPIView):
     serializer_class = POSTReviewSerializer
     get_request_repository_class = ReviewsRepository
     post_request_repository_class = DistributorsRepository
+
+
+class SelfEmployedUserReviewsByAdminOrManagerAPIView(ReviewsBaseAPIView):
+    serializer_class = POSTReviewSerializer
+    get_request_repository_class = ReviewsRepository
+    post_request_repository_class = ProfileRepository
 
 
 class ToggleLikeVacancy(APIView):

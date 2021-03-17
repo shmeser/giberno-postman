@@ -9,8 +9,8 @@ from app_market.versions.v1_0 import views as v1_0
 from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
     ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer, \
     VacanciesClusterSerializer, VacanciesListForManagerSerializer, SingleVacancyForManagerSerializer, \
-    AppliedUsersByVacancyForManagerSerializer, ApplyToVacancyResponseSerializer
-from app_users.permissions import IsManager, IsSelfEmployed
+    VacancyAppealsSerializer
+from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException
@@ -49,7 +49,7 @@ class ApplyToVacancyAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsSelfEmployed]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', ApplyToVacancyResponseSerializer)})
+    @swagger_auto_schema(responses={200: openapi.Response('response description', VacancyAppealsSerializer)})
     def get(request, **kwargs):
         '''
         Откликнуться на вакансию
@@ -88,7 +88,7 @@ class GetVacanciesByManagerShopAPIView(BaseAPIView):
 
 class GetSingleVacancyForManagerAPIView(BaseAPIView):
     """
-    Просмотр конкретной вакансии со стороны менеджера
+    Просмотр конкретной вакансии (среди прикрепленных к своему магазину) со стороны менеджера
     """
     permission_classes = [IsAuthenticated, IsManager]
 
@@ -100,15 +100,18 @@ class GetSingleVacancyForManagerAPIView(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class GetAppliedUsersByVacancyForManagerAPIView(BaseAPIView):
+class GetVacancyAppealsForManagerAPIView(BaseAPIView):
+    """
+    Просмотр Списока откликнувшихся на вакансию в виде аватаров Пользователей со стороны менеджера
+    """
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description',
-                                                          AppliedUsersByVacancyForManagerSerializer)})
+                                                          VacancyAppealsSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
-            return v1_0.GetAppliedUsersByVacancyForManagerAPIView().get(request, **kwargs)
+            return v1_0.GetVacancyAppealsForManagerAPIView().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
@@ -259,6 +262,32 @@ class DistributorReviewsAPIView(BaseAPIView):
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
+
+class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+    serializer_class = POSTReviewSerializer
+
+    @staticmethod
+    @swagger_auto_schema(responses={204: 'No Content'})
+    def post(request, **kwargs):
+        '''
+        Отзывы на самозанятого (оставляют Администраторы\менеджеры)
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.SelfEmployedUserReviewsByAdminOrManagerAPIView().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
+    def get(request, **kwargs):
+        '''
+        Получить список отзывов на самозанятого (получают Администраторы\менеджеры))
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.SelfEmployedUserReviewsByAdminOrManagerAPIView().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 class ToggleLikeVacancy(APIView):
     """

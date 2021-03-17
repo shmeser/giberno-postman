@@ -10,6 +10,7 @@ from app_market.versions.v1_0.repositories import VacanciesRepository, Professio
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.serializers import MediaSerializer
+from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp
@@ -383,14 +384,28 @@ class SingleVacancyForManagerSerializer(VacanciesListForManagerSerializer):
         ]
 
 
-class ApplyToVacancyResponseSerializer(CRUDSerializer):
+class UserProfileLightSerializer(CRUDSerializer):
+    media = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_media(instance):
+        return MediaSerializer(instance=instance.media.all(), many=True).data
+
+    class Meta:
+        model = UserProfile
+        fields = ['first_name', 'birth_date', 'media', 'rating']
+
+
+class VacancyAppealsSerializer(CRUDSerializer):
+    user = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_user(instance):
+        return UserProfileLightSerializer(instance=instance.user).data
+
     class Meta:
         model = VacancyAppeal
         fields = '__all__'
-
-
-class AppliedUsersByVacancyForManagerSerializer(CRUDSerializer):
-    pass
 
 
 class ShiftsSerializer(CRUDSerializer):

@@ -16,81 +16,15 @@ from pytz import timezone
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, VacancyAppeal
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
-from backend.mixins import MasterRepository
+from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
 from backend.utils import ArrayRemove
 from giberno import settings
-
-
-class MakeReviewMethodProviderRepository(MasterRepository):
-    def __init__(self, me=None) -> None:
-        super().__init__()
-        self.me = me
-
-    def make_review(self, record_id, text, value, point=None):
-        # TODO добавить загрузку attachments
-
-        owner_content_type = ContentType.objects.get_for_model(self.me)
-        owner_ct_id = owner_content_type.id
-        owner_ct_name = owner_content_type.model
-        owner_id = self.me.id
-
-        target_content_type = ContentType.objects.get_for_model(self.model)
-        target_ct_id = target_content_type.id
-        target_ct_name = target_content_type.model
-        target_id = record_id
-
-        region = Region.objects.filter(boundary__covers=point).first() if point else None
-
-        if not Review.objects.filter(
-                owner_ct_id=owner_ct_id,
-                owner_id=owner_id,
-                target_ct_id=target_ct_id,
-                target_id=target_id,
-                deleted=False
-        ).exists():
-            Review.objects.create(
-                owner_ct_id=owner_ct_id,
-                owner_id=owner_id,
-                owner_ct_name=owner_ct_name,
-
-                target_ct_id=target_ct_id,
-                target_id=target_id,
-                target_ct_name=target_ct_name,
-
-                value=value,
-                text=text,
-                region=region
-            )
-
-            # Пересчитываем количество оценок и рейтинг
-            self.model.objects.filter(pk=record_id).update(
-                # в update нельзя использовать результаты annotate
-                # используем annotate в Subquery
-                rating=Subquery(
-                    self.model.objects.filter(
-                        id=OuterRef('id')
-                    ).annotate(
-                        calculated_rating=ExpressionWrapper(
-                            Sum('reviews__value') / Count('reviews'),
-                            output_field=FloatField()
-                        )
-                    ).values('calculated_rating')[:1]
-                ),
-                rates_count=Subquery(
-                    self.model.objects.filter(
-                        id=OuterRef('id')
-                    ).annotate(
-                        calculated_rates_count=Count('reviews'),
-                    ).values('calculated_rates_count')[:1]
-                ),
-                updated_at=now()
-            )
 
 
 class DistributorsRepository(MakeReviewMethodProviderRepository):
@@ -799,6 +733,10 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             return result
 
         return []
+
+
+class VacancyAppealsRepository(MasterRepository):
+    model = VacancyAppeal
 
 
 class ProfessionsRepository(MasterRepository):
