@@ -361,7 +361,13 @@ class VacanciesListForManagerSerializer(CRUDSerializer):
 
     @staticmethod
     def get_applied_users(instance):
-        return 'Тут будет список с данни откликнувшихся пользователей'
+        return [
+            {
+                'id': appeal.user.id,
+                'media': MediaSerializer(instance=appeal.user.media.all(), many=True).data
+            }
+            for appeal in instance.appeals.all()
+        ]
 
     class Meta:
         model = Vacancy

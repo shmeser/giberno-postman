@@ -1,5 +1,6 @@
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 
+from django.utils import timezone
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -224,8 +225,11 @@ class GetVacanciesByManagerShopAPIView(CRUDAPIView):
         })
 
         available_from = filters.get('available_from__gt')
+
         if available_from:
-            next_day = datetime.strptime(available_from, '%Y-%m-%d') + timedelta(days=1)
+            available_from = timezone.make_aware(datetime.fromtimestamp(int(available_from) / 1000))
+            filters['available_from__gt'] = available_from
+            next_day = available_from + timedelta(days=1)
             filters.update({
                 'available_from__lt': next_day
             })

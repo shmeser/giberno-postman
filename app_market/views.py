@@ -73,7 +73,10 @@ class GetVacanciesByManagerShopAPIView(BaseAPIView):
     """
     Получение списка вакансий, которые закреплены за  магазином\магазинами менеджера
     возможные query параметры :
-    available_from=год-месяц-день
+    available_from= Int, milliseconds
+
+    offset : int
+    limit : int
     Это дата с которой вакансия доступна
     """
     permission_classes = [IsAuthenticated, IsManager]
