@@ -2,7 +2,7 @@ from django.contrib.auth.models import User, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis import admin
 
-from app_users.models import SocialModel, UserProfile, Notification, NotificationsSettings
+from app_users.models import SocialModel, UserProfile, Notification, NotificationsSettings, JwtToken
 from backend.mixins import FormattedAdmin
 
 admin.site.register(User, admin.OSMGeoAdmin)
@@ -16,6 +16,13 @@ class GroupAdmin(FormattedAdmin):
     )
 
     raw_id_fields = ("content_type",)
+
+
+@admin.register(JwtToken)
+class JwtTokenAdmin(FormattedAdmin):
+    list_display = (
+        "id", "user", 'access_token', "created_at"
+    )
 
 
 @admin.register(UserProfile)

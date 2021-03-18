@@ -20,12 +20,12 @@ class GenericSourceTargetBase(BaseModel):
     owner_ct_name = models.CharField(max_length=255, blank=True, null=True, verbose_name='Имя модели - владельца')
     target_ct_name = models.CharField(max_length=255, blank=True, null=True, verbose_name='Имя модели - конечной цели')
 
-    # Generic Relation base для автора комментария
+    # Generic Relation base для автора
     owner_id = models.PositiveIntegerField(null=True, blank=True)
     owner_ct = models.ForeignKey(ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='owner_ct')
     owner = GenericForeignKey(ct_field='owner_ct', fk_field='owner_id')
 
-    # Generic Relation base для конечной цели комментария
+    # Generic Relation base для конечной цели
     target_id = models.PositiveIntegerField(null=True, blank=True)
     target_ct = models.ForeignKey(
         ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='target_ct'
