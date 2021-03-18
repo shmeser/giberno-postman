@@ -1,5 +1,4 @@
 import json
-from uuid import uuid4
 
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
@@ -23,7 +22,7 @@ from app_users.entities import TokenEntity, SocialEntity
 from app_users.enums import NotificationType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
-from app_users.utils import EmailSender
+from app_users.utils import EmailSender, generate_password
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
     SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository, FCMDeviceRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
@@ -597,11 +596,12 @@ class CreateManagerByAdminAPIView(BaseAPIView):
         serializer = self.serializer_class(data=get_request_body(request), context={'request': request})
         if serializer.is_valid(raise_exception=True):
             user = serializer.save()
-            password = str(uuid4())[:10]
+            password = generate_password()
             user.set_password(password)
             user.save()
             EmailSender(user=user, password=password).send()
             return Response(ProfileSerializer(instance=user).data)
+        return Response('ok')
 
 
 class GetManagerByUsernameAPIView(BaseAPIView):
@@ -651,5 +651,10 @@ class EditManagerProfileView(BaseAPIView):
     def patch(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
+            username = serializer.validated_data.get('username')
+            if username:
+                ProfileRepository(me=request.user).update_username(username)
+                del serializer.validated_data['username']
+
             user = ProfileRepository().update(record_id=request.user.id, **serializer.validated_data)
             return Response(ProfileSerializer(instance=user).data)
