@@ -43,6 +43,7 @@ services:
       SECRET_KEY: ${RL_SECRET_KEY}
       VK_APP_ID: ${VK_APP_ID}
       VK_APP_SECRET: ${VK_APP_SECRET}
+      API_PORT: ${RL_API_PORT}
     ports:
       - "127.0.0.1:${RL_API_PORT}:${RL_API_PORT}"
     networks:
