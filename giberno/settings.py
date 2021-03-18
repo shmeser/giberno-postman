@@ -357,6 +357,14 @@ DATABASES = {
     },
 }
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', True)
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', False)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = os.getenv('EMAIL_PORT', 587)
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'test@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'test')
+
 try:
     from giberno.environment.local_settings import \
         TELEGRAM_BOT_TOKEN, \
@@ -370,17 +378,9 @@ try:
         CONSTANCE_CONFIG, \
         LOGGING, \
         SOCIAL_AUTH_VK_OAUTH2_KEY, \
-        DEBUG_TOOLBAR_PANELS
+        DEBUG_TOOLBAR_PANELS, \
+        EMAIL_HOST_USER, \
+        EMAIL_HOST_PASSWORD
+
 except ImportError as e:
     pass
-
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', True)
-EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', False)
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = os.getenv('EMAIL_PORT', 587)
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'gibernoappcraft@gmail.com')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '11random11')
-
-INTERNAL_IPS = [
-    '127.0.0.1',
-]
