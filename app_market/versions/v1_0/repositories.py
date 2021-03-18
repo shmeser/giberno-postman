@@ -673,9 +673,6 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         :return:
         """
 
-        shop_ct = ContentType.objects.get_for_model(Shop)
-        vacancy_ct = ContentType.objects.get_for_model(Vacancy)
-
         raw_sql = f'''
             WITH clusters AS (
                 SELECT 
