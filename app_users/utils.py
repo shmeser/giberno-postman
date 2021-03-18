@@ -8,10 +8,10 @@ class EmailSender:
         self.user = user
         self.password = password
 
-    def send(self):
+    def send(self, subject='Новое письмо'):
         try:
             send_mail(
-                subject='Subject here',
+                subject=subject,
                 message=f"Логин:{self.user.username},  Пароль:{self.password}",
                 from_email=f'GIBERNO Admin {settings.EMAIL_HOST_USER}',
                 recipient_list=[self.user.email],

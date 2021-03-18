@@ -44,6 +44,8 @@ services:
       VK_APP_ID: ${VK_APP_ID}
       VK_APP_SECRET: ${VK_APP_SECRET}
       API_PORT: ${RL_API_PORT}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER}
     ports:
       - "127.0.0.1:${RL_API_PORT}:${RL_API_PORT}"
     networks:

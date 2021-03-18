@@ -600,7 +600,7 @@ class CreateManagerByAdminAPIView(BaseAPIView):
             password = str(uuid4())[:10]
             user.set_password(password)
             user.save()
-            EmailSender(user=user, password=password).send()
+            EmailSender(user=user, password=password).send(subject='Создана учетная запись менеджера')
             return Response(ProfileSerializer(instance=user).data)
 
 
