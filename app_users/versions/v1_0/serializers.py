@@ -1,5 +1,4 @@
 import string
-from uuid import uuid4
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
@@ -19,6 +18,7 @@ from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import LanguageProficiency, AccountType
 from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
     NotificationsSettings, UserCity, UserCareer, Document
+from app_users.utils import generate_username
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository, \
     CareerRepository, DocumentsRepository
 from backend.entity import Error
@@ -619,7 +619,8 @@ class CreateManagerByAdminSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        username = str(uuid4())[:10]
+        username = generate_username()
+
         default_data = {
             'username': username,
             'account_type': AccountType.MANAGER,
@@ -660,16 +661,23 @@ class UsernameWithPasswordSerializer(serializers.Serializer):
 
 
 class EditManagerProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(required=False)
+    first_name = serializers.CharField(required=False)
+    middle_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False)
+
     class Meta:
         model = UserProfile
         fields = [
+            'username',
             'first_name',
             'middle_name',
             'last_name',
         ]
 
+    # SERIALIZERS ONLY FOR SWAGGER
 
-# SERIALIZERS ONLY FOR SWAGGER
+
 class FirebaseAuthRequestDescriptor(serializers.Serializer):
     firebase_token = serializers.CharField()
 
