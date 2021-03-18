@@ -43,20 +43,22 @@ deploy:
     - echo POSTGRES_PASSWORD="$POSTGRES_PASSWORD" | tr -d '\r' >> .env
 
     - echo HOST_DOMAIN="$HOST_DOMAIN" | tr -d '\r' >> .env
+    - echo HOST_IP="$HOST_IP" | tr -d '\r' >> .env
     - echo API_PORT="$API_PORT" | tr -d '\r' >> .env
     - echo DB_PORT="$DB_PORT" | tr -d '\r' >> .env
 
     - echo SUPERUSER_PASS="$SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo ENVIRONMENT="$ENVIRONMENT" | tr -d '\r' >> .env
 
-    - echo TELEGRAM_BOT_TOKEN="$DEV_TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
+    - echo DEV_TELEGRAM_BOT_TOKEN="$DEV_TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
     - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
 
     - echo DEV_VK_APP_ID="$DEV_VK_APP_ID" | tr -d '\r' >> .env
     - echo DEV_VK_APP_SECRET="$DEV_VK_APP_SECRET" | tr -d '\r' >> .env
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
-    - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
+    - echo SECRET_KEY="$SECRET_KEY" | tr -d '\r' >> .env
+    - echo DEBUG="DEBUG" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
     - sudo ln -s "$(pwd -P)"/devops/develop/docker-compose.yml "$(pwd -P)"
@@ -98,20 +100,22 @@ deploy_stage:
     - echo ST_POSTGRES_PASSWORD="$ST_POSTGRES_PASSWORD" | tr -d '\r' >> .env
 
     - echo ST_HOST_DOMAIN="$ST_HOST_DOMAIN" | tr -d '\r' >> .env
+    - echo ST_HOST_IP="$HOST_IP" | tr -d '\r' >> .env
     - echo ST_API_PORT="$ST_API_PORT" | tr -d '\r' >> .env
     - echo ST_DB_PORT="$ST_DB_PORT" | tr -d '\r' >> .env
 
     - echo ST_SUPERUSER_PASS="$ST_SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo ST_ENVIRONMENT="$ST_ENVIRONMENT" | tr -d '\r' >> .env
 
-    - echo TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
+    - echo TELEGRAM_BOT_TOKEN="$DEV_TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
     - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
 
     - echo DEV_VK_APP_ID="$DEV_VK_APP_ID" | tr -d '\r' >> .env
     - echo DEV_VK_APP_SECRET="$DEV_VK_APP_SECRET" | tr -d '\r' >> .env
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
-    - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
+    - echo ST_SECRET_KEY="$ST_SECRET_KEY" | tr -d '\r' >> .env
+    - echo DEBUG="DEBUG" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
     - sudo ln -s "$(pwd -P)"/devops/stage/docker-compose.yml "$(pwd -P)"
@@ -152,6 +156,7 @@ deploy_release:
     - echo RL_POSTGRES_PASSWORD="$RL_POSTGRES_PASSWORD" | tr -d '\r' >> .env
 
     - echo RL_HOST_DOMAIN="$RL_HOST_DOMAIN" | tr -d '\r' >> .env
+    - echo RL_HOST_IP="$HOST_IP" | tr -d '\r' >> .env
     - echo RL_API_PORT="$RL_API_PORT" | tr -d '\r' >> .env
     - echo RL_DB_PORT="$RL_DB_PORT" | tr -d '\r' >> .env
 
@@ -164,7 +169,7 @@ deploy_release:
     - echo VK_APP_SECRET="$VK_APP_SECRET" | tr -d '\r' >> .env
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
-    - echo SERVER_KEY="$SERVER_KEY" | tr -d '\r' >> .env
+    - echo RL_SECRET_KEY="$RL_SECRET_KEY" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
     - sudo ln -s "$(pwd -P)"/devops/release/docker-compose.yml "$(pwd -P)"

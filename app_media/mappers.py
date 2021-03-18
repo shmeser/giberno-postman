@@ -20,8 +20,8 @@ class MediaMapper:
         file_entity.type = file_type
 
         owner_content_type = ContentType.objects.get_for_model(owner)
-        file_entity.owner_content_type_id = owner_content_type.id
-        file_entity.owner_content_type = owner_content_type.model
+        file_entity.owner_ct_id = owner_content_type.id
+        file_entity.owner_ct_name = owner_content_type.model
         file_entity.owner_id = owner.id
 
         file_entity.mime_type = file_data.content_type
@@ -36,7 +36,7 @@ class MediaMapper:
         name = str(file_entity.uuid)
         parts = file_data.name.split('.')
 
-        # CP(bg='green', fg='yellow').bold(f'Uploaded File Name - "{file_data.name}" - uuid {file_entity.uuid}')
+        # logger.debug(f'Uploaded File Name - "{file_data.name}" - uuid {file_entity.uuid}')
 
         if parts.__len__() > 1:
             extension = f'.{parts[-1].lower()}'

@@ -4,18 +4,22 @@ import importlib
 import json
 import os
 import re
+from functools import reduce
 from io import BytesIO
 from json import JSONDecodeError
 from urllib.request import urlopen, HTTPError, Request
+from uuid import UUID
 
 import exiftool
 import pytz
-from PIL import Image
+from PIL import Image, ExifTags
 from django.conf import settings
-from django.core.files.uploadedfile import TemporaryUploadedFile,UploadedFile
+from django.core.files.uploadedfile import TemporaryUploadedFile
+from django.db.models.expressions import Func, Expression, F, Value as V
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 from ffmpy import FFmpeg
+from loguru import logger
 
 from app_media.enums import MediaFormat, FileDownloadStatus, MimeTypes
 from backend.entity import File as FileEntity
@@ -53,66 +57,19 @@ class CP:
     """
 
     def __init__(self, **kwargs):
-        self.fg = self.FG.black
-        if kwargs.get('fg', '') == 'black':
-            self.fg = self.FG.black
-        if kwargs.get('fg', '') == 'red':
-            self.fg = self.FG.red
-        if kwargs.get('fg', '') == 'green':
-            self.fg = self.FG.green
-        if kwargs.get('fg', '') == 'orange':
-            self.fg = self.FG.orange
-        if kwargs.get('fg', '') == 'blue':
-            self.fg = self.FG.blue
-        if kwargs.get('fg', '') == 'purple':
-            self.fg = self.FG.purple
-        if kwargs.get('fg', '') == 'cyan':
-            self.fg = self.FG.cyan
-        if kwargs.get('fg', '') == 'lightgrey':
-            self.fg = self.FG.lightgrey
-        if kwargs.get('fg', '') == 'darkgrey':
-            self.fg = self.FG.darkgrey
-        if kwargs.get('fg', '') == 'lightred':
-            self.fg = self.FG.lightred
-        if kwargs.get('fg', '') == 'lightgreen':
-            self.fg = self.FG.lightgreen
-        if kwargs.get('fg', '') == 'yellow':
-            self.fg = self.FG.yellow
-        if kwargs.get('fg', '') == 'lightblue':
-            self.fg = self.FG.lightblue
-        if kwargs.get('fg', '') == 'pink':
-            self.fg = self.FG.pink
-        if kwargs.get('fg', '') == 'lightcyan':
-            self.fg = self.FG.lightcyan
-
-        self.bg = self.BG.black
-        if kwargs.get('bg', '') == 'black':
-            self.bg = self.BG.black
-        if kwargs.get('bg', '') == 'red':
-            self.bg = self.BG.red
-        if kwargs.get('bg', '') == 'green':
-            self.bg = self.BG.green
-        if kwargs.get('bg', '') == 'orange':
-            self.bg = self.BG.orange
-        if kwargs.get('bg', '') == 'blue':
-            self.bg = self.BG.blue
-        if kwargs.get('bg', '') == 'purple':
-            self.bg = self.BG.purple
-        if kwargs.get('bg', '') == 'cyan':
-            self.bg = self.BG.cyan
-        if kwargs.get('bg', '') == 'lightgrey':
-            self.bg = self.BG.lightgrey
+        self.fg = getattr(self.FG, kwargs.get('fg', '')) if hasattr(self.FG, kwargs.get('fg', '')) else self.FG.black
+        self.bg = getattr(self.BG, kwargs.get('bg', '')) if hasattr(self.BG, kwargs.get('bg', '')) else self.BG.black
 
         self.sp = int(kwargs.get('sp', 0))
         self.nl = kwargs.get('nl', True)
 
-    RESET = '\033[0m'
-    BOLD = '\033[01m'
-    DISABLE = '\033[02m'
-    UNDERLINE = '\033[04m'
-    REVERSE = '\033[07m'
-    STRIKETHROUGH = '\033[09m'
-    INVISIBLE = '\033[08m'
+    RESET_FONT = '\033[0m'
+    BOLD_FONT = '\033[01m'
+    DISABLE_FONT = '\033[02m'
+    UNDERLINE_FONT = '\033[04m'
+    REVERSE_FONT = '\033[07m'
+    STRIKETHROUGH_FONT = '\033[09m'
+    INVISIBLE_FONT = '\033[08m'
 
     def get_tabs(self):
         tab_code = '\t'
@@ -153,32 +110,32 @@ class CP:
     def bold(self, data=''):
         data = str(data)
         end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.BOLD}{self.bg}{self.fg}" + data + f"{self.RESET}", end=end)
+        print(f"{self.get_tabs()}{self.BOLD_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
 
     def disable(self, data=''):
         data = str(data)
         end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.DISABLE}{self.bg}{self.fg}" + data + f"{self.RESET}", end=end)
+        print(f"{self.get_tabs()}{self.DISABLE_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
 
     def underline(self, data=''):
         data = str(data)
         end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.UNDERLINE}{self.bg}{self.fg}" + data + f"{self.RESET}", end=end)
+        print(f"{self.get_tabs()}{self.UNDERLINE_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
 
     def reverse(self, data=''):
         data = str(data)
         end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.REVERSE}{self.bg}{self.fg}" + data + f"{self.RESET}", end=end)
+        print(f"{self.get_tabs()}{self.REVERSE_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
 
     def strikethrough(self, data=''):
         data = str(data)
         end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.STRIKETHROUGH}{self.bg}{self.fg}" + data + f"{self.RESET}", end=end)
+        print(f"{self.get_tabs()}{self.STRIKETHROUGH_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
 
     def invisible(self, data=''):
         data = str(data)
         end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.INVISIBLE}{self.bg}{self.fg}" + data + f"{self.RESET}", end=end)
+        print(f"{self.get_tabs()}{self.INVISIBLE_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
 
 
 def timestamp_to_datetime(timestamp, local_time=True, milliseconds=True):
@@ -204,7 +161,7 @@ def datetime_to_timestamp(date_time, milliseconds=True):
         large_timestamp = int(diff.total_seconds() * multiplier)
         return large_timestamp
     except Exception as e:
-        CP(sp=1, fg='yellow').bold(e)
+        logger.error(e)
         return None
 
 
@@ -238,11 +195,42 @@ def get_media_format(mime_type=None):
         return MediaFormat.DOCUMENT.value
     if mime_type in IMAGE_MIME_TYPES:
         return MediaFormat.IMAGE.value
-    # if mime_type in AUDIO_MIME_TYPES:
-    #     return MediaFormat.AUDIO.value
     if mime_type in VIDEO_MIME_TYPES:
         return MediaFormat.VIDEO.value
     return MediaFormat.UNKNOWN.value
+
+
+def rotate_image(img):
+    # Переворачиваем повернутые изображения
+    orientation_tag = None
+    try:
+        for tag in ExifTags.TAGS.keys():
+            if ExifTags.TAGS[tag] == 'Orientation':
+                orientation_tag = tag
+                break
+        exif = dict(img._getexif().items())
+
+        if exif[orientation_tag] == 2:
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+        elif exif[orientation_tag] == 3:
+            img = img.transpose(Image.ROTATE_180)
+        elif exif[orientation_tag] == 4:
+            img = img.transpose(Image.FLIP_TOP_BOTTOM)
+        elif exif[orientation_tag] == 5:
+            img = img.transpose(Image.ROTATE_270)
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+        elif exif[orientation_tag] == 6:
+            img = img.transpose(Image.ROTATE_270)
+        elif exif[orientation_tag] == 7:
+            img = img.transpose(Image.ROTATE_90)
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+        elif exif[orientation_tag] == 8:
+            img = img.transpose(Image.ROTATE_90)
+        #####
+        return img
+    except Exception as e:
+        logger.error(e)
+        return img
 
 
 def resize_image(file_entity: FileEntity):
@@ -255,6 +243,8 @@ def resize_image(file_entity: FileEntity):
         img_format = str(img.format).lower()
         img_width = img.width or None
         img_height = img.height or None
+
+        img = rotate_image(img)
 
         convert_to = 'RGB'
         if img_format in ['png', 'gif', 'tiff', 'bmp']:
@@ -301,7 +291,7 @@ def resize_image(file_entity: FileEntity):
         file_entity.height = img_height
         file_entity.size = result.size
     except Exception as e:
-        CP(bg='red').bold(e)
+        logger.error(e)
         file_entity.file = None
         file_entity.preview = None
         file_entity.width = None
@@ -318,8 +308,11 @@ def convert_video(file_entity: FileEntity):
         # Размеры превью для видео
         preview_width = _META['width']
         preview_height = _META['height']
+
+        vertical = True if _META['width'] > _META['height'] and _META['rotation'] in [90, 270] else False
+
         if _META['width'] > VIDEO_PREVIEW_SIDE_MAX or _META['height'] > VIDEO_PREVIEW_SIDE_MAX:
-            if _META['width'] > _META['height'] and _META['rotation'] in [90, 270] or _META['width'] < _META['height']:
+            if vertical:
                 preview_width = '-1'
                 preview_height = VIDEO_PREVIEW_SIDE_MAX
             else:
@@ -330,7 +323,7 @@ def convert_video(file_entity: FileEntity):
         converted_width = _META['width']
         converted_height = _META['height']
         if _META['width'] > VIDEO_SIDE_MAX or _META['height'] > VIDEO_SIDE_MAX:
-            if _META['width'] > _META['height'] and _META['rotation'] in [90, 270] or _META['width'] < _META['height']:
+            if vertical:
                 converted_width = '-1'
                 converted_height = VIDEO_SIDE_MAX
             else:
@@ -341,8 +334,6 @@ def convert_video(file_entity: FileEntity):
         # TODO Проставить корректные повороты
         if _META['rotation'] == 180:  # Если повернуто на 180 градусов, то поворачиваем 2 раза по 90 CW
             transpose = ',transpose=1,transpose=1'
-        # if _META['rotation'] == 90:  # Если повернуто на 90 CW градусов, то поворачиваем на 90 CW
-        #     transpose = ',transpose=1,transpose=1,transpose=1'
         if _META['rotation'] == 270:  # Если повернуто на 270 градусов CW, то поворачиваем 3 раза по 90 CW
             transpose = ',transpose=1'
 
@@ -405,7 +396,7 @@ def convert_video(file_entity: FileEntity):
         file_entity.duration = _RESULT_META['duration']
         file_entity.size = _RESULT_META['size']
     except Exception as e:
-        CP(bg='red').bold(e)
+        logger.error(e)
         file_entity.file = None
 
 
@@ -436,6 +427,29 @@ def has_latin(text: str = None):
     return False
 
 
+def nonefy(value, condition=True):
+    if condition:
+        return None
+    return value
+
+
+def chained_get(obj, *args, default=None):
+    def get_value(o, attr):
+        if isinstance(o, dict) and isinstance(attr, str):
+            return o.get(attr, default)
+        if isinstance(o, (list, tuple)) and isinstance(attr, int):
+            return o[attr]
+        if isinstance(o, object) and isinstance(attr, str):
+            return getattr(o, attr, default)
+        return None
+
+    try:
+        result = reduce(get_value, args, obj)
+        return result
+    except Exception:
+        return default
+
+
 def get_remote_file(remote_url):
     status = FileDownloadStatus.FAIL.value
     downloaded_file = None
@@ -461,7 +475,7 @@ def get_remote_file(remote_url):
         if e.code == RESTErrors.NOT_FOUND.value:
             status = FileDownloadStatus.NOT_EXIST.value
     except Exception as e:
-        CP(fg='yellow', bg='red').bold(e)
+        logger.error(e)
     return downloaded_file, content_type, size, status
 
 
@@ -470,7 +484,36 @@ def remove_file_from_server(relative_url=None):
         try:
             os.remove(os.path.join(settings.MEDIA_ROOT, relative_url))
         except Exception as e:
-            CP(fg='yellow', bg='red').bold(e)
+            logger.error(e)
+
+
+def is_valid_uuid(uuid_to_test, version=4):
+    try:
+        UUID(uuid_to_test, version=version)
+        return True
+    except ValueError:
+        return False
+
+
+class SimpleFunc(Func):
+    def __init__(self, field, *values, **extra):
+        if not isinstance(field, Expression):
+            field = F(field)
+            if values and not isinstance(values[0], Expression):
+                values = [V(v) for v in values]
+        super(SimpleFunc, self).__init__(field, *values, **extra)
+
+
+class ArrayRemove(SimpleFunc):
+    """
+        Реализация Postgres функции array_remove, которой нет в Django
+    """
+    function = 'ARRAY_REMOVE'
+
+
+class RruleListOccurences(Func):
+    function = 'rrule_list_occurences'
+    template = "%(function)s(%(expressions)s, 'Zeus')"
 
 
 # ####
@@ -510,5 +553,5 @@ def read_csv(file_name):
                 if row[0].__len__() > 0:
                     result.append(row)
             return result
-    except Exception as e:
+    except Exception:
         print('ERROR')

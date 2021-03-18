@@ -1,17 +1,21 @@
-from enum import Enum
+from backend.enums import EnumM
 
 
-def choices(em):
-    return [(e.value, e.name) for e in em]
+class TelegramBotMessageType(EnumM):
+    PRIVATE = 'message'
+    CHANNEL = 'channel_post'
 
 
-class BotNotificationType(Enum):
+class TelegramBotNotificationType(EnumM):
     DEBUG = 'DEBUG'
 
 
-class BotCommand(Enum):
+class TelegramBotCommand(EnumM):
     START = '/start'
     STOP = '/stop'
+
+    DEBUG_ON = '/debug_on'
+    DEBUG_OFF = '/debug_off'
 
     ALL_ON = '/all_on'
     ALL_OFF = '/all_off'

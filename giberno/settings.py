@@ -4,8 +4,6 @@ from datetime import timedelta, datetime
 
 from celery.schedules import crontab
 
-from giberno.environment.environments import Environment
-
 SECRET_KEY = os.getenv('SECRET_KEY', 'TeStSeCrEtKeY')
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -17,6 +15,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'debug_toolbar',
     'django.contrib.gis',
     'django.contrib.postgres',
     'rest_framework',
@@ -32,6 +31,9 @@ INSTALLED_APPS = [
     'app_users.apps.AppUsersConfig',
     'app_media.apps.AppMediaConfig',
     'app_geo.apps.AppGeoConfig',
+    'app_market.apps.AppMarketConfig',
+    'app_feedback.apps.AppFeedbackConfig',
+    'app_sockets.apps.AppSocketsConfig',
 ]
 
 CHANNEL_LAYERS = {
@@ -51,6 +53,7 @@ CELERY_RESULT_SERIALIZER = 'json'
 WORKER_MAX_MEMORY_PER_CHILD = 200000
 
 MIDDLEWARE = [
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -58,8 +61,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django_globals.middleware.Global',
 ]
+
+INTERNAL_IPS = ("127.0.0.1",)  # DebugToolbar
 
 GEOIP_PATH = os.path.join('backend')
 ROOT_URLCONF = 'giberno.urls'
@@ -116,11 +120,15 @@ CELERY_BEAT_SCHEDULE = {
     #     'task': 'subscriptions.tasks.check_subscription',
     #     'schedule': crontab(hour='*', minute='0', day_of_week='*')
     # },
+    'set_qr_code_to_user_shifts': {
+        'task': 'app_market.tasks.set_qr_code_to_user_shifts',
+        'schedule': crontab(minute='*')
+    }
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
 
     'AUTH_HEADER_TYPES': ('Bearer', 'JWT'),
 
@@ -236,9 +244,11 @@ SOCIAL_AUTH_REDIRECT_IS_HTTPS = False  # Нужно True, так как facebook
 
 # social-auth end
 
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-TELEGRAM_BOT_PASSWORD = os.getenv('TELEGRAM_BOT_PASSWORD')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_BOT_PASSWORD = os.getenv('TELEGRAM_BOT_PASSWORD', '')
 TELEGRAM_URL = 'https://api.telegram.org/bot'
+
+FCM_MAX_DEVICES_PER_REQUEST = 500  # Количество пушей за один запрос в Firebase
 
 LOGGING = {
     'version': 1,
@@ -289,14 +299,88 @@ if os.name == 'nt':
     os.environ['PROJ_LIB'] = OSGEO4W + r"\share\proj"
     os.environ['PATH'] = OSGEO4W + r"\bin;" + os.environ['PATH']
 
+NEAREST_POINT_DISTANCE_MAX = 1000  # Максимальное расстояние до ближайшей точки для геокодинга координат
+CLUSTER_NESTED_ITEMS_COUNT = 10
+CLUSTER_MIN_POINTS_COUNT = 2
+CLUSTER_ID_FIELD_NAME = 'cid'
+
 # ### POSTGIS ###
 
 
-if os.getenv('ENVIRONMENT', Environment.LOCAL) == Environment.DEVELOP.value:
-    from .environment.develop_settings import *
-elif os.getenv('ENVIRONMENT', Environment.LOCAL) == Environment.STAGE.value:
-    from .environment.stage_settings import *
-elif os.getenv('ENVIRONMENT', Environment.LOCAL) == Environment.RELEASE.value:
-    from .environment.release_settings import *
-else:
-    from .environment.local_settings import *
+CONSTANCE_REDIS_CONNECTION = {
+    'host': os.getenv('REDIS_HOST', '127.0.0.1'),
+    'port': 6379,
+    'db': 0,
+}
+
+CONSTANCE_CONFIG = {
+    'TELEGRAM_BOT_PASSWORD': (
+        TELEGRAM_BOT_PASSWORD, 'Пароль для активации телеграм бота', str
+    ),
+}
+
+DEBUG = True if os.getenv('DEBUG', False) in ['True', 'true', 'TRUE', True] else False
+DEBUG=True
+if DEBUG is not False:
+    SWAGGER_SETTINGS = {
+        'SECURITY_DEFINITIONS': {
+            'JWT': {
+                'type': 'apiKey',
+                'name': 'Authorization',
+                'in': 'header'
+            },
+            'Bearer': {
+                'type': 'apiKey',
+                'name': 'Authorization',
+                'in': 'header'
+            }
+        }
+    }
+
+    APP_TEST = 'app_tests.apps.AppTestsConfig'
+    INSTALLED_APPS.append(APP_TEST)
+
+ALLOWED_HOSTS = [
+    os.getenv('MACHINE_HOST', '127.0.0.1'),
+    os.getenv('HOST_IP', '127.0.0.1'),
+    os.getenv('HOST_DOMAIN', '127.0.0.1')
+]
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': os.getenv('DB_NAME', 'giberno'),
+        'USER': os.getenv('DB_USER', 'admin'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'admin'),
+        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+        'PORT': os.getenv('DB_PORT', '5432'),
+    },
+}
+
+try:
+    from giberno.environment.local_settings import \
+        TELEGRAM_BOT_TOKEN, \
+        TELEGRAM_BOT_PASSWORD, \
+        DATABASES, \
+        FCM_DJANGO_SETTINGS, \
+        ALLOWED_HOSTS, \
+        DEBUG, \
+        CHANNEL_LAYERS, \
+        CONSTANCE_REDIS_CONNECTION, \
+        CONSTANCE_CONFIG, \
+        LOGGING, \
+        SOCIAL_AUTH_VK_OAUTH2_KEY, \
+        DEBUG_TOOLBAR_PANELS
+except ImportError as e:
+    pass
+
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', True)
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', False)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = os.getenv('EMAIL_PORT', 587)
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'gibernoappcraft@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '11random11')
+
+INTERNAL_IPS = [
+    '127.0.0.1',
+]

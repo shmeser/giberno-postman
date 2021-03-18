@@ -1,8 +1,11 @@
+import json
+
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
+from fcm_django.api.rest_framework import FCMDeviceAuthorizedViewSet
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -16,17 +19,24 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
+from app_users.enums import NotificationType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
+from app_users.utils import EmailSender, generate_password
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
-    SocialsRepository
-from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer
+    SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository, FCMDeviceRepository
+from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
+    NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer, \
+    CreateManagerByAdminSerializer, UsernameSerializer, UsernameWithPasswordSerializer, \
+    PasswordSerializer, EditManagerProfileSerializer
+from backend.api_views import BaseAPIView
 from backend.entity import Error
+from backend.enums import Platform
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_headers, get_request_body
+from backend.utils import get_request_headers, get_request_body, chained_get
 
 
 @api_view(['GET'])
@@ -49,10 +59,19 @@ class AuthFirebase(APIView):
 
         user, created = AuthRepository.get_or_create_social_user(
             social_data,
-            # account_type=body.get('account_type', AccountType.SELF_EMPLOYED),
-            reference_code=body.get('reference_code', None),
             base_user=request.user or None
         )
+
+        # Проверка реферального кода
+        reference_code = body.get('reference_code', None)
+        if reference_code:
+            reference_user = UsersRepository.get_reference_user(reference_code)
+            if reference_user is None:
+                raise HttpException(detail='Невалидный реферальный код', status_code=RESTErrors.BAD_REQUEST)
+
+            user.reg_reference = reference_user
+            user.reg_reference_code = reference_code
+            user.save()
 
         JwtRepository().remove_old(user)  # TODO пригодится для запрета входа с нескольких устройств
         jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
@@ -147,17 +166,19 @@ class MyProfile(CRUDAPIView):
     repository_class = ProfileRepository
     allowed_http_methods = ['get']
 
-    def __init__(self):
-        super().__init__()
-        self.serializer_class = ProfileSerializer
-
     def get(self, request, **kwargs):
-        serialized = self.serializer_class(request.user, many=False)
+        serialized = self.serializer_class(request.user, many=False, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):
         body = get_request_body(request)
-        serialized = self.serializer_class(request.user, data=body)
+        serialized = self.serializer_class(request.user, data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         serialized.is_valid(raise_exception=True)
         serialized.save()
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
@@ -167,7 +188,10 @@ class MyProfileUploads(APIView):
     def post(self, request):
         uploaded_files = RequestMapper.file_entities(request, request.user)
         saved_files = MediaRepository().bulk_create(uploaded_files)
-        serializer = MediaSerializer(saved_files, many=True)
+        serializer = MediaSerializer(saved_files, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serializer.data), status=status.HTTP_200_OK)
 
     def delete(self, request):
@@ -177,7 +201,7 @@ class MyProfileUploads(APIView):
         if uuid_list:
             MediaRepository().filter_by_kwargs({
                 'owner_id': request.user.id,
-                'owner_content_type_id': ContentType.objects.get_for_model(request.user).id,
+                'owner_ct_id': ContentType.objects.get_for_model(request.user).id,
                 'uuid__in': uuid_list
             }).update(**{
                 'deleted': True,
@@ -205,30 +229,25 @@ class Users(CRUDAPIView):
         'username': 'username',
     }
 
-    def __init__(self):
-        super().__init__()
-        self.serializer_class = ProfileSerializer
-
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
+        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        filters = RequestMapper().filters(request, self.filter_params, self.date_filter_params,
-                                          self.default_filters) or dict()
-        order_params = RequestMapper.order(request, self.order_params) + self.default_order_params
-
-        if record_id:
-            self.serializer_class = ProfileSerializer
+        order_params = RequestMapper(self).order(request)
 
         if record_id:
             dataset = self.repository_class().get_by_id(record_id)
-            serialized = self.serializer_class(dataset)
         else:
             dataset = self.repository_class().filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            serialized = self.serializer_class(dataset, many=True)
+            self.many = True
 
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
@@ -236,7 +255,11 @@ class MyProfileSocials(APIView):
     def get(self, request):
         serializer = SocialSerializer(
             request.user.socialmodel_set.filter(deleted=False).order_by('-created_at'),
-            many=True
+            many=True,
+            context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            }
         )
         return Response(camelize(serializer.data), status=status.HTTP_200_OK)
 
@@ -259,3 +282,379 @@ class MyProfileSocials(APIView):
                 'id__in': id_list,
             })
         return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class Notifications(CRUDAPIView):
+    serializer_class = NotificationSerializer
+    repository_class = NotificationsRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'title': 'title__istartswith',
+        'message': 'message__istartswith',
+    }
+
+    default_order_params = ['-created_at']
+
+    default_filters = {
+        'deleted': False
+    }
+
+    order_params = {
+        'created': 'created_at',
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params
+            )
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class NotificationsSettings(APIView):
+    def get(self, request):
+        serializer = NotificationsSettingsSerializer(
+            request.user.notificationssettings,
+            many=False
+        )
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+    def put(self, request):
+        body = get_request_body(request)
+        types_list = body.get('enabled_types', [])
+        types_list = types_list if isinstance(types_list, list) else [types_list]
+        types_list = list(filter(lambda x: NotificationType.has_value(x), types_list))  # Фильтруем ненужные значения
+
+        request.user.notificationssettings.enabled_types = types_list
+        request.user.notificationssettings.save()
+
+        serializer = NotificationsSettingsSerializer(
+            request.user.notificationssettings,
+            many=False, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            }
+        )
+
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+
+class MyProfileCareer(CRUDAPIView):
+    serializer_class = CareerSerializer
+    repository_class = CareerRepository
+
+    allowed_http_methods = ['get', 'post', 'patch', 'delete']
+
+    filter_params = {
+    }
+
+    default_order_params = ['year_start']
+
+    default_filters = {
+    }
+
+    order_params = {
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs={**filters, **{
+                    'user': request.user
+                }}, paginator=pagination, order_by=order_params
+            )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def post(self, request, **kwargs):
+        body = get_request_body(request)
+        serialized = self.serializer_class(data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def patch(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        body = get_request_body(request)
+        body['user_id'] = request.user.id
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+            serialized = self.serializer_class(dataset, data=body, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            })
+            serialized.is_valid(raise_exception=True)
+            serialized.save()
+        else:
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        if record_id:
+            record = self.repository_class().filter_by_kwargs(
+                {'id': record_id, 'deleted': False, 'user_id': request.user.id}
+            ).first()
+            if record:
+                record.deleted = True
+                record.save()
+        else:
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
+
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class MyProfileDocuments(CRUDAPIView):
+    serializer_class = DocumentSerializer
+    repository_class = DocumentsRepository
+
+    allowed_http_methods = ['get', 'post', 'patch', 'delete']
+
+    filter_params = {
+    }
+
+    default_order_params = ['-created_at']
+
+    default_filters = {
+    }
+
+    order_params = {
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params
+            )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def post(self, request):
+        body = get_request_body(request)
+        body['user_id'] = request.user.id
+
+        serialized = self.serializer_class(data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+
+        document = serialized.save()
+        self.repository_class().update_media(document, body.pop('attach_files', None), request.user)
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def patch(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        body = get_request_body(request)
+        body['user_id'] = request.user.id
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+            serialized = self.serializer_class(dataset, data=body, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            })
+            serialized.is_valid(raise_exception=True)
+            document = serialized.save()
+            self.repository_class().update_media(document, body.pop('attach_files', None), request.user)
+        else:
+            raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        if record_id:
+            record = self.repository_class().filter_by_kwargs(
+                {'id': record_id, 'deleted': False, 'user_id': request.user.id}
+            ).first()
+            if record:
+                record.deleted = True
+                record.save()
+        else:
+            raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
+
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+def read_notification(request, **kwargs):
+    NotificationsRepository().filter_by_kwargs({
+        'id': kwargs.get('record_id'),
+        'read_at__isnull': True
+    }).update(
+        read_at=now(),
+        updated_at=now(),
+    )
+
+    return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+def push_subscribe(request):
+    request = request._request
+    data = get_request_body(request)
+    headers = get_request_headers(request)
+
+    token = chained_get(data, 'token')
+    platform = chained_get(headers, 'Platform')
+
+    if platform:
+        platform = platform.lower()
+        platform = Platform.ANDROID.value if Platform.ANDROID.value in platform else platform
+        platform = Platform.IOS.value if Platform.IOS.value in platform else platform
+
+    if not token:
+        raise CustomException(errors=[
+            dict(Error(ErrorsCodes.EMPTY_REQUIRED_FIELDS, **{'detail': 'Необходимо указать поле token'}))
+        ])
+
+    if platform is None:
+        raise CustomException(errors=[
+            dict(
+                Error(
+                    ErrorsCodes.EMPTY_REQUIRED_FIELDS,
+                    **{'detail': 'Необходимо указать заголовок запроса Platform'}
+                )
+            )
+        ])
+
+    data["type"] = platform
+    data["registration_id"] = token
+    body = json.dumps(data).encode('utf-8')
+    request._body = body
+    FCMDeviceAuthorizedViewSet.as_view({'post': 'create'})(request)
+    return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class PushUnsubscribe(APIView):
+    permission_classes = (AllowAny,)
+
+    @staticmethod
+    def post(request):
+        data = get_request_body(request)
+        FCMDeviceRepository().filter_by_kwargs({
+            'registration_id': data.get('token')
+        }).update(active=False)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+# MANAGERS RELATED VIEWS
+class CreateManagerByAdminAPIView(BaseAPIView):
+    serializer_class = CreateManagerByAdminSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request), context={'request': request})
+        if serializer.is_valid(raise_exception=True):
+            user = serializer.save()
+            password = generate_password()
+            user.set_password(password)
+            user.save()
+            EmailSender(user=user, password=password).send()
+            return Response(ProfileSerializer(instance=user).data)
+        return Response('ok')
+
+
+class GetManagerByUsernameAPIView(BaseAPIView):
+    permission_classes = []
+    serializer_class = UsernameSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            ProfileRepository().get_by_username(username=serializer.validated_data['username'])
+            return Response(status=status.HTTP_200_OK)
+
+
+class AuthenticateManagerAPIView(BaseAPIView):
+    permission_classes = []
+    serializer_class = UsernameWithPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            user = ProfileRepository().get_by_username_and_password(validated_data=serializer.validated_data)
+            headers = get_request_headers(request)
+            jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
+            response_data = {
+                'accessToken': jwt_pair.access_token,
+                'refreshToken': jwt_pair.refresh_token,
+                'password_changed': user.password_changed
+            }
+            return Response(response_data)
+
+
+class ChangeManagerPasswordAPIView(BaseAPIView):
+    serializer_class = PasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            request.user.set_password(raw_password=serializer.validated_data['password'])
+            request.user.password_changed = True
+            request.user.save()
+            return Response(status=status.HTTP_200_OK)
+
+
+class EditManagerProfileView(BaseAPIView):
+    serializer_class = EditManagerProfileSerializer
+
+    def patch(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            username = serializer.validated_data.get('username')
+            if username:
+                ProfileRepository(me=request.user).update_username(username)
+                del serializer.validated_data['username']
+
+            user = ProfileRepository().update(record_id=request.user.id, **serializer.validated_data)
+            return Response(ProfileSerializer(instance=user).data)

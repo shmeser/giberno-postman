@@ -1,13 +1,26 @@
+from channels.db import database_sync_to_async
+from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q, Prefetch
+from django.utils.timezone import now
+from fcm_django.models import FCMDevice
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from app_media.enums import MediaType, MediaFormat
+from app_media.models import MediaModel
+from app_media.versions.v1_0.repositories import MediaRepository
 from app_users.entities import JwtTokenEntity, SocialEntity
-from app_users.enums import AccountType
-from app_users.models import SocialModel, UserProfile, JwtToken
+from app_users.enums import AccountType, NotificationType
+from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification, UserCareer, \
+    Document
+from app_users.utils import validate_username
+from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exception import HttpException, CustomException
+from backend.mappers import DataMapper
 from backend.mixins import MasterRepository
 from backend.repositories import BaseRepository
+from backend.utils import is_valid_uuid
 
 
 class UsersRepository:
@@ -19,15 +32,81 @@ class UsersRepository:
 class AuthRepository:
 
     @staticmethod
-    def get_or_create_social_user(social_data: SocialEntity, account_type=AccountType.SELF_EMPLOYED,
-                                  reference_code=None, base_user: UserProfile = None):
+    def social_registration(social, social_data, defaults, account_type):
+        user, created = UserProfile.objects.get_or_create(socialmodel=social, defaults=defaults)
 
-        # Проверка реферального кода
-        reference_user = None
-        if reference_code:
-            reference_user = UsersRepository.get_reference_user(reference_code)
-            if reference_user is None:
-                raise HttpException(detail='Невалидный реферальный код', status_code=RESTErrors.BAD_REQUEST)
+        if created:
+            # Привязываем пользователя к соцсети
+            social.user = user
+            social.is_for_reg = True
+            social.save()
+            user.email = social_data.email
+
+            # Создаем модель настроек для уведомлений
+            NotificationsSettings.objects.create(
+                user=user,
+                enabled_types=[NotificationType.SYSTEM]
+            )
+        else:
+            # Если ранее уже создан аккаунт и при регистрации указан другой тип аккаунта
+            if user.account_type != account_type:
+                raise HttpException(
+                    detail=ErrorsCodes.ALREADY_REGISTERED_WITH_OTHER_ROLE.value,
+                    status_code=RESTErrors.FORBIDDEN
+                )
+
+            # Подставляем имеил с соцсети, если его нет
+            user.email = social_data.email if not user.email and social_data.email else user.email
+            # Подставляем телефон из соцсети всегда
+            user.phone = social_data.phone if social_data.phone else user.phone
+
+        user.save()
+
+        return user, created
+
+    @staticmethod
+    def social_attaching(social, social_data, base_user):
+        user = UserProfile.objects.filter(socialmodel=social).first()
+
+        if user is not None:
+            # Пользователь для соцсети найден
+
+            if user.id != base_user.id:
+                raise HttpException(
+                    detail=ErrorsCodes.SOCIAL_ALREADY_IN_USE.value,
+                    status_code=RESTErrors.FORBIDDEN
+                )
+            # Найден свой аккаунт
+            # Подставляем имеил с соцсети, если его нет
+            user.email = social_data.email if not user.email and social_data.email else user.email
+            # Подставляем телефон из соцсети всегда
+            user.phone = social_data.phone if social_data.phone else user.phone
+
+            user.save()
+
+            result = user
+
+        else:
+            # Пользователь для соцсети не найден
+
+            # Привязываем ооцсеть к своему base_user
+            social.user = base_user
+            social.save()
+
+            # Подставляем имеил с соцсети, если его нет
+            base_user.email = social_data.email if not base_user.email and social_data.email else base_user.email
+            # Подставляем телефон из соцсети всегда
+            base_user.phone = social_data.phone if social_data.phone else base_user.phone
+
+            base_user.save()
+
+            result = base_user
+
+        return result
+
+    @classmethod
+    def get_or_create_social_user(cls, social_data: SocialEntity, account_type=AccountType.SELF_EMPLOYED,
+                                  base_user: UserProfile = None):
 
         # Получаем способ авторизации
         social, social_created = SocialModel.objects.get_or_create(
@@ -36,8 +115,6 @@ class AuthRepository:
 
         # Получаем или создаем пользователя
         defaults = {
-            'reg_reference': reference_user,
-            'reg_reference_code': reference_code,
             'phone': social_data.phone,
             'first_name': social_data.first_name,
             'last_name': social_data.last_name,
@@ -50,73 +127,13 @@ class AuthRepository:
 
         if base_user is None or base_user.is_anonymous:
             # Если запрос пришел без авторизации (регистрация и содание аккаунта через соцсеть)
-            user, created = UserProfile.objects.get_or_create(socialmodel=social, defaults=defaults)
-
-            if created:
-                # Привязываем пользователя к соцсети
-                social.user = user
-                social.is_for_reg = True
-                social.save()
-                user.email = social_data.email
-            else:
-                # Если ранее уже создан аккаунт и при регистрации указан другой тип аккаунта
-                if user.account_type != account_type:
-                    raise HttpException(
-                        detail=ErrorsCodes.ALREADY_REGISTERED_WITH_OTHER_ROLE.value,
-                        status_code=RESTErrors.FORBIDDEN
-                    )
-
-                # Подставляем имеил с соцсети, если его нет
-                user.email = social_data.email if not user.email and social_data.email else user.email
-                # Подставляем телефон из соцсети всегда
-                user.phone = social_data.phone if social_data.phone else user.phone
-
-            user.save()
-            result = user
+            result, created = cls.social_registration(social, social_data, defaults, account_type)
 
         else:
             # Если происходит привязка соцсети к аккаунту
-            user = UserProfile.objects.filter(socialmodel=social).first()
             created = False
+            result = cls.social_attaching(social, social_data, base_user)
 
-            if user is not None:
-                # Пользователь для соцсети найден
-
-                if user.id != base_user.id:
-                    raise HttpException(
-                        detail=ErrorsCodes.SOCIAL_ALREADY_IN_USE.value,
-                        status_code=RESTErrors.FORBIDDEN
-                    )
-                else:
-                    # Найден свой аккаунт
-
-                    # Подставляем имеил с соцсети, если его нет
-                    user.email = social_data.email if not user.email and social_data.email else user.email
-                    # Подставляем телефон из соцсети всегда
-                    user.phone = social_data.phone if social_data.phone else user.phone
-
-                    user.save()
-
-                result = user
-
-            else:
-                # Пользователь для соцсети не найден
-
-                # Привязываем ооцсеть к своему base_user
-                social.user = base_user
-                social.save()
-
-                # Подставляем имеил с соцсети, если его нет
-                base_user.email = social_data.email if not base_user.email and social_data.email else base_user.email
-                # Подставляем телефон из соцсети всегда
-                base_user.phone = social_data.phone if social_data.phone else base_user.phone
-
-                base_user.save()
-
-                result = base_user
-
-        # Создаем модель настроек
-        # TODO
         return result, created
 
 
@@ -203,8 +220,21 @@ class JwtRepository:
         return JwtToken.objects.create(**JwtTokenEntity(user, access_token, refresh_token).get_kwargs())
 
 
+class AsyncJwtRepository(JwtRepository):
+    def __init__(self) -> None:
+        super().__init__()
+
+    @database_sync_to_async
+    def get_user(self, token):
+        return super().get_user(token)
+
+
 class ProfileRepository(MasterRepository):
     model = UserProfile
+
+    def __init__(self, me=None) -> None:
+        self.me = me
+        super().__init__()
 
     def get_by_id(self, record_id):
         try:
@@ -212,5 +242,162 @@ class ProfileRepository(MasterRepository):
         except self.model.DoesNotExist:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
-                detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
+
+    def get_by_username(self, username):
+        username = username.lower()
+        try:
+            return self.model.objects.get(username=username)
+        except self.model.DoesNotExist:
+            raise HttpException(
+                status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
+                detail=ErrorsCodes.USERNAME_WRONG.value
+            )
+
+    def get_by_username_and_password(self, validated_data):
+        user = self.get_by_username(username=validated_data['username'].lower())
+        if not user.check_password(validated_data['password']):
+            raise HttpException(
+                status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
+                detail=ErrorsCodes.WRONG_PASSWORD.value
+            )
+        return user
+
+    def update_location(self, data):
+        point = DataMapper.geo_point(data)
+        self.me.location = point
+        self.me.save()
+        return self.me
+
+    def update_username(self, username):
+        username = validate_username(username=username)
+        if self.me.username == username:
+            return
+
+        taken = self.model.objects.filter(username=username)
+        if taken.count():
+            raise HttpException(
+                status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
+                detail=ErrorsCodes.USERNAME_TAKEN.value
+            )
+
+        self.me.username = username
+        self.me.save()
+
+
+
+class AsyncProfileRepository(ProfileRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    @database_sync_to_async
+    def get_by_id(self, record_id):
+        return super().get_by_id(record_id)
+
+    @database_sync_to_async
+    def update_location(self, event):
+        super().__init__(self.me)
+        return super().update_location(event)
+
+
+class NotificationsRepository(MasterRepository):
+    model = Notification
+
+    def get_by_id(self, record_id):
+        record = self.model.objects.filter(id=record_id)
+        record = self.fast_related_loading(record).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.model.objects.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.model.objects.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.model.objects.filter(**kwargs)
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
+
+    @staticmethod
+    def fast_related_loading(queryset, point=None):
+        """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
+             Media
+        """
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа для магазинов
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    type=MediaType.NOTIFICATION_ICON.value,
+                    owner_ct_id=ContentType.objects.get_for_model(Notification).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+            )
+        )
+
+        return queryset
+
+
+class FCMDeviceRepository(MasterRepository):
+    model = FCMDevice
+
+
+class NotificationsSettingsRepository(MasterRepository):
+    model = NotificationsSettings
+
+
+class CareerRepository(MasterRepository):
+    model = UserCareer
+
+
+class DocumentsRepository(MasterRepository):
+    model = Document
+
+    def update_media(self, instance, files_uuid, me):
+        if files_uuid is not None and isinstance(files_uuid, list):  # Обрабатываем только массив
+            try:
+                # Отфильтровываем невалидные uuid
+                files_uuid = list(filter(lambda x: is_valid_uuid(x), files_uuid))
+
+                user_ct = ContentType.objects.get_for_model(me)
+                document_ct = ContentType.objects.get_for_model(instance)
+                # Получаем массив uuid всех прикрепленных к документу файлов
+
+                # Получаем массив uuid файлов которые прикреплены к документу но не пришли в списке прикрепляемых
+                # и перепривязываем их к обратно пользователю (или удаляем)
+                instance.media \
+                    .all() \
+                    .exclude(uuid__in=files_uuid) \
+                    .update(deleted=True)
+
+                # Получаем из бд массив загруженных файлов, которые нужно прикрепить к документу
+                # Получаем список файлов
+
+                # Находим список всех прикрепленных файлов
+                # Добавляем или обновляем языки пользователя
+                MediaRepository().filter(
+                    Q(uuid__in=files_uuid, owner_ct=document_ct, owner_id=instance.id) |
+                    Q(uuid__in=files_uuid, owner_ct=user_ct, owner_id=me.id)
+                ).update(
+                    updated_at=now(),
+                    owner_ct=document_ct,
+                    owner_ct_name=document_ct.model,
+                    owner_id=instance.id
+                )
+            except Exception as e:
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT, **{'detail': str(e)}))
+                ])

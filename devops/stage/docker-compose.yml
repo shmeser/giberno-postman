@@ -10,7 +10,7 @@ services:
     networks:
       - giberno_stage
   db:
-    image: postgis/postgis:13-3.0
+    image: shmeser/postgis-plpython3:latest
     restart: always
     networks:
       - giberno_stage
@@ -30,6 +30,7 @@ services:
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
       HOST_DOMAIN: ${ST_HOST_DOMAIN}
+      HOST_IP: ${ST_HOST_IP}
       DB_HOST: db
       DB_NAME: ${ST_POSTGRES_DB}
       DB_USER: ${ST_POSTGRES_USER}
@@ -39,9 +40,11 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_PASSWORD: ${TELEGRAM_BOT_PASSWORD}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY}
-      SERVER_KEY: ${SERVER_KEY}
+      SECRET_KEY: ${ST_SECRET_KEY}
       VK_APP_ID: ${DEV_VK_APP_ID}
       VK_APP_SECRET: ${DEV_VK_APP_SECRET}
+      API_PORT: ${ST_API_PORT}
+      DEBUG: ${DEBUG}
     ports:
       - "127.0.0.1:${ST_API_PORT}:${ST_API_PORT}"
     networks:
@@ -64,7 +67,7 @@ services:
       SUPERUSER_PASS: ${ST_SUPERUSER_PASS}
       ENVIRONMENT: ${ST_ENVIRONMENT}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY}
-      SERVER_KEY: ${SERVER_KEY}
+      SECRET_KEY: ${ST_SECRET_KEY}
     depends_on:
       - db
       - redis

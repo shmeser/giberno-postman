@@ -30,6 +30,7 @@ services:
       REDIS_HOST: redis
       CELERY_BROKER: redis://redis:6379/0
       HOST_DOMAIN: ${RL_HOST_DOMAIN}
+      HOST_IP: ${RL_HOST_IP}
       DB_HOST: db
       DB_NAME: ${RL_POSTGRES_DB}
       DB_USER: ${RL_POSTGRES_USER}
@@ -39,9 +40,10 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_PASSWORD: ${TELEGRAM_BOT_PASSWORD}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY}
-      SERVER_KEY: ${SERVER_KEY}
+      SECRET_KEY: ${RL_SECRET_KEY}
       VK_APP_ID: ${VK_APP_ID}
       VK_APP_SECRET: ${VK_APP_SECRET}
+      API_PORT: ${RL_API_PORT}
     ports:
       - "127.0.0.1:${RL_API_PORT}:${RL_API_PORT}"
     networks:
@@ -64,7 +66,7 @@ services:
       SUPERUSER_PASS: ${RL_SUPERUSER_PASS}
       ENVIRONMENT: ${RL_ENVIRONMENT}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY}
-      SERVER_KEY: ${SERVER_KEY}
+      SECRET_KEY: ${RL_SECRET_KEY}
     depends_on:
       - db
       - redis

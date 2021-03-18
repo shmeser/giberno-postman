@@ -2,15 +2,43 @@ import io
 import logging
 import os
 import traceback
+
 import requests
 
-from backend.utils import CP
-from giberno.environment.environments import Environment
+from app_bot.enums import TelegramBotNotificationType
+from backend.enums import Environment
+from backend.utils import get_request_body, get_request_headers
 from giberno.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_URL
-from app_bot.enums import BotNotificationType
 
 
 class TelegramFormatter(logging.Formatter):
+
+    def recursive_tab_str(self, data_dict, tab=0):
+        if not isinstance(data_dict, dict):
+            return data_dict
+        brackets_ident = ''
+        tab_str = "  "
+        values_ident = tab_str
+        iteration = 0
+        keys_count = len(data_dict)
+        i = 0
+
+        while i < tab:
+            brackets_ident += tab_str
+            values_ident += tab_str
+            i += 1
+        result = brackets_ident + "{\n"
+        for k, v in data_dict.items():
+            iteration += 1
+            eol = ",\n" if keys_count != iteration else ""
+
+            if isinstance(v, dict):
+                result += values_ident + f"'{k}': {self.recursive_tab_str(v, tab + 1)}" + eol
+            else:
+                result += values_ident + f"'{k}': {v}" + eol
+
+        return result + "\n" + brackets_ident + "}"
+
     meta_attrs = [
         'REMOTE_ADDR',
         'HOSTNAME',
@@ -19,18 +47,24 @@ class TelegramFormatter(logging.Formatter):
     limit = -1  # default per logging.Formatter is None
 
     def format(self, record):
-        s = super().format(record)
+        s = f"SERVER: {os.getenv('ENVIRONMENT', Environment.LOCAL.value)}"
+        s += f"\nUSER: {record.request.user}"
 
-        s += "\n{attr}: {value}".format(
-            attr='USER',
-            value=record.request.user
-        )
         for attr in self.meta_attrs:
             if attr in record.request.META:
-                s += "\n{attr}: {value}".format(
-                    attr=attr,
-                    value=record.request.META[attr]
-                )
+                s += f"\n{attr}: {record.request.META[attr]}"
+
+        if record.request.headers:
+            headers = get_request_headers(record.request)
+            s += f"\nHEADERS: {self.recursive_tab_str(headers)}"
+
+        if record.request.body:
+            body = get_request_body(record.request)
+            s += f"\nBODY: {self.recursive_tab_str(body)}"
+
+        s += '\n\n ------------------------ \n\n'
+        s += super().format(record)
+
         return s
 
     def formatException(self, ei):
@@ -48,26 +82,13 @@ class TelegramFormatter(logging.Formatter):
 class BotSender:
     @staticmethod
     def send_message(message, notification_type):
-        """
-        Проверка environments
-        Если local то отправлять сообщения несмотря на настройку environments в чате
-        """
-
         from app_bot.repositories import BotRepository
 
-        # Проверяем какой сервер используется по указанному Environments
-        if os.getenv('ENVIRONMENTS', Environment.LOCAL) in [
-            Environment.RELEASE.value,
-            Environment.DEVELOP.value,
-            Environment.LOCAL.value
-        ]:
-            if notification_type == BotNotificationType.DEBUG.value:
-                chats = BotRepository.get_chats_by_notification_types(
-                    BotNotificationType.DEBUG.value, approved=True
-                )
-            else:
-                chats = []
-
+        if notification_type == TelegramBotNotificationType.DEBUG.value:
+            chats = BotRepository.get_chats_by_notification_types(
+                TelegramBotNotificationType.DEBUG.value,
+                approved=True
+            )
         else:
             chats = []
 
@@ -81,13 +102,13 @@ class BotSender:
             BotRepository.create_message(chat, **{
                 "is_bot": True,
                 "text": message,
-                "username": "TreepBot"
+                "username": "GibernoBot",
+                "chat_type": chat.type
             })
 
-            response = requests.post(
+            requests.post(
                 f"{TELEGRAM_URL}{TELEGRAM_BOT_TOKEN}/sendMessage", data=prepared_data
             )
-            CP(bg='red', fg='yellow', sp=2).bold(data=response)
 
 
 class BotLogger(logging.Handler):
@@ -97,4 +118,4 @@ class BotLogger(logging.Handler):
         self.setFormatter(TelegramFormatter())
 
     def emit(self, record):
-        BotSender.send_message(self.format(record), BotNotificationType.DEBUG.value)
+        BotSender.send_message(self.format(record), TelegramBotNotificationType.DEBUG.value)

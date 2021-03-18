@@ -1,12 +1,25 @@
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.shortcuts import render
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
+from app_media.versions.v1_0.serializers import MediaSerializer
+from app_users.permissions import IsAdmin
 from app_users.versions.v1_0 import views as v1_0
+from app_users.versions.v1_0.serializers import FirebaseAuthRequestDescriptor, FirebaseAuthResponseDescriptor, \
+    RefreshTokenSerializer, CreateManagerByAdminSerializer, ProfileSerializer, UsernameSerializer, \
+    UsernameWithPasswordSerializer, ManagerAuthenticateResponseForSwagger, PasswordSerializer, \
+    EditManagerProfileSerializer, NotificationSerializer, NotificationsSettingsSerializer, CareerSerializer, \
+    DocumentSerializer, SocialSerializer
+from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException
+
+SWAGGER_RESPONSE_DESCRIPTION = 'response description'
 
 
 @api_view(['GET'])
@@ -26,10 +39,12 @@ def login(request):
     return render(request, 'app_users/login.html')
 
 
-class AuthVk(APIView):
+class AuthVk(BaseAPIView):
     permission_classes = (AllowAny,)
 
     @staticmethod
+    @swagger_auto_schema(
+        responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, FirebaseAuthResponseDescriptor)})
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.AuthVk(request).post(request)
@@ -37,10 +52,13 @@ class AuthVk(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class AuthFirebase(APIView):
+class AuthFirebase(BaseAPIView):
     permission_classes = (AllowAny,)
+    serializer_class = FirebaseAuthRequestDescriptor
 
     @staticmethod
+    @swagger_auto_schema(
+        responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, FirebaseAuthResponseDescriptor)})
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.AuthFirebase.post(request)
@@ -48,10 +66,13 @@ class AuthFirebase(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class AuthRefreshToken(APIView):
+class AuthRefreshToken(BaseAPIView):
     permission_classes = (AllowAny,)
+    serializer_class = RefreshTokenSerializer
 
     @staticmethod
+    @swagger_auto_schema(
+        responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, FirebaseAuthResponseDescriptor)})
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.AuthRefreshToken().post(request)
@@ -85,6 +106,7 @@ class ReferenceCode(APIView):
 
 class Users(APIView):
     @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, ProfileSerializer)})
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.Users().get(request, **kwargs)
@@ -94,6 +116,7 @@ class Users(APIView):
 
 class MyProfile(APIView):
     @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, ProfileSerializer)})
     def get(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfile().get(request)
@@ -106,8 +129,38 @@ class MyProfile(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+class MyProfileCareer(APIView):
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, CareerSerializer)})
+    def get(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileCareer().get(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, CareerSerializer)})
+    def post(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileCareer().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, CareerSerializer)})
+    def patch(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileCareer().patch(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileCareer().delete(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class MyProfileUploads(APIView):
     @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, MediaSerializer)})
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileUploads().post(request)
@@ -122,6 +175,7 @@ class MyProfileUploads(APIView):
 
 class MyProfileSocials(APIView):
     @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, SocialSerializer)})
     def get(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileSocials().get(request)
@@ -131,4 +185,168 @@ class MyProfileSocials(APIView):
     def delete(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileSocials().delete(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class MyProfileDocuments(APIView):
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, DocumentSerializer)})
+    def get(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileDocuments().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, DocumentSerializer)})
+    def post(request):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileDocuments().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, DocumentSerializer)})
+    def patch(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileDocuments().patch(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, DocumentSerializer)})
+    def delete(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileDocuments().delete(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class Notifications(APIView):
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, NotificationSerializer)})
+    def get(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.Notifications().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class NotificationsSettings(APIView):
+    @staticmethod
+    @swagger_auto_schema(
+        responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, NotificationsSettingsSerializer)})
+    def get(request):
+        if request.version in ['users_1_0']:
+            return v1_0.NotificationsSettings().get(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(
+        responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, NotificationsSettingsSerializer)})
+    def put(request):
+        if request.version in ['users_1_0']:
+            return v1_0.NotificationsSettings().put(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def read_notification(request, **kwargs):
+    if request.version in ['users_1_0']:
+        return v1_0.read_notification(request._request, **kwargs)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+# PUSH SUBSCRIBE
+@api_view(['POST'])
+def push_subscribe(request, **kwargs):
+    if request.version in ['users_1_0']:
+        return v1_0.push_subscribe(request._request)
+
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+# PUSH UNSUBSCRIBE
+class PushUnsubscribe(APIView):
+    permission_classes = (AllowAny,)
+
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.PushUnsubscribe.post(request)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+# MANAGERS RELATED VIEWS
+class CreateManagerByAdminAPIView(BaseAPIView):
+    """
+    Создание менеджера через админ.панель Суперменеджера.
+    Логин и пароль для первого входа менеджера автоматически отправляются ему на e-mail
+    в момент его создания.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+    serializer_class = CreateManagerByAdminSerializer
+    response_description = openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, ProfileSerializer)
+
+    @transaction.atomic
+    @swagger_auto_schema(responses={200: response_description})
+    def post(self, request, *args, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.CreateManagerByAdminAPIView().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class GetManagerByUsernameAPIView(BaseAPIView):
+    """
+    Ввод логина со стороны менеджера
+    """
+    permission_classes = []
+    serializer_class = UsernameSerializer
+
+    def post(self, request, *args, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.GetManagerByUsernameAPIView().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AuthenticateManagerAPIView(BaseAPIView):
+    """
+    Ввод логина и пароля со стороны менеджера
+
+    """
+    permission_classes = []
+    serializer_class = UsernameWithPasswordSerializer
+
+    response_description = openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, ManagerAuthenticateResponseForSwagger)
+
+    @swagger_auto_schema(responses={200: response_description})
+    def post(self, request, *args, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.AuthenticateManagerAPIView().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class ChangeManagerPasswordAPIView(BaseAPIView):
+    """
+    Изменение пароля со стороны менеджера.
+    (В случае первого входа Пользователю предлагается создать собственный пароль.)
+    """
+    serializer_class = PasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.ChangeManagerPasswordAPIView().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class EditManagerProfileView(BaseAPIView):
+    """
+    Редактирование профиля менеджера : доступно изменение полей: Имя, Отчество и Фамилия.
+    """
+    serializer_class = EditManagerProfileSerializer
+
+    response_description = openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, ProfileSerializer)
+
+    @swagger_auto_schema(responses={200: response_description})
+    @transaction.atomic
+    def patch(self, request, *args, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.EditManagerProfileView().patch(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
