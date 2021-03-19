@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer
-from app_market.enums import ShiftStatus
+from app_market.enums import ShiftStatus, ShiftAppealStatus
 from app_market.models import UserShift, ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository
@@ -537,6 +537,28 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(ReviewsBaseAPIView):
         }
         queryset = self.get_request_repository_class().filter_by_kwargs(kwargs=kwargs, paginator=pagination)
         return Response(ReviewModelSerializer(instance=queryset, many=True).data)
+
+
+class ConfirmAppealByManagerAPIView(CRUDAPIView):
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        appeal = ShiftAppealsRepository().get_by_id(record_id=record_id)
+        appeal.status = ShiftAppealStatus.CONFIRMED
+        UserShift.objects.get_or_create(
+            user=appeal.applier,
+            shift=appeal.shift,
+            real_time_start=appeal.shift.time_start,
+            real_time_end=appeal.shift.time_end
+        )
+        return Response(None, status=status.HTTP_200_OK)
+
+
+class RejectAppealByManagerAPIView(CRUDAPIView):
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        appeal = ShiftAppealsRepository().get_by_id(record_id=record_id)
+        appeal.status = ShiftAppealStatus.REJECTED
+        return Response(None, status=status.HTTP_200_OK)
 
 
 class ToggleLikeVacancy(APIView):

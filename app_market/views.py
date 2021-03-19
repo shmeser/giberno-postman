@@ -313,6 +313,34 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+class ConfirmAppealByManagerAPIView(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('ok')})
+    def get(request, **kwargs):
+        '''
+        подтвердить отклик на вакансию (подтверждают Администраторы\менеджеры))
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.ConfirmAppealByManagerAPIView().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class RejectAppealByManagerAPIView(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('ok')})
+    def get(request, **kwargs):
+        '''
+        отклонить отклик на вакансию (отклоняют Администраторы\менеджеры))
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.RejectAppealByManagerAPIView().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class ToggleLikeVacancy(APIView):
     """
     Лайкнуть/отлайкнуть. работает один и тот же метод. Если нет лайка - добавит. Если есть - удалит
