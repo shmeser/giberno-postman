@@ -34,13 +34,13 @@ def generate_username():
 
     allowed = string.ascii_lowercase + string.ascii_uppercase
 
-    return ''.join(random.choice(allowed) for i in range(limit)).lower()
+    return ''.join(random.choice(allowed) for _ in range(limit)).lower()
 
 
 def generate_password():
     limit = random.randrange(10, 20)
     allowed = string.ascii_lowercase + string.ascii_uppercase + string.digits
-    return ''.join(random.choice(allowed) for i in range(limit))
+    return ''.join(random.choice(allowed) for _ in range(limit))
 
 
 def validate_username(username):

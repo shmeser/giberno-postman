@@ -53,14 +53,6 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
             'attachmentUrl': content['attachmentUrl'],
             'text': content['text'],
         })
-        # socket_event = SocketEventRM(content)
-
-        # if socket_event.event_type == SocketEventType.LEAVE_GROUP:
-        #     await self.leave_group(socket_event)
-        #     return
-        #
-        # if socket_event.event_type == SocketEventType.REGISTER_PROFILE:
-        #     await self.register_profiles(socket_event)
 
     async def disconnect(self, code):
         try:
@@ -129,7 +121,6 @@ class Consumer(AsyncJsonWebsocketConsumer):
                 'lat': event.lat,
                 'lon': event.lon,
             })
-            # self.user = await self.socket_controller.update_location(event)
         except SocketError as error:
             await self.socket_controller.send_system_message(error.code, error.message)
 

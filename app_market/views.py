@@ -4,13 +4,13 @@ from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer
+from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
+    POSTReviewByManagerSerializer
 from app_market.versions.v1_0 import views as v1_0
 from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
     ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer, \
-    VacanciesClusterSerializer, VacanciesListForManagerSerializer, SingleVacancyForManagerSerializer, \
-    AppliedUsersByVacancyForManagerSerializer
-from app_users.permissions import IsManager
+    VacanciesClusterSerializer, ShiftAppealsSerializer, VacancySerializer
+from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException
@@ -45,17 +45,42 @@ class Vacancies(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+class ApplyToShiftAPIView(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsSelfEmployed]
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('OK')})
+    def get(request, **kwargs):
+        '''
+        Откликнуться на рабочую смену
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.ApplyToShiftAPIView().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={204: openapi.Response('No Content')})
+    def delete(request, **kwargs):
+        '''
+        Удалить отклик на рабочую смену
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.ApplyToShiftAPIView().delete(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class GetVacanciesByManagerShopAPIView(BaseAPIView):
     """
     Получение списка вакансий, которые закреплены за  магазином\магазинами менеджера
     возможные query параметры :
-    available_from=год-месяц-день
-    Это дата с которой вакансия доступна
+    available_from= Int, milliseconds ( Это дата с которой вакансия доступна)
+    offset : int
+    limit : int
     """
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesListForManagerSerializer)})
+    @swagger_auto_schema(responses={200: openapi.Response('response description', VacancySerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.GetVacanciesByManagerShopAPIView().get(request)
@@ -64,27 +89,52 @@ class GetVacanciesByManagerShopAPIView(BaseAPIView):
 
 class GetSingleVacancyForManagerAPIView(BaseAPIView):
     """
-    Просмотр конкретной вакансии со стороны менеджера
+    Просмотр конкретной вакансии (среди прикрепленных к своему магазину) со стороны менеджера
+
     """
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', SingleVacancyForManagerSerializer)})
+    @swagger_auto_schema(responses={200: openapi.Response('response description', VacancySerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.GetSingleVacancyForManagerAPIView().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class GetAppliedUsersByVacancyForManagerAPIView(BaseAPIView):
+class GetVacancyAppealsForManagerAPIView(BaseAPIView):
+    """
+    Просмотр Списка откликнувшихся на вакансию со стороны менеджера
+    Параметры :
+    limit
+    offset
+    shift : int (фильтр по смене)
+
+    """
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description',
-                                                          AppliedUsersByVacancyForManagerSerializer)})
+                                                          ShiftAppealsSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
-            return v1_0.GetAppliedUsersByVacancyForManagerAPIView().get(request, **kwargs)
+            return v1_0.GetVacancyAppealsForManagerAPIView().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class GetSingleAppealForManagerAPIView(BaseAPIView):
+    """
+    Просмотр конкретного отклика со стороны менеджера
+    """
+
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description',
+                                                          ShiftAppealsSerializer)})
+    def get(request, *args, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.GetSingleAppealForManagerAPIView().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
@@ -103,6 +153,21 @@ class Shifts(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Shifts().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class UserShiftsAPIView(BaseAPIView):
+    """
+    Возвращает список смен пользователя
+    можно фильтровать по статусу смены.
+    """
+    permission_classes = [IsAuthenticated, IsSelfEmployed]
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', UserShiftSerializer)})
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.UserShiftsAPIView().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
@@ -217,6 +282,61 @@ class DistributorReviewsAPIView(BaseAPIView):
         '''
         if request.version in ['market_1_0']:
             return v1_0.DistributorReviewsAPIView().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+    serializer_class = POSTReviewByManagerSerializer
+
+    @staticmethod
+    @swagger_auto_schema(responses={204: 'No Content'})
+    def post(request, **kwargs):
+        '''
+        Отзывы на самозанятого (оставляют Администраторы\менеджеры)
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.SelfEmployedUserReviewsByAdminOrManagerAPIView().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
+    def get(request, **kwargs):
+        '''
+        Получить список отзывов на самозанятого (получают Администраторы\менеджеры))
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.SelfEmployedUserReviewsByAdminOrManagerAPIView().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class ConfirmAppealByManagerAPIView(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('ok')})
+    def get(request, **kwargs):
+        '''
+        подтвердить отклик на вакансию (подтверждают Администраторы\менеджеры))
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.ConfirmAppealByManagerAPIView().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class RejectAppealByManagerAPIView(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('ok')})
+    def get(request, **kwargs):
+        '''
+        отклонить отклик на вакансию (отклоняют Администраторы\менеджеры))
+        '''
+        if request.version in ['market_1_0']:
+            return v1_0.RejectAppealByManagerAPIView().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 

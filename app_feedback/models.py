@@ -26,6 +26,9 @@ class Review(GenericSourceTargetBase):
 
     region = models.ForeignKey(to=Region, on_delete=models.SET_NULL, null=True, blank=True)
 
+    # Отзывы на самозанятого(оставляют Администраторы\менеджеры) на  базе конкретной вакансии
+    shift = models.ForeignKey(to='app_market.Shift', on_delete=models.SET_NULL, null=True, blank=True)
+
     def __str__(self):
         return f'{self.id} - {self.owner_ct_name}=>{self.target_ct_name} - {self.text}'
 
