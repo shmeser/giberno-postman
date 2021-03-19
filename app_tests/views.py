@@ -8,7 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app_market.models import Distributor, Shop, Vacancy, Shift, ShiftAppeal
+from app_market.models import Distributor, Shop, Vacancy, Shift, ShiftAppeal, UserShift
+from app_market.utils import QRHandler
 from app_sockets.controllers import SocketController
 from app_users.enums import AccountType
 from app_users.models import UserProfile
@@ -78,7 +79,7 @@ class SeedDataForMarketAppAPIView(APIView):
             for item in range(limit * limit):
                 Shop.objects.create(
                     distributor=random.choice(distributors),
-                    title=f"""Shop {item +1}"""
+                    title=f"""Shop {item + 1}"""
                 )
 
         print('Shops seed complete')
@@ -93,7 +94,7 @@ class SeedDataForMarketAppAPIView(APIView):
             for item in range(limit * limit):
                 Vacancy.objects.create(
                     shop=random.choice(shops),
-                    title=f"""Vacancy {item+1}"""
+                    title=f"""Vacancy {item + 1}"""
                 )
 
         print('Vacancies seed complete')
@@ -113,6 +114,20 @@ class SeedDataForMarketAppAPIView(APIView):
         for user in self_employed_users:
             ShiftAppeal.objects.create(applier=user, shift=random.choice(shifts))
         print('ShiftAppeal seed complete')
+
+        shift_appeals = ShiftAppeal.objects.all()
+        for shift_appeal in shift_appeals:
+            UserShift.objects.create(
+                user=shift_appeal.applier,
+                shift=shift_appeal.shift
+            )
+
+        print('UserShifts seed complete')
+        user_shifts = UserShift.objects.all()
+        for user_shift in user_shifts:
+            user_shift.qr_data = QRHandler(user_shift).create_qr_data()
+            user_shift.save()
+
         return Response('seed complete')
 
 

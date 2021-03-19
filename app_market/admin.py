@@ -46,7 +46,7 @@ class ShiftAdmin(FormattedAdmin):
 
 @admin.register(UserShift)
 class UserShiftAdmin(FormattedAdmin):
-    list_display = ['id', 'real_time_start', 'real_time_end', 'qr_code', 'qr_code_gen_at']
+    list_display = ['id', 'real_time_start', 'real_time_end', 'qr_data', 'qr_code_gen_at']
     list_filter = ["status"]
     raw_id_fields = ['user', 'shift']
 
