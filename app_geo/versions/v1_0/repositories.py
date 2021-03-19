@@ -143,10 +143,6 @@ class CitiesRepository(MasterRepository):
         queryset = self.filter_by_kwargs(kwargs, paginator, order_by, prefetch=False)
 
         return self.clustering(queryset)
-        # return self.fast_related_loading(  # Предзагрузка связанных сущностей
-        #     queryset=self.clustering(queryset),
-        #     point=self.point
-        # )
 
     def clustering(self, queryset):
         """

@@ -8,7 +8,7 @@ from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
-    DateTimeField, Lookup, Field, DateField, Sum, FloatField, ExpressionWrapper, Subquery, OuterRef
+    DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef
 from django.db.models.functions import Cast, Concat
 from django.utils.timezone import now, localtime
 from pytz import timezone
@@ -610,9 +610,6 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         :param queryset: Отфильтрованные по области на экране данные
         :return:
         """
-
-        shop_ct = ContentType.objects.get_for_model(Shop)
-        vacancy_ct = ContentType.objects.get_for_model(Vacancy)
 
         raw_sql = f'''
             WITH clusters AS (

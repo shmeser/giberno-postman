@@ -14,6 +14,7 @@ from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType, NotificationType
 from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification, UserCareer, \
     Document
+from app_users.utils import validate_username
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
@@ -247,20 +248,21 @@ class ProfileRepository(MasterRepository):
             )
 
     def get_by_username(self, username):
+        username = username.lower()
         try:
             return self.model.objects.get(username=username)
         except self.model.DoesNotExist:
             raise HttpException(
-                status_code=RESTErrors.NOT_FOUND.value,
-                detail=f'Логин введен неверно'
+                status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
+                detail=ErrorsCodes.USERNAME_WRONG.value
             )
 
     def get_by_username_and_password(self, validated_data):
-        user = self.get_by_username(username=validated_data['username'])
+        user = self.get_by_username(username=validated_data['username'].lower())
         if not user.check_password(validated_data['password']):
             raise HttpException(
-                status_code=RESTErrors.NOT_FOUND.value,
-                detail=f'Пароль введен неверно'
+                status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
+                detail=ErrorsCodes.WRONG_PASSWORD.value
             )
         return user
 
@@ -269,6 +271,21 @@ class ProfileRepository(MasterRepository):
         self.me.location = point
         self.me.save()
         return self.me
+        
+    def update_username(self, username):
+        username = validate_username(username=username)
+        if self.me.username == username:
+            return
+
+        taken = self.model.objects.filter(username=username)
+        if taken.count():
+            raise HttpException(
+                status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
+                detail=ErrorsCodes.USERNAME_TAKEN.value
+            )
+
+        self.me.username = username
+        self.me.save()
 
     def make_review_by_manager(self, record_id, shift, text, value, point=None):
         # TODO добавить загрузку attachments
