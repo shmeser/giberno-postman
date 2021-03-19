@@ -5,6 +5,7 @@ from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 
+from app_feedback.models import Review
 from app_geo.models import Language, Country, City
 from app_media.models import MediaModel
 from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction, \
@@ -85,6 +86,11 @@ class UserProfile(AbstractUser, BaseModel):
     # конкретные магазины к которым прикреплен менеджер
     manager_shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины',
                                            related_name='manager_shops')
+
+    # у самозанятых есть рейтинг формирующийся на основе отзывов со стороны манагеров и админов
+    rating = models.FloatField(default=0, verbose_name='Рейтинг пользователя')
+    rates_count = models.PositiveIntegerField(default=0, verbose_name='Количество оценок пользователя')
+    reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
 
     @property
     def is_manager(self):
