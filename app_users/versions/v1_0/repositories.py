@@ -1,10 +1,12 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q, Prefetch
+from django.db.models import Q, Prefetch, Subquery, OuterRef, ExpressionWrapper, Sum, Count, FloatField
 from django.utils.timezone import now
 from fcm_django.models import FCMDevice
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from app_feedback.models import Review
+from app_geo.models import Region
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -17,7 +19,7 @@ from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exception import HttpException, CustomException
 from backend.mappers import DataMapper
-from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
+from backend.mixins import MasterRepository
 from backend.repositories import BaseRepository
 from backend.utils import is_valid_uuid
 
@@ -228,7 +230,7 @@ class AsyncJwtRepository(JwtRepository):
         return super().get_user(token)
 
 
-class ProfileRepository(MakeReviewMethodProviderRepository):
+class ProfileRepository(MasterRepository):
     model = UserProfile
 
     def __init__(self, me=None) -> None:
@@ -267,6 +269,67 @@ class ProfileRepository(MakeReviewMethodProviderRepository):
         self.me.location = point
         self.me.save()
         return self.me
+
+    def make_review_by_manager(self, record_id, shift, text, value, point=None):
+        # TODO добавить загрузку attachments
+        owner_content_type = ContentType.objects.get_for_model(self.me)
+        owner_ct_id = owner_content_type.id
+        owner_ct_name = owner_content_type.model
+        owner_id = self.me.id
+
+        target_content_type = ContentType.objects.get_for_model(self.model)
+        target_ct_id = target_content_type.id
+        target_ct_name = target_content_type.model
+        target_id = record_id
+
+        region = Region.objects.filter(boundary__covers=point).first() if point else None
+
+        if not Review.objects.filter(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                shift=shift,
+                deleted=False
+        ).exists():
+            Review.objects.create(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                owner_ct_name=owner_ct_name,
+
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                target_ct_name=target_ct_name,
+
+                value=value,
+                text=text,
+                region=region,
+                shift=shift
+            )
+
+            # Пересчитываем количество оценок и рейтинг
+            self.model.objects.filter(pk=record_id).update(
+                # в update нельзя использовать результаты annotate
+                # используем annotate в Subquery
+                rating=Subquery(
+                    self.model.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rating=ExpressionWrapper(
+                            Sum('reviews__value') / Count('reviews'),
+                            output_field=FloatField()
+                        )
+                    ).values('calculated_rating')[:1]
+                ),
+                rates_count=Subquery(
+                    self.model.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rates_count=Count('reviews'),
+                    ).values('calculated_rates_count')[:1]
+                ),
+                updated_at=now()
+            )
 
 
 class AsyncProfileRepository(ProfileRepository):

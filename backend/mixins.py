@@ -16,7 +16,6 @@ from rest_framework.views import APIView
 from app_feedback.models import Review
 from app_geo.models import Region
 from app_media.enums import MimeTypes
-from app_users.models import UserProfile
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.enums import RESTErrors

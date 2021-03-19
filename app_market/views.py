@@ -4,12 +4,12 @@ from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer
+from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
+    POSTReviewByManagerSerializer
 from app_market.versions.v1_0 import views as v1_0
 from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
     ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer, \
-    VacanciesClusterSerializer, VacanciesForManagerSerializer, \
-    ShiftAppealsListSerializer, SingleShiftAppealSerializer
+    VacanciesClusterSerializer, ShiftAppealsSerializer, VacancySerializer
 from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -74,14 +74,13 @@ class GetVacanciesByManagerShopAPIView(BaseAPIView):
     Получение списка вакансий, которые закреплены за  магазином\магазинами менеджера
     возможные query параметры :
     available_from= Int, milliseconds ( Это дата с которой вакансия доступна)
-
     offset : int
     limit : int
     """
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesForManagerSerializer)})
+    @swagger_auto_schema(responses={200: openapi.Response('response description', VacancySerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.GetVacanciesByManagerShopAPIView().get(request)
@@ -96,7 +95,7 @@ class GetSingleVacancyForManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesForManagerSerializer)})
+    @swagger_auto_schema(responses={200: openapi.Response('response description', VacancySerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.GetSingleVacancyForManagerAPIView().get(request, **kwargs)
@@ -109,13 +108,14 @@ class GetVacancyAppealsForManagerAPIView(BaseAPIView):
     Параметры :
     limit
     offset
+    shift : int (фильтр по смене)
 
     """
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description',
-                                                          ShiftAppealsListSerializer)})
+                                                          ShiftAppealsSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.GetVacancyAppealsForManagerAPIView().get(request, **kwargs)
@@ -131,7 +131,7 @@ class GetSingleAppealForManagerAPIView(BaseAPIView):
 
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description',
-                                                          SingleShiftAppealSerializer)})
+                                                          ShiftAppealsSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.GetSingleAppealForManagerAPIView().get(request, **kwargs)
@@ -288,7 +288,7 @@ class DistributorReviewsAPIView(BaseAPIView):
 
 class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrManager]
-    serializer_class = POSTReviewSerializer
+    serializer_class = POSTReviewByManagerSerializer
 
     @staticmethod
     @swagger_auto_schema(responses={204: 'No Content'})
@@ -311,6 +311,7 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
             return v1_0.SelfEmployedUserReviewsByAdminOrManagerAPIView().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
 
 class ToggleLikeVacancy(APIView):
     """

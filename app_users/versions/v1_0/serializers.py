@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
+from django.db.models import Avg, Count
 from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -386,7 +387,17 @@ class ProfileSerializer(CRUDSerializer):
 
     @staticmethod
     def get_rating_by_vacancies(instance):
-        return 'тут надо вернуть rating по вакансиям'
+        reviews = instance.reviews.all().values('shift__vacancy').annotate(rating=Avg('value')).annotate(
+            rates_count=Count('shift__vacancy'))
+
+        return [
+            {
+                'vacancy': review.get('shift__vacancy'),
+                'rating': review.get('rating'),
+                'rates_count': review.get('rates_count')
+            }
+            for review in reviews
+        ]
 
     class Meta:
         model = UserProfile

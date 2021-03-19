@@ -347,20 +347,7 @@ class VacancySerializer(VacanciesSerializer):
             'banner',
             'shop',
             'distributor',
-        ]
-
-
-class VacanciesForManagerSerializer(CRUDSerializer):
-    media = serializers.SerializerMethodField(read_only=True)
-
-    @staticmethod
-    def get_media(instance):
-        return MediaSerializer(instance=instance.media.first()).data
-
-    class Meta:
-        model = Vacancy
-        fields = [
-            'id', 'title', 'media', 'places_count'
+            'places_count'
         ]
 
 
@@ -376,56 +363,10 @@ class UserProfileLightSerializer(CRUDSerializer):
         fields = ['first_name', 'birth_date', 'media', 'rating']
 
 
-class ShiftAppealsListSerializer(CRUDSerializer):
-    user = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_user(instance):
-        return UserProfileLightSerializer(instance=instance.applier).data
-
+class ShiftAppealsSerializer(CRUDSerializer):
     class Meta:
         model = ShiftAppeal
         fields = '__all__'
-
-
-class UserProfileInSingleAppealSerializer(CRUDSerializer):
-    media = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_media(instance):
-        return MediaSerializer(instance=instance.media.all(), many=True).data
-
-    experience = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_experience(instance):
-        return f"""Опыт работы. 
-        В данном блоке отображается рейтинг пользователя сгруппированный, 
-        в отличии от общего, по типам вакансий с указанием количества оценок;
-        """
-
-    class Meta:
-        model = UserProfile
-        fields = [
-            'id', 'first_name', 'birth_date', 'media', 'rating', 'experience'
-        ]
-
-
-class SingleShiftAppealSerializer(CRUDSerializer):
-
-    appeals = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_appeals(instance):
-        print(instance)
-        return {
-            'shift': instance.shift.id,
-            'appliers': UserProfileInSingleAppealSerializer(instance=instance.applier).data
-        }
-
-    class Meta:
-        model = ShiftAppeal
-        exclude = ['shift', 'applier']
 
 
 class ShiftsSerializer(CRUDSerializer):

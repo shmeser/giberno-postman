@@ -322,21 +322,6 @@ CONSTANCE_CONFIG = {
 DEBUG = True if os.getenv('DEBUG', False) in ['True', 'true', 'TRUE', True] else False
 DEBUG = True
 if DEBUG is not False:
-    SWAGGER_SETTINGS = {
-        'SECURITY_DEFINITIONS': {
-            'JWT': {
-                'type': 'apiKey',
-                'name': 'Authorization',
-                'in': 'header'
-            },
-            'Bearer': {
-                'type': 'apiKey',
-                'name': 'Authorization',
-                'in': 'header'
-            }
-        }
-    }
-
     APP_TEST = 'app_tests.apps.AppTestsConfig'
     INSTALLED_APPS.append(APP_TEST)
 
@@ -384,3 +369,18 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '11random11')
 INTERNAL_IPS = [
     '127.0.0.1',
 ]
+
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'JWT': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header'
+        },
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header'
+        }
+    }
+}
