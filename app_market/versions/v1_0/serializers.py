@@ -4,12 +4,13 @@ import pytz
 from django.db.models import Avg
 from rest_framework import serializers
 
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category, ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShifsRepository
+    DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.serializers import MediaSerializer
+from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp
@@ -346,49 +347,30 @@ class VacancySerializer(VacanciesSerializer):
             'banner',
             'shop',
             'distributor',
+            'places_count'
         ]
 
 
-class VacanciesListForManagerSerializer(CRUDSerializer):
-    media = serializers.SerializerMethodField(read_only=True)
+class UserProfileLightSerializer(CRUDSerializer):
+    media = serializers.SerializerMethodField()
 
     @staticmethod
     def get_media(instance):
-        return MediaSerializer(instance=instance.media.first()).data
-
-    applied_users = serializers.SerializerMethodField(read_only=True)
-
-    @staticmethod
-    def get_applied_users(instance):
-        return 'Тут будет список с данни откликнувшихся пользователей'
+        return MediaSerializer(instance=instance.media.all(), many=True).data
 
     class Meta:
-        model = Vacancy
-        fields = [
-            'id', 'title', 'media', 'places_count', 'applied_users'
-        ]
+        model = UserProfile
+        fields = ['first_name', 'birth_date', 'media', 'rating']
 
 
-class SingleVacancyForManagerSerializer(VacanciesListForManagerSerializer):
-    shifts = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_shifts(instance):
-        return ShiftsSerializer(instance=Shift.objects.filter(vacancy=instance), many=True).data
-
+class ShiftAppealsSerializer(CRUDSerializer):
     class Meta:
-        model = Vacancy
-        fields = [
-            'id', 'title', 'media', 'places_count', 'applied_users', 'shifts'
-        ]
-
-
-class AppliedUsersByVacancyForManagerSerializer(CRUDSerializer):
-    pass
+        model = ShiftAppeal
+        fields = '__all__'
 
 
 class ShiftsSerializer(CRUDSerializer):
-    repository = ShifsRepository
+    repository = ShiftsRepository
 
     active_dates = serializers.SerializerMethodField()
     active_today = serializers.SerializerMethodField()

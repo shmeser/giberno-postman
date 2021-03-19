@@ -11,7 +11,7 @@ from django.utils.timezone import now
 from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
-    ShiftStatus
+    ShiftStatus, ShiftAppealStatus
 from app_media.models import MediaModel
 from app_users.enums import DocumentType
 from app_users.models import UserProfile
@@ -218,6 +218,17 @@ class Shift(BaseModel):
         db_table = 'app_market__shifts'
         verbose_name = 'Рабочая смена'
         verbose_name_plural = 'Рабочие смены'
+
+
+class ShiftAppeal(BaseModel):
+    applier = models.ForeignKey(to=UserProfile, on_delete=models.CASCADE)
+    shift = models.ForeignKey(to=Shift, on_delete=models.CASCADE, related_name='appeals')
+    status = models.PositiveIntegerField(choices=choices(ShiftAppealStatus), default=ShiftAppealStatus.INITIAL)
+
+    class Meta:
+        db_table = 'app_market__shifts_appeals'
+        verbose_name = 'Отклик на рабочую смену'
+        verbose_name_plural = 'Отклики на рабочие смены'
 
 
 class UserShift(BaseModel):
