@@ -320,7 +320,7 @@ CONSTANCE_CONFIG = {
 }
 
 DEBUG = True if os.getenv('DEBUG', False) in ['True', 'true', 'TRUE', True] else False
-DEBUG = True
+
 if DEBUG is not False:
     APP_TEST = 'app_tests.apps.AppTestsConfig'
     INSTALLED_APPS.append(APP_TEST)
