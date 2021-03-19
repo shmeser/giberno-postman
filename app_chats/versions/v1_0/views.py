@@ -15,10 +15,9 @@ class Chats(CRUDAPIView):
     allowed_http_methods = ['get']
 
     filter_params = {
-        'search': 'title__istartswith',
-        'shop': 'city__country__id',
-        'vacancy': 'city_id',
-        'user': 'shop_id',
+        'shop': 'shop_id',
+        'vacancy': 'vacancy_id',
+        'user': 'user_id',
     }
 
     bool_filter_params = {
@@ -47,7 +46,6 @@ class Chats(CRUDAPIView):
         if record_id:
             self.serializer_class = ChatSerializer
             dataset = self.repository_class().get_by_id(record_id)
-            dataset.increment_views_count()
         else:
             self.many = True
             dataset = self.repository_class().filter_by_kwargs(

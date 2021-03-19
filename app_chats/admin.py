@@ -1,16 +1,11 @@
 from django.contrib import admin
 
 from app_chats.models import Chat, ChatUser, Message
-from app_users.models import UserProfile
 from backend.mixins import FormattedAdmin
 
 
 @admin.register(Chat)
 class ChatAdmin(FormattedAdmin):
-    inlines = [
-        UserProfile
-    ]
-
     list_display = [
         'title', 'created_at'
     ]
@@ -26,5 +21,5 @@ class ChatUserAdmin(FormattedAdmin):
 @admin.register(Message)
 class MessageAdmin(FormattedAdmin):
     list_display = [
-        'chat_id', 'text', 'message_type', 'owner_ct_name', 'owner_id', 'form_status', 'read_at'
+        'chat_id', 'title', 'text', 'message_type', 'user_id', 'form_status', 'read_at'
     ]

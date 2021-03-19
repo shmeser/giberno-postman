@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'app_market.apps.AppMarketConfig',
     'app_feedback.apps.AppFeedbackConfig',
     'app_sockets.apps.AppSocketsConfig',
+    'app_chats.apps.AppChatsConfig',
 ]
 
 CHANNEL_LAYERS = {

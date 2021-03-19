@@ -11,22 +11,30 @@ from backend.models import GenericSourceTargetBase, BaseModel
 from backend.utils import choices
 
 
-class Chat(GenericSourceTargetBase):
+class Chat(BaseModel):
     title = models.CharField(max_length=255, null=True, blank=True)
 
-    owner_ct = models.ForeignKey(
-        ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='chat_owner_ct',
-        verbose_name='Основной участник чата'
+    subject_user = models.ForeignKey(
+        UserProfile, null=True, blank=True, on_delete=models.SET_NULL, verbose_name='Основной участник чата'
     )
+
+    # Generic Relation base для конечной цели
+    target_id = models.PositiveIntegerField(null=True, blank=True)
     target_ct = models.ForeignKey(
         ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='chat_target_ct',
         verbose_name='Объект обсуждения в чате'
     )
+    target_ct_name = models.CharField(
+        max_length=255, blank=True, null=True, verbose_name='Имя модели - объекта обсуждения в чате'
+    )
+    target = GenericForeignKey(ct_field='target_ct', fk_field='target_id')
 
-    users = models.ManyToManyField(UserProfile, through='ChatUser', blank=True, related_name='chats')
+    users = models.ManyToManyField(
+        UserProfile, through='ChatUser', blank=True, related_name='chats', verbose_name='Участники чата'
+    )
 
     def __str__(self):
-        return f'{self.id} - {self.owner_ct_name}=>{self.target_ct_name}'
+        return f'{self.id} - {self.subject_user.username}=>{self.target_ct_name}'
 
     class Meta:
         db_table = 'app_chats'
@@ -50,28 +58,25 @@ class ChatUser(BaseModel):
 
 class Message(BaseModel):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.SET_NULL)
     chat = models.ForeignKey(Chat, null=True, blank=True, on_delete=models.SET_NULL)
 
+    title = models.CharField(max_length=255, null=True, blank=True)
     text = models.TextField(null=True, blank=True)
 
     message_type = models.PositiveIntegerField(choices=choices(ChatMessageType), default=ChatMessageType.SIMPLE.value)
     attachments = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
-
-    # Generic Relation - если нет владельца, значит писал бот
-    owner_id = models.PositiveIntegerField(null=True, blank=True)
-    owner_ct = models.ForeignKey(ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='owner_ct')
-    owner_ct_name = models.CharField(max_length=255, blank=True, null=True, verbose_name='Имя модели - владельца')
-    owner = GenericForeignKey(ct_field='owner_ct', fk_field='owner_id')
 
     form_status = models.PositiveIntegerField(
         choices=choices(FormMessageStatus),
         default=FormMessageStatus.INITIAL.value,
         verbose_name='Статус обработки сообщения с типом ФОРМА'
     )
+
     read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником')
 
     def __str__(self):
-        return f'{self.id} - {self.owner_ct_name}'
+        return f'{self.id} - {self.user.username}'
 
     class Meta:
         db_table = 'app_chats__messages'
