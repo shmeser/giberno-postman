@@ -244,7 +244,6 @@ class GetSingleVacancyForManagerAPIView(CRUDAPIView):
 
 class GetAppliedUsersByVacancyForManagerAPIView(CRUDAPIView):
     serializer_class = AppliedUsersByVacancyForManagerSerializer
-    pass
 
 
 class VacanciesClusteredMap(Vacancies):
