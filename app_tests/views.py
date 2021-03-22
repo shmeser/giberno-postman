@@ -91,7 +91,7 @@ class SeedDataForMarketAppAPIView(APIView):
         # SET SHOPS FOR MANAGERS
         for user in users.filter(account_type=AccountType.MANAGER):
             shop = random.choice(shops)
-            user.shops.add()
+            user.shops.add(shop)
             user.distributors.add(shop.distributor)
             user.save()
 
