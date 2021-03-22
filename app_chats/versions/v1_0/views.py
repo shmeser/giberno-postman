@@ -49,7 +49,7 @@ class Chats(CRUDAPIView):
             dataset = self.repository_class().get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class().get_chats_or_create(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 

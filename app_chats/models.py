@@ -14,11 +14,10 @@ from backend.utils import choices
 class Chat(BaseModel):
     title = models.CharField(max_length=255, null=True, blank=True)
 
+    # Поля для чатов по определенным темам - вакансии/магазины и т.д.
     subject_user = models.ForeignKey(
         UserProfile, null=True, blank=True, on_delete=models.SET_NULL, verbose_name='Основной участник чата'
     )
-
-    # Generic Relation base для конечной цели
     target_id = models.PositiveIntegerField(null=True, blank=True)
     target_ct = models.ForeignKey(
         ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='chat_target_ct',
@@ -28,6 +27,7 @@ class Chat(BaseModel):
         max_length=255, blank=True, null=True, verbose_name='Имя модели - объекта обсуждения в чате'
     )
     target = GenericForeignKey(ct_field='target_ct', fk_field='target_id')
+    # ####
 
     users = models.ManyToManyField(
         UserProfile, through='ChatUser', blank=True, related_name='chats', verbose_name='Участники чата'
