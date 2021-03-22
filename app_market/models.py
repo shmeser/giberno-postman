@@ -240,7 +240,7 @@ class UserShift(BaseModel):
 
     status = models.PositiveIntegerField(choices=choices(ShiftStatus), default=ShiftStatus.INITIAL)
 
-    qr_code = models.TextField(null=True, blank=True, verbose_name='QR код')
+    qr_data = models.JSONField(default=dict)
     qr_code_gen_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):

@@ -420,7 +420,19 @@ class SkillSerializer(CRUDSerializer):
         ]
 
 
+class VacancyLightSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vacancy
+        fields = ['title', 'timezone', 'available_from']
+
+
 class UserShiftSerializer(serializers.ModelSerializer):
+    vacancy = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_vacancy(instance):
+        return VacancyLightSerializer(instance=instance.shift.vacancy).data
+
     class Meta:
         model = UserShift
         fields = '__all__'

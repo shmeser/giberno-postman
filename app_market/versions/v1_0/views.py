@@ -373,7 +373,7 @@ class Shifts(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class UserShiftsAPIView(CRUDAPIView):
+class UserShiftsListAPIView(CRUDAPIView):
     serializer_class = UserShiftSerializer
     repository_class = UserShiftRepository
     allowed_http_methods = ['get']
@@ -410,6 +410,22 @@ class UserShiftsAPIView(CRUDAPIView):
         )
 
         serialized = self.serializer_class(dataset, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class UserShiftsRetrieveAPIView(CRUDAPIView):
+    serializer_class = UserShiftSerializer
+    repository_class = UserShiftRepository
+    allowed_http_methods = ['get']
+
+    def get(self, request, **kwargs):
+        user_shift = self.repository_class().get_by_id(kwargs.get('record_id'))
+
+        serialized = self.serializer_class(user_shift, many=False, context={
             'me': request.user,
             'headers': get_request_headers(request),
         })
@@ -688,7 +704,7 @@ class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
                         return Response(UserShiftSerializer(instance=user_shift).data, status=status.HTTP_200_OK)
                     elif user_shift.status == ShiftStatus.STARTED:
                         user_shift.status = ShiftStatus.COMPLETED
-                        user_shift.qr_code = None
+                        user_shift.qr_data = {}
                         user_shift.save()
                         return Response(UserShiftSerializer(instance=user_shift).data, status=status.HTTP_200_OK)
             except UserShift.DoesNotExist:
