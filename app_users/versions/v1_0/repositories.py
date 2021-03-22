@@ -3,10 +3,12 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q, Prefetch, Subquery, OuterRef, ExpressionWrapper, Sum, Count, FloatField
 from django.utils.timezone import now
 from fcm_django.models import FCMDevice
+from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_feedback.models import Review
 from app_geo.models import Region
+from app_market.versions.v1_0.repositories import ShiftsRepository, UserShiftRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -299,10 +301,27 @@ class ProfileRepository(MasterRepository):
         target_ct_name = target_content_type.model
         target_id = record_id
 
-        # проверяем валидность id
+        # проверяем валидность id конечной цели
         target = self.get_by_id(record_id=target_id)
-        print(target)
-        print(self.me)
+
+        if target.account_type != AccountType.SELF_EMPLOYED:
+            raise PermissionDenied()
+
+        # проверка связи между магазином, сменой и менеджером
+        shift = ShiftsRepository().get_by_id(record_id=shift)
+
+        user_shift = UserShiftRepository().filter_by_kwargs(kwargs={
+            'shift': shift,
+            'user': target
+        }).first()
+
+        shop = user_shift.shift.vacancy.shop
+
+        if shop not in self.me.shops.all():
+            raise PermissionDenied()
+
+        if not user_shift:
+            raise PermissionDenied()
 
         region = Region.objects.filter(boundary__covers=point).first() if point else None
 
