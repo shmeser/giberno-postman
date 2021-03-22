@@ -80,14 +80,11 @@ class UserProfile(AbstractUser, BaseModel):
 
     password_changed = models.BooleanField(default=False)
 
-    # Конкретная Должность Пользователя со статусом manager
-    manager_position = models.CharField(null=True, blank=True, max_length=512)
+    # конкретные магазины к которым прикреплен админ, менеджер или охранник
+    shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины',
+                                           related_name='shops')
 
-    # конкретные магазины к которым прикреплен менеджер
-    manager_shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины',
-                                           related_name='manager_shops')
-
-    # у самозанятых есть рейтинг формирующийся на основе отзывов со стороны манагеров и админов
+    # у самозанятых есть рейтинг формирующийся на основе отзывов со стороны менеджеров и админов
     rating = models.FloatField(default=0, verbose_name='Рейтинг пользователя')
     rates_count = models.PositiveIntegerField(default=0, verbose_name='Количество оценок пользователя')
     reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
