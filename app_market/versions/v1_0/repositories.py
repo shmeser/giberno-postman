@@ -737,6 +737,19 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         return {**count, **prices}
 
+    def aggregate_distributors(self, queryset, pagination=None):
+        annotated = queryset.values('shop__distributor').annotate(count=Count('shop__distributor')).order_by('-count')
+
+        distributors_ids_list = annotated.values_list('shop__distributor', flat=True)
+        preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(distributors_ids_list)])
+
+        records = Distributor.objects.filter(pk__in=distributors_ids_list).order_by(preserved)
+
+        return DistributorsRepository.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[pagination.offset:pagination.limit] if pagination else records,
+            me=self.me
+        )
+
     def toggle_like(self, vacancy):
         owner_ct = ContentType.objects.get_for_model(self.me)
         target_ct = ContentType.objects.get_for_model(vacancy)
