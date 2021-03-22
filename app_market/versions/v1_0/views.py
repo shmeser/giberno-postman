@@ -434,6 +434,26 @@ class VacanciesStats(Vacancies):
         }), status=status.HTTP_200_OK)
 
 
+class VacanciesDistributors(Vacancies):
+
+    def get(self, request, **kwargs):
+        filters = RequestMapper(self).filters(request) or dict()
+        order_params = RequestMapper(self).order(request)
+        pagination = RequestMapper.pagination(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
+        dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
+            kwargs=filters, order_by=order_params
+        )
+
+        distributors = self.repository_class().aggregate_distributors(dataset, pagination)
+        serialized = DistributorsSerializer(distributors, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
 @api_view(['GET'])
 def vacancies_suggestions(request):
     pagination = RequestMapper.pagination(request)
