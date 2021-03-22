@@ -12,10 +12,11 @@ from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, C
 from django.db.models.functions import Cast, Concat
 from django.utils.timezone import now, localtime
 from pytz import timezone
+from rest_framework.exceptions import PermissionDenied
 
 from app_feedback.models import Review, Like
 from app_geo.models import Region
-from app_market.enums import ShiftWorkTime
+from app_market.enums import ShiftWorkTime, ShiftStatus
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
@@ -366,6 +367,33 @@ class ShiftsRepository(MasterRepository):
 class UserShiftRepository(MasterRepository):
     model = UserShift
 
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+    def get_by_qr_data(self, qr_data):
+        try:
+            return self.model.objects.get(qr_data=qr_data)
+        except self.model.DoesNotExist:
+            raise HttpException(detail='User shift not found', status_code=400)
+
+    def update_status_by_qr_check(self, instance):
+        if instance.shift.vacancy.shop not in self.me.shops.all():
+            raise PermissionDenied()
+
+        if self.me.is_security:
+            return
+        if self.me.is_manager:
+            if instance.status == ShiftStatus.INITIAL:
+                instance.status = ShiftStatus.STARTED
+                instance.save()
+            elif instance.status == ShiftStatus.STARTED:
+                instance.status = ShiftStatus.COMPLETED
+                instance.qr_data = {}
+                instance.save()
+            elif instance.status == ShiftStatus.COMPLETED:
+                return
+
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
     model = Vacancy
@@ -472,6 +500,12 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def get_by_id_for_manager_or_security(self, record_id):
+        record = self.get_by_id(record_id=record_id)
+        if record.shop not in self.me.shops.all():
+            raise PermissionDenied()
         return record
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
