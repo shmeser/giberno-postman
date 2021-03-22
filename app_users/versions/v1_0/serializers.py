@@ -409,6 +409,7 @@ class ProfileSerializer(CRUDSerializer):
         model = UserProfile
         fields = [
             'id',
+            'username',
             'account_type',
             'first_name',
             'last_name',
