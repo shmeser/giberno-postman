@@ -60,6 +60,7 @@ class SeedDataForMarketAppAPIView(APIView):
         limit = 10
         multiply = 50
 
+        # USERS SEED
         if UserProfile.objects.count() < limit * multiply:
             for item in range(limit * multiply):
                 UserProfile.objects.create(account_type=random.choice([1, 2, 3]))
@@ -68,6 +69,7 @@ class SeedDataForMarketAppAPIView(APIView):
 
         print('Users seed complete')
 
+        # DISTRIBUTORS SEED
         if Distributor.objects.count() < limit:
             for item in range(limit):
                 Distributor.objects.create(title=f"""Distributor {item}""")
@@ -75,6 +77,7 @@ class SeedDataForMarketAppAPIView(APIView):
         print('Distributors seed complete')
         distributors = Distributor.objects.all()
 
+        # SHOPS SEED
         if Shop.objects.count() < limit * limit:
             for item in range(limit * limit):
                 Shop.objects.create(
@@ -85,11 +88,19 @@ class SeedDataForMarketAppAPIView(APIView):
         print('Shops seed complete')
         shops = Shop.objects.all()
 
-        for user in users:
-            if user.account_type == AccountType.MANAGER:
-                user.manager_shops.add(random.choice(shops))
-                user.save()
+        # SET SHOPS FOR MANAGERS
+        for user in users.filter(account_type=AccountType.MANAGER):
+            shop = random.choice(shops)
+            user.shops.add(shop)
+            user.distributors.add(shop.distributor)
+            user.save()
 
+        # SET SHOPS FOR SECURITY
+        for user in users.filter(account_type=AccountType.SECURITY):
+            user.shops.add(random.choice(shops))
+            user.save()
+
+        # VACANCIES SEED
         if Vacancy.objects.count() < limit * limit:
             for item in range(limit * limit):
                 Vacancy.objects.create(
@@ -100,6 +111,7 @@ class SeedDataForMarketAppAPIView(APIView):
         print('Vacancies seed complete')
         vacancies = Vacancy.objects.all()
 
+        # SHIFTS SEED
         if Shift.objects.count() < limit * multiply:
             for item in range(limit * multiply):
                 vacancy = random.choice(vacancies)
@@ -109,12 +121,13 @@ class SeedDataForMarketAppAPIView(APIView):
         print('Shifts seed complete')
         shifts = Shift.objects.all()
 
-        self_employed_users = users.filter(account_type=AccountType.SELF_EMPLOYED)
+        # SET APPEALS FOR SELF EMPLOYED USERS
         ShiftAppeal.objects.all().delete()
-        for user in self_employed_users:
+        for user in users.filter(account_type=AccountType.SELF_EMPLOYED):
             ShiftAppeal.objects.create(applier=user, shift=random.choice(shifts))
         print('ShiftAppeal seed complete')
 
+        # USER SHIFTS SEED
         shift_appeals = ShiftAppeal.objects.all()
         for shift_appeal in shift_appeals:
             UserShift.objects.create(
@@ -123,6 +136,8 @@ class SeedDataForMarketAppAPIView(APIView):
             )
 
         print('UserShifts seed complete')
+
+        # SET QR DATA TO USER SHIFTS
         user_shifts = UserShift.objects.all()
         for user_shift in user_shifts:
             user_shift.qr_data = QRHandler(user_shift).create_qr_data()

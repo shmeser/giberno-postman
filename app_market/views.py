@@ -9,8 +9,8 @@ from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewM
 from app_market.versions.v1_0 import views as v1_0
 from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
     ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer, \
-    VacanciesClusterSerializer, ShiftAppealsSerializer, VacancySerializer
-from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager
+    VacanciesClusterSerializer, ShiftAppealsSerializer, VacancySerializer, VacanciesForManagerSerializer
+from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager, IsManagerOrSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException
@@ -80,7 +80,7 @@ class GetVacanciesByManagerShopAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacancySerializer)})
+    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesForManagerSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.GetVacanciesByManagerShopAPIView().get(request)
@@ -190,6 +190,7 @@ class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
     Проверка QR CODE со стороны охранника или менеджера
     Если проверяющий -охранник, то статус смены остается неизменным
     """
+    permission_classes = [IsManagerOrSecurity]
     serializer_class = QRCodeSerializer
 
     @staticmethod
@@ -205,6 +206,14 @@ class VacanciesStats(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacanciesStats().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class VacanciesDistributors(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.VacanciesDistributors().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
@@ -329,6 +338,7 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
 
 class ConfirmAppealByManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrManager]
+
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('ok')})
     def get(request, **kwargs):
@@ -343,6 +353,7 @@ class ConfirmAppealByManagerAPIView(BaseAPIView):
 
 class RejectAppealByManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrManager]
+
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('ok')})
     def get(request, **kwargs):

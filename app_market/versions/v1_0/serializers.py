@@ -9,8 +9,6 @@ from app_market.versions.v1_0.repositories import VacanciesRepository, Professio
     DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
-from app_media.versions.v1_0.serializers import MediaSerializer
-from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp
@@ -351,16 +349,16 @@ class VacancySerializer(VacanciesSerializer):
         ]
 
 
-class UserProfileLightSerializer(CRUDSerializer):
-    media = serializers.SerializerMethodField()
+class VacanciesForManagerSerializer(CRUDSerializer):
+    banner = serializers.SerializerMethodField()
 
     @staticmethod
-    def get_media(instance):
-        return MediaSerializer(instance=instance.media.all(), many=True).data
+    def get_banner(instance):
+        return MediaController(instance).get_related_image(instance, MediaType.BANNER.value)
 
     class Meta:
-        model = UserProfile
-        fields = ['first_name', 'birth_date', 'media', 'rating']
+        model = Vacancy
+        fields = '__all__'
 
 
 class ShiftAppealsSerializer(CRUDSerializer):
@@ -420,7 +418,7 @@ class SkillSerializer(CRUDSerializer):
         ]
 
 
-class VacancyLightSerializer(serializers.ModelSerializer):
+class VacancyIsUserShiftSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vacancy
         fields = ['title', 'timezone', 'available_from']
@@ -431,7 +429,7 @@ class UserShiftSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_vacancy(instance):
-        return VacancyLightSerializer(instance=instance.shift.vacancy).data
+        return VacancyIsUserShiftSerializer(instance=instance.shift.vacancy).data
 
     class Meta:
         model = UserShift
@@ -439,4 +437,4 @@ class UserShiftSerializer(serializers.ModelSerializer):
 
 
 class QRCodeSerializer(serializers.Serializer):
-    qr_code = serializers.CharField()
+    qr_data = serializers.JSONField()

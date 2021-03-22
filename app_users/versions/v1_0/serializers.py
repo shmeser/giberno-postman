@@ -11,7 +11,7 @@ from app_geo.models import City, Country
 from app_geo.versions.v1_0.repositories import CountriesRepository
 from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
 from app_market.models import UserProfession, Profession, UserSkill, Skill
-from app_market.versions.v1_0.serializers import ProfessionSerializer, SkillSerializer
+from app_market.versions.v1_0.serializers import ProfessionSerializer, SkillSerializer, DistributorsSerializer
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -76,6 +76,8 @@ class ProfileSerializer(CRUDSerializer):
     rating_place = serializers.SerializerMethodField(read_only=True)
     notifications_count = serializers.SerializerMethodField(read_only=True)
     rating_by_vacancies = serializers.SerializerMethodField(read_only=True)
+
+    distributors = serializers.SerializerMethodField(read_only=True)
 
     def validate(self, attrs):
         errors = []
@@ -399,10 +401,15 @@ class ProfileSerializer(CRUDSerializer):
             for review in reviews
         ]
 
+    @staticmethod
+    def get_distributors(instance):
+        return DistributorsSerializer(instance=instance.distributors.all(), many=True).data
+
     class Meta:
         model = UserProfile
         fields = [
             'id',
+            'username',
             'account_type',
             'first_name',
             'last_name',
@@ -435,9 +442,8 @@ class ProfileSerializer(CRUDSerializer):
             'cities',
             'skills',
 
-            'manager_position',
             'distributors',
-            'manager_shops',
+            'shops',
             'rating',
             'rating_by_vacancies'
         ]
@@ -633,7 +639,7 @@ class CreateManagerByAdminSerializer(serializers.ModelSerializer):
             'middle_name',
             'last_name',
             'distributors',
-            'manager_shops'
+            'shops'
         ]
 
     def validate(self, attrs):

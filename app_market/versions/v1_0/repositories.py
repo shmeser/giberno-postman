@@ -10,12 +10,13 @@ from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef
 from django.db.models.functions import Cast, Concat
-from django.utils.timezone import now, localtime
+from django.utils.timezone import now, localtime, make_aware
 from pytz import timezone
+from rest_framework.exceptions import PermissionDenied
 
 from app_feedback.models import Review, Like
 from app_geo.models import Region
-from app_market.enums import ShiftWorkTime
+from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
@@ -366,6 +367,33 @@ class ShiftsRepository(MasterRepository):
 class UserShiftRepository(MasterRepository):
     model = UserShift
 
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+    def get_by_qr_data(self, qr_data):
+        try:
+            return self.model.objects.get(qr_data=qr_data)
+        except self.model.DoesNotExist:
+            raise HttpException(detail='User shift not found', status_code=400)
+
+    def update_status_by_qr_check(self, instance):
+        if instance.shift.vacancy.shop not in self.me.shops.all():
+            raise PermissionDenied()
+
+        if self.me.is_security:
+            return
+        if self.me.is_manager:
+            if instance.status == ShiftStatus.INITIAL:
+                instance.status = ShiftStatus.STARTED
+                instance.save()
+            elif instance.status == ShiftStatus.STARTED:
+                instance.status = ShiftStatus.COMPLETED
+                instance.qr_data = {}
+                instance.save()
+            elif instance.status == ShiftStatus.COMPLETED:
+                return
+
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
     model = Vacancy
@@ -474,6 +502,12 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
         return record
 
+    def get_by_id_for_manager_or_security(self, record_id):
+        record = self.get_by_id(record_id=record_id)
+        if record.shop not in self.me.shops.all():
+            raise PermissionDenied()
+        return record
+
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
         try:
@@ -508,6 +542,16 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
             point=self.point
         )
+
+    def filter_by_kwargs_for_manager(self, filters, order_params, pagination):
+        filters.update({'shop_id__in': self.me.shops.all()})
+        available_from = filters.get('available_from__range')
+
+        if available_from:
+            available_from = make_aware(datetime.fromtimestamp(int(available_from) / 1000))
+            next_day = available_from + timedelta(days=1)
+            filters['available_from__range'] = [available_from, next_day]
+        return self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
 
     def get_suggestions(self, search, paginator=None):
         records = self.model.objects.exclude(deleted=True).annotate(
@@ -693,6 +737,19 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         return {**count, **prices}
 
+    def aggregate_distributors(self, queryset, pagination=None):
+        annotated = queryset.values('shop__distributor').annotate(count=Count('shop__distributor')).order_by('-count')
+
+        distributors_ids_list = annotated.values_list('shop__distributor', flat=True)
+        preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(distributors_ids_list)])
+
+        records = Distributor.objects.filter(pk__in=distributors_ids_list).order_by(preserved)
+
+        return DistributorsRepository.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[pagination.offset:pagination.limit] if pagination else records,
+            me=self.me
+        )
+
     def toggle_like(self, vacancy):
         owner_ct = ContentType.objects.get_for_model(self.me)
         target_ct = ContentType.objects.get_for_model(vacancy)
@@ -734,6 +791,48 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
 class ShiftAppealsRepository(MasterRepository):
     model = ShiftAppeal
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+    def is_related_manager(self, instance):
+        if instance.shift.vacancy.shop not in self.me.shops.all():
+            raise PermissionDenied()
+
+    def confirm_by_manager(self, record_id):
+        instance = self.get_by_id(record_id=record_id)
+
+        # проверяем доступ менеджера к смене на которую откликнулись
+        self.is_related_manager(instance=instance)
+
+        if not instance.status == ShiftAppealStatus.CONFIRMED:
+            instance.status = ShiftAppealStatus.CONFIRMED
+            instance.save()
+
+            # создаем смену пользователя
+            UserShift.objects.get_or_create(
+                user=instance.applier,
+                shift=instance.shift,
+                real_time_start=instance.shift.time_start,
+                real_time_end=instance.shift.time_end
+            )
+
+    def reject_by_manager(self, record_id):
+        instance = self.get_by_id(record_id=record_id)
+
+        # проверяем доступ менеджера к смене на которую откликнулись
+        self.is_related_manager(instance=instance)
+        if not instance.status == ShiftAppealStatus.REJECTED:
+            instance.status = ShiftAppealStatus.REJECTED
+            instance.save()
+
+    def get_by_id_for_manager(self, record_id):
+        instance = self.get_by_id(record_id=record_id)
+
+        # проверяем доступ менеджера
+        self.is_related_manager(instance=instance)
+        return instance
 
 
 class ProfessionsRepository(MasterRepository):

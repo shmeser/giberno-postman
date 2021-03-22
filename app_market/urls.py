@@ -5,7 +5,7 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     VacancyReviewsAPIView, ShopReviewsAPIView, DistributorReviewsAPIView, VacanciesClusteredMap, \
     GetVacanciesByManagerShopAPIView, GetSingleVacancyForManagerAPIView, ApplyToShiftAPIView, UserShiftsListAPIView, \
     GetVacancyAppealsForManagerAPIView, SelfEmployedUserReviewsByAdminOrManagerAPIView, \
-    ConfirmAppealByManagerAPIView, RejectAppealByManagerAPIView, UserShiftsRetrieveAPIView
+    ConfirmAppealByManagerAPIView, RejectAppealByManagerAPIView, UserShiftsRetrieveAPIView, VacanciesDistributors
 
 urlpatterns = [
     path('market/distributors', Distributors.as_view()),
@@ -22,10 +22,12 @@ urlpatterns = [
     path('market/vacancies/<int:record_id>/similar', similar_vacancies),
     path('market/vacancies/<int:record_id>/reviews', VacancyReviewsAPIView.as_view()),
     path('market/vacancies/<int:record_id>/toggle_like', ToggleLikeVacancy.as_view()),
-    path('market/shifts/<int:record_id>/apply', ApplyToShiftAPIView.as_view()),
 
     path('market/vacancies/stats', VacanciesStats.as_view()),
+    path('market/vacancies/distributors', VacanciesDistributors.as_view()),
     path('market/vacancies/suggestions', vacancies_suggestions),
+
+    path('market/shifts/<int:record_id>/apply', ApplyToShiftAPIView.as_view()),
 
     path('market/managers/self_employed/<int:record_id>/reviews',
          SelfEmployedUserReviewsByAdminOrManagerAPIView.as_view()),
