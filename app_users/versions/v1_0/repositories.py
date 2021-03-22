@@ -271,7 +271,7 @@ class ProfileRepository(MasterRepository):
         self.me.location = point
         self.me.save()
         return self.me
-        
+
     def update_username(self, username):
         username = validate_username(username=username)
         if self.me.username == username:
@@ -287,7 +287,7 @@ class ProfileRepository(MasterRepository):
         self.me.username = username
         self.me.save()
 
-    def make_review_by_manager(self, record_id, shift, text, value, point=None):
+    def make_review_to_self_employed_by_admin_or_manager(self, record_id, shift, text, value, point=None):
         # TODO добавить загрузку attachments
         owner_content_type = ContentType.objects.get_for_model(self.me)
         owner_ct_id = owner_content_type.id
@@ -298,6 +298,11 @@ class ProfileRepository(MasterRepository):
         target_ct_id = target_content_type.id
         target_ct_name = target_content_type.model
         target_id = record_id
+
+        # проверяем валидность id
+        target = self.get_by_id(record_id=target_id)
+        print(target)
+        print(self.me)
 
         region = Region.objects.filter(boundary__covers=point).first() if point else None
 
