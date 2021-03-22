@@ -9,7 +9,8 @@ from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewM
 from app_market.versions.v1_0 import views as v1_0
 from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
     ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer, \
-    VacanciesClusterSerializer, ShiftAppealsSerializer, VacancySerializer, VacanciesForManagerSerializer
+    VacanciesClusterSerializer, ShiftAppealsSerializer, VacancySerializer, VacanciesForManagerSerializer, \
+    VacancyAvailableDatesSerializer
 from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager, IsManagerOrSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -74,6 +75,8 @@ class GetVacanciesByManagerShopAPIView(BaseAPIView):
     Получение списка вакансий, которые закреплены за  магазином\магазинами менеджера
     возможные query параметры :
     available_from= Int, milliseconds ( Это дата с которой вакансия доступна)
+    calendar_from
+    calendar_to
     offset : int
     limit : int
     """
@@ -99,6 +102,17 @@ class GetSingleVacancyForManagerAPIView(BaseAPIView):
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.GetSingleVacancyForManagerAPIView().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class GetVacanciesAvailableDatesForManager(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description', VacancyAvailableDatesSerializer)})
+    def get(request, *args, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.GetVacanciesAvailableDatesForManager().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 

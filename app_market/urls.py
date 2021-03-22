@@ -5,7 +5,8 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     VacancyReviewsAPIView, ShopReviewsAPIView, DistributorReviewsAPIView, VacanciesClusteredMap, \
     GetVacanciesByManagerShopAPIView, GetSingleVacancyForManagerAPIView, ApplyToShiftAPIView, UserShiftsListAPIView, \
     GetVacancyAppealsForManagerAPIView, SelfEmployedUserReviewsByAdminOrManagerAPIView, \
-    ConfirmAppealByManagerAPIView, RejectAppealByManagerAPIView, UserShiftsRetrieveAPIView
+    ConfirmAppealByManagerAPIView, RejectAppealByManagerAPIView, UserShiftsRetrieveAPIView, \
+    GetVacanciesAvailableDatesForManager
 
 urlpatterns = [
     path('market/distributors', Distributors.as_view()),
@@ -36,6 +37,7 @@ urlpatterns = [
          GetVacancyAppealsForManagerAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
+    path('market/managers/vacancies/available_dates', GetVacanciesAvailableDatesForManager.as_view()),
 
     path('market/shifts', Shifts.as_view()),
     path('market/shifts/<int:record_id>', Shifts.as_view()),
