@@ -11,7 +11,7 @@ from app_market.models import ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
-    ShiftAppealsSerializer, VacanciesForManagerSerializer
+    ShiftAppealsSerializer, VacanciesForManagerSerializer, VacancyAvailableDatesSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
@@ -201,7 +201,9 @@ class GetVacanciesByManagerShopAPIView(CRUDAPIView):
     allowed_http_methods = ['get']
 
     filter_params = {
-        'available_from': 'available_from__range'
+        'available_from': 'available_from__range',
+        'calendar_from': 'available_from__gt',
+        'calendar_to': 'available_from__lt',
     }
 
     order_params = {
@@ -209,6 +211,29 @@ class GetVacanciesByManagerShopAPIView(CRUDAPIView):
         'created_at': 'created_at',
         'id': 'id'
     }
+
+    def get(self, request, *args, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        filters = RequestMapper(self).filters(request) or dict()
+
+        dataset = self.repository_class(me=request.user).filter_by_kwargs_for_manager(
+            filters=filters, order_params=order_params, pagination=pagination
+        )
+
+        serialized = self.serializer_class(dataset, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class GetVacanciesAvailableDatesForManager(CRUDAPIView):
+    serializer_class = VacancyAvailableDatesSerializer
+    repository_class = VacanciesRepository
+    allowed_http_methods = ['get']
 
     def get(self, request, *args, **kwargs):
         pagination = RequestMapper.pagination(request)
