@@ -3,6 +3,7 @@ from loguru import logger
 
 from app_chats.models import Chat, Message, ChatUser
 from app_market.models import Shop, Vacancy
+from app_users.versions.v1_0.repositories import ProfileRepository
 from backend.mixins import MasterRepository
 from backend.utils import timestamp_to_datetime
 
@@ -37,74 +38,121 @@ class ChatsRepository(MasterRepository):
         # )
 
     def modify_kwargs(self, kwargs, order_by):
+        user_id = kwargs.pop('user_id', None)
         shop_id = kwargs.pop('shop_id', None)
-        if shop_id:
-            kwargs.update({
-                'target_ct_id': ContentType.objects.get_for_model(Shop).id,
-                'target_id': shop_id
-            })
-
         vacancy_id = kwargs.pop('vacancy_id', None)
-        if vacancy_id:
-            kwargs.update({
-                'target_ct_id': ContentType.objects.get_for_model(Vacancy).id,
-                'target_id': vacancy_id
-            })
-
         created_at = kwargs.pop('created_at', None)
-        if created_at:
-            try:
-                created_at = timestamp_to_datetime(int(created_at))
-                if '-created_at' in order_by:
-                    kwargs.update({
-                        'created_at__lte': created_at
-                    })
-                if 'created_at' in order_by:
-                    kwargs.update({
-                        'created_at__gte': created_at
-                    })
 
-            except Exception as e:
-                logger.error(e)
+        # Данные для создаваемого чата
+        users = []
+        title = None
+        target_id = None
+        target_ct = None
+        subject_user = None
+
+        try:
+            created_at = timestamp_to_datetime(int(created_at))
+            if '-created_at' in order_by:
+                kwargs.update({
+                    'created_at__lte': created_at
+                })
+            if 'created_at' in order_by:
+                kwargs.update({
+                    'created_at__gte': created_at
+                })
+
+        except Exception as e:
+            logger.error(e)
+
+        if self.me is None:  # Если роль менеджера
+            if user_id and vacancy_id:
+                # Цель обсуждения в чате - вакансия
+                target_ct = ContentType.objects.get_for_model(Vacancy)
+                target_id = vacancy_id
+                # Основной пользователь в чате - самозанятый
+                subject_user = ProfileRepository().get_by_id(user_id)
+                # Участники чата
+                users = [
+                    self.me,
+                    subject_user
+                ]
+
+        elif self.me:  # Если роль пользователя
+            if user_id:  # user-user
+                # Цели обсуждения в чате нет по умолчанию для такого чата
+
+                # Участники чата
+                users = [
+                    self.me,
+                    ProfileRepository().get_by_id(user_id)
+                ]
+            elif shop_id:  # user-shop
+                # Цель обсуждения в чате - магазин
+                target_ct = ContentType.objects.get_for_model(Shop)
+                target_id = shop_id
+                # Основной пользователь в чате - самозанятый
+                subject_user = self.me
+                # Участники чата
+                users = [
+                    subject_user,
+                    # TODO менеджер добавляется в чат на других этапах, при создании чата неизвестно кто присоединится
+                ]
+            elif vacancy_id:  # user-vacancy
+                # Цель обсуждения в чате - вакансия
+                target_ct = ContentType.objects.get_for_model(Vacancy)
+                target_id = vacancy_id
+                # Основной пользователь в чате - самозанятый
+                subject_user = self.me
+                # Участники чата
+                users = [
+                    subject_user,
+                    # TODO менеджер, создавший вакансию
+                ]
+
+        kwargs.update({
+            'target_ct_id': target_ct.id,
+            'target_id': target_id
+        })
+
+        return {
+            'users': users,
+            'title': title,
+            'target_id': target_id,
+            'target_ct_id': target_ct.id if target_ct else None,
+            'target_ct_name': target_ct.model if target_ct else None,
+            'subject_user': subject_user,
+        }
 
     @staticmethod
-    def create_chat(users, title=None, target_id=None, target_model=None, subject_user=None):
-        ct = ContentType.objects.get_for_model(target_model) if target_model else None
+    def create_chat(users, title=None, target_id=None, target_ct_id=None, target_ct_name=None, subject_user=None):
         chat = Chat.objects.create(
             title=title,
             subject_user=subject_user,
             target_id=target_id,
-            target_ct=ct,
-            target_ct_name=ct.modelt if ct else None
+            target_ct_id=target_ct_id,
+            target_ct_name=target_ct_name
         )
 
         chat_users = [ChatUser(chat=chat, user=u) for u in users]
         ChatUser.objects.bulk_create(chat_users)
 
-    def should_create_chat(self, kwargs):
-        if self.me:  # Если роль менеджера
-            pass
-
-        if self.me:  # Если роль пользователя
-            pass
-
-        return True
-
     def get_chats_or_create(self, kwargs, paginator=None, order_by: list = None):
-        should_create_chat = self.should_create_chat(kwargs)
-
-        self.modify_kwargs(kwargs, order_by)  # Изменяем kwargs для работы с objects.filter(**kwargs)
+        chat_data = self.modify_kwargs(kwargs, order_by)  # Изменяем kwargs для работы с objects.filter(**kwargs)
 
         records = self.base_query.exclude(deleted=True).filter(**kwargs)
 
         if not records:
             # Если не найдены нужные чаты
-            if should_create_chat:
+            if chat_data:
                 self.create_chat(
-                    users=[
-                        self.me
-                    ]
+                    users=chat_data['users'],
+                    title=chat_data['title'],
+                    target_id=chat_data['target_id'],
+                    target_ct_id=chat_data['target_ct_id'],
+                    target_ct_name=chat_data['target_ct_name'],
+                    subject_user=chat_data['subject_user']
                 )
+
             return self.base_query.filter(**kwargs)
         if order_by:
             records = records.order_by(*order_by)
