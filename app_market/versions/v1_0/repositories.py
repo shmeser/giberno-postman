@@ -543,24 +543,21 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             point=self.point
         )
 
-    def filter_by_kwargs_for_manager(self, filters, order_params, pagination):
+    def filter_by_kwargs_for_manager(self, filters, order_params, pagination, calendar_from=None, calendar_to=None):
         filters.update({'shop_id__in': self.me.shops.all()})
         available_from = filters.get('available_from__range')
-        calendar_from = filters.get('available_from__gt')
-        calendar_to = filters.get('available_from__lt')
 
         if available_from:
             available_from = make_aware(datetime.fromtimestamp(int(available_from) / 1000))
             next_day = available_from + timedelta(days=1)
             filters['available_from__range'] = [available_from, next_day]
 
-        if calendar_from:
-            filters['available_from__gt'] = make_aware(datetime.fromtimestamp(int(calendar_from) / 1000))
+        if calendar_from and calendar_to:
+            filters.update({
+                'available_from__gt': calendar_from,
+                'available_from__lt': calendar_to
+            })
 
-        if calendar_to:
-            filters['available_from__lt'] = make_aware(datetime.fromtimestamp(int(calendar_to) / 1000))
-
-        print(filters)
         return self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
 
     def get_suggestions(self, search, paginator=None):

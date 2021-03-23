@@ -362,6 +362,12 @@ class VacanciesForManagerSerializer(CRUDSerializer):
 
 
 class VacancyAvailableDatesSerializer(CRUDSerializer):
+    available_from = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_available_from(instance):
+        return datetime.timestamp(instance.available_from)
+
     class Meta:
         model = Vacancy
         fields = ['id', 'available_from']
