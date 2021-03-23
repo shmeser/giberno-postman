@@ -1,5 +1,4 @@
 from django.contrib.contenttypes.models import ContentType
-from loguru import logger
 
 from app_chats.models import Chat, Message, ChatUser
 from app_market.models import Shop, Vacancy
@@ -52,19 +51,16 @@ class ChatsRepository(MasterRepository):
         target_ct = None
         subject_user = None
 
-        try:
+        if '-created_at' in order_by and created_at:
             created_at = timestamp_to_datetime(int(created_at))
-            if '-created_at' in order_by:
-                kwargs.update({
-                    'created_at__lte': created_at
-                })
-            if 'created_at' in order_by:
-                kwargs.update({
-                    'created_at__gte': created_at
-                })
-
-        except Exception as e:
-            logger.error(e)
+            kwargs.update({
+                'created_at__lte': created_at
+            })
+        if 'created_at' in order_by and created_at:
+            created_at = timestamp_to_datetime(int(created_at))
+            kwargs.update({
+                'created_at__gte': created_at
+            })
 
         if self.me is None:  # Если роль менеджера
             if user_id and vacancy_id:
@@ -82,19 +78,18 @@ class ChatsRepository(MasterRepository):
         elif self.me:  # Если роль пользователя
             if user_id:  # user-user
                 # Цели обсуждения в чате нет по умолчанию для такого чата
-
                 # Участники чата
                 # TODO чат с самим собой?
                 users = [
                     self.me,
                     ProfileRepository().get_by_id(user_id)
                 ]
-                kwargs.update({
+
+                upd = {
                     'users__in': users,
-                })
-                checking_kwargs.update({
-                    'users__in': users,
-                })
+                }
+                kwargs.update(upd)
+                checking_kwargs.update(upd)
 
             elif shop_id:  # user-shop
                 # Цель обсуждения в чате - магазин
