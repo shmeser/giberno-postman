@@ -361,6 +361,12 @@ class VacanciesForManagerSerializer(CRUDSerializer):
         fields = '__all__'
 
 
+class VacancyAvailableDatesSerializer(CRUDSerializer):
+    class Meta:
+        model = Vacancy
+        fields = ['id', 'available_from']
+
+
 class ShiftAppealsSerializer(CRUDSerializer):
     class Meta:
         model = ShiftAppeal
