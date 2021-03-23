@@ -34,7 +34,7 @@ class Chat(BaseModel):
     )
 
     def __str__(self):
-        return f'{self.id} - {self.subject_user.username}=>{self.target_ct_name}'
+        return f'{self.id} - {self.subject_user.username if self.subject_user else None}=>{self.target_ct_name}'
 
     class Meta:
         db_table = 'app_chats'

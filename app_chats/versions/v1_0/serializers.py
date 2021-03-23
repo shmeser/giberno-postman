@@ -9,7 +9,7 @@ class ChatsSerializer(serializers.ModelSerializer):
 
     last_message = serializers.SerializerMethodField()
 
-    def get_last_mesasge(self, data):
+    def get_last_message(self, data):
         return None
 
     class Meta:
@@ -17,7 +17,6 @@ class ChatsSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'title',
-            'text',
             'created_at',
             'last_message'
         ]
@@ -29,7 +28,6 @@ class ChatSerializer(ChatsSerializer):
         fields = [
             'id',
             'title',
-            'text',
             'created_at',
             'last_message'
         ]
