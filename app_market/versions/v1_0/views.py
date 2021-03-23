@@ -195,15 +195,15 @@ class ApplyToShiftAPIView(CRUDAPIView):
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
-class GetVacanciesByManagerShopAPIView(CRUDAPIView):
+class VacanciesByManagerListAPIView(CRUDAPIView):
     serializer_class = VacanciesForManagerSerializer
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
 
     filter_params = {
         'available_from': 'available_from__range',
-        'calendar_from': 'available_from__gt',
-        'calendar_to': 'available_from__lt',
+        # 'calendar_from': 'available_from__gt',
+        # 'calendar_to': 'available_from__lt',
     }
 
     order_params = {
@@ -217,9 +217,10 @@ class GetVacanciesByManagerShopAPIView(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         filters = RequestMapper(self).filters(request) or dict()
-
+        calendar_from, calendar_to = RequestMapper().calendar_range(request)
         dataset = self.repository_class(me=request.user).filter_by_kwargs_for_manager(
-            filters=filters, order_params=order_params, pagination=pagination
+            filters=filters, order_params=order_params, pagination=pagination, calendar_from=calendar_from,
+            calendar_to=calendar_to
         )
 
         serialized = self.serializer_class(dataset, many=True, context={
@@ -230,7 +231,7 @@ class GetVacanciesByManagerShopAPIView(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class GetVacanciesAvailableDatesForManager(CRUDAPIView):
+class VacanciesAvailableDatesForManagerListAPIView(CRUDAPIView):
     serializer_class = VacancyAvailableDatesSerializer
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
@@ -240,9 +241,11 @@ class GetVacanciesAvailableDatesForManager(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         filters = RequestMapper(self).filters(request) or dict()
+        calendar_from, calendar_to = RequestMapper().calendar_range(request)
 
         dataset = self.repository_class(me=request.user).filter_by_kwargs_for_manager(
-            filters=filters, order_params=order_params, pagination=pagination
+            filters=filters, order_params=order_params, pagination=pagination, calendar_from=calendar_from,
+            calendar_to=calendar_to
         )
 
         serialized = self.serializer_class(dataset, many=True, context={
@@ -253,7 +256,7 @@ class GetVacanciesAvailableDatesForManager(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class GetSingleVacancyForManagerAPIView(CRUDAPIView):
+class VacancyByManagerRetrieveAPIView(CRUDAPIView):
     serializer_class = VacancySerializer
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
