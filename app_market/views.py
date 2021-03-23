@@ -70,7 +70,7 @@ class ApplyToShiftAPIView(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class GetVacanciesByManagerShopAPIView(BaseAPIView):
+class VacanciesByManagerListAPIView(BaseAPIView):
     """
     Получение списка вакансий, которые закреплены за  магазином\магазинами менеджера
     возможные query параметры :
@@ -86,11 +86,11 @@ class GetVacanciesByManagerShopAPIView(BaseAPIView):
     @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesForManagerSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
-            return v1_0.GetVacanciesByManagerShopAPIView().get(request)
+            return v1_0.VacanciesByManagerListAPIView().get(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class GetSingleVacancyForManagerAPIView(BaseAPIView):
+class VacancyByManagerRetrieveAPIView(BaseAPIView):
     """
     Просмотр конкретной вакансии (среди прикрепленных к своему магазину) со стороны менеджера
 
@@ -101,18 +101,18 @@ class GetSingleVacancyForManagerAPIView(BaseAPIView):
     @swagger_auto_schema(responses={200: openapi.Response('response description', VacancySerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
-            return v1_0.GetSingleVacancyForManagerAPIView().get(request, **kwargs)
+            return v1_0.VacancyByManagerRetrieveAPIView().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class GetVacanciesAvailableDatesForManager(BaseAPIView):
+class VacanciesAvailableDatesForManagerListAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description', VacancyAvailableDatesSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
-            return v1_0.GetVacanciesAvailableDatesForManager().get(request, **kwargs)
+            return v1_0.VacanciesAvailableDatesForManagerListAPIView().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
