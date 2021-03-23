@@ -107,7 +107,12 @@ class VacancyByManagerRetrieveAPIView(BaseAPIView):
 
 class VacanciesAvailableDatesForManagerListAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
-
+    """
+    Для менеджеров : Список дат с которых вакансии доступны 
+    параметры фильтрации:
+    calendar_from 
+    calendar_to
+    """
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description', VacancyAvailableDatesSerializer)})
     def get(request, *args, **kwargs):
