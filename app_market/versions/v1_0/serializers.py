@@ -344,8 +344,7 @@ class VacancySerializer(VacanciesSerializer):
             'work_time',
             'banner',
             'shop',
-            'distributor',
-            'places_count'
+            'distributor'
         ]
 
 
@@ -359,18 +358,6 @@ class VacanciesForManagerSerializer(CRUDSerializer):
     class Meta:
         model = Vacancy
         fields = '__all__'
-
-
-class VacancyAvailableDatesSerializer(CRUDSerializer):
-    available_from = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_available_from(instance):
-        return datetime.timestamp(instance.available_from)
-
-    class Meta:
-        model = Vacancy
-        fields = ['id', 'available_from']
 
 
 class ShiftAppealsSerializer(CRUDSerializer):

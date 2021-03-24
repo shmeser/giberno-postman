@@ -139,12 +139,6 @@ class Vacancy(BaseModel):
         verbose_name='Часовой пояс вакансии'
     )
 
-    # список вакансий у менеджера отображается на 7 ближайших дней
-    available_from = models.DateTimeField(default=now)
-
-    # количество мест
-    places_count = models.PositiveIntegerField(default=1)
-
     rating = models.FloatField(default=0, verbose_name='Рейтинг')
     rates_count = models.PositiveIntegerField(default=0, verbose_name='Количество оценок')
     views_count = models.PositiveIntegerField(default=0, verbose_name='Количество просмотров')

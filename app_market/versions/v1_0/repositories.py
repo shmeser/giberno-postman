@@ -10,7 +10,7 @@ from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef
 from django.db.models.functions import Cast, Concat
-from django.utils.timezone import now, localtime, make_aware
+from django.utils.timezone import now, localtime
 from pytz import timezone
 from rest_framework.exceptions import PermissionDenied
 
@@ -24,7 +24,7 @@ from app_media.models import MediaModel
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
-from backend.utils import ArrayRemove
+from backend.utils import ArrayRemove, timestamp_to_datetime, datetime_to_timestamp
 from giberno import settings
 
 
@@ -543,22 +543,42 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             point=self.point
         )
 
-    def filter_by_kwargs_for_manager(self, filters, order_params, pagination, calendar_from=None, calendar_to=None):
-        filters.update({'shop_id__in': self.me.shops.all()})
-        available_from = filters.get('available_from__range')
+    def filter_for_manager(self, order_params, pagination, current_date=None):
+        filters = {'shop_id__in': self.me.shops.all()}
+        vacancies = self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
 
-        if available_from:
-            available_from = make_aware(datetime.fromtimestamp(int(available_from) / 1000))
-            next_day = available_from + timedelta(days=1)
-            filters['available_from__range'] = [available_from, next_day]
+        if current_date:
+            next_day = timestamp_to_datetime(float(current_date)) + timedelta(days=1)
+            next_day = next_day.replace(hour=0, minute=0, second=0)
+            next_day = datetime_to_timestamp(next_day)
 
-        if calendar_from and calendar_to:
-            filters.update({
-                'available_from__gt': calendar_from,
-                'available_from__lt': calendar_to
-            })
+            shifts = ShiftsRepository().filter_by_kwargs(
+                kwargs={'vacancy_id__in': vacancies}
+            )
+            active_vacancies = []
+            for shift in shifts:
+                for active_date in shift.active_dates:
+                    if current_date < active_date < next_day:
+                        if shift.vacancy not in active_vacancies:
+                            active_vacancies.append(shift.vacancy)
 
-        return self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
+            filters.update({'id__in': active_vacancies})
+            vacancies = self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
+        return vacancies
+
+    def get_active_dates(self, calendar_from=None, calendar_to=None):
+        vacancies = self.filter_by_kwargs(kwargs={'shop_id__in': self.me.shops.all()})
+        shifts = ShiftsRepository().filter_by_kwargs(
+            kwargs={'vacancy_id__in': vacancies}
+        )
+        calendar_from = datetime_to_timestamp(calendar_from)
+        calendar_to = datetime_to_timestamp(calendar_to)
+        active_dates = []
+        for shift in shifts:
+            for active_date in shift.active_dates:
+                if calendar_from < active_date < calendar_to and active_date not in active_dates:
+                    active_dates.append(active_date)
+        return active_dates
 
     def get_suggestions(self, search, paginator=None):
         records = self.model.objects.exclude(deleted=True).annotate(
