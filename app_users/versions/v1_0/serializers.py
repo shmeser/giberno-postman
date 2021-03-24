@@ -16,10 +16,9 @@ from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
-from app_users.enums import LanguageProficiency, AccountType
+from app_users.enums import LanguageProficiency
 from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
     NotificationsSettings, UserCity, UserCareer, Document
-from app_users.utils import generate_username
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository, \
     CareerRepository, DocumentsRepository
 from backend.entity import Error
@@ -641,17 +640,6 @@ class CreateManagerByAdminSerializer(serializers.ModelSerializer):
             'distributors',
             'shops'
         ]
-
-    def validate(self, attrs):
-        username = generate_username()
-
-        default_data = {
-            'username': username,
-            'account_type': AccountType.MANAGER,
-            'reg_reference': self.context['request'].user
-        }
-        attrs.update(default_data)
-        return attrs
 
 
 class UsernameSerializer(serializers.Serializer):

@@ -22,7 +22,6 @@ from app_users.entities import TokenEntity, SocialEntity
 from app_users.enums import NotificationType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
-from app_users.utils import EmailSender, generate_password
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
     SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository, FCMDeviceRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
@@ -591,17 +590,13 @@ class PushUnsubscribe(APIView):
 # MANAGERS RELATED VIEWS
 class CreateManagerByAdminAPIView(BaseAPIView):
     serializer_class = CreateManagerByAdminSerializer
+    repository_class = ProfileRepository
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=get_request_body(request), context={'request': request})
+        serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            user = serializer.save()
-            password = generate_password()
-            user.set_password(password)
-            user.save()
-            EmailSender(user=user, password=password).send(subject='Создана учетная запись менеджера')
+            user = self.repository_class(me=request.user).create_manager_by_admin(serializer.validated_data)
             return Response(ProfileSerializer(instance=user).data)
-        return Response('ok')
 
 
 class GetManagerByUsernameAPIView(BaseAPIView):
