@@ -12,24 +12,30 @@ class MediaController:
         self.instance = model_instance
         self.mime_type = mime_type
 
-    def get_related_images(self, prefetched_data, media_type):
-        file = MediaRepository.get_related_media(
-            self.instance, prefetched_data, media_type, MediaFormat.IMAGE.value, mime_type=self.mime_type
+    def get_related_images(self, prefetched_data, media_type, multiple=False):
+        empty = [] if multiple else None
+        files = MediaRepository.get_related_media(
+            self.instance, prefetched_data, media_type, MediaFormat.IMAGE.value, mime_type=self.mime_type,
+            multiple=multiple
         )
-        return MediaSerializer(file, many=False).data if file else None
+        return MediaSerializer(files, many=multiple).data if files else empty
 
-    def get_related_images_preview(self, prefetched_data, media_type):
+    def get_related_images_preview(self, prefetched_data, media_type, multiple=False):
         """ Облегченная версия изображения, только ссылка на превью """
+        empty = [] if multiple else None
         file = MediaRepository.get_related_media(
-            self.instance, prefetched_data, media_type, MediaFormat.IMAGE.value, mime_type=self.mime_type
+            self.instance, prefetched_data, media_type, MediaFormat.IMAGE.value, mime_type=self.mime_type,
+            multiple=multiple
         )
-        return MediaPreviewSerializer(file, many=False).data if file else None
+        return MediaPreviewSerializer(file, many=multiple).data if file else empty
 
-    def get_related_media(self, prefetched_data, media_type):
-        file = MediaRepository.get_related_media(self.instance, prefetched_data, media_type)
-        return MediaSerializer(file, many=False).data if file else None
+    def get_related_media(self, prefetched_data, media_type, multiple=False):
+        empty = [] if multiple else None
+        file = MediaRepository.get_related_media(self.instance, prefetched_data, media_type, multiple=multiple)
+        return MediaSerializer(file, many=multiple).data if file else empty
 
-    def get_related_media_file(self, prefetched_data, media_type):
+    def get_related_media_file(self, prefetched_data, media_type, multiple=False):
         """ Облегченная версия файла только ссылка на файл """
-        file = MediaRepository.get_related_media(self.instance, prefetched_data, media_type)
-        return MediaFileSerializer(file, many=False).data if file else None
+        empty = [] if multiple else None
+        file = MediaRepository.get_related_media(self.instance, prefetched_data, media_type, multiple=multiple)
+        return MediaFileSerializer(file, many=multiple).data if file else empty

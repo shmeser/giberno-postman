@@ -41,33 +41,31 @@ class MediaRepository(MasterRepository):
 
     @classmethod
     def get_related_media(cls, model_instance, prefetched_data, m_type, m_format=None, mime_type=None, multiple=False):
+        # Берем файлы из предзагруженного через prefetch_related поля medias
         medias_list = chained_get(prefetched_data, 'medias', default=list())
-        if isinstance(model_instance, QuerySet):
-            # для many=True - узнаем из сериалайзера через model_instance
-            file = None
-            if medias_list:  # Берем файл из предзагруженного через prefetch_related поля medias
-                file = next(
-                    filter(  # Отфильтровываем по mime_type и берем один элемент
-                        lambda x: cls.get_mime_cond(x, m_type, mime_type), chained_get(prefetched_data, 'medias')
-                    ), None
-                )
+        iterated = filter(  # Отфильтровываем по mime_type и берем один элемент
+            lambda x: cls.get_mime_cond(x, m_type, mime_type), medias_list
+        )
+        if multiple:
+            files = list(iterated)
         else:
-            # для many=False - узнаем из сериалайзера через model_instance
-            if medias_list:  # Берем файл из предзагруженного через prefetch_related поля medias
-                file = next(
-                    filter(  # Отфильтровываем по mime_type и берем один элемент
-                        lambda x: cls.get_mime_cond(x, m_type, mime_type), chained_get(prefetched_data, 'medias')
-                    ), None
-                )
-            else:  # Если нет предзагруженных данных, делаем запрос в бд
-                files = MediaModel.objects.filter(
-                    owner_id=prefetched_data.id, type=m_type,
-                    owner_ct_id=ContentType.objects.get_for_model(prefetched_data).id,
-                )
-                if m_format:  # Если указан формат
-                    files = files.filter(format=m_format)
-                if mime_type:  # Если указан mime_type
-                    files = files.filter(mime_type=mime_type)
-                file = files.order_by('-created_at').first()
+            files = next(iterated, None)  # Берем 1 файл
 
-        return file
+        if isinstance(model_instance, QuerySet):  # для many=True - узнаем из сериалайзера через model_instance
+            return files
+
+        # для many=False - узнаем из сериалайзера через model_instance
+        if not files:  # Если нет предзагруженных данных, делаем запрос в бд
+            files = MediaModel.objects.filter(
+                owner_id=prefetched_data.id, type=m_type,
+                owner_ct_id=ContentType.objects.get_for_model(prefetched_data).id,
+            )
+            if m_format:  # Если указан формат
+                files = files.filter(format=m_format)
+            if mime_type:  # Если указан mime_type
+                files = files.filter(mime_type=mime_type)
+            files = files.order_by('-created_at').first()
+            if not multiple:
+                files = files.first()
+
+        return files

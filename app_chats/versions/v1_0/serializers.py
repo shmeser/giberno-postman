@@ -87,7 +87,11 @@ class MessagesSerializer(serializers.ModelSerializer):
         return MessageProfileSerializer(data.user, many=False).data
 
     def get_attachments(self, prefetched_data):
-        return MediaController(self.instance).get_related_media_file(prefetched_data, MediaType.ATTACHMENT.value)
+        return MediaController(self.instance).get_related_media_file(
+            prefetched_data,
+            MediaType.ATTACHMENT.value,
+            multiple=True
+        )
 
     class Meta:
         model = Message
