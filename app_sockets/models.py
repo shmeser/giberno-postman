@@ -8,7 +8,7 @@ from backend.models import BaseModel
 
 class Socket(BaseModel):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='sockets')
     socket_id = models.TextField()
     room_name = models.CharField(max_length=255, blank=True, null=True)
     room_id = models.IntegerField(blank=True, null=True)

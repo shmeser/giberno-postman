@@ -1,7 +1,12 @@
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Prefetch, F, Case, When, Count
 
 from app_chats.models import Chat, Message, ChatUser
 from app_market.models import Shop, Vacancy
+from app_media.enums import MediaType, MediaFormat
+from app_media.models import MediaModel
+from app_users.enums import AccountType
+from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import ProfileRepository
 from backend.mixins import MasterRepository
 from backend.utils import timestamp_to_datetime
@@ -62,7 +67,7 @@ class ChatsRepository(MasterRepository):
                 'created_at__gte': created_at
             })
 
-        if self.me is None:  # Если роль менеджера
+        if self.me.account_type == AccountType.MANAGER.value:  # Если роль менеджера
             if user_id and vacancy_id:
                 # Цель обсуждения в чате - вакансия
                 target_ct = ContentType.objects.get_for_model(Vacancy)
@@ -75,7 +80,7 @@ class ChatsRepository(MasterRepository):
                     subject_user
                 ]
 
-        elif self.me:  # Если роль пользователя
+        elif self.me.account_type == AccountType.SELF_EMPLOYED.value:  # Если роль самозанятого
             if user_id:  # user-user
                 # Цели обсуждения в чате нет по умолчанию для такого чата
                 # Участники чата
@@ -187,3 +192,51 @@ class ChatsRepository(MasterRepository):
 
 class MessagesRepository(MasterRepository):
     model = Message
+
+    def __init__(self, me=None) -> None:
+        super().__init__()
+
+        self.me = me
+        self.base_query = self.model.objects
+
+    @staticmethod
+    def fast_related_loading(queryset, point=None):
+        """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
+            -> Media (attachments)
+            -> User + Media
+        """
+        queryset = queryset.select_related(
+            'user',
+        ).prefetch_related(
+            # Подгрузка медиа для профилей
+            Prefetch(
+                'user__media',
+                queryset=MediaModel.objects.filter(
+                    type=MediaType.AVATAR.value,
+                    owner_ct_id=ContentType.objects.get_for_model(UserProfile).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+            )
+        ).prefetch_related(
+            # Подгрузка медиа для сообщений
+            Prefetch(
+                'attachments',
+                queryset=MediaModel.objects.filter(
+                    type=MediaType.ATTACHMENT.value,
+                    owner_ct_id=ContentType.objects.get_for_model(Message).id
+                ),
+                to_attr='medias'
+            )
+        )
+
+        return queryset
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        if order_by:
+            records = records.order_by(*order_by)
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )

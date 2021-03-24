@@ -57,7 +57,6 @@ class ChatUser(BaseModel):
 
 
 class Message(BaseModel):
-    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.SET_NULL)
     chat = models.ForeignKey(Chat, null=True, blank=True, on_delete=models.SET_NULL)
 
@@ -70,7 +69,7 @@ class Message(BaseModel):
     form_status = models.PositiveIntegerField(
         choices=choices(FormMessageStatus),
         default=FormMessageStatus.INITIAL.value,
-        verbose_name='Статус обработки сообщения с типом ФОРМА'
+        verbose_name='Статус обработки сообщения с типом "FORM"'
     )
 
     read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником')
