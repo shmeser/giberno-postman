@@ -16,7 +16,7 @@ from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType, NotificationType
 from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification, UserCareer, \
     Document
-from app_users.utils import validate_username
+from app_users.utils import validate_username, generate_username, generate_password, EmailSender
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
@@ -240,6 +240,34 @@ class ProfileRepository(MasterRepository):
         super().__init__()
         self.me = me
 
+    def create_manager_by_admin(self, validated_data):
+        data_to_create_user = {
+            'username': generate_username(),
+            'account_type': AccountType.MANAGER,
+            'reg_reference': self.me,
+            'email': validated_data.get('email'),
+            'phone': validated_data.get('phone'),
+            'first_name': validated_data.get('first_name'),
+            'middle_name': validated_data.get('middle_name'),
+            'last_name': validated_data.get('last_name')
+        }
+
+        user = self.create(**data_to_create_user)
+        password = generate_password()
+        user.set_password(password)
+        distributors = validated_data.get('distributors')
+        shops = validated_data.get('shops')
+
+        user.distributors.set(distributors)
+        user.shops.set(shops)
+        user.save()
+        NotificationsSettings.objects.create(
+            user=user,
+            enabled_types=[NotificationType.SYSTEM]
+        )
+        EmailSender(user=user, password=password).send(subject='Создана учетная запись менеджера')
+        return user
+
     def get_by_id(self, record_id):
         try:
             return self.model.objects.get(id=record_id, is_staff=False)
@@ -254,18 +282,16 @@ class ProfileRepository(MasterRepository):
         try:
             return self.model.objects.get(username=username)
         except self.model.DoesNotExist:
-            raise HttpException(
-                status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
-                detail=ErrorsCodes.USERNAME_WRONG.value
-            )
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.USERNAME_WRONG))
+            ])
 
     def get_by_username_and_password(self, validated_data):
         user = self.get_by_username(username=validated_data['username'].lower())
         if not user.check_password(validated_data['password']):
-            raise HttpException(
-                status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
-                detail=ErrorsCodes.WRONG_PASSWORD.value
-            )
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.WRONG_PASSWORD))
+            ])
         return user
 
     def update_location(self, data):
@@ -281,10 +307,9 @@ class ProfileRepository(MasterRepository):
 
         taken = self.model.objects.filter(username=username)
         if taken.count():
-            raise HttpException(
-                status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
-                detail=ErrorsCodes.USERNAME_TAKEN.value
-            )
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.USERNAME_TAKEN))
+            ])
 
         self.me.username = username
         self.me.save()
