@@ -5,8 +5,9 @@ from django.conf import settings
 from django.core.mail import send_mail
 from loguru import logger
 
-from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException
+from backend.entity import Error
+from backend.errors.enums import ErrorsCodes
+from backend.errors.http_exception import CustomException
 
 
 class EmailSender:
@@ -49,20 +50,17 @@ def validate_username(username):
 
     allowed = allowed_symbols + allowed_letters
     if len(username) not in range(6, 20):
-        raise HttpException(
-            status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
-            detail=ErrorsCodes.USERNAME_INVALID_LENGTH.value
-        )
+        raise CustomException(errors=[
+            dict(Error(ErrorsCodes.USERNAME_INVALID_LENGTH))
+        ])
     elif username[0] not in allowed_letters or username[-1] == '.':
-        raise HttpException(
-            status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
-            detail=ErrorsCodes.USERNAME_INVALID_SYMBOLS.value
-        )
+        raise CustomException(errors=[
+            dict(Error(ErrorsCodes.USERNAME_INVALID_SYMBOLS))
+        ])
 
     for item in username:
         if item not in allowed:
-            raise HttpException(
-                status_code=RESTErrors.CUSTOM_DETAILED_ERROR,
-                detail=ErrorsCodes.USERNAME_INVALID_SYMBOLS.value
-            )
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.USERNAME_INVALID_SYMBOLS))
+            ])
     return username.lower()
