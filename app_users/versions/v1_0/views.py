@@ -652,4 +652,4 @@ class EditManagerProfileView(BaseAPIView):
                 del serializer.validated_data['username']
 
             user = ProfileRepository().update(record_id=request.user.id, **serializer.validated_data)
-            return Response(ProfileSerializer(instance=user).data)
+            return Response(camelize(ProfileSerializer(instance=user).data))
