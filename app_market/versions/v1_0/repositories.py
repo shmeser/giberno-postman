@@ -567,13 +567,24 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         return vacancies
 
     def get_active_dates(self, calendar_from=None, calendar_to=None):
+        active_dates = []
         vacancies = self.filter_by_kwargs(kwargs={'shop_id__in': self.me.shops.all()})
-        shifts = ShiftsRepository().filter_by_kwargs(
-            kwargs={'vacancy_id__in': vacancies}
-        )
+        if not vacancies.count():
+            return active_dates
+
+        shifts = ShiftsRepository().filter_by_kwargs(kwargs={'vacancy_id__in': vacancies})
+        if not shifts.count():
+            return active_dates
+
+        if not calendar_from and not calendar_to:
+            for shift in shifts:
+                for active_date in shift.active_dates:
+                    if active_date not in active_dates:
+                        active_dates.append(active_date)
+            return active_dates
+
         calendar_from = datetime_to_timestamp(calendar_from)
         calendar_to = datetime_to_timestamp(calendar_to)
-        active_dates = []
         for shift in shifts:
             for active_date in shift.active_dates:
                 if calendar_from < active_date < calendar_to and active_date not in active_dates:
