@@ -579,6 +579,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             active_vacancies = []
             for shift in shifts:
                 for active_date in shift.active_dates:
+                    active_date = datetime_to_timestamp(active_date)
                     if current_date < active_date < next_day:
                         if shift.vacancy not in active_vacancies:
                             active_vacancies.append(shift.vacancy)
@@ -600,6 +601,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         if not calendar_from and not calendar_to:
             for shift in shifts:
                 for active_date in shift.active_dates:
+                    active_date = datetime_to_timestamp(active_date)
                     if active_date not in active_dates:
                         active_dates.append(active_date)
             return active_dates
