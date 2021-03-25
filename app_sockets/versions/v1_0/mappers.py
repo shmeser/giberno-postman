@@ -1,4 +1,8 @@
+from app_chats.versions.v1_0.repositories import AsyncChatsRepository
+from app_market.versions.v1_0.repositories import AsyncShopsRepository, AsyncVacanciesRepository, \
+    AsyncDistributorsRepository
 from app_sockets.enums import AvailableRoom, AvailableVersion
+from app_users.versions.v1_0.repositories import AsyncProfileRepository
 
 
 class SocketEventRM:
@@ -21,15 +25,15 @@ class RoutingMapper:
     @staticmethod
     def room_repository(room_name):
         if room_name == AvailableRoom.CHATS.value:
-            return 'AsyncChatsRepository'
+            return AsyncChatsRepository
         if room_name == AvailableRoom.USERS.value:
-            return 'AsyncProfilesRepository'
+            return AsyncProfileRepository
         if room_name == AvailableRoom.SHOPS.value:
-            return 'AsyncShopsRepository'
+            return AsyncShopsRepository
         if room_name == AvailableRoom.VACANCIES.value:
-            return 'AsyncVacanciesRepository'
+            return AsyncVacanciesRepository
         if room_name == AvailableRoom.DISTRIBUTORS.value:
-            return 'AsyncDistributorsRepository'
+            return AsyncDistributorsRepository
 
         return None
 
@@ -45,7 +49,7 @@ class RoutingMapper:
         ]:
             return True
 
-        # v1.1
+        # v1.1 TODO для тестов пока
         if version == AvailableVersion.V1_1.value and room_name in [
             AvailableRoom.CHATS.value,
         ]:

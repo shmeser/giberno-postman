@@ -1,5 +1,6 @@
+from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch, F, Case, When, Count
+from django.db.models import Prefetch
 
 from app_chats.models import Chat, Message, ChatUser
 from app_market.models import Shop, Vacancy
@@ -188,6 +189,16 @@ class ChatsRepository(MasterRepository):
         # return self.fast_related_loading(  # Предзагрузка связанных сущностей
         #     queryset=records[paginator.offset:paginator.limit] if paginator else records,
         # )
+
+
+class AsyncChatsRepository(ChatsRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    @database_sync_to_async
+    def get_by_id(self, record_id):
+        return super().get_by_id(record_id)
 
 
 class MessagesRepository(MasterRepository):

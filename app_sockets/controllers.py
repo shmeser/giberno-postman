@@ -53,13 +53,12 @@ class AsyncSocketController:
         room_name = self.consumer.room_name
         me = self.consumer.scope['user']  # Пользователь текущего соединения
         room_id = self.consumer.room_id
+        repository_class = RoutingMapper.room_repository(room_name)
 
         if not RoutingMapper.check_room_version(room_name, version):
             logger.info(f'Такой точки соединения не существует для версии {version}')
             await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
             return False
-
-        repository_class = RoutingMapper.room_repository(room_name)
 
         return True
 

@@ -1,5 +1,6 @@
 from datetime import timedelta, datetime
 
+from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models import GeometryField, CharField
 from django.contrib.gis.db.models.functions import Distance, Envelope
@@ -102,6 +103,16 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
             )
 
         return queryset
+
+
+class AsyncDistributorsRepository(DistributorsRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    @database_sync_to_async
+    def get_by_id(self, record_id):
+        return super().get_by_id(record_id)
 
 
 class ShopsRepository(MakeReviewMethodProviderRepository):
@@ -247,6 +258,16 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
             ORDER BY 3 DESC
         '''
         return self.model.objects.raw(raw_sql)
+
+
+class AsyncShopsRepository(ShopsRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    @database_sync_to_async
+    def get_by_id(self, record_id):
+        return super().get_by_id(record_id)
 
 
 class CustomLookupBase(Lookup):
@@ -794,6 +815,16 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             return result
 
         return []
+
+
+class AsyncVacanciesRepository(VacanciesRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    @database_sync_to_async
+    def get_by_id(self, record_id):
+        return super().get_by_id(record_id)
 
 
 class ShiftAppealsRepository(MasterRepository):
