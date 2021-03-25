@@ -61,7 +61,7 @@ class AsyncSocketController:
                 await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
                 return False
 
-            if not RoutingMapper.check_room_version(room_name, version):
+            if not repository_class(me).check_connection_to_group(room_id):
                 logger.info(f'Такой точки соединения не существует для версии {version}')
                 await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
                 return False
