@@ -587,6 +587,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         calendar_to = datetime_to_timestamp(calendar_to)
         for shift in shifts:
             for active_date in shift.active_dates:
+                active_date = datetime_to_timestamp(active_date)
                 if calendar_from < active_date < calendar_to and active_date not in active_dates:
                     active_dates.append(active_date)
         return active_dates
