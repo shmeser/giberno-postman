@@ -9,8 +9,7 @@ from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewM
 from app_market.versions.v1_0 import views as v1_0
 from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
     ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer, \
-    VacanciesClusterSerializer, ShiftAppealsSerializer, VacancySerializer, VacanciesForManagerSerializer, \
-    VacancyAvailableDatesSerializer
+    VacanciesClusterSerializer, ShiftAppealsSerializer, VacancySerializer, VacanciesForManagerSerializer
 from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager, IsManagerOrSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -74,9 +73,6 @@ class VacanciesByManagerListAPIView(BaseAPIView):
     """
     Получение списка вакансий, которые закреплены за  магазином\магазинами менеджера
     возможные query параметры :
-    available_from= Int, milliseconds ( Это дата с которой вакансия доступна)
-    calendar_from
-    calendar_to
     offset : int
     limit : int
     """
@@ -114,7 +110,7 @@ class VacanciesAvailableDatesForManagerListAPIView(BaseAPIView):
     calendar_to
     """
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacancyAvailableDatesSerializer)})
+    @swagger_auto_schema(responses={200: '[timestamp]'})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacanciesAvailableDatesForManagerListAPIView().get(request, **kwargs)
