@@ -48,19 +48,30 @@ class AsyncSocketController:
         return await AsyncSocketsRepository(me).check_if_connected()
 
     async def check_permission_for_group_connection(self):
-        # Проверка возможности присоединиться к определенному каналу в чате
-        version = self.consumer.version
-        room_name = self.consumer.room_name
-        me = self.consumer.scope['user']  # Пользователь текущего соединения
-        room_id = self.consumer.room_id
-        repository_class = RoutingMapper.room_repository(room_name)
+        try:
+            # Проверка возможности присоединиться к определенному каналу в чате
+            version = self.consumer.version
+            room_name = self.consumer.room_name
+            me = self.consumer.scope['user']  # Пользователь текущего соединения
+            room_id = self.consumer.room_id
+            repository_class = RoutingMapper.room_repository(room_name)
 
-        if not RoutingMapper.check_room_version(room_name, version):
-            logger.info(f'Такой точки соединения не существует для версии {version}')
+            if not RoutingMapper.check_room_version(room_name, version):
+                logger.info(f'Такой точки соединения не существует для версии {version}')
+                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+                return False
+
+            if not RoutingMapper.check_room_version(room_name, version):
+                logger.info(f'Такой точки соединения не существует для версии {version}')
+                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.error(e)
             await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
             return False
-
-        return True
 
     async def update_location(self, event):
         user = await AsyncProfileRepository(me=self.consumer.scope['user']).update_location(event)
