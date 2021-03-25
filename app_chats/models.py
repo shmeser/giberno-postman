@@ -1,5 +1,3 @@
-import uuid as uuid
-
 from django.contrib.contenttypes.fields import GenericRelation, GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
@@ -73,6 +71,7 @@ class Message(BaseModel):
     )
 
     read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником')
+    command_data = models.JSONField(default=dict)
 
     def __str__(self):
         return f'{self.id} - {self.user.username}'

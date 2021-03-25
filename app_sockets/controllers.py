@@ -3,9 +3,11 @@ from channels.layers import get_channel_layer
 from loguru import logger
 
 from app_sockets.enums import SocketEventType
+from app_sockets.versions.v1_0.mappers import RoutingMapper
 from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository, SocketsRepository
 from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import AsyncProfileRepository
+from backend.errors.enums import SocketErrors
 from giberno.settings import DEBUG
 
 
@@ -42,8 +44,24 @@ class AsyncSocketController:
         await AsyncSocketsRepository(me).remove_socket(self.consumer.channel_name)
 
     async def check_if_connected(self):
-        me = self.consumer.scope['user']  # Прользователь текущего соединения
+        me = self.consumer.scope['user']  # Пользователь текущего соединения
         return await AsyncSocketsRepository(me).check_if_connected()
+
+    async def check_permission_for_group_connection(self):
+        # Проверка возможности присоединиться к определенному каналу в чате
+        version = self.consumer.version
+        room_name = self.consumer.room_name
+        me = self.consumer.scope['user']  # Пользователь текущего соединения
+        room_id = self.consumer.room_id
+
+        if not RoutingMapper.check_room_version(room_name, version):
+            logger.info(f'Такой точки соединения не существует для версии {version}')
+            await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+            return False
+
+        repository_class = RoutingMapper.room_repository(room_name)
+
+        return True
 
     async def update_location(self, event):
         user = await AsyncProfileRepository(me=self.consumer.scope['user']).update_location(event)

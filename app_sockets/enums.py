@@ -1,4 +1,4 @@
-from backend.enums import IntEnumM
+from backend.enums import IntEnumM, EnumM
 
 
 class SocketEventType(IntEnumM):
@@ -18,3 +18,16 @@ class SocketEventType(IntEnumM):
     SERVER_CHAT_UPDATED = 104
 
     NOTIFICATION = 200
+
+
+class AvailableVersion(EnumM):
+    V1_0 = '1.0'
+    V1_1 = '1.1'
+
+
+class AvailableRoom(EnumM):
+    CHATS = 'chats'
+    SHOPS = 'shops'
+    USERS = 'users'
+    VACANCIES = 'vacancies'
+    DISTRIBUTORS = 'distributors'

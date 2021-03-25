@@ -128,8 +128,8 @@ input, button {
     height: 45px;
 }
 
-.clear-jwt{
-    width: 45px;
+.clear-jwt, .clear-route{
+    width: 45px !important;
 }
 
 .sockets-container {

@@ -3,7 +3,7 @@ from loguru import logger
 
 from app_sockets.controllers import AsyncSocketController
 from app_sockets.enums import SocketEventType
-from app_sockets.mappers.request_models import SocketEventRM
+from app_sockets.versions.v1_0.mappers import SocketEventRM
 from backend.errors.client_error import SocketError
 from backend.errors.enums import SocketErrors
 from backend.utils import chained_get
@@ -12,6 +12,7 @@ from backend.utils import chained_get
 class GroupConsumer(AsyncJsonWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.version = None
         self.user = None
         self.socket_controller = None
         self.room_name = None
@@ -21,6 +22,8 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         self.socket_controller = AsyncSocketController(self)
         try:
+            self.version = chained_get(self.scope, 'url_route', 'kwargs', 'version')
+
             self.user = self.scope["user"]
 
             self.room_id = chained_get(self.scope, 'url_route', 'kwargs', 'id')
@@ -30,28 +33,31 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
 
             await self.accept()  # Принимаем соединение
 
-            # Проверка авторизации подключаемого соединения TODO проверка других разрешений
+            # Проверка авторизации подключаемого соединения, версии и различных разрешений
             if self.user.is_authenticated:
-                # Добавляем соединение в группу
-                await self.channel_layer.group_add(self.group_name, self.channel_name)
-                await self.socket_controller.store_group_connection()
+                if await self.socket_controller.check_permission_for_group_connection():
+                    # Добавляем соединение в группу
+                    await self.channel_layer.group_add(self.group_name, self.channel_name)
+                    await self.socket_controller.store_group_connection()
             else:
                 # Принимаем соединение и сразу закрываем, чтобы не было ERR_CONNECTION_REFUSED
-                await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
+                await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом UNAUTHORIZED
         except Exception as e:
             logger.error(e)
             await self.close(code=SocketErrors.BAD_REQUEST.value)  # Закрываем соединение с кодом BAD REQUEST
 
     async def receive_json(self, content, **kwargs):
-
         logger.debug(content)
 
+        handler_type = 'system_message'
+        data = content
+
+        if content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
+            handler_type = 'chat_message'
+
         await self.channel_layer.group_send(self.group_name, {
-            'type': 'system_message',
-            'attachmentType': content['attachmentType'],
-            'attachmentPreviewUrl': content['attachmentPreviewUrl'],
-            'attachmentUrl': content['attachmentUrl'],
-            'text': content['text'],
+            'type': handler_type,
+            **data
         })
 
     async def disconnect(self, code):
@@ -62,14 +68,11 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         except Exception as e:
             logger.error(e)
 
-    # # Системное - предупреждение, информация
-    async def system_message(self, data):
+    # Сообщения в чате
+    async def chat_message(self, data):
         await self.send_json(
             {
-                'attachmentType': data['attachmentType'],
-                'attachmentPreviewUrl': data['attachmentPreviewUrl'],
-                'attachmentUrl': data['attachmentUrl'],
-                'text': data['text'],
+                **data
             },
         )
 
@@ -77,6 +80,7 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
 class Consumer(AsyncJsonWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.version = None
         self.user = None
         self.socket_controller = None
 

@@ -22,10 +22,11 @@
             </label>
             <div class="routes-block">
                 <input
-                        placeholder="/sockets/chats/1"
-                        value="/sockets"
+                        placeholder="/v1.0/sockets или /v1.0/sockets/chats/1"
+                        value=""
                         id="sockets-route" type="text" required="required"
                 />
+                <button class="clear-route" id="clear-route" onclick="clearRoute()">✖</button>
                 <button type="button" id="connect-button">Add Connection</button>
             </div>
         </div>
@@ -59,6 +60,21 @@
         const setJWT = () => {
             const jwt = document.getElementById('jwt-token').value;
             localStorage.setItem('socket-jwt', jwt);
+        };
+
+         const clearRoute = () => {
+            document.getElementById('sockets-route').value = '';
+            document.getElementById('clear-route').blur();
+            localStorage.removeItem('sockets-route');
+        };
+
+        const getRoute = () => {
+            document.getElementById('sockets-route').value = localStorage.getItem('sockets-route');
+        };
+
+        const setRoute = () => {
+            const jwt = document.getElementById('sockets-route').value;
+            localStorage.setItem('sockets-route', jwt);
         };
 
         const disconnect = (connectionId) => {
@@ -145,10 +161,20 @@
             if (eventType === 2) {
                 messageBody.value = JSON.stringify({
                     "eventType": eventType,
-                    "attachmentType": null, // 1 - image, 2 - audio, 3 - video
-                    "attachmentPreviewUrl": "/media/preview/sample.jpeg",
-                    "attachmentUrl": "/media/sample.jpeg",
+                    "messageType": 1,
                     "text": "тестовое сообщение",
+                    "attachments": [
+                        '73f39c0e-9e5f-4f26-a15f-5eb7f6547b36',
+                        'a2f2dce9-0e7e-4947-a0a3-775e74a97daa',
+                        '4ad0c744-b8d0-4bcf-8705-e0930641fdeb'
+                    ],
+                    "commandData": {
+                        "acceptDocs": [
+                            '73f39c0e-9e5f-4f26-a15f-5eb7f6547b36',
+                            'a2f2dce9-0e7e-4947-a0a3-775e74a97daa',
+                            '4ad0c744-b8d0-4bcf-8705-e0930641fdeb'
+                        ]
+                    }
                 }, undefined, 4);
             }
 
@@ -187,6 +213,7 @@
 
             socket.onopen = (event) => {
                 setJWT(); // Сохраняем JWT при успешном соединении
+                setRoute(); // Сохраняем route при успешном соединении
                 console.log('Connected to socket', event);
             };
             socket.onclose = (event) => {
@@ -243,6 +270,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             getJWT();
+            getRoute();
         });
     </script>
 {% endblock %}

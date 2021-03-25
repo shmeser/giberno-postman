@@ -41,7 +41,7 @@ class MessageProfileSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
 
     def get_avatar(self, prefetched_data):
-        return MediaController(self.instance).get_related_images_preview(prefetched_data, MediaType.AVATAR.value)
+        return MediaController(self.instance).get_related_images_urls(prefetched_data, MediaType.AVATAR.value)
 
     class Meta:
         model = UserProfile
@@ -87,7 +87,7 @@ class MessagesSerializer(serializers.ModelSerializer):
         return MessageProfileSerializer(data.user, many=False).data
 
     def get_attachments(self, prefetched_data):
-        return MediaController(self.instance).get_related_media_file(
+        return MediaController(self.instance).get_related_media_urls(
             prefetched_data,
             MediaType.ATTACHMENT.value,
             multiple=True

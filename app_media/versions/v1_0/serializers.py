@@ -17,17 +17,10 @@ class MediaSerializer(serializers.ModelSerializer):
         ]
 
 
-class MediaPreviewSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MediaModel
-        fields = [
-            'preview',
-        ]
-
-
-class MediaFileSerializer(serializers.ModelSerializer):
+class MediaUrlsSerializer(serializers.ModelSerializer):
     class Meta:
         model = MediaModel
         fields = [
             'file',
+            'preview',
         ]
