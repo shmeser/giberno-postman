@@ -8,6 +8,7 @@ from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository, Socke
 from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import AsyncProfileRepository
 from backend.errors.enums import SocketErrors
+from backend.errors.exceptions import EntityDoesNotExistException
 from giberno.settings import DEBUG
 
 
@@ -54,23 +55,26 @@ class AsyncSocketController:
             room_name = self.consumer.room_name
             me = self.consumer.scope['user']  # Пользователь текущего соединения
             room_id = self.consumer.room_id
-            repository_class = RoutingMapper.room_repository(room_name)
 
             if not RoutingMapper.check_room_version(room_name, version):
                 logger.info(f'Такой точки соединения не существует для версии {version}')
                 await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
                 return False
 
-            if not repository_class(me).check_connection_to_group(room_id):
-                logger.info(f'Такой точки соединения не существует для версии {version}')
-                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
-                return False
+            repository_class = RoutingMapper.room_repository(version, room_name)
 
+            if not await repository_class(me).check_connection_to_group(room_id):
+                logger.info(f'Действие запрещено')
+                await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
+                return False
             return True
 
+        except EntityDoesNotExistException:
+            logger.info(f'Объект не найден')
+            await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
         except Exception as e:
             logger.error(e)
-            await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+            await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
             return False
 
     async def update_location(self, event):

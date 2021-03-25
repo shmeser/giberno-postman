@@ -1,8 +1,8 @@
-from app_chats.versions.v1_0.repositories import AsyncChatsRepository
-from app_market.versions.v1_0.repositories import AsyncShopsRepository, AsyncVacanciesRepository, \
-    AsyncDistributorsRepository
+from app_chats.versions.v1_0 import repositories as chats_1_0
+
+from app_market.versions.v1_0 import repositories as market_1_0
 from app_sockets.enums import AvailableRoom, AvailableVersion
-from app_users.versions.v1_0.repositories import AsyncProfileRepository
+from app_users.versions.v1_0 import repositories as user_1_0
 
 
 class SocketEventRM:
@@ -23,17 +23,17 @@ class SocketEventRM:
 
 class RoutingMapper:
     @staticmethod
-    def room_repository(room_name):
-        if room_name == AvailableRoom.CHATS.value:
-            return AsyncChatsRepository
-        if room_name == AvailableRoom.USERS.value:
-            return AsyncProfileRepository
-        if room_name == AvailableRoom.SHOPS.value:
-            return AsyncShopsRepository
-        if room_name == AvailableRoom.VACANCIES.value:
-            return AsyncVacanciesRepository
-        if room_name == AvailableRoom.DISTRIBUTORS.value:
-            return AsyncDistributorsRepository
+    def room_repository(version, room_name):
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.CHATS.value:
+            return chats_1_0.AsyncChatsRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.USERS.value:
+            return user_1_0.AsyncProfileRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.SHOPS.value:
+            return market_1_0.AsyncShopsRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.VACANCIES.value:
+            return market_1_0.AsyncVacanciesRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.DISTRIBUTORS.value:
+            return market_1_0.AsyncDistributorsRepository
 
         return None
 

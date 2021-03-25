@@ -9,6 +9,7 @@ from app_media.models import MediaModel
 from app_users.enums import AccountType
 from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import ProfileRepository
+from backend.errors.exceptions import EntityDoesNotExistException
 from backend.mixins import MasterRepository
 from backend.utils import timestamp_to_datetime
 
@@ -199,6 +200,17 @@ class AsyncChatsRepository(ChatsRepository):
     @database_sync_to_async
     def get_by_id(self, record_id):
         return super().get_by_id(record_id)
+
+    @database_sync_to_async
+    def check_connection_to_group(self, record_id):
+        record = self.model.objects.filter(id=record_id).first()
+        if not record:
+            raise EntityDoesNotExistException
+
+        if record.deleted:
+            # TODO логика проверки присоединения к группе
+            return False
+        return True
 
 
 class MessagesRepository(MasterRepository):
