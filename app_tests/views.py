@@ -14,7 +14,7 @@ from app_sockets.controllers import SocketController
 from app_users.enums import AccountType
 from app_users.models import UserProfile
 from backend.controllers import PushController
-from backend.utils import get_request_body, chained_get
+from backend.utils import get_request_body
 
 
 class GetUserTokenTestAPIView(APIView):
@@ -30,29 +30,31 @@ class SendTestPush(APIView):
 
     def post(self, request, *args, **kwargs):
         body = get_request_body(request)
+        title = body.pop('title', '')
+        message = body.pop('message', '')
+        action = body.pop('action', None)
+        subject_id = body.pop('subject_id', None)
+        notification_type = body.pop('notification_type', None)
+        icon_type = body.pop('icon_type', None)
         PushController().send_notification(
             users_to_send=[request.user],
-            title=chained_get(body, 'title') or '',
-            message=chained_get(body, 'message') or '',
-            action=chained_get(body, 'action'),
-            subject_id=chained_get(body, 'subject_id'),
-            notification_type=chained_get(body, 'notification_type'),
-            icon_type=chained_get(body, 'icon_type'),
-            **{
-                'badge': chained_get(body, 'badge', default=False),
-                'sound': chained_get(body, 'sound', default=False),
-                'android_channel_id': chained_get(body, 'android_channel_id')
-            }
+            title=title,
+            message=message,
+            action=action,
+            subject_id=subject_id,
+            notification_type=notification_type,
+            icon_type=icon_type,
+            **body  # оставшиеся поля передаем как kwargs
         )
 
         # Отправка уведомления по сокетам
         SocketController(request.user).send_single_notification({
-            'title': chained_get(body, 'title') or '',
-            'message': chained_get(body, 'message') or '',
-            'action': chained_get(body, 'action'),
-            'subjectId': chained_get(body, 'subject_id'),
-            'notificationType': chained_get(body, 'notification_type'),
-            'iconType': chained_get(body, 'icon_type'),
+            'title': title,
+            'message': message,
+            'action': action,
+            'subjectId': subject_id,
+            'notificationType': notification_type,
+            'iconType': icon_type,
         })
         return Response(camelize(body), status=status.HTTP_200_OK)
 
