@@ -578,8 +578,6 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         if not shifts.count():
             return active_dates
 
-        a = shifts.get(id=413)
-        print(a.active_dates)
         if not calendar_from and not calendar_to:
             for shift in shifts:
                 for active_date in shift.active_dates:
