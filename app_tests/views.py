@@ -56,7 +56,15 @@ class SendTestPush(APIView):
             'notificationType': notification_type,
             'iconType': icon_type,
         })
-        return Response(camelize(body), status=status.HTTP_200_OK)
+        return Response(camelize({
+            'title': title,
+            'message': message,
+            'action': action,
+            'subject_id': subject_id,
+            'notification_type': notification_type,
+            'icon_type': icon_type,
+            **body
+        }), status=status.HTTP_200_OK)
 
 
 class SeedDataForMarketAppAPIView(APIView):

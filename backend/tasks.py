@@ -111,9 +111,8 @@ def countries_add_png_flag_from_svg(countries_ids: list = None):
 
 
 @app.task
-def async_send_push(title, message, push_data=None, devices_ids=[], **kwargs):
-    sound = kwargs.pop('sound', 1)
-    badge = kwargs.pop('badge', 'default')
+def async_send_push(title, message, push_data=None, sound=None, devices_ids=[], **kwargs):
+    badge = kwargs.pop('badge', 1)
     try:
         result = FCMDevice.objects.filter(id__in=devices_ids).send_message(
             title=title,
@@ -121,7 +120,9 @@ def async_send_push(title, message, push_data=None, devices_ids=[], **kwargs):
             badge=badge,
             sound=sound,
             data=push_data,
-            **kwargs
+            **{
+                'android_channel_id': kwargs.pop('android_channel_id', None)  # Для андроида начиная с версии 8
+            }
         )
         return result  # Ответ Firebase, если нужен
     except Exception as e:

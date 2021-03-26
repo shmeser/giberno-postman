@@ -82,7 +82,7 @@ class UserProfile(AbstractUser, BaseModel):
 
     # конкретные магазины к которым прикреплен админ, менеджер или охранник
     shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины',
-                                           related_name='shops')
+                                   related_name='shops')
 
     # у самозанятых есть рейтинг формирующийся на основе отзывов со стороны менеджеров и админов
     rating = models.FloatField(default=0, verbose_name='Рейтинг пользователя')
@@ -207,6 +207,8 @@ class Notification(BaseModel):
         choices=choices(NotificationIcon), default=NotificationIcon.DEFAULT, verbose_name='Тип иконки'
     )
 
+    sound_enabled = models.BooleanField(null=True, blank=True, verbose_name='Уведомление со звуком')
+
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
@@ -221,6 +223,7 @@ class Notification(BaseModel):
 class NotificationsSettings(BaseModel):
     user = models.OneToOneField(UserProfile, on_delete=models.CASCADE, unique=True)
     enabled_types = ArrayField(models.IntegerField(choices=choices(NotificationType)), blank=True, null=True)
+    sound_enabled = models.BooleanField(default=True)
 
     def __str__(self):
         return f'{self.user.username}'
