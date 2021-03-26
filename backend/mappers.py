@@ -1,5 +1,6 @@
 import itertools
 import operator
+from datetime import timedelta
 
 import inflection
 from django.contrib.gis.geos import GEOSGeometry
@@ -221,20 +222,20 @@ class RequestMapper:
 
     # проверяем валидность заданной даты
     @classmethod
-    def current_date(cls, request, raise_exception=False):
+    def current_date_range(cls, request, raise_exception=False):
         try:
             query_params = underscoreize(request.query_params)
-
             _current_date_ts = chained_get(query_params, 'current_date')
-
             if _current_date_ts is not None:
-                timestamp_to_datetime(float(_current_date_ts))
-                return _current_date_ts
+                current_date = timestamp_to_datetime(float(_current_date_ts))
+                next_day = current_date + timedelta(days=1)
+                next_day = next_day.replace(hour=0, minute=0, second=0)
+                return current_date, next_day
             if raise_exception:
                 raise CustomException(errors=[
                     dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),
                 ])
-            return None
+            return None, None
         except Exception as e:
             logger.error(e)
             raise CustomException(errors=[

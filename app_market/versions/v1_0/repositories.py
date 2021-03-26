@@ -21,10 +21,11 @@ from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shi
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
+from app_users.enums import AccountType
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
-from backend.utils import ArrayRemove, timestamp_to_datetime, datetime_to_timestamp
+from backend.utils import ArrayRemove, datetime_to_timestamp
 from giberno import settings
 
 
@@ -543,57 +544,39 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             point=self.point
         )
 
-    def filter_for_manager(self, order_params, pagination, current_date=None):
-        filters = {'shop_id__in': self.me.shops.all()}
-        vacancies = self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
+    def get_vacancies_by_manager(self):
+        if not self.me.account_type == AccountType.MANAGER:
+            raise PermissionDenied()
+        return self.filter_by_kwargs(kwargs={'shop_id__in': self.me.shops.all()})
 
-        if current_date:
-            current_date = int(current_date)
-            next_day = timestamp_to_datetime(current_date) + timedelta(days=1)
-            next_day = next_day.replace(hour=0, minute=0, second=0)
-            next_day = datetime_to_timestamp(next_day)
+    def get_vacancy_shifts_by_manager(self):
+        return ShiftsRepository().filter_by_kwargs(kwargs={'vacancy_id__in': self.get_vacancies_by_manager()})
 
-            shifts = ShiftsRepository().filter_by_kwargs(
-                kwargs={'vacancy_id__in': vacancies}
-            )
+    def get_by_current_date_range_for_manager(self, order_params, pagination, current_date=None, next_day=None):
+        vacancies = self.get_vacancies_by_manager()
+        shifts = ShiftsRepository().filter_by_kwargs(kwargs={'vacancy_id__in': vacancies})
+        if current_date and next_day:
             active_vacancies = []
             for shift in shifts:
                 for active_date in shift.active_dates:
-                    active_date = datetime_to_timestamp(active_date)
-                    if current_date < active_date < next_day:
-                        if shift.vacancy not in active_vacancies:
-                            active_vacancies.append(shift.vacancy)
-
-            filters.update({'id__in': [item.id for item in active_vacancies]})
+                    if current_date < active_date < next_day and shift.vacancy not in active_vacancies:
+                        active_vacancies.append(shift.vacancy)
+            filters = {'id__in': [item.id for item in active_vacancies]}
             vacancies = self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
         return vacancies
 
-    def get_active_dates(self, calendar_from=None, calendar_to=None):
+    def get_vacancies_active_dates_by_manager(self, calendar_from=None, calendar_to=None):
         active_dates = []
-        vacancies = self.filter_by_kwargs(kwargs={'shop_id__in': self.me.shops.all()})
-        if not vacancies.count():
-            return active_dates
-
-        shifts = ShiftsRepository().filter_by_kwargs(kwargs={'vacancy_id__in': vacancies})
-        if not shifts.count():
-            return active_dates
-
-        if not calendar_from and not calendar_to:
+        shifts = self.get_vacancy_shifts_by_manager()
+        if shifts.count():
             for shift in shifts:
                 for active_date in shift.active_dates:
-                    active_date = datetime_to_timestamp(active_date)
-                    if active_date not in active_dates:
-                        active_dates.append(active_date)
-            return active_dates
-
-        calendar_from = datetime_to_timestamp(calendar_from)
-        calendar_to = datetime_to_timestamp(calendar_to)
-        for shift in shifts:
-            for active_date in shift.active_dates:
-                active_date = datetime_to_timestamp(active_date)
-                if calendar_from < active_date < calendar_to and active_date not in active_dates:
                     active_dates.append(active_date)
-        return active_dates
+
+            if calendar_from and calendar_to:
+                active_dates = [item for item in active_dates if calendar_from < item < calendar_to]
+
+        return list(set(map(lambda x: datetime_to_timestamp(x), active_dates)))
 
     def get_suggestions(self, search, paginator=None):
         records = self.model.objects.exclude(deleted=True).annotate(
