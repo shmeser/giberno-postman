@@ -33,6 +33,15 @@ class NotificationType(IntEnumM):
     SYSTEM = 0  # Системные уведомления
 
 
+class NotificationChannelFromAndroid8(EnumM):
+    # Канал уведомлений для пушей на Android 8 и новее без звука и со звуком
+    # Для каждого значения из NotificationType по 2 варианта
+
+    # Системные уведомления
+    SYSTEM = 'system_channel'
+    SYSTEM_SOUNDLESS = 'system_channel_soundless'  # без звука
+
+
 class NotificationAction(IntEnumM):
     # Для открытия нужного экрана в приложении
     APP = 0  # Главный экран в приложении
