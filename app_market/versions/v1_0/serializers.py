@@ -355,6 +355,24 @@ class VacanciesForManagerSerializer(CRUDSerializer):
     def get_banner(instance):
         return MediaController(instance).get_related_image(instance, MediaType.BANNER.value)
 
+    free_count = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_free_count(instance):
+        return instance.free_count
+
+    appliers_count = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_appliers_count(instance):
+        return instance.appliers_count
+
+    appliers = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_appliers(instance):
+        return ShiftAppealsSerializer(instance=instance.first_three_appliers, many=True).data
+
     class Meta:
         model = Vacancy
         fields = '__all__'
