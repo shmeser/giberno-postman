@@ -203,7 +203,7 @@ class AsyncChatsRepository(ChatsRepository):
 
     @database_sync_to_async
     def check_connection_to_group(self, record_id):
-        record = self.model.objects.filter(id=record_id).first()
+        record = self.model.objects.filter(id=record_id).prefetch_related('users').first()
         if not record:
             raise EntityDoesNotExistException
 

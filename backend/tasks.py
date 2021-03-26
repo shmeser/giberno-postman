@@ -114,6 +114,7 @@ def countries_add_png_flag_from_svg(countries_ids: list = None):
 def async_send_push(title, message, push_data=None, devices_ids=[]):
     result = FCMDevice.objects.filter(id__in=devices_ids).send_message(
         title=title,
+        #TODO channel id
         body=message,
         badge=1,
         sound='default',

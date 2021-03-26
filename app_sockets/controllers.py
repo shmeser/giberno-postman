@@ -88,10 +88,9 @@ class AsyncSocketController:
                 'code': code,
                 'message': message,
             })
-        except Exception as exc:
+        except Exception as e:
             if DEBUG is True:
-                print('[SOCKET ERROR] chats.controllers.send_system_message():')
-                print('[ERROR MESSAGE] ' + str(exc))
+                logger.error(e)
 
 
 class SocketController:
