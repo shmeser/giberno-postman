@@ -381,6 +381,12 @@ class VacanciesForManagerSerializer(CRUDSerializer):
     def get_banner(instance):
         return MediaController(instance).get_related_image(instance, MediaType.BANNER.value)
 
+    total_count = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_total_count(instance):
+        return instance.total_count
+
     free_count = serializers.SerializerMethodField()
 
     @staticmethod

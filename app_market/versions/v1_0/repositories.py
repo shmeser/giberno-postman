@@ -462,6 +462,11 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                 )
             ), None)  # Удаляем из массива null значения
 
+        # количество общих мест в вакансии
+        self.total_count_expression = ExpressionWrapper(
+            Sum('shift__max_employees_count'), output_field=IntegerField()
+        )
+
         # Количество свободных мест в вакансии
         self.free_count_expression = ExpressionWrapper(
             Sum('shift__max_employees_count') - Sum('shift__employees_count'),
@@ -473,6 +478,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             distance=self.distance_expression,
             is_hot=self.is_hot_expression,
             work_time=self.work_time_expression,
+            total_count=self.total_count_expression,
             free_count=self.free_count_expression,
         )
 
