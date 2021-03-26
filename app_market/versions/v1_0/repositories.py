@@ -564,7 +564,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                         if shift.vacancy not in active_vacancies:
                             active_vacancies.append(shift.vacancy)
 
-            filters.update({'id__in': active_vacancies})
+            filters.update({'id__in': [item.id for item in active_vacancies]})
             vacancies = self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
         return vacancies
 
@@ -578,6 +578,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         if not shifts.count():
             return active_dates
 
+        a = shifts.get(id=413)
+        print(a.active_dates)
         if not calendar_from and not calendar_to:
             for shift in shifts:
                 for active_date in shift.active_dates:
