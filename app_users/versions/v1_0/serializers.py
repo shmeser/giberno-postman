@@ -508,6 +508,7 @@ class NotificationsSettingsSerializer(serializers.ModelSerializer):
         model = NotificationsSettings
         fields = [
             'enabled_types',
+            'sound_enabled',
         ]
 
 
