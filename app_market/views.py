@@ -113,7 +113,7 @@ class VacanciesAvailableDatesForManagerListAPIView(BaseAPIView):
     @swagger_auto_schema(responses={200: '[timestamp]'})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
-            return v1_0.VacanciesAvailableDatesForManagerListAPIView().get(request, **kwargs)
+            return v1_0.VacanciesActiveDatesForManagerListAPIView().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 

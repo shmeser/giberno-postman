@@ -1,14 +1,18 @@
 from datetime import datetime
 
 import pytz
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Avg
 from rest_framework import serializers
 
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category, ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
-from app_media.enums import MediaType
+from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
+from app_media.versions.v1_0.repositories import MediaRepository
+from app_media.versions.v1_0.serializers import MediaSerializer
+from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp
@@ -348,12 +352,58 @@ class VacancySerializer(VacanciesSerializer):
         ]
 
 
+class UserProfileInVacanciesForManagerSerializer(CRUDSerializer):
+    id = serializers.IntegerField()
+
+    avatar = serializers.SerializerMethodField(read_only=True)
+
+    @staticmethod
+    def get_avatar(profile: UserProfile):
+        avatar = MediaRepository().filter_by_kwargs({
+            'owner_id': profile.id,
+            'owner_ct_id': ContentType.objects.get_for_model(profile).id,
+            'type': MediaType.AVATAR.value,
+            'format': MediaFormat.IMAGE.value
+        }, order_by=['-created_at']).first()
+        if avatar:
+            return MediaSerializer(avatar, many=False).data
+        return None
+
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'avatar']
+
+
 class VacanciesForManagerSerializer(CRUDSerializer):
     banner = serializers.SerializerMethodField()
 
     @staticmethod
     def get_banner(instance):
         return MediaController(instance).get_related_image(instance, MediaType.BANNER.value)
+
+    total_count = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_total_count(instance):
+        return instance.total_count
+
+    free_count = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_free_count(instance):
+        return instance.free_count
+
+    appliers_count = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_appliers_count(instance):
+        return instance.appliers_count
+
+    appliers = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_appliers(instance):
+        return UserProfileInVacanciesForManagerSerializer(instance=instance.first_three_appliers, many=True).data
 
     class Meta:
         model = Vacancy
