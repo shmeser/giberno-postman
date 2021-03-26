@@ -112,11 +112,13 @@ def countries_add_png_flag_from_svg(countries_ids: list = None):
 
 @app.task
 def async_send_push(title, message, push_data=None, devices_ids=[], **kwargs):
+    sound = kwargs.pop('sound', False)
+    badge = kwargs.pop('badge', False)
     result = FCMDevice.objects.filter(id__in=devices_ids).send_message(
         title=title,
         body=message,
-        badge=1,
-        sound='default',
+        badge=badge if badge is not False else 1,
+        sound=sound if sound is not False else 'default',
         data=push_data,
         **kwargs
     )

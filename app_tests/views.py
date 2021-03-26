@@ -39,6 +39,8 @@ class SendTestPush(APIView):
             notification_type=chained_get(body, 'notification_type'),
             icon_type=chained_get(body, 'icon_type'),
             **{
+                'badge': chained_get(body, 'badge', default=False),
+                'sound': chained_get(body, 'sound', default=False),
                 'android_channel_id': chained_get(body, 'android_channel_id')
             }
         )
