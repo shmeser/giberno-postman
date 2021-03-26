@@ -569,7 +569,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         vacancies = self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
 
         if current_date:
-            next_day = timestamp_to_datetime(float(current_date)) + timedelta(days=1)
+            current_date = int(current_date)
+            next_day = timestamp_to_datetime(current_date) + timedelta(days=1)
             next_day = next_day.replace(hour=0, minute=0, second=0)
             next_day = datetime_to_timestamp(next_day)
 
