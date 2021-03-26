@@ -213,9 +213,9 @@ class VacanciesByManagerListAPIView(CRUDAPIView):
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
 
-        current_date = RequestMapper(self).current_date(request)
-        dataset = self.repository_class(me=request.user).filter_for_manager(
-            order_params=order_params, pagination=pagination, current_date=current_date
+        current_date, next_day = RequestMapper(self).current_date_range(request)
+        dataset = self.repository_class(me=request.user).get_by_current_date_range_for_manager(
+            order_params=order_params, pagination=pagination, current_date=current_date, next_day=next_day
         )
 
         serialized = self.serializer_class(dataset, many=True, context={
@@ -226,7 +226,7 @@ class VacanciesByManagerListAPIView(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class VacanciesAvailableDatesForManagerListAPIView(CRUDAPIView):
+class VacanciesActiveDatesForManagerListAPIView(CRUDAPIView):
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
 
@@ -234,7 +234,7 @@ class VacanciesAvailableDatesForManagerListAPIView(CRUDAPIView):
         calendar_from, calendar_to = RequestMapper().calendar_range(request)
         active_dates = self.repository_class(
             me=request.user
-        ).get_active_dates(
+        ).get_vacancies_active_dates_by_manager(
             calendar_from=calendar_from,
             calendar_to=calendar_to
         )
