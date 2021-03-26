@@ -150,7 +150,7 @@ class Vacancy(BaseModel):
 
     @property
     def first_three_appliers(self):
-        return ShiftAppeal.objects.filter(shift__vacancy=self)[:3]
+        return UserProfile.objects.filter(id__in=ShiftAppeal.objects.filter(shift__vacancy=self))[:3]
 
     @property
     def appliers_count(self):
