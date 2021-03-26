@@ -111,13 +111,13 @@ def countries_add_png_flag_from_svg(countries_ids: list = None):
 
 
 @app.task
-def async_send_push(title, message, push_data=None, devices_ids=[]):
+def async_send_push(title, message, push_data=None, devices_ids=[], **kwargs):
     result = FCMDevice.objects.filter(id__in=devices_ids).send_message(
         title=title,
-        #TODO channel id
         body=message,
         badge=1,
         sound='default',
-        data=push_data
+        data=push_data,
+        **kwargs
     )
     return result  # Ответ Firebase, если нужен
