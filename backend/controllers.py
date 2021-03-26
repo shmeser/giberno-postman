@@ -28,7 +28,9 @@ class PushController:
             action,
             subject_id,
             notification_type,
-            icon_type
+            icon_type,
+            **kwargs
+
     ):
         # Проверяем настройки оповещений для конкретного пользователя
         users_to_send_queryset = UserProfile.objects.filter(pk__in=[u.id for u in users_to_send])
@@ -106,17 +108,17 @@ class PushController:
             'created_at': str(datetime_to_timestamp(now()))
         })
 
-        self.send_push(title, message, push_data, devices_ids)
+        self.send_push(title, message, push_data, devices_ids, **kwargs)
 
     @staticmethod
-    def send_push(title, message, push_data, devices_ids=[]):
+    def send_push(title, message, push_data, devices_ids=[], **kwargs):
 
         # Разбиваем весь список на группы по FCM_MAX_DEVICES_PER_REQUEST штук
         devices_ids_chunked = chunks(devices_ids, FCM_MAX_DEVICES_PER_REQUEST)
         logger.info(f'>>>> DEVICES COUNT {len(devices_ids)} | CHUNKS COUNT {len(devices_ids_chunked)}')
 
         jobs = group(  # Создаем группы асинхронных задач
-            [async_send_push.s(title, message, push_data, ids_chunk) for ids_chunk in devices_ids_chunked]
+            [async_send_push.s(title, message, push_data, ids_chunk, **kwargs) for ids_chunk in devices_ids_chunked]
         )
 
         jobs.apply_async()

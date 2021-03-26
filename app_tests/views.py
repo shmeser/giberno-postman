@@ -38,6 +38,9 @@ class SendTestPush(APIView):
             subject_id=chained_get(body, 'subject_id'),
             notification_type=chained_get(body, 'notification_type'),
             icon_type=chained_get(body, 'icon_type'),
+            **{
+                'android_channel_id': chained_get(body, 'android_channel_id')
+            }
         )
 
         # Отправка уведомления по сокетам
