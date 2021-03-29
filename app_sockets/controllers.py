@@ -81,6 +81,24 @@ class AsyncSocketController:
         user = await AsyncProfileRepository(me=self.consumer.scope['user']).update_location(event)
         return user
 
+    async def client_message_to_chat(self, code, message):
+        try:
+            # Отправялем сообщение чата в канал
+            await self.consumer.channel_layer.send(self.consumer.channel_name, {
+                'type': 'chat_message',
+                'code': code,
+                'message': message,
+            })
+            # Отправляем данные о чате в канал
+            await self.consumer.channel_layer.send(self.consumer.channel_name, {
+                'type': 'chat_info',
+                'code': code,
+                'message': message,
+            })
+        except Exception as e:
+            if DEBUG is True:
+                logger.error(e)
+
     async def send_system_message(self, code, message):
         try:
             await self.consumer.channel_layer.send(self.consumer.channel_name, {

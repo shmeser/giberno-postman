@@ -7,6 +7,7 @@ class SocketEventType(IntEnumM):
     LOCATION = 1
 
     NEW_MESSAGE_TO_CHAT = 2
+    NEW_COMMENT_TO_VACANCY = 3
 
     # 100-200 посылает сервер
     SERVER_SYSTEM_MESSAGE = 100

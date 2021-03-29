@@ -53,12 +53,14 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         data = content
 
         if content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
-            handler_type = 'chat_message'
-
-        await self.channel_layer.group_send(self.group_name, {
-            'type': handler_type,
-            **data
-        })
+            self.socket_controller.client_message_to_chat(content)
+        elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
+            pass
+        else:
+            await self.channel_layer.group_send(self.group_name, {
+                'type': handler_type,
+                **data
+            })
 
     async def disconnect(self, code):
         try:
@@ -70,6 +72,15 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
 
     # Сообщения в чате
     async def chat_message(self, data):
+        await self.send_json(
+            {
+                **data
+            },
+        )
+
+        # Сообщения в чате
+
+    async def chat_info(self, data):
         await self.send_json(
             {
                 **data
