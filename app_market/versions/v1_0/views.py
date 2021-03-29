@@ -11,7 +11,7 @@ from app_market.models import ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
-    ShiftAppealsSerializer, VacanciesForManagerSerializer
+    ShiftAppealsSerializer, VacanciesForManagerSerializer, ShiftsWithAppealsSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
@@ -214,7 +214,7 @@ class VacanciesByManagerListAPIView(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         current_date, next_day = RequestMapper(self).current_date_range(request)
-        dataset = self.repository_class(me=request.user).get_by_current_date_range_for_manager(
+        dataset = self.repository_class(me=request.user).queryset_filtered_by_current_date_range_for_manager(
             order_params=order_params, pagination=pagination, current_date=current_date, next_day=next_day
         )
 
@@ -234,7 +234,26 @@ class VacanciesActiveDatesForManagerListAPIView(CRUDAPIView):
         calendar_from, calendar_to = RequestMapper().calendar_range(request)
         active_dates = self.repository_class(
             me=request.user
-        ).get_vacancies_active_dates_by_manager(
+        ).vacancies_active_dates_list_for_manager(
+            calendar_from=calendar_from,
+            calendar_to=calendar_to
+        )
+        response_data = {'active_dates': active_dates}
+        return Response(camelize(response_data))
+
+
+class SingleVacancyActiveDatesForManagerListAPIView(CRUDAPIView):
+    repository_class = VacanciesRepository
+    allowed_http_methods = ['get']
+
+    def get(self, request, *args, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        calendar_from, calendar_to = RequestMapper().calendar_range(request)
+
+        active_dates = self.repository_class(
+            me=request.user
+        ).single_vacancy_active_dates_list_for_manager(
+            record_id=record_id,
             calendar_from=calendar_from,
             calendar_to=calendar_to
         )
@@ -260,28 +279,28 @@ class VacancyByManagerRetrieveAPIView(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class GetVacancyAppealsForManagerAPIView(CRUDAPIView):
-    serializer_class = ShiftAppealsSerializer
-    repository_class = ShiftAppealsRepository
+class VacancyShiftsWithAppealsListForManagerAPIView(CRUDAPIView):
+    serializer_class = ShiftsWithAppealsSerializer
+    repository_class = VacanciesRepository
     allowed_http_methods = ['get']
     filter_params = {'shift': 'shift'}
     order_params = {}
 
     def get(self, request, **kwargs):
         pagination = RequestMapper.pagination(request)
-        order_params = RequestMapper(self).order(request)
-        filters = RequestMapper(self).filters(request) or dict()
-        vacancy = VacanciesRepository(me=request.user).get_by_id_for_manager_or_security(
-            record_id=kwargs.get('record_id'))
+        current_date, next_day = RequestMapper(self).current_date_range(request)
 
-        filters.update({'shift__vacancy': vacancy})
+        dataset = self.repository_class(me=request.user).vacancy_shifts_with_appeals_queryset(
+            record_id=kwargs.get('record_id'),
+            pagination=pagination,
+            current_date=current_date,
+            next_day=next_day
+        )
 
-        dataset = self.repository_class().filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
         serialized = self.serializer_class(dataset, many=True, context={
             'me': request.user,
             'headers': get_request_headers(request),
         })
-
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
