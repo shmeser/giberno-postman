@@ -14,7 +14,7 @@ class ChatsSerializer(serializers.ModelSerializer):
     last_message = serializers.SerializerMethodField()
 
     def get_last_message(self, data):
-        return None
+        return LastMessagesSerializer(data.last_message[0], many=False).data
 
     class Meta:
         model = Chat
@@ -34,6 +34,35 @@ class ChatSerializer(ChatsSerializer):
             'title',
             'created_at',
             'last_message'
+        ]
+
+
+class LastMessagesSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+    read_at = DateTimeField()
+    user = serializers.SerializerMethodField()
+
+    def get_user(self, data):
+        return MessageProfileSerializer(data.user, many=False).data
+
+    def get_attachments(self, prefetched_data):
+        return MediaController(self.instance).get_related_media_urls(
+            prefetched_data,
+            MediaType.ATTACHMENT.value,
+            multiple=True
+        )
+
+    class Meta:
+        model = Message
+        fields = [
+            'id',
+            'title',
+            'text',
+            'message_type',
+            'form_status',
+            'created_at',
+            'read_at',
+            'user',
         ]
 
 

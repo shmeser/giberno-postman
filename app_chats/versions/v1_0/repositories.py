@@ -9,7 +9,9 @@ from app_media.models import MediaModel
 from app_users.enums import AccountType
 from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import ProfileRepository
+from backend.errors.enums import RESTErrors
 from backend.errors.exceptions import EntityDoesNotExistException
+from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository
 from backend.utils import timestamp_to_datetime
 
@@ -185,11 +187,48 @@ class ChatsRepository(MasterRepository):
         if order_by:
             records = records.order_by(*order_by)
 
-        return records[paginator.offset:paginator.limit] if paginator else records
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
 
-        # return self.fast_related_loading(  # Предзагрузка связанных сущностей
-        #     queryset=records[paginator.offset:paginator.limit] if paginator else records,
-        # )
+    def get_by_id(self, record_id):
+        record = self.base_query.filter(id=record_id)
+        record = self.fast_related_loading(record).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    @staticmethod
+    def fast_related_loading(queryset, point=None):
+        """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
+            -> Last_message
+                -> User + Media
+        """
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа для сообщений
+            Prefetch(
+                'message_set',
+                queryset=Message.objects.order_by('-id').select_related(
+                    'user',
+                ).prefetch_related(
+                    # Подгрузка медиа для профилей
+                    Prefetch(
+                        'user__media',
+                        queryset=MediaModel.objects.filter(
+                            type=MediaType.AVATAR.value,
+                            owner_ct_id=ContentType.objects.get_for_model(UserProfile).id,
+                            format=MediaFormat.IMAGE.value
+                        ),
+                        to_attr='medias'
+                    )
+                ),
+                to_attr='last_message'
+            )
+        )
+
+        return queryset
 
 
 class AsyncChatsRepository(ChatsRepository):
