@@ -39,7 +39,7 @@ urlpatterns = [
          GetVacancyAppealsForManagerAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
-    path('market/managers/vacancies/available_dates', VacanciesAvailableDatesForManagerListAPIView.as_view()),
+    path('market/managers/vacancies/active_dates', VacanciesAvailableDatesForManagerListAPIView.as_view()),
 
     path('market/shifts', Shifts.as_view()),
     path('market/shifts/<int:record_id>', Shifts.as_view()),

@@ -10,7 +10,7 @@ from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef
 from django.db.models.functions import Cast, Concat
-from django.utils.timezone import now, localtime, make_aware
+from django.utils.timezone import now, localtime
 from pytz import timezone
 from rest_framework.exceptions import PermissionDenied
 
@@ -21,10 +21,11 @@ from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shi
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
+from app_users.enums import AccountType
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
-from backend.utils import ArrayRemove
+from backend.utils import ArrayRemove, datetime_to_timestamp
 from giberno import settings
 
 
@@ -461,6 +462,11 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                 )
             ), None)  # Удаляем из массива null значения
 
+        # количество общих мест в вакансии
+        self.total_count_expression = ExpressionWrapper(
+            Sum('shift__max_employees_count'), output_field=IntegerField()
+        )
+
         # Количество свободных мест в вакансии
         self.free_count_expression = ExpressionWrapper(
             Sum('shift__max_employees_count') - Sum('shift__employees_count'),
@@ -472,6 +478,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             distance=self.distance_expression,
             is_hot=self.is_hot_expression,
             work_time=self.work_time_expression,
+            total_count=self.total_count_expression,
             free_count=self.free_count_expression,
         )
 
@@ -543,22 +550,39 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             point=self.point
         )
 
-    def filter_by_kwargs_for_manager(self, filters, order_params, pagination, calendar_from=None, calendar_to=None):
-        filters.update({'shop_id__in': self.me.shops.all()})
-        available_from = filters.get('available_from__range')
+    def get_vacancies_by_manager(self):
+        if not self.me.account_type == AccountType.MANAGER:
+            raise PermissionDenied()
+        return self.filter_by_kwargs(kwargs={'shop_id__in': self.me.shops.all()})
 
-        if available_from:
-            available_from = make_aware(datetime.fromtimestamp(int(available_from) / 1000))
-            next_day = available_from + timedelta(days=1)
-            filters['available_from__range'] = [available_from, next_day]
+    def get_vacancy_shifts_by_manager(self):
+        return ShiftsRepository().filter_by_kwargs(kwargs={'vacancy_id__in': self.get_vacancies_by_manager()})
 
-        if calendar_from and calendar_to:
-            filters.update({
-                'available_from__gt': calendar_from,
-                'available_from__lt': calendar_to
-            })
+    def get_by_current_date_range_for_manager(self, order_params, pagination, current_date=None, next_day=None):
+        vacancies = self.get_vacancies_by_manager()
+        shifts = ShiftsRepository().filter_by_kwargs(kwargs={'vacancy_id__in': vacancies})
+        if current_date and next_day:
+            active_vacancies = []
+            for shift in shifts:
+                for active_date in shift.active_dates:
+                    if current_date < active_date < next_day and shift.vacancy not in active_vacancies:
+                        active_vacancies.append(shift.vacancy)
+            filters = {'id__in': [item.id for item in active_vacancies]}
+            vacancies = self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
+        return vacancies
 
-        return self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
+    def get_vacancies_active_dates_by_manager(self, calendar_from=None, calendar_to=None):
+        active_dates = []
+        shifts = self.get_vacancy_shifts_by_manager()
+        if shifts.count():
+            for shift in shifts:
+                for active_date in shift.active_dates:
+                    active_dates.append(active_date)
+
+            if calendar_from and calendar_to:
+                active_dates = [item for item in active_dates if calendar_from < item < calendar_to]
+
+        return list(set(map(lambda x: datetime_to_timestamp(x), active_dates)))
 
     def get_suggestions(self, search, paginator=None):
         records = self.model.objects.exclude(deleted=True).annotate(

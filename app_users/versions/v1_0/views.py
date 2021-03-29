@@ -314,7 +314,7 @@ class Notifications(CRUDAPIView):
             dataset = self.repository_class().get_by_id(record_id)
         else:
             dataset = self.repository_class().filter_by_kwargs(
-                kwargs=filters, paginator=pagination, order_by=order_params
+                kwargs={**filters, **{'user': request.user}}, paginator=pagination, order_by=order_params
             )
             self.many = True
 
@@ -336,10 +336,16 @@ class NotificationsSettings(APIView):
     def put(self, request):
         body = get_request_body(request)
         types_list = body.get('enabled_types', [])
+        sound_enabled = body.get('sound_enabled', None)
         types_list = types_list if isinstance(types_list, list) else [types_list]
         types_list = list(filter(lambda x: NotificationType.has_value(x), types_list))  # Фильтруем ненужные значения
 
         request.user.notificationssettings.enabled_types = types_list
+        if sound_enabled is not None:
+            request.user.notificationssettings.sound_enabled = sound_enabled in [
+                'true', 'TRUE', True
+            ]
+
         request.user.notificationssettings.save()
 
         serializer = NotificationsSettingsSerializer(

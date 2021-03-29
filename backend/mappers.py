@@ -1,5 +1,6 @@
 import itertools
 import operator
+from datetime import timedelta
 
 import inflection
 from django.contrib.gis.geos import GEOSGeometry
@@ -13,7 +14,7 @@ from app_media.mappers import MediaMapper
 from backend.entity import Pagination, Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exception import HttpException, CustomException
-from backend.utils import timestamp_to_datetime as t2d, CP, chained_get, timestamp_to_datetime, get_request_body
+from backend.utils import timestamp_to_datetime as t2d, chained_get, timestamp_to_datetime, get_request_body
 from giberno import settings
 
 
@@ -208,6 +209,28 @@ class RequestMapper:
                 range_from = timestamp_to_datetime(float(_range_from_ts))
                 range_to = timestamp_to_datetime(float(_range_to_ts))
                 return range_from, range_to
+            if raise_exception:
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),
+                ])
+            return None, None
+        except Exception as e:
+            logger.error(e)
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),
+            ])
+
+    # проверяем валидность заданной даты
+    @classmethod
+    def current_date_range(cls, request, raise_exception=False):
+        try:
+            query_params = underscoreize(request.query_params)
+            _current_date_ts = chained_get(query_params, 'current_date')
+            if _current_date_ts is not None:
+                current_date = timestamp_to_datetime(float(_current_date_ts))
+                next_day = current_date + timedelta(days=1)
+                next_day = next_day.replace(hour=0, minute=0, second=0)
+                return current_date, next_day
             if raise_exception:
                 raise CustomException(errors=[
                     dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),

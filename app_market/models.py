@@ -6,7 +6,6 @@ from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
-from django.utils.timezone import now
 
 from app_feedback.models import Review, Like
 from app_geo.models import Country, City
@@ -139,12 +138,6 @@ class Vacancy(BaseModel):
         verbose_name='Часовой пояс вакансии'
     )
 
-    # список вакансий у менеджера отображается на 7 ближайших дней
-    available_from = models.DateTimeField(default=now)
-
-    # количество мест
-    places_count = models.PositiveIntegerField(default=1)
-
     rating = models.FloatField(default=0, verbose_name='Рейтинг')
     rates_count = models.PositiveIntegerField(default=0, verbose_name='Количество оценок')
     views_count = models.PositiveIntegerField(default=0, verbose_name='Количество просмотров')
@@ -154,6 +147,14 @@ class Vacancy(BaseModel):
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
     reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
     likes = GenericRelation(Like, object_id_field='target_id', content_type_field='target_ct')
+
+    @property
+    def first_three_appliers(self):
+        return UserProfile.objects.filter(id__in=ShiftAppeal.objects.filter(shift__vacancy=self))[:3]
+
+    @property
+    def appliers_count(self):
+        return ShiftAppeal.objects.filter(shift__vacancy=self).count()
 
     def __str__(self):
         return f'{self.title}'
