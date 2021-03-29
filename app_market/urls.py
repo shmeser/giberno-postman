@@ -4,9 +4,9 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     vacancies_suggestions, Shifts, CheckUserShiftByManagerOrSecurityAPIView, similar_vacancies, ToggleLikeVacancy, \
     VacancyReviewsAPIView, ShopReviewsAPIView, DistributorReviewsAPIView, VacanciesClusteredMap, \
     VacanciesByManagerListAPIView, VacancyByManagerRetrieveAPIView, ApplyToShiftAPIView, UserShiftsListAPIView, \
-    GetVacancyAppealsForManagerAPIView, SelfEmployedUserReviewsByAdminOrManagerAPIView, \
+    VacancyShiftsWithAppealsListForManagerAPIView, SelfEmployedUserReviewsByAdminOrManagerAPIView, \
     ConfirmAppealByManagerAPIView, RejectAppealByManagerAPIView, UserShiftsRetrieveAPIView, \
-    VacanciesAvailableDatesForManagerListAPIView, VacanciesDistributors
+    VacanciesActiveDatesForManagerListAPIView, VacanciesDistributors, SingleVacancyActiveDatesForManagerListAPIView
 
 urlpatterns = [
     path('market/distributors', Distributors.as_view()),
@@ -36,10 +36,12 @@ urlpatterns = [
     path('market/managers/vacancies', VacanciesByManagerListAPIView.as_view()),
     path('market/managers/vacancies/<int:record_id>', VacancyByManagerRetrieveAPIView.as_view()),
     path('market/managers/vacancies/<int:record_id>/appeals',
-         GetVacancyAppealsForManagerAPIView.as_view()),
+         VacancyShiftsWithAppealsListForManagerAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
-    path('market/managers/vacancies/active_dates', VacanciesAvailableDatesForManagerListAPIView.as_view()),
+    path('market/managers/vacancies/active_dates', VacanciesActiveDatesForManagerListAPIView.as_view()),
+    path('market/managers/vacancies/<int:record_id>/active_dates',
+         SingleVacancyActiveDatesForManagerListAPIView.as_view()),
 
     path('market/shifts', Shifts.as_view()),
     path('market/shifts/<int:record_id>', Shifts.as_view()),

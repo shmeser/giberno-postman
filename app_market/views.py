@@ -101,7 +101,7 @@ class VacancyByManagerRetrieveAPIView(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class VacanciesAvailableDatesForManagerListAPIView(BaseAPIView):
+class VacanciesActiveDatesForManagerListAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
     """
     Для менеджеров : Список дат с которых вакансии доступны 
@@ -109,6 +109,7 @@ class VacanciesAvailableDatesForManagerListAPIView(BaseAPIView):
     calendar_from 
     calendar_to
     """
+
     @staticmethod
     @swagger_auto_schema(responses={200: '[timestamp]'})
     def get(request, *args, **kwargs):
@@ -117,14 +118,30 @@ class VacanciesAvailableDatesForManagerListAPIView(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class GetVacancyAppealsForManagerAPIView(BaseAPIView):
+class SingleVacancyActiveDatesForManagerListAPIView(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsManager]
+    """
+    Запрос для получения активных дат (аналогичный /market/managers/vacancies/active_dates , 
+    только для конкретной вакансии)
+    параметры фильтрации:
+    calendar_from 
+    calendar_to
+    """
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: '[timestamp]'})
+    def get(request, *args, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.SingleVacancyActiveDatesForManagerListAPIView().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class VacancyShiftsWithAppealsListForManagerAPIView(BaseAPIView):
     """
     Просмотр Списка откликнувшихся на вакансию со стороны менеджера
     Параметры :
     limit
     offset
-    shift : int (фильтр по смене)
-
     """
     permission_classes = [IsAuthenticated, IsManager]
 
@@ -133,7 +150,7 @@ class GetVacancyAppealsForManagerAPIView(BaseAPIView):
                                                           ShiftAppealsSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
-            return v1_0.GetVacancyAppealsForManagerAPIView().get(request, **kwargs)
+            return v1_0.VacancyShiftsWithAppealsListForManagerAPIView().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
