@@ -314,7 +314,7 @@ class Notifications(CRUDAPIView):
             dataset = self.repository_class().get_by_id(record_id)
         else:
             dataset = self.repository_class().filter_by_kwargs(
-                kwargs=filters, paginator=pagination, order_by=order_params
+                kwargs={**filters, **{'user': request.user}}, paginator=pagination, order_by=order_params
             )
             self.many = True
 
