@@ -119,12 +119,12 @@ class AsyncSocketController:
             # Отправляем сообщение по пушам всем участникам чата
             PushController().send_message(
                 users_to_send=updated_chat.users.all(),
-                title=,
-                message=,
+                title='',
+                message='',
                 action=NotificationAction.CHAT.value,
                 subject_id=self.consumer.room_id,
                 notification_type=NotificationType.CHAT.value,
-
+                icon_type=''
             )
 
         except Exception as e:
