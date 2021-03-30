@@ -208,7 +208,7 @@ class ChatsRepository(MasterRepository):
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
-        return record
+        return record, record.users.all()
 
     @staticmethod
     def fast_related_loading(queryset, point=None):

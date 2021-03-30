@@ -78,8 +78,7 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
             },
         )
 
-        # Сообщения в чате
-
+    # Информация о чате
     async def chat_info(self, data):
         await self.send_json(
             {
@@ -160,5 +159,13 @@ class Consumer(AsyncJsonWebsocketConsumer):
             {
                 'eventType': event['eventType'],
                 'data': event['data'],
+            },
+        )
+
+    # Информация о чате
+    async def chat_info(self, data):
+        await self.send_json(
+            {
+                **data
             },
         )

@@ -1,3 +1,4 @@
+from asgiref.sync import sync_to_async
 from celery import group
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Case, When, CharField, F
@@ -135,7 +136,7 @@ class PushController:
         return users_to_send_queryset_sound, users_to_send_queryset_soundless
 
     @staticmethod
-    def process_sound_parameters(is_sound_enabled, notification_type, **kwargs):
+    def process_sound_parameters(is_sound_enabled, notification_type, kwargs):
         """ Обработка звуковых параметров """
 
         # ## Определение звуковых параметров пуша
@@ -217,7 +218,7 @@ class PushController:
         )
 
         # Обрабатываем параметры звука
-        sound, is_sound_enabled = self.process_sound_parameters(is_sound_enabled, notification_type, **kwargs)
+        sound, is_sound_enabled = self.process_sound_parameters(is_sound_enabled, notification_type, kwargs)
 
         devices_ids = []  # Список ID моделей пуш-токенов
         notifications_links = []  # Список объектов-связок для bulk_create
@@ -276,7 +277,7 @@ class PushController:
         ).values_list('id', flat=True)
 
         # Обрабатываем параметры звука
-        sound, is_sound_enabled = self.process_sound_parameters(is_sound_enabled, notification_type, **kwargs)
+        sound, is_sound_enabled = self.process_sound_parameters(is_sound_enabled, notification_type, kwargs)
 
         # Все данные должны быть строками
         push_data = camelize({
@@ -312,3 +313,32 @@ class PushController:
         )
 
         jobs.apply_async()
+
+
+class AsyncPushController(PushController):
+    @sync_to_async
+    def send_message(
+            self,
+            users_to_send: [UserProfile],
+            title,
+            message,
+            action,
+            subject_id,
+            notification_type,
+            icon_type,
+            **kwargs
+    ):
+        logger.info(
+            f'ASYNC SEND MESSAGE [{title},{message},{action},{subject_id},{notification_type}]'
+        )
+
+        super().send_message(
+            users_to_send,
+            title,
+            message,
+            action,
+            subject_id,
+            notification_type,
+            icon_type,
+            **kwargs
+        )

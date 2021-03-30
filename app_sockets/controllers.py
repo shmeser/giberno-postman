@@ -11,9 +11,10 @@ from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository, Socke
 from app_users.enums import NotificationAction, NotificationType
 from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import AsyncProfileRepository
-from backend.controllers import PushController
+from backend.controllers import AsyncPushController
 from backend.errors.enums import SocketErrors
 from backend.errors.exceptions import EntityDoesNotExistException
+from backend.utils import chained_get
 from giberno.settings import DEBUG
 
 
@@ -95,7 +96,7 @@ class AsyncSocketController:
                 chat_id=self.consumer.room_id,
                 content=content,
             )
-            updated_chat = await AsyncChatsRepository(me=self.consumer.scope['user']).get_client_chat(
+            updated_chat, chat_users = await AsyncChatsRepository(me=self.consumer.scope['user']).get_client_chat(
                 chat_id=self.consumer.room_id,
             )
 
@@ -103,10 +104,12 @@ class AsyncSocketController:
             chat_serialized = camelize(ChatSerializer(updated_chat, many=False).data)
 
             # Отправялем сообщение обратно в канал по сокетам
-            await self.consumer.channel_layer.group_send(self.consumer.channel_name, {
+            await self.consumer.channel_layer.group_send(self.consumer.group_name, {
                 'type': 'chat_message',
                 'data': serialized_message,
             })
+
+            chat_users_connections = await AsyncSocketsRepository.get_connections_for_users(chat_users)
 
             # TODO используется GroupConsumer, возможно нужен Consumer
             # Отправляем обновленные данные о чате всем участникам чата по сокетам
@@ -117,10 +120,10 @@ class AsyncSocketController:
                 })
 
             # Отправляем сообщение по пушам всем участникам чата
-            PushController().send_message(
-                users_to_send=updated_chat.users.all(),
+            await AsyncPushController().send_message(
+                users_to_send=chat_users,
                 title='',
-                message='',
+                message=chained_get(content, 'text', default=''),
                 action=NotificationAction.CHAT.value,
                 subject_id=self.consumer.room_id,
                 notification_type=NotificationType.CHAT.value,
