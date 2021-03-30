@@ -1,6 +1,8 @@
 from datetime import timedelta, datetime
 
 from channels.db import database_sync_to_async
+
+import pytz
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models import GeometryField, CharField
 from django.contrib.gis.db.models.functions import Distance, Envelope
@@ -26,7 +28,7 @@ from app_users.enums import AccountType
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
-from backend.utils import ArrayRemove, datetime_to_timestamp
+from backend.utils import ArrayRemove, datetime_to_timestamp, timestamp_to_datetime
 from giberno import settings
 
 
@@ -391,13 +393,18 @@ class ShiftsRepository(MasterRepository):
         active_dates = []
         if queryset.count():
             for shift in queryset:
+                utc_offset = pytz.timezone(shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
                 for active_date in shift.active_dates:
-                    active_dates.append(active_date)
+                    active_dates.append({
+                        'utc_offset': utc_offset,
+                        'timestamp': datetime_to_timestamp(active_date)
+                    })
 
             if calendar_from and calendar_to:
-                active_dates = [item for item in active_dates if calendar_from < item < calendar_to]
+                active_dates = [item for item in active_dates if
+                                calendar_from < timestamp_to_datetime(item.get('timestamp')) < calendar_to]
 
-        return list(set(map(lambda x: datetime_to_timestamp(x), active_dates)))
+        return active_dates
 
 
 class UserShiftRepository(MasterRepository):
