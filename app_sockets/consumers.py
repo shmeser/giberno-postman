@@ -24,7 +24,7 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         try:
             self.version = chained_get(self.scope, 'url_route', 'kwargs', 'version')
 
-            self.user = self.scope["user"]
+            self.user = self.scope['user']
 
             self.room_id = chained_get(self.scope, 'url_route', 'kwargs', 'id')
             self.room_name = chained_get(self.scope, 'url_route', 'kwargs', 'room_name')
@@ -59,7 +59,7 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         else:
             await self.channel_layer.group_send(self.group_name, {
                 'type': handler_type,
-                **data
+                **data.get('prepared_data')
             })
 
     async def disconnect(self, code):
@@ -71,18 +71,20 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
             logger.error(e)
 
     # Сообщения в чате
-    async def chat_message(self, data):
+    async def group_chat_message(self, data):
         await self.send_json(
             {
-                **data
+                'eventType': SocketEventType.SERVER_NEW_MESSAGE_IN_CHAT.value,
+                'message': data.get('prepared_data')
             },
         )
 
     # Информация о чате
-    async def chat_info(self, data):
+    async def group_chat_info(self, data):
         await self.send_json(
             {
-                **data
+                'eventType': SocketEventType.SERVER_CHAT_UPDATED.value,
+                'chat': data.get('prepared_data')
             },
         )
 
@@ -97,7 +99,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         try:
             self.socket_controller = AsyncSocketController(self)
-            self.user = self.scope["user"]
+            self.user = self.scope['user']
 
             await self.accept()  # Принимаем соединение
 
@@ -166,6 +168,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
     async def chat_info(self, data):
         await self.send_json(
             {
-                **data
+                'eventType': SocketEventType.SERVER_CHAT_UPDATED.value,
+                'chat': data.get('prepared_data')
             },
         )

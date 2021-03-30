@@ -101,12 +101,12 @@ class AsyncSocketController:
             )
 
             serialized_message = camelize(MessagesSerializer(processed_message, many=False).data)
-            chat_serialized = camelize(ChatSerializer(updated_chat, many=False).data)
+            serialized_chat = camelize(ChatSerializer(updated_chat, many=False).data)
 
             # Отправялем сообщение обратно в канал по сокетам
             await self.consumer.channel_layer.group_send(self.consumer.group_name, {
-                'type': 'chat_message',
-                'data': serialized_message,
+                'type': 'group_chat_message',
+                'prepared_data': serialized_message,
             })
 
             chat_users_connections = await AsyncSocketsRepository.get_connections_for_users(chat_users)
@@ -116,7 +116,7 @@ class AsyncSocketController:
             for connection_name in chat_users_connections:
                 await self.consumer.channel_layer.send(connection_name, {
                     'type': 'chat_info',
-                    'data': chat_serialized,
+                    'prepared_data': serialized_chat,
                 })
 
             # Отправляем сообщение по пушам всем участникам чата
@@ -159,7 +159,7 @@ class SocketController:
             async_to_sync(channel_layer.send)(connection.socket_id, {
                 'type': 'server_event',
                 'eventType': SocketEventType.NOTIFICATION.value,
-                'data': prepared_data
+                'prepared_data': prepared_data
             })
 
     @staticmethod
@@ -169,5 +169,5 @@ class SocketController:
         async_to_sync(channel_layer.group_send)(group_name, {
             'type': 'server_event',
             'eventType': SocketEventType.NOTIFICATION.value,
-            'data': prepared_data
+            'prepared_data': prepared_data
         })
