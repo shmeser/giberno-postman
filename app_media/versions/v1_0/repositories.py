@@ -1,5 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import QuerySet
+from django.utils.timezone import now
 
 from app_media.models import MediaModel
 from backend.entity import File
@@ -55,17 +56,34 @@ class MediaRepository(MasterRepository):
             return files
 
         # для many=False - узнаем из сериалайзера через model_instance
-        if not files:  # Если нет предзагруженных данных, делаем запрос в бд
-            files = MediaModel.objects.filter(
-                owner_id=prefetched_data.id, type=m_type,
-                owner_ct_id=ContentType.objects.get_for_model(prefetched_data).id,
-            )
-            if m_format:  # Если указан формат
-                files = files.filter(format=m_format)
-            if mime_type:  # Если указан mime_type
-                files = files.filter(mime_type=mime_type)
-            files = files.order_by('-created_at').first()
-            if not multiple:
-                files = files.first()
+        # if not files:  # Если нет предзагруженных данных, делаем запрос в бд
+        #     files = MediaModel.objects.filter(
+        #         owner_id=prefetched_data.id, type=m_type,
+        #         owner_ct_id=ContentType.objects.get_for_model(prefetched_data).id,
+        #     )
+        #     if m_format:  # Если указан формат
+        #         files = files.filter(format=m_format)
+        #     if mime_type:  # Если указан mime_type
+        #         files = files.filter(mime_type=mime_type)
+        #     files = files.order_by('-created_at').first()
+        #     if not multiple:
+        #         files = files.first()
 
         return files
+
+    def reattach_files(self, uuids: [str], current_model, current_owner_id, target_model, target_owner_id):
+        """ Найсти файлы и установить нового владельца"""
+
+        current_ct = ContentType.objects.get_for_model(current_model)
+        target_ct = ContentType.objects.get_for_model(target_model)
+
+        self.model.objects.filter(
+            uuid__in=uuids,
+            owner_ct=current_ct,
+            owner_id=current_owner_id
+        ).update(
+            owner_ct=target_ct,
+            owner_ct_name=target_ct.model,
+            owner_id=target_owner_id,
+            updated_at=now()
+        )

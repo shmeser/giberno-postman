@@ -1,12 +1,17 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from djangorestframework_camel_case.util import camelize
 from loguru import logger
 
+from app_chats.versions.v1_0.repositories import AsyncChatsRepository, AsyncMessagesRepository
+from app_chats.versions.v1_0.serializers import MessagesSerializer, ChatSerializer
 from app_sockets.enums import SocketEventType
 from app_sockets.versions.v1_0.mappers import RoutingMapper
 from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository, SocketsRepository
+from app_users.enums import NotificationAction, NotificationType
 from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import AsyncProfileRepository
+from backend.controllers import PushController
 from backend.errors.enums import SocketErrors
 from backend.errors.exceptions import EntityDoesNotExistException
 from giberno.settings import DEBUG
@@ -55,7 +60,7 @@ class AsyncSocketController:
             room_name = self.consumer.room_name
             me = self.consumer.scope['user']  # Пользователь текущего соединения
             room_id = self.consumer.room_id
-
+            # TODO версионность для маппера и контроллеров
             if not RoutingMapper.check_room_version(room_name, version):
                 logger.info(f'Такой точки соединения не существует для версии {version}')
                 await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
@@ -81,23 +86,49 @@ class AsyncSocketController:
         user = await AsyncProfileRepository(me=self.consumer.scope['user']).update_location(event)
         return user
 
-    async def client_message_to_chat(self, code, message):
+    async def client_message_to_chat(self, content):
         try:
-            # Отправялем сообщение чата в канал
-            await self.consumer.channel_layer.send(self.consumer.channel_name, {
+            # Обрабатываем полученное от клиента сообщение
+            processed_message = await AsyncMessagesRepository(
+                me=self.consumer.scope['user']
+            ).save_client_message(
+                chat_id=self.consumer.room_id,
+                content=content,
+            )
+            updated_chat = await AsyncChatsRepository(me=self.consumer.scope['user']).get_client_chat(
+                chat_id=self.consumer.room_id,
+            )
+
+            serialized_message = camelize(MessagesSerializer(processed_message, many=False).data)
+            chat_serialized = camelize(ChatSerializer(updated_chat, many=False).data)
+
+            # Отправялем сообщение обратно в канал по сокетам
+            await self.consumer.channel_layer.group_send(self.consumer.channel_name, {
                 'type': 'chat_message',
-                'code': code,
-                'message': message,
+                'data': serialized_message,
             })
-            # Отправляем данные о чате в канал
-            await self.consumer.channel_layer.send(self.consumer.channel_name, {
-                'type': 'chat_info',
-                'code': code,
-                'message': message,
-            })
+
+            # TODO используется GroupConsumer, возможно нужен Consumer
+            # Отправляем обновленные данные о чате всем участникам чата по сокетам
+            for connection_name in chat_users_connections:
+                await self.consumer.channel_layer.send(connection_name, {
+                    'type': 'chat_info',
+                    'data': chat_serialized,
+                })
+
+            # Отправляем сообщение по пушам всем участникам чата
+            PushController().send_message(
+                users_to_send=updated_chat.users.all(),
+                title=,
+                message=,
+                action=NotificationAction.CHAT.value,
+                subject_id=self.consumer.room_id,
+                notification_type=NotificationType.CHAT.value,
+
+            )
+
         except Exception as e:
-            if DEBUG is True:
-                logger.error(e)
+            logger.error(e)
 
     async def send_system_message(self, code, message):
         try:

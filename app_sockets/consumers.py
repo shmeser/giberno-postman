@@ -53,7 +53,7 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         data = content
 
         if content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
-            self.socket_controller.client_message_to_chat(content)
+            await self.socket_controller.client_message_to_chat(content)
         elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
             pass
         else:

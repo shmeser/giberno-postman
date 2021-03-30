@@ -6,6 +6,7 @@ from app_chats.models import Chat, Message, ChatUser
 from app_market.models import Shop, Vacancy
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
+from app_media.versions.v1_0.repositories import MediaRepository
 from app_users.enums import AccountType
 from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import ProfileRepository
@@ -200,6 +201,15 @@ class ChatsRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
         return record
 
+    def get_client_chat(self, record_id):
+        record = self.base_query.filter(id=record_id)
+        record = self.fast_related_loading(record).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
     @staticmethod
     def fast_related_loading(queryset, point=None):
         """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
@@ -239,6 +249,10 @@ class AsyncChatsRepository(ChatsRepository):
     @database_sync_to_async
     def get_by_id(self, record_id):
         return super().get_by_id(record_id)
+
+    @database_sync_to_async
+    def get_client_chat(self, chat_id):
+        return super().get_client_chat(chat_id)
 
     @database_sync_to_async
     def check_connection_to_group(self, record_id):
@@ -302,3 +316,31 @@ class MessagesRepository(MasterRepository):
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
+
+
+class AsyncMessagesRepository(MessagesRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    @database_sync_to_async
+    def save_client_message(self, chat_id, content):
+        message = self.model.objects.create(
+            user=self.me,
+            chat_id=chat_id,
+            message_type=content.get('messageType'),
+            text=content.get('text'),
+            command_data=content.get('commandData'),
+        )
+
+        attachments = content.get('attachments')
+        if attachments:
+            MediaRepository().reattach_files(
+                uuids=attachments,
+                current_model=self.me,
+                current_owner_id=self.me.id,
+                target_model=self.model,
+                target_owner_id=message.id
+            )
+
+        return message

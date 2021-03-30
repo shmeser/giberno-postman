@@ -31,6 +31,7 @@ class LanguageProficiency(IntEnumM):
 class NotificationType(IntEnumM):
     # Для настроек получения уведомлений
     SYSTEM = 0  # Системные уведомления
+    CHAT = 1  # Сообщения в чатах
 
 
 class NotificationChannelFromAndroid8(EnumM):
@@ -43,11 +44,20 @@ class NotificationChannelFromAndroid8(EnumM):
     SYSTEM = 'system_channel'
     SYSTEM_SOUNDLESS = 'system_channel_soundless'  # без звука
 
+    # Сообщения в чатах
+    CHAT = 'chat_channel'
+    CHAT_SOUNDLESS = 'chat_channel_soundless'  # без звука
+
 
 class NotificationAction(IntEnumM):
     # Для открытия нужного экрана в приложении
     APP = 0  # Главный экран в приложении
     VACANCY = 1  # Вакансия
+    SHIFT = 2  # Смена
+    SHOP = 3  # Магазин
+    DISTRIBUTOR = 4  # Торговая сеть
+    USER = 5  # Пользователь
+    CHAT = 6  # Чат
 
 
 class NotificationIcon(IntEnumM):
