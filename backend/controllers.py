@@ -125,16 +125,29 @@ class PushController:
         # is_sound_enabled берется из настроек пользователя
         if is_sound_enabled is True:
             sound = 'default'
-            kwargs.update({
-                'android_channel_id': NotificationChannelFromAndroid8[NotificationType(notification_type).name].value
-            })
+            android_channel_id = NotificationChannelFromAndroid8[NotificationType(notification_type).name].value
         else:
             sound = None
-            kwargs.update({
-                'android_channel_id': NotificationChannelFromAndroid8[
-                    f'{NotificationType(notification_type).name}_SOUNDLESS'
-                ].value
-            })
+            android_channel_id = NotificationChannelFromAndroid8[
+                f'{NotificationType(notification_type).name}_SOUNDLESS'
+            ].value
+
+        # ## Переопределение параметров sound, android_channel_id из kwargs (могут быть посланы из тестового метода)
+        if 'sound' in kwargs and 'android_channel_id' in kwargs:
+            android_channel_id = kwargs.pop('android_channel_id')
+            sound = kwargs.pop('sound')
+            if sound is None:
+                is_sound_enabled = False
+        elif 'sound' in kwargs:
+            sound = kwargs.pop('sound')
+            if sound is None:
+                is_sound_enabled = False
+        elif 'android_channel_id' in kwargs:
+            android_channel_id = kwargs.pop('android_channel_id')
+
+        kwargs.update({
+            'android_channel_id': android_channel_id
+        })
 
         devices_ids = []  # Список ID моделей пуш-токенов
         notifications_links = []  # Список объектов-связок для bulk_create
