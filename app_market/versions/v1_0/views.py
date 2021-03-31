@@ -372,10 +372,10 @@ class Shifts(CRUDAPIView):
 
         if record_id:
             self.serializer_class = ShiftsSerializer
-            dataset = self.repository_class(calendar_from, calendar_to).get_by_id(record_id)
+            dataset = self.repository_class(calendar_from=calendar_from, calendar_to=calendar_to).get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class(calendar_from, calendar_to).filter_by_kwargs(
+            dataset = self.repository_class(calendar_from=calendar_from, calendar_to=calendar_to).filter_by_kwargs(
                 kwargs=filters, order_by=order_params
             )
             dataset = dataset[pagination.offset:pagination.limit]
