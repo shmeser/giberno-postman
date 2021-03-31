@@ -44,11 +44,11 @@ class ChatsRepository(MasterRepository):
         # Выражения для вычисляемых полей в annotate
         # self.distance_expression = Distance('shop__location', point) if point else Value(None, IntegerField())
         # Основная часть запроса, содержащая вычисляемые поля
-        self.base_query = self.model.objects  ##.annotate(
-        # distance=self.distance_expression,
-        # )
+        self.base_query = self.model.objects.filter(users__in=[self.me])
 
     def modify_kwargs(self, kwargs, order_by):
+        need_to_create = False
+
         user_id = kwargs.pop('user_id', None)
         shop_id = kwargs.pop('shop_id', None)
         vacancy_id = kwargs.pop('vacancy_id', None)
@@ -62,6 +62,7 @@ class ChatsRepository(MasterRepository):
         target_id = None
         target_ct = None
         subject_user = None
+        # ##
 
         if '-created_at' in order_by and created_at:
             created_at = timestamp_to_datetime(int(created_at))
@@ -75,7 +76,10 @@ class ChatsRepository(MasterRepository):
             })
 
         if self.me.account_type == AccountType.MANAGER.value:  # Если роль менеджера
+            # Запрашивается чат с пользователем по вакансии, если тот откликнулся на нее
+            # TODO проверка на отклик по вакансии
             if user_id and vacancy_id:
+                need_to_create = True
                 # Цель обсуждения в чате - вакансия
                 target_ct = ContentType.objects.get_for_model(Vacancy)
                 target_id = vacancy_id
@@ -104,6 +108,7 @@ class ChatsRepository(MasterRepository):
                 checking_kwargs.update(upd)
 
             elif shop_id:  # user-shop
+                need_to_create = True
                 # Цель обсуждения в чате - магазин
                 target_ct = ContentType.objects.get_for_model(Shop)
                 target_id = shop_id
@@ -115,6 +120,7 @@ class ChatsRepository(MasterRepository):
                     # TODO менеджер добавляется в чат на других этапах, при создании чата неизвестно кто присоединится
                 ]
             elif vacancy_id:  # user-vacancy
+                need_to_create = True
                 # Цель обсуждения в чате - вакансия
                 target_ct = ContentType.objects.get_for_model(Vacancy)
                 target_id = vacancy_id
@@ -147,7 +153,7 @@ class ChatsRepository(MasterRepository):
             'subject_user': subject_user,
         }
 
-        return checking_kwargs, chat_data
+        return checking_kwargs, need_to_create, chat_data
 
     @staticmethod
     def create_chat(users, title=None, target_id=None, target_ct_id=None, target_ct_name=None, subject_user=None):
@@ -173,9 +179,9 @@ class ChatsRepository(MasterRepository):
 
     def get_chats_or_create(self, kwargs, paginator=None, order_by: list = None):
         # Изменяем kwargs для работы с objects.filter(**kwargs)
-        checking_kwargs, chat_data = self.modify_kwargs(kwargs, order_by)
+        checking_kwargs, need_to_create, chat_data = self.modify_kwargs(kwargs, order_by)
 
-        if not self.base_query.filter(**checking_kwargs).exists() and chat_data:
+        if not self.base_query.filter(**checking_kwargs).exists() and need_to_create:
             # Если не найдены нужные чаты
             self.create_chat(
                 users=chat_data['users'],
@@ -210,7 +216,7 @@ class ChatsRepository(MasterRepository):
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
-        return camelize(ChatSerializer(record, many=False).data), record.users.all()
+        return camelize(ChatSerializer(record, many=False, context={'me': self.me}).data), record.users.all()
 
     @staticmethod
     def fast_related_loading(queryset, point=None):
