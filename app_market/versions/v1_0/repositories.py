@@ -28,7 +28,7 @@ from app_users.enums import AccountType
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exception import HttpException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
-from backend.utils import ArrayRemove, datetime_to_timestamp, timestamp_to_datetime
+from backend.utils import ArrayRemove, datetime_to_timestamp
 from giberno import settings
 
 
@@ -389,7 +389,11 @@ class ShiftsRepository(MasterRepository):
         return records[paginator.offset:paginator.limit] if paginator else records
 
     @staticmethod
-    def active_dates_list(queryset, calendar_from=None, calendar_to=None):
+    def active_dates(queryset):
+        for shift in queryset:
+            for active_date in shift.active_dates:
+                print(active_date)
+
         active_dates = []
         if queryset.count():
             for shift in queryset:
@@ -399,10 +403,6 @@ class ShiftsRepository(MasterRepository):
                         'utc_offset': utc_offset,
                         'timestamp': datetime_to_timestamp(active_date)
                     })
-
-            if calendar_from and calendar_to:
-                active_dates = [item for item in active_dates if
-                                calendar_from < timestamp_to_datetime(item.get('timestamp')) < calendar_to]
 
         return active_dates
 
@@ -613,15 +613,15 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
     def single_vacancy_active_dates_list_for_manager(self, record_id, calendar_from=None, calendar_to=None):
         vacancy = self.get_by_id_for_manager_or_security(record_id=record_id)
-        shifts = ShiftsRepository().filter_by_kwargs(kwargs={'vacancy': vacancy})
-        return ShiftsRepository().active_dates_list(queryset=shifts, calendar_from=calendar_from,
-                                                    calendar_to=calendar_to)
+        shifts = ShiftsRepository(calendar_from=calendar_from, calendar_to=calendar_to).filter_by_kwargs(
+            kwargs={'vacancy': vacancy})
+        return ShiftsRepository().active_dates(queryset=shifts)
 
     def vacancies_active_dates_list_for_manager(self, calendar_from=None, calendar_to=None):
         vacancies = self.queryset_by_manager()
-        shifts = ShiftsRepository().filter_by_kwargs(kwargs={'vacancy_id__in': vacancies})
-        return ShiftsRepository().active_dates_list(queryset=shifts, calendar_from=calendar_from,
-                                                    calendar_to=calendar_to)
+        shifts = ShiftsRepository(calendar_from=calendar_from, calendar_to=calendar_to).filter_by_kwargs(
+            kwargs={'vacancy_id__in': vacancies})
+        return ShiftsRepository().active_dates(queryset=shifts)
 
     def vacancy_shifts_with_appeals_queryset(self, record_id, pagination=None, current_date=None, next_day=None):
         active_shifts = []
@@ -828,9 +828,10 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         annotated = queryset.values('shop__distributor').annotate(count=Count('shop__distributor')).order_by('-count')
 
         distributors_ids_list = annotated.values_list('shop__distributor', flat=True)
-        preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(distributors_ids_list)])
-
-        records = Distributor.objects.filter(pk__in=distributors_ids_list).order_by(preserved)
+        records = Distributor.objects.filter(pk__in=distributors_ids_list)
+        if distributors_ids_list:
+            preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(distributors_ids_list)])
+            records = records.order_by(preserved)
 
         return DistributorsRepository.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[pagination.offset:pagination.limit] if pagination else records,
