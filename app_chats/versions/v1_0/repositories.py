@@ -260,8 +260,8 @@ class ChatsRepository(MasterRepository):
 
 class AsyncChatsRepository(ChatsRepository):
     def __init__(self, me=None) -> None:
-        super().__init__()
         self.me = me
+        super().__init__(self.me)
 
     @database_sync_to_async
     def get_by_id(self, record_id):
@@ -277,8 +277,9 @@ class AsyncChatsRepository(ChatsRepository):
         if not record:
             raise EntityDoesNotExistException
 
-        if record.deleted:
+        if not record.users.filter(pk=self.me.id).exists():
             # TODO логика проверки присоединения к группе
+            # Если не участник чата
             return False
         return True
 
@@ -337,8 +338,8 @@ class MessagesRepository(MasterRepository):
 
 class AsyncMessagesRepository(MessagesRepository):
     def __init__(self, me=None) -> None:
-        super().__init__()
         self.me = me
+        super().__init__(self.me)
 
     @database_sync_to_async
     def save_client_message(self, chat_id, content):
