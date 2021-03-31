@@ -1,10 +1,8 @@
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from djangorestframework_camel_case.util import camelize
 from loguru import logger
 
 from app_chats.versions.v1_0.repositories import AsyncChatsRepository, AsyncMessagesRepository
-from app_chats.versions.v1_0.serializers import MessagesSerializer, ChatSerializer
 from app_sockets.enums import SocketEventType
 from app_sockets.versions.v1_0.mappers import RoutingMapper
 from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository, SocketsRepository
@@ -90,23 +88,22 @@ class AsyncSocketController:
     async def client_message_to_chat(self, content):
         try:
             # Обрабатываем полученное от клиента сообщение
-            processed_message = await AsyncMessagesRepository(
+            processed_serialized_message = await AsyncMessagesRepository(
                 me=self.consumer.scope['user']
             ).save_client_message(
                 chat_id=self.consumer.room_id,
                 content=content,
             )
-            updated_chat, chat_users = await AsyncChatsRepository(me=self.consumer.scope['user']).get_client_chat(
+            processed_serialized_chat, chat_users = await AsyncChatsRepository(
+                me=self.consumer.scope['user']
+            ).get_client_chat(
                 chat_id=self.consumer.room_id,
             )
-
-            serialized_message = camelize(MessagesSerializer(processed_message, many=False).data)
-            serialized_chat = camelize(ChatSerializer(updated_chat, many=False).data)
 
             # Отправялем сообщение обратно в канал по сокетам
             await self.consumer.channel_layer.group_send(self.consumer.group_name, {
                 'type': 'group_chat_message',
-                'prepared_data': serialized_message,
+                'prepared_data': processed_serialized_message,
             })
 
             chat_users_connections = await AsyncSocketsRepository.get_connections_for_users(chat_users)
@@ -116,7 +113,7 @@ class AsyncSocketController:
             for connection_name in chat_users_connections:
                 await self.consumer.channel_layer.send(connection_name, {
                     'type': 'chat_info',
-                    'prepared_data': serialized_chat,
+                    'prepared_data': processed_serialized_chat,
                 })
 
             # Отправляем сообщение по пушам всем участникам чата

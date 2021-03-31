@@ -5,13 +5,16 @@ from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
 from app_users.models import UserProfile
 from backend.fields import DateTimeField
-from backend.utils import chained_get
 
 
 class ChatsSerializer(serializers.ModelSerializer):
     created_at = DateTimeField()
 
     last_message = serializers.SerializerMethodField()
+    users = serializers.SerializerMethodField()
+
+    def get_users(self, data):
+        return ChatProfileSerializer(data.users, many=True).data
 
     def get_last_message(self, data):
         return LastMessagesSerializer(data.last_message[0], many=False).data
@@ -22,7 +25,8 @@ class ChatsSerializer(serializers.ModelSerializer):
             'id',
             'title',
             'created_at',
-            'last_message'
+            'last_message',
+            'users'
         ]
 
 
@@ -33,36 +37,26 @@ class ChatSerializer(ChatsSerializer):
             'id',
             'title',
             'created_at',
-            'last_message'
+            'last_message',
+            'users'
         ]
 
 
 class LastMessagesSerializer(serializers.ModelSerializer):
     created_at = DateTimeField()
     read_at = DateTimeField()
-    user = serializers.SerializerMethodField()
-
-    def get_user(self, data):
-        return MessageProfileSerializer(data.user, many=False).data
-
-    def get_attachments(self, prefetched_data):
-        return MediaController(self.instance).get_related_media_urls(
-            prefetched_data,
-            MediaType.ATTACHMENT.value,
-            multiple=True
-        )
 
     class Meta:
         model = Message
         fields = [
             'id',
+            'user_id',
             'title',
             'text',
             'message_type',
             'form_status',
             'created_at',
             'read_at',
-            'user',
         ]
 
 
@@ -88,10 +82,7 @@ class ChatProfileSerializer(MessageProfileSerializer):
     online = serializers.SerializerMethodField()
 
     def get_online(self, data):
-        sockets_count = chained_get(data, 'socket_count')
-        if sockets_count:
-            return sockets_count > 0
-        return False
+        return data.sockets.count() > 0
 
     class Meta:
         model = UserProfile
@@ -109,11 +100,7 @@ class ChatProfileSerializer(MessageProfileSerializer):
 class MessagesSerializer(serializers.ModelSerializer):
     created_at = DateTimeField()
     read_at = DateTimeField()
-    user = serializers.SerializerMethodField()
     attachments = serializers.SerializerMethodField()
-
-    def get_user(self, data):
-        return MessageProfileSerializer(data.user, many=False).data
 
     def get_attachments(self, prefetched_data):
         return MediaController(self.instance).get_related_media_urls(
@@ -126,12 +113,12 @@ class MessagesSerializer(serializers.ModelSerializer):
         model = Message
         fields = [
             'id',
+            'user_id',
             'title',
             'text',
             'message_type',
             'form_status',
             'created_at',
             'read_at',
-            'user',
             'attachments',
         ]

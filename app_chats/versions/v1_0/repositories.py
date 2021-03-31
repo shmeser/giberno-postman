@@ -1,8 +1,10 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Prefetch
+from djangorestframework_camel_case.util import camelize
 
 from app_chats.models import Chat, Message, ChatUser
+from app_chats.versions.v1_0.serializers import MessagesSerializer, ChatSerializer
 from app_market.models import Shop, Vacancy
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -208,24 +210,31 @@ class ChatsRepository(MasterRepository):
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
-        return record, record.users.all()
+        return camelize(ChatSerializer(record, many=False).data), record.users.all()
 
     @staticmethod
     def fast_related_loading(queryset, point=None):
         """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
             -> Last_message
-                -> User + Media
+            -> Users
+                -> Media + Sockets
         """
         queryset = queryset.prefetch_related(
             # Подгрузка медиа для сообщений
             Prefetch(
                 'message_set',
-                queryset=Message.objects.order_by('-id').select_related(
-                    'user',
+                queryset=Message.objects.order_by('-id'),
+                to_attr='last_message'
+            )
+        ).prefetch_related(
+            Prefetch(
+                'users',
+                queryset=UserProfile.objects.filter(
+                    deleted=False
                 ).prefetch_related(
                     # Подгрузка медиа для профилей
                     Prefetch(
-                        'user__media',
+                        'media',
                         queryset=MediaModel.objects.filter(
                             type=MediaType.AVATAR.value,
                             owner_ct_id=ContentType.objects.get_for_model(UserProfile).id,
@@ -233,8 +242,10 @@ class ChatsRepository(MasterRepository):
                         ),
                         to_attr='medias'
                     )
-                ),
-                to_attr='last_message'
+                ).prefetch_related(
+                    # Подгрузка сокетов
+                    'sockets',
+                )
             )
         )
 
@@ -343,4 +354,4 @@ class AsyncMessagesRepository(MessagesRepository):
                 target_owner_id=message.id
             )
 
-        return message
+        return camelize(MessagesSerializer(message, many=False).data)
