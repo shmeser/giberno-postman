@@ -78,7 +78,8 @@ header a {
 
 /* Body */
 section {
-    width: 960px;
+    min-width: 960px;
+    width: 80%;
     margin: 0 auto;
     height: 100%;
 }
@@ -108,7 +109,7 @@ p {
 }
 
 label {
-    margin: 10px 0;
+    margin: 7px 0;
     font-weight: 600;
     color: #469fde;
 }
@@ -128,7 +129,7 @@ input, button {
     height: 45px;
 }
 
-.clear-jwt, .clear-route{
+.clear-jwt, .clear-route {
     width: 45px !important;
 }
 
@@ -147,7 +148,7 @@ input, button {
     align-items: center;
     border: 1px dashed #90a6ab;
     padding: 10px;
-    margin-top: 10px;
+    /* margin-top: 10px; */
 }
 
 .routes-block {
@@ -165,27 +166,33 @@ input, button {
 }
 
 .connections-container {
-    width: 100%;
-    height: auto;
+    width: fit-content;
+    height: 100%;
     min-height: 600px;
     display: flex;
-    flex-flow: column;
+    flex-flow: row;
     flex: 1 auto;
-    justify-content: start;
-    align-items: center;
-    padding: 10px;
+    justify-content: space-between;
+    align-items: start;
+    padding: 5px;
+    /* overflow-y: auto; */
+}
+
+.connections-container-scroll {
+    width: 100%;
+    height: 100%;
+    overflow: scroll;
     border-radius: 10px;
     border: 1px dashed #1f775c;
-    overflow-y: auto;
 }
 
 .connection {
-    width: 100%;
-    height: 480px;
+    width: 720px;
+    height: 100%;
     border-radius: 7px;
     border: 1px solid #4b655a;
     display: flex;
-    flex-flow: row;
+    flex-flow: column;
     justify-content: space-around;
     align-items: start;
     box-sizing: border-box;
@@ -193,7 +200,8 @@ input, button {
 }
 
 .connection > div {
-    flex: 1 1 30%;
+    /* flex: 1 1 10%; */
+    width: 100%;
     height: 100%;
     overflow-y: auto;
     border: 1px solid #6d8e7d;
@@ -201,11 +209,11 @@ input, button {
 }
 
 .connection > div:nth-child(odd) {
-    border-radius: 5px 0 0 5px;
+    border-radius: 5px;
 }
 
 .connection > div:nth-child(even) {
-    border-radius: 0 5px 5px 0;
+    border-radius: 5px;
 }
 
 .connection.closed {
@@ -306,7 +314,7 @@ input, button {
 }
 
 .dashboard {
-    flex: 3;
+    flex: 2;
 }
 
 .messages {

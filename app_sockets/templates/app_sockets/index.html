@@ -31,7 +31,10 @@
             </div>
         </div>
 
-        <div class="connections-container" id="connections"></div>
+        <div class="connections-container-scroll">
+            <div class="connections-container" id="connections"></div>
+        </div>
+
     </div>
 
 {% endblock %}
@@ -183,7 +186,7 @@
 
         const addConnectionBlock = (connectionId, jwt, route) => {
             $('#connections').prepend(
-                `<div class="connection mb-10" id="${connectionId}">
+                `<div class="connection mb-10 mr-10" id="${connectionId}">
                     <div class="dashboard">
                         <div class="connection-status mb-10 pb-10">
                             <div class="jwt">${jwt}</div>
