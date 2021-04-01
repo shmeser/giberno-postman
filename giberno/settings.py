@@ -1,7 +1,6 @@
 import datetime
 import os
 from datetime import timedelta, datetime
-import django_redis
 from celery.schedules import crontab
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'TeStSeCrEtKeY')
@@ -46,16 +45,6 @@ CHANNEL_LAYERS = {
     },
 }
 
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"redis://{os.getenv('REDIS_HOST', '127.0.0.1')}:6379/1",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        }
-    }
-}
-
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER', 'redis://127.0.0.1:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_BROKER', 'redis://127.0.0.1:6379/0')
 CELERY_ACCEPT_CONTENT = ['application/json']
@@ -95,7 +84,7 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = 'giberno.routing.application'
+ASGI_APPLICATION = 'giberno.asgi.application'
 WSGI_APPLICATION = 'giberno.wsgi.application'
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -391,7 +380,6 @@ try:
         SOCIAL_AUTH_VK_OAUTH2_KEY, \
         DEBUG_TOOLBAR_PANELS, \
         EMAIL_HOST_USER, \
-        EMAIL_HOST_PASSWORD, \
-        CACHES
+        EMAIL_HOST_PASSWORD
 except ImportError as e:
     pass

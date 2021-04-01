@@ -75,6 +75,7 @@ class VacanciesByManagerListAPIView(BaseAPIView):
     возможные query параметры :
     offset : int
     limit : int
+    current_date : timestamp (int)
     """
     permission_classes = [IsAuthenticated, IsManager]
 

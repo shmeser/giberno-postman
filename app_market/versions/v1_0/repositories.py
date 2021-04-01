@@ -1,8 +1,7 @@
 from datetime import timedelta, datetime
 
-from channels.db import database_sync_to_async
-
 import pytz
+from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models import GeometryField, CharField
 from django.contrib.gis.db.models.functions import Distance, Envelope
@@ -390,10 +389,6 @@ class ShiftsRepository(MasterRepository):
 
     @staticmethod
     def active_dates(queryset):
-        for shift in queryset:
-            for active_date in shift.active_dates:
-                print(active_date)
-
         active_dates = []
         if queryset.count():
             for shift in queryset:
@@ -592,24 +587,27 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             point=self.point
         )
 
-    def queryset_by_manager(self):
+    def queryset_by_manager(self, order_params=None, pagination=None):
         if not self.me.account_type == AccountType.MANAGER:
             raise PermissionDenied()
-        return self.filter_by_kwargs(kwargs={'shop_id__in': self.me.shops.all()})
+        return self.filter_by_kwargs(
+            kwargs={'shop_id__in': self.me.shops.all()},
+            order_by=order_params,
+            paginator=pagination
+        )
 
-    def queryset_filtered_by_current_date_range_for_manager(self, order_params, pagination, current_date=None,
-                                                            next_day=None):
+    def queryset_filtered_by_current_date_range_for_manager(self, order_params, pagination, current_date, next_day):
         vacancies = self.queryset_by_manager()
-        shifts = ShiftsRepository().filter_by_kwargs(kwargs={'vacancy_id__in': vacancies})
-        if current_date and next_day:
-            active_vacancies = []
-            for shift in shifts:
-                for active_date in shift.active_dates:
-                    if current_date < active_date < next_day and shift.vacancy not in active_vacancies:
-                        active_vacancies.append(shift.vacancy)
-            filters = {'id__in': [item.id for item in active_vacancies]}
-            vacancies = self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
-        return vacancies
+        shifts = ShiftsRepository(calendar_from=current_date, calendar_to=next_day).filter_by_kwargs(
+            kwargs={'vacancy_id__in': vacancies})
+        active_vacancies = []
+        for shift in shifts:
+            for active_date in shift.active_dates:
+                if current_date <= active_date < next_day:
+                    active_vacancies.append(shift.vacancy)
+        filters = {'id__in': [item.id for item in active_vacancies]}
+
+        return self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
 
     def single_vacancy_active_dates_list_for_manager(self, record_id, calendar_from=None, calendar_to=None):
         vacancy = self.get_by_id_for_manager_or_security(record_id=record_id)
