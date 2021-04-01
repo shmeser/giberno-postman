@@ -84,7 +84,7 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = 'giberno.routing.application'
+ASGI_APPLICATION = 'giberno.asgi.application'
 WSGI_APPLICATION = 'giberno.wsgi.application'
 
 AUTH_PASSWORD_VALIDATORS = [
