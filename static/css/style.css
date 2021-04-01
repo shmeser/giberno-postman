@@ -37,6 +37,7 @@ body {
     line-height: 1;
     font-family: sans-serif;
     height: 100%;
+    background-color: #353535;
 }
 
 ol, ul {
@@ -77,9 +78,25 @@ header a {
 
 /* Body */
 section {
-    width: 960px;
+    min-width: 960px;
+    width: 80%;
     margin: 0 auto;
     height: 100%;
+}
+
+
+*::-webkit-scrollbar {
+    width: 2px;
+    height: 2px;
+}
+
+*::-webkit-scrollbar-track {
+    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: darkgrey;
+    outline: 1px solid slategrey;
 }
 
 p {
@@ -92,13 +109,28 @@ p {
 }
 
 label {
-    margin-top: 10px;
-    margin-bottom: 5px;
+    margin: 7px 0;
+    font-weight: 600;
+    color: #469fde;
 }
 
-input {
+button {
+    cursor: pointer;
+}
+
+input, button {
     width: 90%;
-    padding: 5px 10px;
+    background: #545454;
+    border: 1px solid #9a9a9a;
+    border-radius: 5px;
+    padding: 10px 10px;
+    font-size: 14px;
+    color: #54c3ce;
+    height: 45px;
+}
+
+.clear-jwt, .clear-route {
+    width: 45px !important;
 }
 
 .sockets-container {
@@ -112,9 +144,11 @@ input {
     display: flex;
     flex-flow: column;
     justify-content: center;
+    border-radius: 10px;
     align-items: center;
-    border: 1px dashed deepskyblue;
-    padding: 5px;
+    border: 1px dashed #90a6ab;
+    padding: 10px;
+    /* margin-top: 10px; */
 }
 
 .routes-block {
@@ -125,26 +159,40 @@ input {
     align-items: center;
 }
 
+.routes-block input, .routes-block button {
+    width: 40%;
+    font-weight: 600;
+    font-size: 18px;
+}
+
 .connections-container {
-    width: 100%;
-    height: auto;
+    width: fit-content;
+    height: 100%;
     min-height: 600px;
     display: flex;
-    flex-flow: column;
+    flex-flow: row;
     flex: 1 auto;
-    justify-content: start;
-    align-items: center;
+    justify-content: space-between;
+    align-items: start;
     padding: 5px;
-    border: 1px dashed red;
-    overflow-y: auto;
+    /* overflow-y: auto; */
+}
+
+.connections-container-scroll {
+    width: 100%;
+    height: 100%;
+    overflow: scroll;
+    border-radius: 10px;
+    border: 1px dashed #1f775c;
 }
 
 .connection {
-    width: 100%;
-    height: 480px;
-    border: 1px solid #887dff;
+    width: 720px;
+    height: 100%;
+    border-radius: 7px;
+    border: 1px solid #4b655a;
     display: flex;
-    flex-flow: row;
+    flex-flow: column;
     justify-content: space-around;
     align-items: start;
     box-sizing: border-box;
@@ -152,11 +200,20 @@ input {
 }
 
 .connection > div {
-    flex: 1 1 30%;
+    /* flex: 1 1 10%; */
+    width: 100%;
     height: 100%;
     overflow-y: auto;
-    border: 1px solid green;
+    border: 1px solid #6d8e7d;
     padding: 5px;
+}
+
+.connection > div:nth-child(odd) {
+    border-radius: 5px;
+}
+
+.connection > div:nth-child(even) {
+    border-radius: 5px;
 }
 
 .connection.closed {
@@ -168,7 +225,8 @@ input {
     height: 45px;
     font-size: 18px;
 }
-.connection-button:disabled, .connection-button:disabled:hover{
+
+.connection-button:disabled, .connection-button:disabled:hover {
     background: #c5d0ca;
     border: 2px solid rgba(55, 96, 133, 0.33);
     color: rgba(7, 3, 0, 0.57);
@@ -180,23 +238,27 @@ input {
 }
 
 .action-button {
-    background: #afffaf;
-    border: 2px solid #68b8fd;
+    background: #2dc998;
+    border: 2px solid #085960;
+    font-weight: 600;
+    color: #D5FCE0;
 }
 
 .disconnect-button {
-    background: #ffab97;
-    border: 2px solid #fd3317;
+    background: #FF7B78;
+    color: #ffd9d0;
+    border: 2px solid #7A0E3C;
+    font-weight: 600;
 }
 
 .disconnect-button:hover {
-    background: #ff7e5b;
-    color: #a22400;
+    background: #FF7B78;
+    color: #7A0E3C;
 }
 
 .action-button:hover {
-    background: #48ff44;
-    color: #437dff;
+    background: #8ccab0;
+    color: #085960;
 }
 
 .connection-status {
@@ -213,30 +275,46 @@ input {
     align-items: center;
 }
 
+.message-type-button {
+    width: 40%;
+}
+
 .outcomming {
-    color: #069a28;
-    padding: 5px;
+    color: #5BE3B7;
+    padding: 5px 5px 5px 15px;
 }
 
 .incomming {
-    color: #fd826c;
-    padding: 5px;
+    color: #FFA188;
+    padding: 5px 5px 5px 15px;
+}
+
+.incomming::before, .error::before {
+    content: "\2193";
+    position: absolute;
+    left: 5px;
+}
+
+.outcomming::before {
+    content: "\2191";
+    position: absolute;
+    left: 5px;
 }
 
 .system {
     color: #868686;
-    padding: 5px;
+    padding: 5px 5px 5px 15px;
     border: 1px solid #868686;
 }
 
 .error {
-    color: #fd3838;
-    padding: 5px;
-    border: 1px solid #fd3838;
+    color: #FF413A;
+    padding: 5px 5px 5px 15px;
+    border: 1px solid #DB2A33;
 }
 
 .dashboard {
-    flex: 3;
+    flex: 2;
 }
 
 .messages {
@@ -246,15 +324,21 @@ input {
 .dashboard textarea {
     width: 100%;
     box-sizing: border-box;
+    border-radius: 5px;
+    padding: 10px;
+    color: #085664;
+    background: #D5FCE0;
+    font-family: "Courier New";
 }
 
 .connection-route {
-    color: #2fa75f;
+    color: #D5FCE0;
     font-weight: 700;
 }
 
 .message-block {
     display: flex;
+    position: relative;
     flex-flow: column;
     justify-content: center;
     align-items: flex-start;
@@ -264,7 +348,7 @@ input {
 
 .message-datetime {
     font-size: 12px;
-    color: #848484;
+    color: #5FDCE8;
     margin: 0 0 5px;
     text-decoration: underline;
 }
@@ -277,5 +361,5 @@ input {
     word-break: break-all;
     font-size: 12px;
     padding: 5px;
-    color: #9d00ff;
+    color: #8ccab0;
 }

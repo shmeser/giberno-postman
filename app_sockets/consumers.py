@@ -3,7 +3,7 @@ from loguru import logger
 
 from app_sockets.controllers import AsyncSocketController
 from app_sockets.enums import SocketEventType
-from app_sockets.mappers.request_models import SocketEventRM
+from app_sockets.versions.v1_0.mappers import SocketEventRM
 from backend.errors.client_error import SocketError
 from backend.errors.enums import SocketErrors
 from backend.utils import chained_get
@@ -12,6 +12,7 @@ from backend.utils import chained_get
 class GroupConsumer(AsyncJsonWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.version = None
         self.user = None
         self.socket_controller = None
         self.room_name = None
@@ -21,7 +22,9 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         self.socket_controller = AsyncSocketController(self)
         try:
-            self.user = self.scope["user"]
+            self.version = chained_get(self.scope, 'url_route', 'kwargs', 'version')
+
+            self.user = self.scope['user']
 
             self.room_id = chained_get(self.scope, 'url_route', 'kwargs', 'id')
             self.room_name = chained_get(self.scope, 'url_route', 'kwargs', 'room_name')
@@ -30,29 +33,34 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
 
             await self.accept()  # Принимаем соединение
 
-            # Проверка авторизации подключаемого соединения TODO проверка других разрешений
+            # Проверка авторизации подключаемого соединения, версии и различных разрешений
             if self.user.is_authenticated:
-                # Добавляем соединение в группу
-                await self.channel_layer.group_add(self.group_name, self.channel_name)
-                await self.socket_controller.store_group_connection()
+                if await self.socket_controller.check_permission_for_group_connection():
+                    # Добавляем соединение в группу
+                    await self.channel_layer.group_add(self.group_name, self.channel_name)
+                    await self.socket_controller.store_group_connection()
             else:
                 # Принимаем соединение и сразу закрываем, чтобы не было ERR_CONNECTION_REFUSED
-                await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
+                await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом UNAUTHORIZED
         except Exception as e:
             logger.error(e)
             await self.close(code=SocketErrors.BAD_REQUEST.value)  # Закрываем соединение с кодом BAD REQUEST
 
     async def receive_json(self, content, **kwargs):
-
         logger.debug(content)
 
-        await self.channel_layer.group_send(self.group_name, {
-            'type': 'system_message',
-            'attachmentType': content['attachmentType'],
-            'attachmentPreviewUrl': content['attachmentPreviewUrl'],
-            'attachmentUrl': content['attachmentUrl'],
-            'text': content['text'],
-        })
+        handler_type = 'system_message'
+        data = content
+
+        if content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
+            await self.socket_controller.client_message_to_chat(content)
+        elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
+            pass
+        else:
+            await self.channel_layer.group_send(self.group_name, {
+                'type': handler_type,
+                **data.get('prepared_data')
+            })
 
     async def disconnect(self, code):
         try:
@@ -62,14 +70,21 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         except Exception as e:
             logger.error(e)
 
-    # # Системное - предупреждение, информация
-    async def system_message(self, data):
+    # Сообщения в чате
+    async def group_chat_message(self, data):
         await self.send_json(
             {
-                'attachmentType': data['attachmentType'],
-                'attachmentPreviewUrl': data['attachmentPreviewUrl'],
-                'attachmentUrl': data['attachmentUrl'],
-                'text': data['text'],
+                'eventType': SocketEventType.SERVER_NEW_MESSAGE_IN_CHAT.value,
+                'message': data.get('prepared_data')
+            },
+        )
+
+    # Информация о чате
+    async def group_chat_info(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_UPDATED.value,
+                'chat': data.get('prepared_data')
             },
         )
 
@@ -77,13 +92,14 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
 class Consumer(AsyncJsonWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.version = None
         self.user = None
         self.socket_controller = None
 
     async def connect(self):
         try:
             self.socket_controller = AsyncSocketController(self)
-            self.user = self.scope["user"]
+            self.user = self.scope['user']
 
             await self.accept()  # Принимаем соединение
 
@@ -145,5 +161,14 @@ class Consumer(AsyncJsonWebsocketConsumer):
             {
                 'eventType': event['eventType'],
                 'data': event['data'],
+            },
+        )
+
+    # Информация о чате
+    async def chat_info(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_UPDATED.value,
+                'chat': data.get('prepared_data')
             },
         )

@@ -484,7 +484,7 @@ class NotificationSerializer(CRUDSerializer):
     icon = serializers.SerializerMethodField()
 
     def get_icon(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.NOTIFICATION_ICON.value)
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.NOTIFICATION_ICON.value)
 
     class Meta:
         model = Notification

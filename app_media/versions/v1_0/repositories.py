@@ -1,6 +1,8 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import QuerySet
+from django.utils.timezone import now
 
+from app_media.enums import MediaType
 from app_media.models import MediaModel
 from backend.entity import File
 from backend.errors.enums import RESTErrors
@@ -40,26 +42,50 @@ class MediaRepository(MasterRepository):
             return x.type == media_type
 
     @classmethod
-    def get_related_media_file(cls, model_instance, data, media_type, media_format, mime_type=None):
-        medias_list = chained_get(data, 'medias', default=list())
-        if isinstance(model_instance, QuerySet):
-            # для many=True
-            file = None
-            # Берем файл из предзагруженного поля medias
-            if medias_list:
-                file = next(filter(  # Отфильтровываем по mime_type и берем один элемент
-                    lambda x: cls.get_mime_cond(x, media_type, mime_type), chained_get(data, 'medias')), None)
+    def get_related_media(cls, model_instance, prefetched_data, m_type, m_format=None, mime_type=None, multiple=False):
+        # Берем файлы из предзагруженного через prefetch_related поля medias
+        medias_list = chained_get(prefetched_data, 'medias', default=list())
+        iterated = filter(  # Отфильтровываем по mime_type и берем один элемент
+            lambda x: cls.get_mime_cond(x, m_type, mime_type), medias_list
+        )
+        if multiple:
+            files = list(iterated)
         else:
-            if medias_list:
-                file = next(filter(  # Отфильтровываем по mime_type и берем один элемент
-                    lambda x: cls.get_mime_cond(x, media_type, mime_type), chained_get(data, 'medias')), None)
-            else:
-                files = MediaModel.objects.filter(
-                    owner_id=data.id, type=media_type,
-                    owner_ct_id=ContentType.objects.get_for_model(data).id, format=media_format,
-                )
-                if mime_type:
-                    files = files.filter(mime_type=mime_type)
-                file = files.order_by('-created_at').first()
+            files = next(iterated, None)  # Берем 1 файл
 
-        return file
+        if isinstance(model_instance, QuerySet):  # для many=True - узнаем из сериалайзера через model_instance
+            return files
+
+        # для many=False - узнаем из сериалайзера через model_instance
+        if not files:  # Если нет предзагруженных данных, делаем запрос в бд
+            files = MediaModel.objects.filter(
+                owner_id=prefetched_data.id, type=m_type,
+                owner_ct_id=ContentType.objects.get_for_model(prefetched_data).id,
+            )
+            if m_format:  # Если указан формат
+                files = files.filter(format=m_format)
+            if mime_type:  # Если указан mime_type
+                files = files.filter(mime_type=mime_type)
+            files = files.order_by('-created_at')
+            if not multiple:
+                files = files.first()
+
+        return files
+
+    def reattach_files(self, uuids: [str], current_model, current_owner_id, target_model, target_owner_id):
+        """ Найти файлы с типом ATTACHMENT и установить нового владельца"""
+
+        current_ct = ContentType.objects.get_for_model(current_model)
+        target_ct = ContentType.objects.get_for_model(target_model)
+
+        self.model.objects.filter(
+            uuid__in=uuids,
+            owner_ct=current_ct,
+            owner_id=current_owner_id,
+            type=MediaType.ATTACHMENT.value  # Только с типом "прикрепленные файлы"
+        ).update(
+            owner_ct=target_ct,
+            owner_ct_name=target_ct.model,
+            owner_id=target_owner_id,
+            updated_at=now()
+        )

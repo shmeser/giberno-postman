@@ -38,10 +38,10 @@ class DistributorsSerializer(CRUDSerializer):
     rating = serializers.SerializerMethodField()
 
     def get_logo(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.LOGO.value)
 
     def get_banner(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.BANNER.value)
 
     def get_categories(self, prefetched_data):
         return CategoriesSerializer(prefetched_data.categories, many=True).data
@@ -81,7 +81,7 @@ class ShopsSerializer(CRUDSerializer):
         return instance.location.y if instance.location else None
 
     def get_logo(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.LOGO.value)
 
     def get_walk_time(self, shop):
         if chained_get(shop, 'distance'):
@@ -113,7 +113,7 @@ class ShopSerializer(ShopsSerializer):
         return chained_get(prefetched_data, 'vacancies_count')
 
     def get_banner(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.BANNER.value)
 
     class Meta:
         model = Shop
@@ -140,7 +140,7 @@ class ShopInVacancySerializer(ShopsSerializer):
 
     def get_map(self, prefetched_data):
         # TODO добавить загрузку файла карт с гугла после получения платного аккаунта
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.MAP.value)
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.MAP.value)
 
     class Meta:
         model = Shop
@@ -164,10 +164,10 @@ class DistributorInVacancySerializer(serializers.ModelSerializer):
     banner = serializers.SerializerMethodField()
 
     def get_logo(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.LOGO.value)
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.LOGO.value)
 
     def get_banner(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.BANNER.value)
 
     class Meta:
         model = Distributor
@@ -193,7 +193,7 @@ class VacanciesSerializer(CRUDSerializer):
     banner = serializers.SerializerMethodField()
 
     def get_banner(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.BANNER.value)
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.BANNER.value)
 
     def get_is_favourite(self, vacancy):
         return vacancy.likes.filter(owner_id=self.me.id, target_id=vacancy.id, deleted=False).exists()
@@ -380,7 +380,7 @@ class VacanciesForManagerSerializer(CRUDSerializer):
 
     @staticmethod
     def get_banner(instance):
-        return MediaController(instance).get_related_image(instance, MediaType.BANNER.value)
+        return MediaController(instance).get_related_images(instance, MediaType.BANNER.value)
 
     total_count = serializers.SerializerMethodField()
 

@@ -1,4 +1,5 @@
 from channels.db import database_sync_to_async
+from django.contrib.postgres.aggregates import ArrayAgg
 
 from app_sockets.models import Socket
 from app_users.models import UserProfile
@@ -43,3 +44,13 @@ class AsyncSocketsRepository(SocketsRepository):
     @database_sync_to_async
     def check_if_connected(self, room_name=None, room_id=None):
         return super().check_if_connected(room_name, room_id)
+
+    @database_sync_to_async
+    def get_connections_for_users(self, users, room_name=None, room_id=None):
+        return Socket.objects.filter(
+            user__in=users,
+            room_name=room_name,
+            room_id=room_id
+        ).aggregate(
+            connections=ArrayAgg('socket_id')
+        )['connections']

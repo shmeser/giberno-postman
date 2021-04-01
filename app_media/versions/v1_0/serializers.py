@@ -15,3 +15,12 @@ class MediaSerializer(serializers.ModelSerializer):
             'type',
             'mime_type'
         ]
+
+
+class MediaUrlsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MediaModel
+        fields = [
+            'file',
+            'preview',
+        ]
