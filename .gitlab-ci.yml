@@ -20,7 +20,7 @@ build:
   stage: build
   script:
     - docker build -t registry.appcraft.team:5005/giberno/giberno-server .
-    - docker push registry.appcraft.team:5005/giberno/giberno-server_develop
+    - docker push registry.appcraft.team:5005/giberno/giberno-server:develop
   only:
     - develop
   tags:
@@ -69,7 +69,7 @@ deploy:
   script:
     - docker-compose stop
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.appcraft.team:5005
-    - docker pull registry.appcraft.team:5005/giberno/giberno-server_develop:latest
+    - docker pull registry.appcraft.team:5005/giberno/giberno-server:develop
     - docker-compose up -d
   only:
     - develop
@@ -80,7 +80,7 @@ build_stage:
   stage: build_stage
   script:
     - docker build -t registry.appcraft.team:5005/giberno/giberno-server .
-    - docker push registry.appcraft.team:5005/giberno/giberno-server
+    - docker push registry.appcraft.team:5005/giberno/giberno-server:stage
   only:
     - stage
   tags:
@@ -129,7 +129,7 @@ deploy_stage:
   script:
     - docker-compose stop
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.appcraft.team:5005
-    - docker pull registry.appcraft.team:5005/giberno/giberno-server:latest
+    - docker pull registry.appcraft.team:5005/giberno/giberno-server:stage
     - docker-compose up -d
   only:
     - stage
