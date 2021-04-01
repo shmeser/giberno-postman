@@ -46,16 +46,6 @@ CHANNEL_LAYERS = {
     },
 }
 
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"redis://{os.getenv('REDIS_HOST', '127.0.0.1')}:6379/1",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        }
-    }
-}
-
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER', 'redis://127.0.0.1:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_BROKER', 'redis://127.0.0.1:6379/0')
 CELERY_ACCEPT_CONTENT = ['application/json']
@@ -391,7 +381,6 @@ try:
         SOCIAL_AUTH_VK_OAUTH2_KEY, \
         DEBUG_TOOLBAR_PANELS, \
         EMAIL_HOST_USER, \
-        EMAIL_HOST_PASSWORD, \
-        CACHES
+        EMAIL_HOST_PASSWORD
 except ImportError as e:
     pass
