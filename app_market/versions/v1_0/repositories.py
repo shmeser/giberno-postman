@@ -390,10 +390,6 @@ class ShiftsRepository(MasterRepository):
 
     @staticmethod
     def active_dates(queryset):
-        for shift in queryset:
-            for active_date in shift.active_dates:
-                print(active_date)
-
         active_dates = []
         if queryset.count():
             for shift in queryset:
