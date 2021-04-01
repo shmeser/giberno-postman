@@ -27,7 +27,7 @@ services:
     volumes:
       - ./data/postgisdb:/var/lib/postgresql/data
   api:
-    image: registry.appcraft.team:5005/giberno/giberno-server
+    image: registry.appcraft.team:5005/giberno/giberno-server_develop
     restart: always
     command: bash -c "python3 manage.py migrate && python3 manage.py seed && python3 manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p ${API_PORT} giberno.asgi:application"
     environment:
@@ -61,7 +61,7 @@ services:
     volumes:
       - ./files:/code/files
   celery:
-    image: registry.appcraft.team:5005/giberno/giberno-server
+    image: registry.appcraft.team:5005/giberno/giberno-server_develop
     command: celery -A giberno worker -l info
     environment:
       REDIS_HOST: redis
@@ -81,7 +81,7 @@ services:
     volumes:
       - ./files:/code/files
   celery-beat:
-    image: registry.appcraft.team:5005/giberno/giberno-server
+    image: registry.appcraft.team:5005/giberno/giberno-server_develop
     command: celery -A giberno beat -l info
     environment:
       REDIS_HOST: redis
