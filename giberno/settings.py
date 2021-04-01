@@ -1,7 +1,6 @@
 import datetime
 import os
 from datetime import timedelta, datetime
-import django_redis
 from celery.schedules import crontab
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'TeStSeCrEtKeY')
