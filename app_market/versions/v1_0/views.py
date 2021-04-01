@@ -214,9 +214,14 @@ class VacanciesByManagerListAPIView(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         current_date, next_day = RequestMapper(self).current_date_range(request)
-        dataset = self.repository_class(me=request.user).queryset_filtered_by_current_date_range_for_manager(
-            order_params=order_params, pagination=pagination, current_date=current_date, next_day=next_day
-        )
+
+        if not current_date:
+            dataset = self.repository_class(me=request.user).queryset_by_manager(order_params=order_params,
+                                                                                 pagination=pagination)
+        else:
+            dataset = self.repository_class(me=request.user).queryset_filtered_by_current_date_range_for_manager(
+                order_params=order_params, pagination=pagination, current_date=current_date, next_day=next_day
+            )
 
         serialized = self.serializer_class(dataset, many=True, context={
             'me': request.user,
