@@ -4,8 +4,8 @@ import django
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
 
-from app_sockets import routing
-from app_sockets.middlewares import token_auth_middleware_stack
+# from app_sockets import routing
+# from app_sockets.middlewares import token_auth_middleware_stack
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'giberno.settings')
 django.setup()
@@ -17,9 +17,9 @@ application = ProtocolTypeRouter({
     "http": django_asgi_app,
 
     # WebSocket chat handler
-    'websocket': token_auth_middleware_stack(
-        URLRouter(
-            routing.websocket_urlpatterns
-        )
-    ),
+    # 'websocket': token_auth_middleware_stack(
+    #     URLRouter(
+    #         routing.websocket_urlpatterns
+    #     )
+    # ),
 })
