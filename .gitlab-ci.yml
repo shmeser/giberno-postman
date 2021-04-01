@@ -19,7 +19,7 @@ before_script:
 build:
   stage: build
   script:
-    - docker build -t registry.appcraft.team:5005/giberno/giberno-server .
+    - docker build -t registry.appcraft.team:5005/giberno/giberno-server:develop .
     - docker push registry.appcraft.team:5005/giberno/giberno-server:develop
   only:
     - develop
@@ -79,7 +79,7 @@ deploy:
 build_stage:
   stage: build_stage
   script:
-    - docker build -t registry.appcraft.team:5005/giberno/giberno-server .
+    - docker build -t registry.appcraft.team:5005/giberno/giberno-server:stage .
     - docker push registry.appcraft.team:5005/giberno/giberno-server:stage
   only:
     - stage
