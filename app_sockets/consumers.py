@@ -3,7 +3,7 @@ from loguru import logger
 
 from app_sockets.controllers import AsyncSocketController
 from app_sockets.enums import SocketEventType
-from app_sockets.versions.v1_0.mappers import RoutingMapper
+from app_sockets.mappers import RoutingMapper
 from backend.errors.enums import SocketErrors
 from backend.errors.ws_exceptions import WebSocketError
 from backend.utils import chained_get

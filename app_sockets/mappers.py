@@ -84,7 +84,6 @@ class RoutingMapper:
         room_name = None
         room_id = None
         room_names = cls.get_rooms_for_version(version)
-        room_names = list(map(lambda x: f'({x})', room_names)) if room_names else False
         if group_name and room_names:
             room_names_str = '(' + '|'.join(room_names) + ')'
             return tuple(re.findall(rf'{room_names_str}|\d+', group_name))

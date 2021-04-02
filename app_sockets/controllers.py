@@ -3,7 +3,7 @@ from channels.layers import get_channel_layer
 from loguru import logger
 
 from app_chats.versions.v1_0.repositories import AsyncChatsRepository, AsyncMessagesRepository
-from app_sockets.versions.v1_0.mappers import RoutingMapper
+from app_sockets.mappers import RoutingMapper
 from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository, SocketsRepository
 from app_users.enums import NotificationAction, NotificationType
 from app_users.models import UserProfile
