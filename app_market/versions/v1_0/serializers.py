@@ -422,14 +422,14 @@ class ShiftsWithAppealsSerializer(CRUDSerializer):
 
     @staticmethod
     def get_appliers(instance):
-        appliers = [applier for applier in instance.appeals.all()]
+        appliers = [appeal.applier for appeal in instance.appeals.all()]
         return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
 
     confirmed_appliers = serializers.SerializerMethodField()
 
     @staticmethod
     def get_confirmed_appliers(instance):
-        appliers = [applier for applier in instance.appeals.filter(status=ShiftAppealStatus.CONFIRMED)]
+        appliers = [appeal.applier for appeal in instance.appeals.filter(status=ShiftAppealStatus.CONFIRMED)]
         return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
 
     class Meta:
