@@ -3,7 +3,6 @@ from channels.layers import get_channel_layer
 from loguru import logger
 
 from app_chats.versions.v1_0.repositories import AsyncChatsRepository, AsyncMessagesRepository
-from app_sockets.enums import SocketEventType
 from app_sockets.versions.v1_0.mappers import RoutingMapper
 from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository, SocketsRepository
 from app_users.enums import NotificationAction, NotificationType
@@ -102,7 +101,7 @@ class AsyncSocketController:
 
             # Отправялем сообщение обратно в канал по сокетам
             await self.consumer.channel_layer.group_send(self.consumer.group_name, {
-                'type': 'group_chat_message',
+                'type': 'chat_message',
                 'prepared_data': processed_serialized_message,
             })
 
@@ -133,9 +132,9 @@ class AsyncSocketController:
     async def send_system_message(self, code, message):
         try:
             await self.consumer.channel_layer.send(self.consumer.channel_name, {
-                'type': 'system_message',
+                'type': 'error_handler',
                 'code': code,
-                'message': message,
+                'details': message,
             })
         except Exception as e:
             if DEBUG is True:
@@ -154,8 +153,7 @@ class SocketController:
         if connection:
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.send)(connection.socket_id, {
-                'type': 'server_event',
-                'eventType': SocketEventType.NOTIFICATION.value,
+                'type': 'notification_handler',
                 'prepared_data': prepared_data
             })
 
@@ -164,7 +162,6 @@ class SocketController:
         # Отправка уведомления в групповой канал
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(group_name, {
-            'type': 'server_event',
-            'eventType': SocketEventType.NOTIFICATION.value,
+            'type': 'notification_handler',
             'prepared_data': prepared_data
         })

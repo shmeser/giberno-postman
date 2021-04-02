@@ -20,7 +20,7 @@ from app_users.utils import validate_username, generate_username, generate_passw
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import EntityDoesNotExistException
-from backend.errors.http_exception import HttpException, CustomException
+from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mappers import DataMapper
 from backend.mixins import MasterRepository
 from backend.repositories import BaseRepository

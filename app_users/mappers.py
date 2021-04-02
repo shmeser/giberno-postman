@@ -1,6 +1,6 @@
 from app_users.entities import TokenEntity, SocialEntity
 from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 from backend.utils import timestamp_to_datetime, has_latin, nonefy, chained_get
 
 

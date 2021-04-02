@@ -13,7 +13,7 @@ from app_market.versions.v1_0.serializers import DistributorsSerializer, Profess
 from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager, IsManagerOrSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 
 
 class Distributors(APIView):

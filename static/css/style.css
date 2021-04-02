@@ -276,7 +276,8 @@ input, button {
 }
 
 .message-type-button {
-    width: 40%;
+    min-width: 70px;
+    width: auto;
 }
 
 .outcomming {

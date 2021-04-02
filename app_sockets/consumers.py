@@ -3,29 +3,132 @@ from loguru import logger
 
 from app_sockets.controllers import AsyncSocketController
 from app_sockets.enums import SocketEventType
-from app_sockets.versions.v1_0.mappers import SocketEventRM
-from backend.errors.client_error import SocketError
 from backend.errors.enums import SocketErrors
+from backend.errors.ws_exceptions import WebSocketError
 from backend.utils import chained_get
 
 
-class GroupConsumer(AsyncJsonWebsocketConsumer):
+class Consumer(AsyncJsonWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.version = None
         self.user = None
         self.socket_controller = None
+
+    async def connect(self):
+        self.socket_controller = AsyncSocketController(self)
+        self.version = chained_get(self.scope, 'url_route', 'kwargs', 'version')
+        self.user = chained_get(self.scope, 'user')
+        try:
+            await self.accept()  # Принимаем соединение
+
+            if self.user.is_authenticated:  # Проверка авторизации подключаемого соединения
+                if await self.socket_controller.check_if_connected():
+                    # Если уже есть соединение к этому роуту, то отклоняем новое соединение с ошибкой
+                    await self.close(code=SocketErrors.FORBIDDEN.value)  # Закрываем соединение с кодом ЗАПРЕЩЕНО
+                else:
+                    await self.socket_controller.store_single_connection()
+            else:
+                # После установления сразу закрываем содинение, чтобы не было ERR_CONNECTION_REFUSED
+                await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
+        except Exception as e:
+            logger.error(e)
+            await self.close(code=SocketErrors.BAD_REQUEST.value)  # Закрываем соединение с кодом BAD REQUEST
+
+    async def disconnect(self, code):
+        try:
+            await self.socket_controller.disconnect()
+        except Exception as e:
+            logger.error(e)
+
+    async def receive_json(self, content, **kwargs):
+        logger.debug(content)
+
+        handler_type = 'server_message_handler'
+        data = content
+
+        try:
+            if content.get('eventType') == SocketEventType.LEAVE_TOPIC.value:
+                pass
+            elif content.get('eventType') == SocketEventType.JOIN_TOPIC.value:
+                pass
+            elif content.get('eventType') == SocketEventType.LOCATION.value:
+                await self.socket_controller.update_location(content)
+            else:
+                await self.channel_layer.send(self.channel_name, {
+                    'type': handler_type,
+                    'prepared_data': data
+                })
+        except WebSocketError as error:
+            await self.channel_layer.send(self.channel_name, {
+                'type': 'error_handler',
+                'code': error.code,
+                'details': error.details,
+            })
+
+    # Общий обработчик серверных сообщений
+    async def server_message_handler(self, data):
+        await self.send_json(
+            {
+                'eventType': data.get('event_type', SocketEventType.SERVER_SYSTEM_MESSAGE.value),
+                'data': data.get('prepared_data'),
+            },
+        )
+
+    # Уведомление
+    async def notification_handler(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.NOTIFICATION.value,
+                'notification': data.get('prepared_data'),
+            },
+        )
+
+    # Сообщение об ошибке с кодом и деталями
+    async def error_handler(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.ERROR.value,
+                'code': data.get('code'),
+                'details': data.get('details')
+            },
+        )
+
+    """ Остальные обработчики """
+
+    # Сообщения в чате
+    async def chat_message(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_NEW_MESSAGE_IN_CHAT.value,
+                'message': data.get('prepared_data')
+            },
+        )
+
+    # Информация о чате
+    async def chat_info(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_UPDATED.value,
+                'chat': data.get('prepared_data')
+            },
+        )
+
+
+class GroupConsumer(Consumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.room_name = None
         self.room_id = None
         self.group_name = None
 
     async def connect(self):
+        
         self.socket_controller = AsyncSocketController(self)
+        self.version = chained_get(self.scope, 'url_route', 'kwargs', 'version')
+        self.user = chained_get(self.scope, 'user')
+
         try:
-            self.version = chained_get(self.scope, 'url_route', 'kwargs', 'version')
-
-            self.user = self.scope['user']
-
             self.room_id = chained_get(self.scope, 'url_route', 'kwargs', 'id')
             self.room_name = chained_get(self.scope, 'url_route', 'kwargs', 'room_name')
 
@@ -46,22 +149,6 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
             logger.error(e)
             await self.close(code=SocketErrors.BAD_REQUEST.value)  # Закрываем соединение с кодом BAD REQUEST
 
-    async def receive_json(self, content, **kwargs):
-        logger.debug(content)
-
-        handler_type = 'system_message'
-        data = content
-
-        if content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
-            await self.socket_controller.client_message_to_chat(content)
-        elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
-            pass
-        else:
-            await self.channel_layer.group_send(self.group_name, {
-                'type': handler_type,
-                **data.get('prepared_data')
-            })
-
     async def disconnect(self, code):
         try:
             # Удаляем из группы
@@ -70,105 +157,27 @@ class GroupConsumer(AsyncJsonWebsocketConsumer):
         except Exception as e:
             logger.error(e)
 
-    # Сообщения в чате
-    async def group_chat_message(self, data):
-        await self.send_json(
-            {
-                'eventType': SocketEventType.SERVER_NEW_MESSAGE_IN_CHAT.value,
-                'message': data.get('prepared_data')
-            },
-        )
-
-    # Информация о чате
-    async def group_chat_info(self, data):
-        await self.send_json(
-            {
-                'eventType': SocketEventType.SERVER_CHAT_UPDATED.value,
-                'chat': data.get('prepared_data')
-            },
-        )
-
-
-class Consumer(AsyncJsonWebsocketConsumer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.version = None
-        self.user = None
-        self.socket_controller = None
-
-    async def connect(self):
-        try:
-            self.socket_controller = AsyncSocketController(self)
-            self.user = self.scope['user']
-
-            await self.accept()  # Принимаем соединение
-
-            if self.user.is_authenticated:  # Проверка авторизации подключаемого соединения
-                if await self.socket_controller.check_if_connected():
-                    # Если уже есть соединение к этому роуту, то отклоняем новое соединение с ошибкой
-                    await self.close(code=SocketErrors.FORBIDDEN.value)  # Закрываем соединение с кодом ЗАПРЕЩЕНО
-                else:
-                    await self.socket_controller.store_single_connection()
-            else:
-                # После установления сразу закрываем содинение, чтобы не было ERR_CONNECTION_REFUSED
-                await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
-        except Exception as e:
-            logger.error(e)
-            await self.close(code=SocketErrors.BAD_REQUEST.value)  # Закрываем соединение с кодом BAD REQUEST
-
     async def receive_json(self, content, **kwargs):
         logger.debug(content)
 
-        socket_event = SocketEventRM(content)
+        handler_type = 'server_message_handler'
+        data = content
 
-        if socket_event.event_type == SocketEventType.LOCATION:
-            await self.update_location(socket_event)
-
-    async def disconnect(self, code):
         try:
-            await self.socket_controller.disconnect()
-        except Exception as e:
-            logger.error(e)
-
-    async def update_location(self, event: SocketEventRM):
-        try:
+            if content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
+                await self.socket_controller.client_message_to_chat(content)
+            elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
+                pass
+            elif content.get('eventType') == SocketEventType.READ_MESSAGE_IN_CHAT.value:
+                pass
+            else:
+                await self.channel_layer.group_send(self.group_name, {
+                    'type': handler_type,
+                    'prepared_data': data
+                })
+        except WebSocketError as error:
             await self.channel_layer.send(self.channel_name, {
-                'type': 'location_updated',
-                'lat': event.lat,
-                'lon': event.lon,
+                'type': 'error_handler',
+                'code': error.code,
+                'details': error.details,
             })
-        except SocketError as error:
-            await self.socket_controller.send_system_message(error.code, error.message)
-
-    async def location_updated(self, data):
-        await self.send_json(
-            {
-                'lat': data['lat'],
-                'lon': data['lon']
-            },
-        )
-
-    async def system_message(self, system):
-        await self.send_json(
-            {
-                'eventType': SocketEventType.SYSTEM_MESSAGE.value,
-                'message': system['message'],
-            },
-        )
-
-    async def server_event(self, event):
-        await self.send_json(
-            {
-                'eventType': event['eventType'],
-                'data': event['data'],
-            },
-        )
-
-    # Информация о чате
-    async def chat_info(self, data):
-        await self.send_json(
-            {
-                'eventType': SocketEventType.SERVER_CHAT_UPDATED.value,
-                'chat': data.get('prepared_data')
-            },
-        )

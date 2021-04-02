@@ -9,7 +9,7 @@ from app_geo.models import Language, Country, City, Region
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
 from giberno import settings
 from giberno.settings import NEAREST_POINT_DISTANCE_MAX, CLUSTER_MIN_POINTS_COUNT, CLUSTER_NESTED_ITEMS_COUNT
