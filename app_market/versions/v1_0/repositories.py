@@ -624,11 +624,9 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
     def vacancy_shifts_with_appeals_queryset(self, record_id, pagination=None, current_date=None, next_day=None):
         active_shifts = []
         vacancy = self.get_by_id_for_manager_or_security(record_id=record_id)
-        shifts = ShiftsRepository().filter_by_kwargs(
+        shifts = ShiftsRepository(calendar_from=current_date, calendar_to=next_day).filter_by_kwargs(
             kwargs={'vacancy': vacancy},
             paginator=pagination)
-        if not current_date and not next_day:
-            return shifts
 
         for shift in shifts:
             if len(shift.active_dates):
