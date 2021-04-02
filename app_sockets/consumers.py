@@ -27,11 +27,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
             await self.accept()  # Принимаем соединение
 
             if self.user.is_authenticated:  # Проверка авторизации подключаемого соединения
-                if await self.socket_controller.check_if_connected():
-                    # Если уже есть соединение к этому роуту, то отклоняем новое соединение с ошибкой
-                    await self.close(code=SocketErrors.FORBIDDEN.value)  # Закрываем соединение с кодом ЗАПРЕЩЕНО
-                else:
-                    await self.socket_controller.store_single_connection()
+                await self.socket_controller.store_single_connection()
             else:
                 # После установления сразу закрываем содинение, чтобы не было ERR_CONNECTION_REFUSED
                 await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН

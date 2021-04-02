@@ -99,10 +99,6 @@ class AsyncSocketController:
             },
         })
 
-    async def check_if_connected(self):
-        me = self.consumer.scope['user']  # Пользователь текущего соединения
-        return await AsyncSocketsRepository(me).check_if_connected()
-
     async def check_permission_for_group_connection(self, **kwargs):
         try:
             # Проверка возможности присоединиться к определенному каналу в чате

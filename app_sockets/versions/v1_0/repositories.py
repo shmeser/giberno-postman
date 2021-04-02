@@ -41,10 +41,6 @@ class AsyncSocketsRepository(SocketsRepository):
         super().remove_socket(socket_id)
 
     @database_sync_to_async
-    def check_if_connected(self, room_name=None, room_id=None):
-        return super().check_if_connected(room_name, room_id)
-
-    @database_sync_to_async
     def get_connections_for_users(self, users, room_name=None, room_id=None):
         return Socket.objects.filter(
             user__in=users,
