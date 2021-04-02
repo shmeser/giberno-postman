@@ -3,8 +3,8 @@ from channels.layers import get_channel_layer
 from loguru import logger
 
 from app_chats.versions.v1_0.repositories import AsyncChatsRepository, AsyncMessagesRepository
-from app_sockets.enums import SocketEventType
-from app_sockets.versions.v1_0.mappers import RoutingMapper
+from app_sockets.enums import SocketEventType, AvailableRoom
+from app_sockets.mappers import RoutingMapper
 from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository, SocketsRepository
 from app_users.enums import NotificationAction, NotificationType
 from app_users.models import UserProfile
@@ -12,8 +12,8 @@ from app_users.versions.v1_0.repositories import AsyncProfileRepository
 from backend.controllers import AsyncPushController
 from backend.errors.enums import SocketErrors
 from backend.errors.exceptions import EntityDoesNotExistException
+from backend.errors.ws_exceptions import WebSocketError
 from backend.utils import chained_get
-from giberno.settings import DEBUG
 
 
 class AsyncSocketController:
@@ -31,55 +31,119 @@ class AsyncSocketController:
         except Exception as e:
             logger.error(e)
 
-    async def store_group_connection(self):
+    async def store_group_connection(self, **kwargs):
         try:
             me = self.consumer.scope['user']  # Прользователь текущего соединения
 
             await AsyncSocketsRepository(me).add_socket(
                 self.consumer.channel_name,  # ид соединения,
-                self.consumer.room_name,  # имя комнаты
-                self.consumer.room_id  # ид комнаты
+                chained_get(kwargs, 'room_name', default=self.consumer.room_name),  # имя комнаты
+                chained_get(kwargs, 'room_id', default=self.consumer.room_id)  # ид комнаты
             )
 
         except Exception as e:
             logger.error(e)
 
-    async def disconnect(self):
-        me = self.consumer.scope['user']  # Прользователь текущего соединения
+    async def remove_connection(self):
+        me = self.consumer.scope['user']  # Пользователь текущего соединения
         await AsyncSocketsRepository(me).remove_socket(self.consumer.channel_name)
+
+    async def send_error(self, code, details):
+        await self.consumer.channel_layer.send(self.consumer.channel_name, {
+            'type': 'error_handler',
+            'code': code,
+            'details': details,
+        })
+
+    async def leave_topic(self, content):
+        group_name = content.get('topic')
+
+        # Удаляем соединение из группы
+        await self.consumer.channel_layer.group_discard(group_name, self.consumer.channel_name)
+        await self.topic_leaved(group_name)
+
+    async def join_topic(self, content):
+        room_name = None
+        room_id = None
+        group_name = content.get('topic')
+        if group_name:
+            room_name, room_id = RoutingMapper.get_room_and_id(self.consumer.version, group_name)
+
+        if await self.check_permission_for_group_connection(**{
+            'room_name': room_name,
+            'room_id': room_id,
+        }):
+            # Добавляем соединение в группу
+            await self.consumer.channel_layer.group_add(group_name, self.consumer.channel_name)
+            await self.topic_joined(group_name)
+        else:
+            await self.send_error(
+                code=SocketErrors.FORBIDDEN.value, details='Действие запрещено'
+            )
+
+    async def topic_joined(self, topic):
+        await self.consumer.channel_layer.send(self.consumer.channel_name, {
+            'type': 'server_message_handler',
+            'event_type': SocketEventType.TOPIC_JOINED.value,
+            'prepared_data': {
+                'topic': topic
+            },
+        })
+
+    async def topic_leaved(self, topic):
+        await self.consumer.channel_layer.send(self.consumer.channel_name, {
+            'type': 'server_message_handler',
+            'event_type': SocketEventType.TOPIC_LEAVED.value,
+            'prepared_data': {
+                'topic': topic
+            },
+        })
 
     async def check_if_connected(self):
         me = self.consumer.scope['user']  # Пользователь текущего соединения
         return await AsyncSocketsRepository(me).check_if_connected()
 
-    async def check_permission_for_group_connection(self):
+    async def check_permission_for_group_connection(self, **kwargs):
         try:
             # Проверка возможности присоединиться к определенному каналу в чате
             version = self.consumer.version
-            room_name = self.consumer.room_name
+            room_name = chained_get(kwargs, 'room_name', default=self.consumer.room_name)
+            room_id = chained_get(kwargs, 'room_id', default=self.consumer.room_id)
             me = self.consumer.scope['user']  # Пользователь текущего соединения
-            room_id = self.consumer.room_id
             # TODO версионность для маппера и контроллеров
             if not RoutingMapper.check_room_version(room_name, version):
                 logger.info(f'Такой точки соединения не существует для версии {version}')
-                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+
+                if self.consumer.is_group_consumer:
+                    # Закрываем соединение, если это GroupConsumer
+                    await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+
                 return False
 
             repository_class = RoutingMapper.room_repository(version, room_name)
 
             if not await repository_class(me).check_connection_to_group(room_id):
                 logger.info(f'Действие запрещено')
-                await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
+                if self.consumer.is_group_consumer:
+                    # Закрываем соединение, если это GroupConsumer
+                    await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
                 return False
             return True
 
         except EntityDoesNotExistException:
             logger.info(f'Объект не найден')
-            await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+            else:
+                raise WebSocketError(code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name)
         except Exception as e:
             logger.error(e)
-            await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
-            return False
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
+            else:
+                raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=e)
 
     async def update_location(self, event):
         user = await AsyncProfileRepository(me=self.consumer.scope['user']).update_location(event)
@@ -87,59 +151,62 @@ class AsyncSocketController:
 
     async def client_message_to_chat(self, content):
         try:
-            # Обрабатываем полученное от клиента сообщение
-            processed_serialized_message = await AsyncMessagesRepository(
-                me=self.consumer.scope['user']
-            ).save_client_message(
-                chat_id=self.consumer.room_id,
-                content=content,
-            )
-            processed_serialized_chat, chat_users = await AsyncChatsRepository(
-                me=self.consumer.scope['user']
-            ).get_client_chat(
-                chat_id=self.consumer.room_id,
-            )
+            room_id = self.consumer.room_id
+            group_name = self.consumer.group_name
+            if not room_id:
+                room_id = chained_get(content, 'chatId')
+                group_name = f'{AvailableRoom.CHATS.value}{room_id}'
 
-            # Отправялем сообщение обратно в канал по сокетам
-            await self.consumer.channel_layer.group_send(self.consumer.group_name, {
-                'type': 'group_chat_message',
-                'prepared_data': processed_serialized_message,
-            })
+            if await self.check_permission_for_group_connection(**{
+                'room_name': AvailableRoom.CHATS.value,
+                'room_id': room_id
+            }):
+                # Обрабатываем полученное от клиента сообщение
+                processed_serialized_message = await AsyncMessagesRepository(
+                    me=self.consumer.scope['user']
+                ).save_client_message(
+                    chat_id=room_id,
+                    content=content,
+                )
+                processed_serialized_chat, chat_users = await AsyncChatsRepository(
+                    me=self.consumer.scope['user']
+                ).get_client_chat(
+                    chat_id=room_id,
+                )
 
-            chat_users_connections = await AsyncSocketsRepository.get_connections_for_users(chat_users)
-
-            # TODO используется GroupConsumer, возможно нужен Consumer
-            # Отправляем обновленные данные о чате всем участникам чата по сокетам
-            for connection_name in chat_users_connections:
-                await self.consumer.channel_layer.send(connection_name, {
-                    'type': 'chat_info',
-                    'prepared_data': processed_serialized_chat,
+                # Отправялем сообщение обратно в канал по сокетам
+                await self.consumer.channel_layer.group_send(group_name, {
+                    'type': 'chat_message',
+                    'chat_id': room_id,
+                    'prepared_data': processed_serialized_message,
                 })
 
-            # Отправляем сообщение по пушам всем участникам чата
-            await AsyncPushController().send_message(
-                users_to_send=chat_users,
-                title='',
-                message=chained_get(content, 'text', default=''),
-                action=NotificationAction.CHAT.value,
-                subject_id=self.consumer.room_id,
-                notification_type=NotificationType.CHAT.value,
-                icon_type=''
-            )
+                chat_users_connections = await AsyncSocketsRepository.get_connections_for_users(chat_users)
+
+                # Отправляем обновленные данные о чате всем участникам чата по сокетам
+                for connection_name in chat_users_connections:
+                    await self.consumer.channel_layer.send(connection_name, {
+                        'type': 'chat_info',
+                        'prepared_data': processed_serialized_chat,
+                    })
+
+                # Отправляем сообщение по пушам всем участникам чата
+                await AsyncPushController().send_message(
+                    users_to_send=chat_users,
+                    title='',
+                    message=chained_get(content, 'text', default=''),
+                    action=NotificationAction.CHAT.value,
+                    subject_id=room_id,
+                    notification_type=NotificationType.CHAT.value,
+                    icon_type=''
+                )
+            else:
+                await self.send_error(
+                    code=SocketErrors.FORBIDDEN.value, details='Действие запрещено'
+                )
 
         except Exception as e:
             logger.error(e)
-
-    async def send_system_message(self, code, message):
-        try:
-            await self.consumer.channel_layer.send(self.consumer.channel_name, {
-                'type': 'system_message',
-                'code': code,
-                'message': message,
-            })
-        except Exception as e:
-            if DEBUG is True:
-                logger.error(e)
 
 
 class SocketController:
@@ -147,24 +214,25 @@ class SocketController:
         super().__init__()
         self.me = me
 
-    def send_single_notification(self, prepared_data):
+    def send_notification_to_one_connection(self, prepared_data):
         # Отправка уведомления в одиночный канал подключенного пользователя
-        connection = SocketsRepository(self.me).get_user_single_connection()
+        connections = SocketsRepository(self.me).get_user_connections(**{
+            'room_id': None,
+            'room_name': None,
+        })
 
-        if connection:
+        for connection in connections:
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.send)(connection.socket_id, {
-                'type': 'server_event',
-                'eventType': SocketEventType.NOTIFICATION.value,
+                'type': 'notification_handler',
                 'prepared_data': prepared_data
             })
 
     @staticmethod
-    def send_group_notification(group_name, prepared_data):
+    def send_notification_to_connections_group(group_name, prepared_data):
         # Отправка уведомления в групповой канал
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(group_name, {
-            'type': 'server_event',
-            'eventType': SocketEventType.NOTIFICATION.value,
+            'type': 'notification_handler',
             'prepared_data': prepared_data
         })

@@ -19,14 +19,13 @@ class SocketsRepository:
         )
 
     def remove_socket(self, socket_id):
-        Socket.objects.filter(socket_id=socket_id).delete()
+        Socket.objects.filter(user=self.me, socket_id=socket_id).delete()
 
     def check_if_connected(self, room_name=None, room_id=None):
         return Socket.objects.filter(user=self.me, room_name=room_name, room_id=room_id).exists()
 
-    def get_user_single_connection(self):
-        # Если вдруг несколько негрупповых соединений, то берем последнее посвежее
-        return Socket.objects.filter(user=self.me, room_id=None, room_name=None).last()
+    def get_user_connections(self, **kwargs):
+        return Socket.objects.filter(user=self.me, **kwargs)
 
 
 class AsyncSocketsRepository(SocketsRepository):

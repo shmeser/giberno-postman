@@ -4,7 +4,7 @@ from app_users.enums import AccountType
 from app_users.models import UserProfile
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException, CustomException
+from backend.errors.http_exceptions import HttpException, CustomException
 
 
 class FilledProfilePermission(permissions.IsAuthenticated):

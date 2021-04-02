@@ -8,7 +8,7 @@ from app_geo.versions.v1_0.serializers import CitySerializer, CountrySerializer,
     CitiesClusterSerializer
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 
 
 class Languages(APIView):

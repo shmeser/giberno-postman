@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 
 from app_chats.versions.v1_0.serializers import ChatsSerializer
 from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 from .versions.v1_0 import views as v1_0
 
 

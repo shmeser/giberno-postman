@@ -17,7 +17,7 @@ from app_users.versions.v1_0.serializers import FirebaseAuthRequestDescriptor, F
     DocumentSerializer, SocialSerializer
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 
 SWAGGER_RESPONSE_DESCRIPTION = 'response description'
 

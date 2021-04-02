@@ -5,7 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from app_media.enums import MediaType, MediaFormat, MimeTypes
 from backend.entity import File, Error
 from backend.errors.enums import ErrorsCodes
-from backend.errors.http_exception import CustomException
+from backend.errors.http_exceptions import CustomException
 from backend.utils import get_media_format, resize_image, convert_video
 
 

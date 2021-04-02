@@ -14,7 +14,7 @@ from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import ProfileRepository
 from backend.errors.enums import RESTErrors
 from backend.errors.exceptions import EntityDoesNotExistException
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
 from backend.utils import timestamp_to_datetime
 
@@ -278,7 +278,7 @@ class AsyncChatsRepository(ChatsRepository):
             raise EntityDoesNotExistException
 
         if not record.users.filter(pk=self.me.id).exists():
-            # TODO логика проверки присоединения к группе
+            # TODO расширенная логика проверки присоединения к группе
             # Если не участник чата
             return False
         return True

@@ -6,7 +6,7 @@ from app_media.enums import MediaType
 from app_media.models import MediaModel
 from backend.entity import File
 from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
 from backend.utils import chained_get
 

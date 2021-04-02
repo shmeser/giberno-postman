@@ -13,7 +13,7 @@ from app_media.forms import FileForm
 from app_media.mappers import MediaMapper
 from backend.entity import Pagination, Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException, CustomException
+from backend.errors.http_exceptions import HttpException, CustomException
 from backend.utils import timestamp_to_datetime as t2d, chained_get, timestamp_to_datetime, get_request_body
 from giberno import settings
 

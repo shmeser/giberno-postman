@@ -7,7 +7,7 @@ from loguru import logger
 
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
-from backend.errors.http_exception import CustomException
+from backend.errors.http_exceptions import CustomException
 
 
 class EmailSender:

@@ -23,7 +23,7 @@ from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepos
     CareerRepository, DocumentsRepository
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
-from backend.errors.http_exception import CustomException
+from backend.errors.http_exceptions import CustomException
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 

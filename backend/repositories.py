@@ -1,5 +1,5 @@
 from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 from backend.models import BaseModel
 
 

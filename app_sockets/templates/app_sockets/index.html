@@ -45,6 +45,24 @@
         let protocol = 'ws://';
         protocol = '{{ ws_protocol }}';
 
+        const _EVENT_TYPES = {
+            'LEAVE_TOPIC': 0,
+            'JOIN_TOPIC': 1,
+            'NEW_MESSAGE_TO_CHAT': 2,
+            'READ_MESSAGE_IN_CHAT': 3,
+            'NEW_COMMENT_TO_VACANCY': 4,
+            'LOCATION': 10,
+            'SERVER_SYSTEM_MESSAGE': 100,
+            'SERVER_PROFILE_UPDATED': 101,
+            'SERVER_NEW_MESSAGE_IN_CHAT': 102,
+            'SERVER_MESSAGE_IN_CHAT_UPDATED': 103,
+            'SERVER_CHAT_UPDATED': 104,
+            'NOTIFICATION': 200,
+            'TOPIC_LEAVED': 300,
+            'TOPIC_JOINED': 301,
+            'ERROR': 400
+        };
+
         let socket;
 
         let socketConnections = []; // Массив подключенных сокетов
@@ -65,7 +83,7 @@
             localStorage.setItem('socket-jwt', jwt);
         };
 
-         const clearRoute = () => {
+        const clearRoute = () => {
             document.getElementById('sockets-route').value = '';
             document.getElementById('clear-route').blur();
             localStorage.removeItem('sockets-route');
@@ -152,7 +170,20 @@
             let messageBody = document.getElementById(`message-${connectionId}`);
 
             //eventType из енума SocketEventType
-            if (eventType === 1) {
+            if (eventType === _EVENT_TYPES.JOIN_TOPIC) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "topic": 'chats1'
+                }, undefined, 4);
+            }
+            if (eventType === _EVENT_TYPES.LEAVE_TOPIC) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "topic": 'vacancies2'
+                }, undefined, 4);
+            }
+
+            if (eventType === _EVENT_TYPES.LOCATION) {
                 messageBody.value = JSON.stringify({
                     "eventType": eventType,
                     "lat": 55,
@@ -160,11 +191,11 @@
                 }, undefined, 4);
             }
 
-
-            if (eventType === 2) {
+            if (eventType === _EVENT_TYPES.NEW_MESSAGE_TO_CHAT) {
                 messageBody.value = JSON.stringify({
                     "eventType": eventType,
                     "messageType": 1,
+                    "chatId": 1,
                     "text": "тестовое сообщение",
                     "attachments": [
                         '73f39c0e-9e5f-4f26-a15f-5eb7f6547b36',
@@ -188,17 +219,27 @@
             $('#connections').prepend(
                 `<div class="connection mb-10 mr-10" id="${connectionId}">
                     <div class="dashboard">
-                        <div class="connection-status mb-10 pb-10">
-                            <div class="jwt">${jwt}</div>
+                        <div class="flex jc-center">
                             <label class="connection-route" for="disconnect-button">${route}</label>
-                            <input id="disconnect-${connectionId}" type="button" class="connection-button disconnect-button" value="Disconnect" onclick="disconnect(${connectionId});">
                         </div>
-                        <div class="event-options mb-10">
-                            <button class="message-type-button" onclick="formatMessage(${connectionId}, 1)">Location</button>
-                            <button class="message-type-button" onclick="formatMessage(${connectionId}, 2)">Message</button>
+                        <div class="flex h-fit flex-row">
+                            <div class="flex-1 h-auto flex-column">
+                                <div class="connection-status mb-10 pb-10">
+                                    <div class="jwt">${jwt}</div>
+                                </div>
+                                <div class="event-options mb-10">
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.JOIN_TOPIC})">Join Topic</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.LEAVE_TOPIC})">Leave Topic</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.LOCATION})">Location</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.NEW_MESSAGE_TO_CHAT})">Message</button>
+                                </div>
+                                <button id="disconnect-${connectionId}" type="button" class="connection-button disconnect-button" onclick="disconnect(${connectionId});">Disconnect</button>
+                            </div>
+                            <div class="flex-2 h-auto flex-column">
+                                <textarea rows="10" id="message-${connectionId}">{}</textarea>
+                                <button class="action-button connection-button" id="action-${connectionId}" onclick=sendMessage(${connectionId})>Send Data</button>
+                            </div>
                         </div>
-                        <textarea rows="10" id="message-${connectionId}"/>
-                        <button class="action-button connection-button" id="action-${connectionId}" onclick=sendMessage(${connectionId})>Send Data</button>
                     </div>
                     <div class="messages" id="messages-history-${connectionId}"></div>
                 </div>`

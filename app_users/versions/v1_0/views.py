@@ -32,7 +32,7 @@ from backend.api_views import BaseAPIView
 from backend.entity import Error
 from backend.enums import Platform
 from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException, CustomException
+from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers, get_request_body, chained_get
