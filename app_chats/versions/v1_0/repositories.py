@@ -278,7 +278,7 @@ class AsyncChatsRepository(ChatsRepository):
             raise EntityDoesNotExistException
 
         if not record.users.filter(pk=self.me.id).exists():
-            # TODO логика проверки присоединения к группе
+            # TODO расширенная логика проверки присоединения к группе
             # Если не участник чата
             return False
         return True

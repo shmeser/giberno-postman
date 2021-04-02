@@ -3,7 +3,6 @@ from loguru import logger
 
 from app_sockets.controllers import AsyncSocketController
 from app_sockets.enums import SocketEventType
-from app_sockets.mappers import RoutingMapper
 from backend.errors.enums import SocketErrors
 from backend.errors.ws_exceptions import WebSocketError
 from backend.utils import chained_get
@@ -12,9 +11,12 @@ from backend.utils import chained_get
 class Consumer(AsyncJsonWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.socket_controller = None
         self.version = None
         self.user = None
-        self.socket_controller = None
+        self.room_name = None
+        self.room_id = None
+        self.group_name = None
         self.is_group_consumer = False
 
     async def connect(self):
@@ -39,7 +41,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     async def disconnect(self, code):
         try:
-            await self.socket_controller.disconnect()
+            await self.socket_controller.remove_connection()
         except Exception as e:
             logger.error(e)
 
@@ -51,26 +53,17 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
         try:
             if content.get('eventType') == SocketEventType.LEAVE_TOPIC.value:
-                pass
+                await self.socket_controller.leave_topic(content)
             elif content.get('eventType') == SocketEventType.JOIN_TOPIC.value:
-                room_name = None
-                room_id = None
-                group_name = content.get('topic')
-                if group_name:
-                    room_name, room_id = RoutingMapper.get_room_and_id(self.version, group_name)
-
-                if await self.socket_controller.check_permission_for_group_connection(**{
-                    'room_name': room_name,
-                    'room_id': room_id,
-                }):
-                    # Добавляем соединение в группу
-                    await self.channel_layer.group_add(group_name, self.channel_name)
-                    await self.socket_controller.store_group_connection(**{
-                        'room_name': room_name,
-                        'room_id': room_id,
-                    })
+                await self.socket_controller.join_topic(content)
             elif content.get('eventType') == SocketEventType.LOCATION.value:
                 await self.socket_controller.update_location(content)
+            elif content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
+                await self.socket_controller.client_message_to_chat(content)
+            elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
+                pass
+            elif content.get('eventType') == SocketEventType.READ_MESSAGE_IN_CHAT.value:
+                pass
             else:
                 await self.channel_layer.send(self.channel_name, {
                     'type': handler_type,
@@ -88,7 +81,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
         await self.send_json(
             {
                 'eventType': data.get('event_type', SocketEventType.SERVER_SYSTEM_MESSAGE.value),
-                'data': data.get('prepared_data'),
+                **data.get('prepared_data')
             },
         )
 
@@ -118,6 +111,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_NEW_MESSAGE_IN_CHAT.value,
+                'chatId': data.get('chat_id'),
                 'message': data.get('prepared_data')
             },
         )
@@ -135,9 +129,6 @@ class Consumer(AsyncJsonWebsocketConsumer):
 class GroupConsumer(Consumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.room_name = None
-        self.room_id = None
-        self.group_name = None
         self.is_group_consumer = True
 
     async def connect(self):
@@ -171,7 +162,7 @@ class GroupConsumer(Consumer):
         try:
             # Удаляем из группы
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
-            await self.socket_controller.disconnect()
+            await self.socket_controller.remove_connection()
         except Exception as e:
             logger.error(e)
 
