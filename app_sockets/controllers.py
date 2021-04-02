@@ -11,6 +11,7 @@ from app_users.versions.v1_0.repositories import AsyncProfileRepository
 from backend.controllers import AsyncPushController
 from backend.errors.enums import SocketErrors
 from backend.errors.exceptions import EntityDoesNotExistException
+from backend.errors.ws_exceptions import WebSocketError
 from backend.utils import chained_get
 from giberno.settings import DEBUG
 
@@ -30,14 +31,14 @@ class AsyncSocketController:
         except Exception as e:
             logger.error(e)
 
-    async def store_group_connection(self):
+    async def store_group_connection(self, **kwargs):
         try:
             me = self.consumer.scope['user']  # Прользователь текущего соединения
 
             await AsyncSocketsRepository(me).add_socket(
                 self.consumer.channel_name,  # ид соединения,
-                self.consumer.room_name,  # имя комнаты
-                self.consumer.room_id  # ид комнаты
+                chained_get(kwargs, 'room_name', default=self.consumer.room_name),  # имя комнаты
+                chained_get(kwargs, 'room_id', default=self.consumer.room_id)  # ид комнаты
             )
 
         except Exception as e:
@@ -51,34 +52,48 @@ class AsyncSocketController:
         me = self.consumer.scope['user']  # Пользователь текущего соединения
         return await AsyncSocketsRepository(me).check_if_connected()
 
-    async def check_permission_for_group_connection(self):
+    async def check_permission_for_group_connection(self, **kwargs):
         try:
             # Проверка возможности присоединиться к определенному каналу в чате
             version = self.consumer.version
-            room_name = self.consumer.room_name
+            room_name = chained_get(kwargs, 'room_name', default=self.consumer.room_name)
+            room_id = chained_get(kwargs, 'room_id', default=self.consumer.room_id)
             me = self.consumer.scope['user']  # Пользователь текущего соединения
-            room_id = self.consumer.room_id
             # TODO версионность для маппера и контроллеров
             if not RoutingMapper.check_room_version(room_name, version):
                 logger.info(f'Такой точки соединения не существует для версии {version}')
-                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+
+                if self.consumer.is_group_consumer:
+                    # Закрываем соединение, если это GroupConsumer
+                    await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+
                 return False
 
             repository_class = RoutingMapper.room_repository(version, room_name)
 
             if not await repository_class(me).check_connection_to_group(room_id):
                 logger.info(f'Действие запрещено')
-                await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
+                if self.consumer.is_group_consumer:
+                    # Закрываем соединение, если это GroupConsumer
+                    await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
                 return False
             return True
 
         except EntityDoesNotExistException:
             logger.info(f'Объект не найден')
-            await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+            else:
+                raise WebSocketError(code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name)
         except Exception as e:
             logger.error(e)
-            await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
-            return False
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
+            else:
+                raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=SocketErrors.BAD_REQUEST.name)
+            # return False
 
     async def update_location(self, event):
         user = await AsyncProfileRepository(me=self.consumer.scope['user']).update_location(event)

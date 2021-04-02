@@ -1,3 +1,5 @@
+import re
+
 from app_chats.versions.v1_0 import repositories as chats_1_0
 
 from app_market.versions.v1_0 import repositories as market_1_0
@@ -56,3 +58,34 @@ class RoutingMapper:
             return True
 
         return False
+
+    @staticmethod
+    def get_rooms_for_version(version):
+        # v1.0
+        if version == AvailableVersion.V1_0.value:
+            return [
+                AvailableRoom.CHATS.value,
+                AvailableRoom.USERS.value,
+                AvailableRoom.SHOPS.value,
+                AvailableRoom.VACANCIES.value,
+                AvailableRoom.DISTRIBUTORS.value
+            ]
+
+        # v1.1 TODO для тестов пока
+        if version == AvailableVersion.V1_1.value:
+            return [
+                AvailableRoom.CHATS.value,
+            ]
+
+        return False
+
+    @classmethod
+    def get_room_and_id(cls, version, group_name=None):
+        room_name = None
+        room_id = None
+        room_names = cls.get_rooms_for_version(version)
+        room_names = list(map(lambda x: f'({x})', room_names)) if room_names else False
+        if group_name and room_names:
+            room_names_str = '(' + '|'.join(room_names) + ')'
+            return tuple(re.findall(rf'{room_names_str}|\d+', group_name))
+        return room_name, room_id

@@ -3,6 +3,7 @@ from loguru import logger
 
 from app_sockets.controllers import AsyncSocketController
 from app_sockets.enums import SocketEventType
+from app_sockets.versions.v1_0.mappers import RoutingMapper
 from backend.errors.enums import SocketErrors
 from backend.errors.ws_exceptions import WebSocketError
 from backend.utils import chained_get
@@ -14,6 +15,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
         self.version = None
         self.user = None
         self.socket_controller = None
+        self.is_group_consumer = False
 
     async def connect(self):
         self.socket_controller = AsyncSocketController(self)
@@ -51,7 +53,22 @@ class Consumer(AsyncJsonWebsocketConsumer):
             if content.get('eventType') == SocketEventType.LEAVE_TOPIC.value:
                 pass
             elif content.get('eventType') == SocketEventType.JOIN_TOPIC.value:
-                pass
+                room_name = None
+                room_id = None
+                group_name = content.get('topic')
+                if group_name:
+                    room_name, room_id = RoutingMapper.get_room_and_id(self.version, group_name)
+
+                if await self.socket_controller.check_permission_for_group_connection(**{
+                    'room_name': room_name,
+                    'room_id': room_id,
+                }):
+                    # Добавляем соединение в группу
+                    await self.channel_layer.group_add(group_name, self.channel_name)
+                    await self.socket_controller.store_group_connection(**{
+                        'room_name': room_name,
+                        'room_id': room_id,
+                    })
             elif content.get('eventType') == SocketEventType.LOCATION.value:
                 await self.socket_controller.update_location(content)
             else:
@@ -121,9 +138,10 @@ class GroupConsumer(Consumer):
         self.room_name = None
         self.room_id = None
         self.group_name = None
+        self.is_group_consumer = True
 
     async def connect(self):
-        
+
         self.socket_controller = AsyncSocketController(self)
         self.version = chained_get(self.scope, 'url_route', 'kwargs', 'version')
         self.user = chained_get(self.scope, 'user')
