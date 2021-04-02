@@ -270,14 +270,15 @@ input, button {
 
 .event-options {
     display: flex;
-    flex-flow: row;
+    flex-flow: wrap;
+    height: 215px;
     justify-content: space-around;
     align-items: center;
 }
 
 .message-type-button {
-    min-width: 70px;
-    width: auto;
+    width: 100px;
+    margin-bottom: 10px;
 }
 
 .outcomming {
@@ -327,6 +328,7 @@ input, button {
     box-sizing: border-box;
     border-radius: 5px;
     padding: 10px;
+    height: 320px;
     color: #085664;
     background: #D5FCE0;
     font-family: "Courier New";

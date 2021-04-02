@@ -302,6 +302,15 @@
     height: 100%;
 }
 
+.h-fit {
+    height: fit-content;
+}
+
+
+.h-auto {
+    height: auto;
+}
+
 .h-250px {
     height: 250px;
 }
@@ -330,6 +339,7 @@
     width: 120px !important;
 
 }
+
 .w-50px {
     width: 50px !important;
 }
@@ -356,6 +366,22 @@
 
 .w-600px {
     width: 600px;
+}
+
+.flex-1 {
+    flex: 1;
+}
+
+.flex-2 {
+    flex: 2;
+}
+
+.flex-3 {
+    flex: 3;
+}
+
+.flex-4 {
+    flex: 4;
 }
 
 .flex-auto {

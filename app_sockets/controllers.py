@@ -216,7 +216,10 @@ class SocketController:
 
     def send_notification_to_one_connection(self, prepared_data):
         # Отправка уведомления в одиночный канал подключенного пользователя
-        connections = SocketsRepository(self.me).get_user_connections()
+        connections = SocketsRepository(self.me).get_user_connections(**{
+            'room_id': None,
+            'room_name': None,
+        })
 
         for connection in connections:
             channel_layer = get_channel_layer()

@@ -24,8 +24,8 @@ class SocketsRepository:
     def check_if_connected(self, room_name=None, room_id=None):
         return Socket.objects.filter(user=self.me, room_name=room_name, room_id=room_id).exists()
 
-    def get_user_connections(self):
-        return Socket.objects.filter(user=self.me)
+    def get_user_connections(self, **kwargs):
+        return Socket.objects.filter(user=self.me, **kwargs)
 
 
 class AsyncSocketsRepository(SocketsRepository):
