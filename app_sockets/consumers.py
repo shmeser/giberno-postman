@@ -95,8 +95,10 @@ class Consumer(AsyncJsonWebsocketConsumer):
         await self.send_json(
             {
                 'eventType': SocketEventType.ERROR.value,
-                'code': data.get('code'),
-                'details': data.get('details')
+                'error': {
+                    'code': data.get('code'),
+                    'details': data.get('details')
+                }
             },
         )
 

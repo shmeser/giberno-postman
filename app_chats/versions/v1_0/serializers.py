@@ -10,7 +10,6 @@ from backend.mixins import CRUDSerializer
 
 class ChatsSerializer(CRUDSerializer):
     created_at = DateTimeField()
-    last_message_created_at = DateTimeField()
 
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
@@ -35,7 +34,6 @@ class ChatsSerializer(CRUDSerializer):
             'title',
             'created_at',
             'unread_count',
-            'last_message_created_at',
             'last_message',
             'users'
         ]
