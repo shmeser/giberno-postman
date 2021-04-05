@@ -24,6 +24,10 @@ class Chats(CRUDAPIView):
     bool_filter_params = {
     }
 
+    date_filter_params = {
+        'created_at': 'last_message_created_at',  # TODO сделать по last_message и gte или lte в зависимости от order=asc/desc
+    }
+
     array_filter_params = {
     }
 
@@ -34,7 +38,7 @@ class Chats(CRUDAPIView):
     default_filters = {}
 
     order_params = {
-        'created_at': 'created_at',
+        'created_at': 'last_message_created_at',  # перекидываем на дату последнего сообщения
     }
 
     def get(self, request, **kwargs):
@@ -68,7 +72,6 @@ class Messages(CRUDAPIView):
 
     filter_params = {
         'search': 'text__istartswith',
-        'created_at': 'created_at__gte',  # TODO сделать gte или lte в зависимости от order=asc/desc
         'city': 'city_id',
         'shop': 'shop_id',
         'price': 'price__gte',
@@ -79,6 +82,10 @@ class Messages(CRUDAPIView):
     }
 
     array_filter_params = {
+    }
+
+    date_filter_params = {
+        'created_at': 'created_at__gte',  # TODO сделать gte или lte в зависимости от order=asc/desc
     }
 
     default_order_params = [
@@ -99,7 +106,7 @@ class Messages(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         self.many = True
-        dataset = self.repository_class().filter_by_kwargs(
+        dataset = self.repository_class(chat_id=record_id).filter_by_kwargs(
             kwargs=filters, order_by=order_params, paginator=pagination
         )
 
