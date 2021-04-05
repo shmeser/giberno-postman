@@ -415,7 +415,7 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
 
     class Meta:
         model = Vacancy
-        fields = '__all__'
+        exclude = ['created_at', 'updated_at', 'deleted']
 
 
 class ShiftAppealCreateSerializer(CRUDSerializer):
@@ -439,7 +439,7 @@ class ShiftAppealsSerializer(CRUDSerializer):
 
     class Meta:
         model = ShiftAppeal
-        fields = '__all__'
+        exclude = ['created_at', 'updated_at', 'deleted']
 
 
 class ShiftsWithAppealsSerializer(CRUDSerializer):
@@ -531,7 +531,7 @@ class UserShiftSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserShift
-        fields = '__all__'
+        exclude = ['created_at', 'updated_at', 'deleted']
 
 
 class QRCodeSerializer(serializers.Serializer):
