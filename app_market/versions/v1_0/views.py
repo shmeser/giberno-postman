@@ -287,6 +287,31 @@ class VacancyByManagerRetrieveAPIView(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
+class VacancyShiftsWithAppealsListForManagerAPIView(CRUDAPIView):
+    serializer_class = ShiftsWithAppealsSerializer
+    repository_class = VacanciesRepository
+    allowed_http_methods = ['get']
+    filter_params = {'shift': 'shift'}
+    order_params = {}
+
+    def get(self, request, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        current_date, next_day = RequestMapper(self).current_date_range(request)
+
+        dataset = self.repository_class(me=request.user).vacancy_shifts_with_appeals_queryset(
+            record_id=kwargs.get('record_id'),
+            pagination=pagination,
+            current_date=current_date,
+            next_day=next_day
+        )
+
+        serialized = self.serializer_class(dataset, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
 class GetSingleAppealForManagerAPIView(CRUDAPIView):
     repository_class = ShiftAppealsRepository
     serializer_class = ShiftAppealsSerializer
