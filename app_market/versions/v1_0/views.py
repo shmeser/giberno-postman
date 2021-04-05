@@ -186,7 +186,7 @@ class ShiftAppealCreateAPIView(CRUDAPIView):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             instance = self.repository_class(me=request.user).get_or_create(**serializer.validated_data)
-            return Response(ShiftAppealsSerializer(instance=instance, many=False).data)
+            return Response(camelize(ShiftAppealsSerializer(instance=instance, many=False).data))
 
 
 class ShiftAppealDestroyAPIView(CRUDAPIView):
