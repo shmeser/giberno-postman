@@ -142,6 +142,24 @@ class SingleVacancyActiveDatesForManagerListAPIView(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+class VacancyShiftsWithAppealsListForManagerAPIView(BaseAPIView):
+    """
+    Просмотр Списка откликнувшихся на вакансию со стороны менеджера
+    Параметры :
+    limit
+    offset
+    """
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    @swagger_auto_schema(responses={200: openapi.Response('response description',
+                                                          ShiftAppealsSerializer)})
+    def get(request, *args, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.VacancyShiftsWithAppealsListForManagerAPIView().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class GetSingleAppealForManagerAPIView(BaseAPIView):
     """
     Просмотр конкретного отклика со стороны менеджера

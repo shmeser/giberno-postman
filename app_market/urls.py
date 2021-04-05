@@ -8,7 +8,7 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     SelfEmployedUserReviewsByAdminOrManagerAPIView, \
     ConfirmAppealByManagerAPIView, RejectAppealByManagerAPIView, UserShiftsRetrieveAPIView, \
     VacanciesActiveDatesForManagerListAPIView, VacanciesDistributors, SingleVacancyActiveDatesForManagerListAPIView, \
-    ShiftAppealDestroyAPIView
+    ShiftAppealDestroyAPIView, VacancyShiftsWithAppealsListForManagerAPIView
 
 urlpatterns = [
     path('market/distributors', Distributors.as_view()),
