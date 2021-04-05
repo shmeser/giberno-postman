@@ -1,3 +1,5 @@
+import uuid as uuid
+
 from django.contrib.contenttypes.fields import GenericRelation, GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
@@ -56,7 +58,7 @@ class ChatUser(BaseModel):
 
 class Message(BaseModel):
     user = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.SET_NULL)
-    chat = models.ForeignKey(Chat, null=True, blank=True, on_delete=models.SET_NULL)
+    chat = models.ForeignKey(Chat, null=True, blank=True, on_delete=models.SET_NULL, related_name='messages')
 
     title = models.CharField(max_length=255, null=True, blank=True)
     text = models.TextField(null=True, blank=True)
@@ -72,6 +74,7 @@ class Message(BaseModel):
 
     read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником')
     command_data = models.JSONField(default=dict)
+    uuid = models.UUIDField(default=uuid.uuid4)
 
     def __str__(self):
         return f'{self.id} - {self.user.username}'

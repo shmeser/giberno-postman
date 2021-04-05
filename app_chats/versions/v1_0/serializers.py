@@ -12,6 +12,7 @@ class ChatsSerializer(CRUDSerializer):
     created_at = DateTimeField()
 
     last_message = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
     users = serializers.SerializerMethodField()
 
     def get_users(self, data):
@@ -23,12 +24,16 @@ class ChatsSerializer(CRUDSerializer):
         else:
             return None
 
+    def get_unread_count(self, data):
+        return 0
+
     class Meta:
         model = Chat
         fields = [
             'id',
             'title',
             'created_at',
+            'unread_count',
             'last_message',
             'users'
         ]
@@ -53,7 +58,7 @@ class LastMessagesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = [
-            'id',
+            'uuid',
             'user_id',
             'title',
             'text',
@@ -107,7 +112,7 @@ class MessagesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = [
-            'id',
+            'uuid',
             'user_id',
             'title',
             'text',

@@ -1,6 +1,7 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Count, Max, Field
+from django.db.models.functions.datetime import TruncBase
 from djangorestframework_camel_case.util import camelize
 
 from app_chats.models import Chat, Message, ChatUser
@@ -16,7 +17,13 @@ from backend.errors.enums import RESTErrors
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
-from backend.utils import timestamp_to_datetime
+
+
+class TruncMilliecond(TruncBase):
+    """
+        Отсутствующий в Django класс для миллисекунд
+    """
+    kind = 'millisecond'
 
 
 class ChatsRepository(MasterRepository):
@@ -42,9 +49,16 @@ class ChatsRepository(MasterRepository):
         # TODO без указания target, создаем чат p2p
 
         # Выражения для вычисляемых полей в annotate
-        # self.distance_expression = Distance('shop__location', point) if point else Value(None, IntegerField())
+        self.unread_count_expression = Count('id')
+        self.last_message_created_at_expression = Max(
+            # Округляем до миллисекунд, так как в бд DateTimeField хранит с точностью до МИКРОсекунд
+            TruncMilliecond('messages__created_at')
+        )
         # Основная часть запроса, содержащая вычисляемые поля
-        self.base_query = self.model.objects.filter(users__in=[self.me])
+        self.base_query = self.model.objects.filter(users__in=[self.me]).annotate(
+            unread_count=self.unread_count_expression,
+            last_message_created_at=self.last_message_created_at_expression
+        )
 
     def modify_kwargs(self, kwargs, order_by):
         need_to_create = False
@@ -52,7 +66,7 @@ class ChatsRepository(MasterRepository):
         user_id = kwargs.pop('user_id', None)
         shop_id = kwargs.pop('shop_id', None)
         vacancy_id = kwargs.pop('vacancy_id', None)
-        created_at = kwargs.pop('created_at', None)
+        created_at = kwargs.pop('last_message_created_at', None)  # Неважно когда создан чат, важно - посл. сообщение
 
         checking_kwargs = {}
 
@@ -64,15 +78,13 @@ class ChatsRepository(MasterRepository):
         subject_user = None
         # ##
 
-        if '-created_at' in order_by and created_at:
-            created_at = timestamp_to_datetime(int(created_at))
+        if '-last_message_created_at' in order_by and created_at:
             kwargs.update({
-                'created_at__lte': created_at
+                'last_message_created_at__lte': created_at
             })
-        if 'created_at' in order_by and created_at:
-            created_at = timestamp_to_datetime(int(created_at))
+        if 'last_message_created_at' in order_by and created_at:
             kwargs.update({
-                'created_at__gte': created_at
+                'last_message_created_at__gte': created_at
             })
 
         if self.me.account_type == AccountType.MANAGER.value:  # Если роль менеджера
@@ -132,14 +144,22 @@ class ChatsRepository(MasterRepository):
                     # TODO менеджер, создавший вакансию
                 ]
 
-        target_ct_id = target_ct.id if target_ct else None
-        target_ct_name = target_ct.model if target_ct else None
+        target_ct_id = None
+        target_ct_name = None
 
-        updater = {
-            'subject_user': subject_user,
-            'target_ct_id': target_ct_id,
-            'target_id': target_id
-        }
+        updater = {}
+        if subject_user:
+            updater.update({
+                'subject_user': subject_user
+            })
+
+        if target_ct:
+            target_ct_id = target_ct.id
+            target_ct_name = target_ct.model
+            updater.update({
+                'target_ct_id': target_ct_id,
+                'target_id': target_id
+            })
 
         kwargs.update(updater)
         checking_kwargs.update(updater)
@@ -228,7 +248,7 @@ class ChatsRepository(MasterRepository):
         queryset = queryset.prefetch_related(
             # Подгрузка медиа для сообщений
             Prefetch(
-                'message_set',
+                'messages',
                 queryset=Message.objects.order_by('-id'),
                 to_attr='last_message'
             )
@@ -287,11 +307,12 @@ class AsyncChatsRepository(ChatsRepository):
 class MessagesRepository(MasterRepository):
     model = Message
 
-    def __init__(self, me=None) -> None:
+    def __init__(self, me=None, chat_id=None) -> None:
         super().__init__()
 
         self.me = me
-        self.base_query = self.model.objects
+        self.chat_id = chat_id
+        self.base_query = self.model.objects.filter(chat_id=self.chat_id)
 
     @staticmethod
     def fast_related_loading(queryset, point=None):
@@ -346,6 +367,7 @@ class AsyncMessagesRepository(MessagesRepository):
         message = self.model.objects.create(
             user=self.me,
             chat_id=chat_id,
+            uuid=content.get('uuid'),
             message_type=content.get('messageType'),
             text=content.get('text'),
             command_data=content.get('commandData'),
