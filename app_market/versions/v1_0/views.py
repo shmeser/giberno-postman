@@ -7,11 +7,10 @@ from rest_framework.views import APIView
 from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer
-from app_market.models import ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
-    ShiftAppealsSerializer, VacanciesForManagerSerializer, ShiftsWithAppealsSerializer
+    ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
@@ -178,25 +177,28 @@ class Vacancies(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class ApplyToShiftAPIView(CRUDAPIView):
-    repository_class = ShiftsRepository
+class ShiftAppealCreateAPIView(CRUDAPIView):
+    repository_class = ShiftAppealsRepository
+    serializer_class = ShiftAppealCreateSerializer
 
-    def get(self, request, *args, **kwargs):
-        record_id = kwargs.get(self.urlpattern_record_id_name)
-        shift = self.repository_class().get_by_id(record_id)
-        ShiftAppeal.objects.get_or_create(applier=request.user, shift=shift)
-        return Response(None, status=status.HTTP_200_OK)
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            instance = self.repository_class(me=request.user).get_or_create(**serializer.validated_data)
+            return Response(ShiftAppealsSerializer(instance=instance, many=False).data)
+
+
+class ShiftAppealDestroyAPIView(CRUDAPIView):
+    repository_class = ShiftAppealsRepository
 
     def delete(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        shift = self.repository_class().get_by_id(record_id)
-        appeal, created = ShiftAppeal.objects.get_or_create(applier=request.user, shift=shift)
-        appeal.delete()
+        self.repository_class(me=request.user).delete(record_id=record_id)
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
-class VacanciesByManagerListAPIView(CRUDAPIView):
-    serializer_class = VacanciesForManagerSerializer
+class ActiveVacanciesWithAppliersByDateForManagerListAPIView(CRUDAPIView):
+    serializer_class = VacanciesWithAppliersForManagerSerializer
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
 
@@ -225,6 +227,7 @@ class VacanciesByManagerListAPIView(CRUDAPIView):
 
         serialized = self.serializer_class(dataset, many=True, context={
             'me': request.user,
+            'current_date': current_date,
             'headers': get_request_headers(request),
         })
 
@@ -281,31 +284,6 @@ class VacancyByManagerRetrieveAPIView(CRUDAPIView):
             'headers': get_request_headers(request),
         })
 
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
-
-
-class VacancyShiftsWithAppealsListForManagerAPIView(CRUDAPIView):
-    serializer_class = ShiftsWithAppealsSerializer
-    repository_class = VacanciesRepository
-    allowed_http_methods = ['get']
-    filter_params = {'shift': 'shift'}
-    order_params = {}
-
-    def get(self, request, **kwargs):
-        pagination = RequestMapper.pagination(request)
-        current_date, next_day = RequestMapper(self).current_date_range(request)
-
-        dataset = self.repository_class(me=request.user).vacancy_shifts_with_appeals_queryset(
-            record_id=kwargs.get('record_id'),
-            pagination=pagination,
-            current_date=current_date,
-            next_day=next_day
-        )
-
-        serialized = self.serializer_class(dataset, many=True, context={
-            'me': request.user,
-            'headers': get_request_headers(request),
-        })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 

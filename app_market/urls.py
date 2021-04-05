@@ -3,10 +3,12 @@ from django.urls import path
 from app_market.views import Vacancies, Professions, suggest_profession, Skills, Distributors, Shops, VacanciesStats, \
     vacancies_suggestions, Shifts, CheckUserShiftByManagerOrSecurityAPIView, similar_vacancies, ToggleLikeVacancy, \
     VacancyReviewsAPIView, ShopReviewsAPIView, DistributorReviewsAPIView, VacanciesClusteredMap, \
-    VacanciesByManagerListAPIView, VacancyByManagerRetrieveAPIView, ApplyToShiftAPIView, UserShiftsListAPIView, \
-    VacancyShiftsWithAppealsListForManagerAPIView, SelfEmployedUserReviewsByAdminOrManagerAPIView, \
+    ActiveVacanciesWithAppliersByDateForManagerListAPIView, VacancyByManagerRetrieveAPIView, ShiftAppealCreateAPIView, \
+    UserShiftsListAPIView, \
+    SelfEmployedUserReviewsByAdminOrManagerAPIView, \
     ConfirmAppealByManagerAPIView, RejectAppealByManagerAPIView, UserShiftsRetrieveAPIView, \
-    VacanciesActiveDatesForManagerListAPIView, VacanciesDistributors, SingleVacancyActiveDatesForManagerListAPIView
+    VacanciesActiveDatesForManagerListAPIView, VacanciesDistributors, SingleVacancyActiveDatesForManagerListAPIView, \
+    ShiftAppealDestroyAPIView
 
 urlpatterns = [
     path('market/distributors', Distributors.as_view()),
@@ -28,15 +30,14 @@ urlpatterns = [
     path('market/vacancies/distributors', VacanciesDistributors.as_view()),
     path('market/vacancies/suggestions', vacancies_suggestions),
 
-    path('market/shifts/<int:record_id>/apply', ApplyToShiftAPIView.as_view()),
+    path('market/appeals', ShiftAppealCreateAPIView.as_view()),
+    path('market/appeals/<int:record_id>', ShiftAppealDestroyAPIView.as_view()),
 
     path('market/managers/self_employed/<int:record_id>/reviews',
          SelfEmployedUserReviewsByAdminOrManagerAPIView.as_view()),
 
-    path('market/managers/vacancies', VacanciesByManagerListAPIView.as_view()),
+    path('market/managers/vacancies', ActiveVacanciesWithAppliersByDateForManagerListAPIView.as_view()),
     path('market/managers/vacancies/<int:record_id>', VacancyByManagerRetrieveAPIView.as_view()),
-    path('market/managers/vacancies/<int:record_id>/appeals',
-         VacancyShiftsWithAppealsListForManagerAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
     path('market/managers/vacancies/active_dates', VacanciesActiveDatesForManagerListAPIView.as_view()),

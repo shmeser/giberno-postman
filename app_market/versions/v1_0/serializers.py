@@ -5,7 +5,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Avg
 from rest_framework import serializers
 
-from app_market.enums import ShiftAppealStatus
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category, ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
@@ -16,7 +15,7 @@ from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
-from backend.utils import chained_get, datetime_to_timestamp
+from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime
 
 
 class CategoriesSerializer(serializers.ModelSerializer):
@@ -375,7 +374,7 @@ class UserProfileInVacanciesForManagerSerializer(CRUDSerializer):
         fields = ['id', 'avatar']
 
 
-class VacanciesForManagerSerializer(CRUDSerializer):
+class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
     banner = serializers.SerializerMethodField()
 
     @staticmethod
@@ -398,43 +397,48 @@ class VacanciesForManagerSerializer(CRUDSerializer):
 
     @staticmethod
     def get_appliers_count(instance):
-        return instance.appliers_count
+        return ShiftAppeal.objects.filter(shift__vacancy=instance).count()
 
     appliers = serializers.SerializerMethodField()
 
-    @staticmethod
-    def get_appliers(instance):
-        return UserProfileInVacanciesForManagerSerializer(instance=instance.first_three_appliers, many=True).data
+    def get_appliers(self, instance):
+        active_appliers_by_date = ShiftAppeal.objects.filter(
+            shift__vacancy=instance,
+            shift_active_date=self.context.get('current_date')
+        ).values('applier')
+
+        appliers = UserProfile.objects.filter(
+            id__in=[item.get('applier') for item in active_appliers_by_date])[:3]
+
+        return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
 
     class Meta:
         model = Vacancy
         fields = '__all__'
 
 
+class ShiftAppealCreateSerializer(CRUDSerializer):
+    shift_active_date = serializers.IntegerField()
+
+    @staticmethod
+    def validate_shift_active_date(value):
+        return timestamp_to_datetime(value)
+
+    class Meta:
+        model = ShiftAppeal
+        fields = ['shift', 'shift_active_date']
+
+
 class ShiftAppealsSerializer(CRUDSerializer):
+    shift_active_date = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_shift_active_date(instance):
+        return datetime_to_timestamp(instance.shift_active_date)
+
     class Meta:
         model = ShiftAppeal
         fields = '__all__'
-
-
-class ShiftsWithAppealsSerializer(CRUDSerializer):
-    appliers = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_appliers(instance):
-        appliers = [appeal.applier for appeal in instance.appeals.all()]
-        return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
-
-    confirmed_appliers = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_confirmed_appliers(instance):
-        appliers = [appeal.applier for appeal in instance.appeals.filter(status=ShiftAppealStatus.CONFIRMED)]
-        return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
-
-    class Meta:
-        model = Shift
-        fields = ['id', 'time_start', 'time_end', 'max_employees_count', 'appliers', 'confirmed_appliers']
 
 
 class ShiftsSerializer(CRUDSerializer):
