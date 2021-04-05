@@ -128,13 +128,13 @@
         const disableConnectionBlock = (connectionId) => {
             // Отключение кнопок при отсоединении от сокетов
             let connectionBlock = document.getElementById(`${connectionId}`);
-            let disconnectButton = document.getElementById(`disconnect-${connectionId}`);
+            connectionBlock.classList.add('closed');
 
             let button = document.getElementById(`action-${connectionId}`);
             button.setAttribute('disabled', 'disabled');
 
-            disconnectButton.value = 'Remove Block';
-            connectionBlock.classList.add('closed')
+            let disconnectButton = document.getElementById(`disconnect-${connectionId}`);
+            disconnectButton.innerText = 'Remove Block';
         };
 
         const addMessageToHistory = (id, data, className = 'system') => {
