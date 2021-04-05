@@ -4,7 +4,7 @@ from firebase_admin import credentials
 from firebase_admin._token_gen import ExpiredIdTokenError
 
 from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 
 
 class FirebaseController:

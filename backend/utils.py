@@ -24,7 +24,7 @@ from loguru import logger
 from app_media.enums import MediaFormat, FileDownloadStatus, MimeTypes
 from backend.entity import File as FileEntity
 from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 from giberno.settings import DOCUMENT_MIME_TYPES, IMAGE_MIME_TYPES, IMAGE_SIDE_MAX, IMAGE_PREVIEW_SIDE_MAX, \
     VIDEO_MIME_TYPES, VIDEO_PREVIEW_SIDE_MAX, VIDEO_SIDE_MAX
 

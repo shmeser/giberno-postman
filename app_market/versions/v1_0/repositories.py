@@ -1,5 +1,7 @@
 from datetime import timedelta, datetime
 
+import pytz
+from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db.models import GeometryField, CharField
 from django.contrib.gis.db.models.functions import Distance, Envelope
@@ -23,7 +25,7 @@ from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_users.enums import AccountType
 from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
 from backend.utils import ArrayRemove, datetime_to_timestamp
 from giberno import settings
@@ -103,6 +105,16 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
             )
 
         return queryset
+
+
+class AsyncDistributorsRepository(DistributorsRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    @database_sync_to_async
+    def get_by_id(self, record_id):
+        return super().get_by_id(record_id)
 
 
 class ShopsRepository(MakeReviewMethodProviderRepository):
@@ -250,6 +262,16 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
         return self.model.objects.raw(raw_sql)
 
 
+class AsyncShopsRepository(ShopsRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    @database_sync_to_async
+    def get_by_id(self, record_id):
+        return super().get_by_id(record_id)
+
+
 class CustomLookupBase(Lookup):
     # Кастомный lookup
     lookup_name = 'custom'
@@ -366,17 +388,18 @@ class ShiftsRepository(MasterRepository):
         return records[paginator.offset:paginator.limit] if paginator else records
 
     @staticmethod
-    def active_dates_list(queryset, calendar_from=None, calendar_to=None):
+    def active_dates(queryset):
         active_dates = []
         if queryset.count():
             for shift in queryset:
+                utc_offset = pytz.timezone(shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
                 for active_date in shift.active_dates:
-                    active_dates.append(active_date)
+                    active_dates.append({
+                        'utc_offset': utc_offset,
+                        'timestamp': datetime_to_timestamp(active_date)
+                    })
 
-            if calendar_from and calendar_to:
-                active_dates = [item for item in active_dates if calendar_from < item < calendar_to]
-
-        return list(set(map(lambda x: datetime_to_timestamp(x), active_dates)))
+        return active_dates
 
 
 class UserShiftRepository(MasterRepository):
@@ -564,45 +587,46 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             point=self.point
         )
 
-    def queryset_by_manager(self):
+    def queryset_by_manager(self, order_params=None, pagination=None):
         if not self.me.account_type == AccountType.MANAGER:
             raise PermissionDenied()
-        return self.filter_by_kwargs(kwargs={'shop_id__in': self.me.shops.all()})
+        return self.filter_by_kwargs(
+            kwargs={'shop_id__in': self.me.shops.all()},
+            order_by=order_params,
+            paginator=pagination
+        )
 
-    def queryset_filtered_by_current_date_range_for_manager(self, order_params, pagination, current_date=None,
-                                                            next_day=None):
+    def queryset_filtered_by_current_date_range_for_manager(self, order_params, pagination, current_date, next_day):
         vacancies = self.queryset_by_manager()
-        shifts = ShiftsRepository().filter_by_kwargs(kwargs={'vacancy_id__in': vacancies})
-        if current_date and next_day:
-            active_vacancies = []
-            for shift in shifts:
-                for active_date in shift.active_dates:
-                    if current_date < active_date < next_day and shift.vacancy not in active_vacancies:
-                        active_vacancies.append(shift.vacancy)
-            filters = {'id__in': [item.id for item in active_vacancies]}
-            vacancies = self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
-        return vacancies
+        shifts = ShiftsRepository(calendar_from=current_date, calendar_to=next_day).filter_by_kwargs(
+            kwargs={'vacancy_id__in': vacancies})
+        active_vacancies = []
+        for shift in shifts:
+            for active_date in shift.active_dates:
+                if current_date <= active_date < next_day:
+                    active_vacancies.append(shift.vacancy)
+        filters = {'id__in': [item.id for item in active_vacancies]}
+
+        return self.filter_by_kwargs(kwargs=filters, order_by=order_params, paginator=pagination)
 
     def single_vacancy_active_dates_list_for_manager(self, record_id, calendar_from=None, calendar_to=None):
         vacancy = self.get_by_id_for_manager_or_security(record_id=record_id)
-        shifts = ShiftsRepository().filter_by_kwargs(kwargs={'vacancy': vacancy})
-        return ShiftsRepository().active_dates_list(queryset=shifts, calendar_from=calendar_from,
-                                                    calendar_to=calendar_to)
+        shifts = ShiftsRepository(calendar_from=calendar_from, calendar_to=calendar_to).filter_by_kwargs(
+            kwargs={'vacancy': vacancy})
+        return ShiftsRepository().active_dates(queryset=shifts)
 
     def vacancies_active_dates_list_for_manager(self, calendar_from=None, calendar_to=None):
         vacancies = self.queryset_by_manager()
-        shifts = ShiftsRepository().filter_by_kwargs(kwargs={'vacancy_id__in': vacancies})
-        return ShiftsRepository().active_dates_list(queryset=shifts, calendar_from=calendar_from,
-                                                    calendar_to=calendar_to)
+        shifts = ShiftsRepository(calendar_from=calendar_from, calendar_to=calendar_to).filter_by_kwargs(
+            kwargs={'vacancy_id__in': vacancies})
+        return ShiftsRepository().active_dates(queryset=shifts)
 
     def vacancy_shifts_with_appeals_queryset(self, record_id, pagination=None, current_date=None, next_day=None):
         active_shifts = []
         vacancy = self.get_by_id_for_manager_or_security(record_id=record_id)
-        shifts = ShiftsRepository().filter_by_kwargs(
+        shifts = ShiftsRepository(calendar_from=current_date, calendar_to=next_day).filter_by_kwargs(
             kwargs={'vacancy': vacancy},
             paginator=pagination)
-        if not current_date and not next_day:
-            return shifts
 
         for shift in shifts:
             if len(shift.active_dates):
@@ -800,9 +824,10 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         annotated = queryset.values('shop__distributor').annotate(count=Count('shop__distributor')).order_by('-count')
 
         distributors_ids_list = annotated.values_list('shop__distributor', flat=True)
-        preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(distributors_ids_list)])
-
-        records = Distributor.objects.filter(pk__in=distributors_ids_list).order_by(preserved)
+        records = Distributor.objects.filter(pk__in=distributors_ids_list)
+        if distributors_ids_list:
+            preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(distributors_ids_list)])
+            records = records.order_by(preserved)
 
         return DistributorsRepository.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[pagination.offset:pagination.limit] if pagination else records,
@@ -848,12 +873,33 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         return []
 
 
+class AsyncVacanciesRepository(VacanciesRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    @database_sync_to_async
+    def get_by_id(self, record_id):
+        return super().get_by_id(record_id)
+
+
 class ShiftAppealsRepository(MasterRepository):
     model = ShiftAppeal
 
     def __init__(self, me=None):
         super().__init__()
         self.me = me
+
+    def get_or_create(self, **data):
+        data.update({'applier': self.me})
+        instance, created = self.model.objects.get_or_create(**data)
+        return instance
+
+    def delete(self, record_id):
+        instance = self.get_by_id(record_id=record_id)
+        if not instance.applier == self.me:
+            raise PermissionDenied()
+        instance.delete()
 
     def is_related_manager(self, instance):
         if instance.shift.vacancy.shop not in self.me.shops.all():

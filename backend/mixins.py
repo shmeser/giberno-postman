@@ -19,8 +19,8 @@ from app_media.enums import MimeTypes
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import CustomException
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import CustomException
+from backend.errors.http_exceptions import HttpException
 from backend.mappers import RequestMapper
 from backend.permissions import AbbleToPerform
 from backend.repositories import BaseRepository

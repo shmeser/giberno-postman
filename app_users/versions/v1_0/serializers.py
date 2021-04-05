@@ -23,7 +23,7 @@ from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepos
     CareerRepository, DocumentsRepository
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
-from backend.errors.http_exception import CustomException
+from backend.errors.http_exceptions import CustomException
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 
@@ -484,7 +484,7 @@ class NotificationSerializer(CRUDSerializer):
     icon = serializers.SerializerMethodField()
 
     def get_icon(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.NOTIFICATION_ICON.value)
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.NOTIFICATION_ICON.value)
 
     class Meta:
         model = Notification

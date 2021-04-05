@@ -12,6 +12,7 @@ from giberno.yasg import urlpatterns as doc_urls
 urlpatterns = [
                   path('django/admin/', admin.site.urls),
               ] \
+              + static(settings.LOGS_URL, document_root=settings.LOGS_ROOT) \
               + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) \
               + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
@@ -36,6 +37,7 @@ v1_0_urls = [
     path(v1_0, include(('app_users.urls', 'users_1_0'))),
     path(v1_0, include(('app_geo.urls', 'geo_1_0'))),
     path(v1_0, include(('app_market.urls', 'market_1_0'))),
+    path(v1_0, include(('app_chats.urls', 'chats_1_0'))),
 ]
 
 urlpatterns += doc_urls

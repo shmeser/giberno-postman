@@ -1,3 +1,4 @@
+from asgiref.sync import sync_to_async
 from celery import group
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Case, When, CharField, F
@@ -32,20 +33,15 @@ class PushController:
             **kwargs
 
     ):
-        # Проверяем настройки оповещений для конкретного пользователя
-        # Отфильтровываем по настройкам уведомлений у пользователей
-        if NotificationType.has_value(notification_type):
-            users_to_send_queryset_sound = UserProfile.objects.filter(pk__in=[u.id for u in users_to_send]).filter(
-                notificationssettings__enabled_types__contains=[notification_type],
-                notificationssettings__sound_enabled=True,  # Звук уведомлений включен в настройках
-            )
-            users_to_send_queryset_soundless = UserProfile.objects.filter(pk__in=[u.id for u in users_to_send]).filter(
-                notificationssettings__enabled_types__contains=[notification_type],
-                notificationssettings__sound_enabled=False,  # Звук уведомлений выключен в настройках
-            )
-        else:
+
+        if not NotificationType.has_value(notification_type):
             # Если неизвестный тип уведомлений
             return
+
+        users_to_send_queryset_sound, users_to_send_queryset_soundless = self.get_grouped_users_with_enabled_push(
+            users_to_send=users_to_send,
+            notification_type=notification_type
+        )
 
         if users_to_send_queryset_sound:
             # Пуши со звуком
@@ -75,6 +71,104 @@ class PushController:
                 **kwargs
             )
 
+    def send_message(
+            self,
+            users_to_send: [UserProfile],
+            title,
+            message,
+            action,
+            subject_id,
+            notification_type,
+            icon_type,
+            **kwargs
+    ):
+        """ Отправка пуша как сообщения, без создания записи в бд """
+
+        if not NotificationType.has_value(notification_type):
+            # Если неизвестный тип уведомлений
+            return
+
+        users_to_send_queryset_sound, users_to_send_queryset_soundless = self.get_grouped_users_with_enabled_push(
+            users_to_send=users_to_send,
+            notification_type=notification_type
+        )
+
+        if users_to_send_queryset_sound:
+            # Пуши со звуком
+            self.process_message(
+                users_to_send_queryset=users_to_send_queryset_sound,
+                title=title,
+                message=message,
+                action=action,
+                subject_id=subject_id,
+                notification_type=notification_type,
+                icon_type=icon_type,
+                is_sound_enabled=True,
+                **kwargs
+            )
+
+        if users_to_send_queryset_soundless:
+            # Пуши без звука
+            self.process_message(
+                users_to_send_queryset=users_to_send_queryset_soundless,
+                title=title,
+                message=message,
+                action=action,
+                subject_id=subject_id,
+                notification_type=notification_type,
+                icon_type=icon_type,
+                is_sound_enabled=False,  # Отключаем звук
+                **kwargs
+            )
+
+    @staticmethod
+    def get_grouped_users_with_enabled_push(users_to_send, notification_type):
+        # Отфильтровываем по настройкам уведомлений у пользователей
+        users_to_send_queryset_sound = UserProfile.objects.filter(pk__in=[u.id for u in users_to_send]).filter(
+            notificationssettings__enabled_types__contains=[notification_type],
+            notificationssettings__sound_enabled=True,  # Звук уведомлений включен в настройках
+        )
+        users_to_send_queryset_soundless = UserProfile.objects.filter(pk__in=[u.id for u in users_to_send]).filter(
+            notificationssettings__enabled_types__contains=[notification_type],
+            notificationssettings__sound_enabled=False,  # Звук уведомлений выключен в настройках
+        )
+
+        return users_to_send_queryset_sound, users_to_send_queryset_soundless
+
+    @staticmethod
+    def process_sound_parameters(is_sound_enabled, notification_type, kwargs):
+        """ Обработка звуковых параметров """
+
+        # ## Определение звуковых параметров пуша
+        # is_sound_enabled берется из настроек пользователя
+        if is_sound_enabled is True:
+            sound = 'default'
+            android_channel_id = NotificationChannelFromAndroid8[NotificationType(notification_type).name].value
+        else:
+            sound = None
+            android_channel_id = NotificationChannelFromAndroid8[
+                f'{NotificationType(notification_type).name}_SOUNDLESS'
+            ].value
+
+        # ## Переопределение параметров sound, android_channel_id из kwargs (могут быть посланы из тестового метода)
+        if 'sound' in kwargs and 'android_channel_id' in kwargs:
+            android_channel_id = kwargs.pop('android_channel_id')
+            sound = kwargs.pop('sound')
+            if sound is None:
+                is_sound_enabled = False
+        elif 'sound' in kwargs:
+            sound = kwargs.pop('sound')
+            if sound is None:
+                is_sound_enabled = False
+        elif 'android_channel_id' in kwargs:
+            android_channel_id = kwargs.pop('android_channel_id')
+
+        kwargs.update({
+            'android_channel_id': android_channel_id
+        })
+
+        return sound, is_sound_enabled
+
     def process_notification_by_platform(
             self,
             users_to_send_queryset,
@@ -87,6 +181,8 @@ class PushController:
             is_sound_enabled: bool,
             **kwargs
     ):
+        """ Отправка пуша как оповещения, создание записи в бд """
+
         # Разделяем пуштокены iOS и Android, записываем в модель уведомления
         users_with_divided_tokens = FCMDevice.objects.filter(
             active=True,  # Только живые токены
@@ -121,33 +217,8 @@ class PushController:
             )
         )
 
-        # ## Определение звуковых параметров пуша
-        # is_sound_enabled берется из настроек пользователя
-        if is_sound_enabled is True:
-            sound = 'default'
-            android_channel_id = NotificationChannelFromAndroid8[NotificationType(notification_type).name].value
-        else:
-            sound = None
-            android_channel_id = NotificationChannelFromAndroid8[
-                f'{NotificationType(notification_type).name}_SOUNDLESS'
-            ].value
-
-        # ## Переопределение параметров sound, android_channel_id из kwargs (могут быть посланы из тестового метода)
-        if 'sound' in kwargs and 'android_channel_id' in kwargs:
-            android_channel_id = kwargs.pop('android_channel_id')
-            sound = kwargs.pop('sound')
-            if sound is None:
-                is_sound_enabled = False
-        elif 'sound' in kwargs:
-            sound = kwargs.pop('sound')
-            if sound is None:
-                is_sound_enabled = False
-        elif 'android_channel_id' in kwargs:
-            android_channel_id = kwargs.pop('android_channel_id')
-
-        kwargs.update({
-            'android_channel_id': android_channel_id
-        })
+        # Обрабатываем параметры звука
+        sound, is_sound_enabled = self.process_sound_parameters(is_sound_enabled, notification_type, kwargs)
 
         devices_ids = []  # Список ID моделей пуш-токенов
         notifications_links = []  # Список объектов-связок для bulk_create
@@ -176,7 +247,43 @@ class PushController:
         push_data = camelize({
             'type': str(notification_type),
             'action': str(action),
-            'icon_type': str(icon_type),
+            'icon_type': str(icon_type) if icon_type else '',
+            'subject_id': str(subject_id) if subject_id else '',
+            'title': str(title),
+            'message': str(message),
+            'created_at': str(datetime_to_timestamp(now()))
+        })
+
+        self.send_push(title, message, push_data, sound, devices_ids, **kwargs)
+
+    def process_message(
+            self,
+            users_to_send_queryset,
+            title,
+            message,
+            action,
+            subject_id,
+            notification_type,
+            icon_type,
+            is_sound_enabled: bool,
+            **kwargs
+    ):
+        """ Отправка пуша как оповещения, создание записи в бд """
+
+        # Получаем только ид устройств с токенами
+        devices_ids = FCMDevice.objects.filter(
+            active=True,  # Только живые токены
+            user__in=users_to_send_queryset  # Берем токены только отфиьтрованных пользователей
+        ).values_list('id', flat=True)
+
+        # Обрабатываем параметры звука
+        sound, is_sound_enabled = self.process_sound_parameters(is_sound_enabled, notification_type, kwargs)
+
+        # Все данные должны быть строками
+        push_data = camelize({
+            'type': str(notification_type),
+            'action': str(action),
+            'icon_type': str(icon_type) if icon_type else '',
             'subject_id': str(subject_id) if subject_id else '',
             'title': str(title),
             'message': str(message),
@@ -206,3 +313,32 @@ class PushController:
         )
 
         jobs.apply_async()
+
+
+class AsyncPushController(PushController):
+    @sync_to_async
+    def send_message(
+            self,
+            users_to_send: [UserProfile],
+            title,
+            message,
+            action,
+            subject_id,
+            notification_type,
+            icon_type,
+            **kwargs
+    ):
+        logger.info(
+            f'ASYNC SEND MESSAGE [{title},{message},{action},{subject_id},{notification_type}]'
+        )
+
+        super().send_message(
+            users_to_send,
+            title,
+            message,
+            action,
+            subject_id,
+            notification_type,
+            icon_type,
+            **kwargs
+        )

@@ -53,7 +53,7 @@ class CountrySerializer(CRUDSerializer):
         return country.names.get(DEFAULT_LANGUAGE, None)
 
     def get_flag(self, prefetched_data):
-        return MediaController(self.instance, self.mime_type).get_related_image(prefetched_data, MediaType.FLAG.value)
+        return MediaController(self.instance, self.mime_type).get_related_images(prefetched_data, MediaType.FLAG.value)
 
     class Meta:
         model = Country

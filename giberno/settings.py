@@ -1,7 +1,6 @@
 import datetime
 import os
 from datetime import timedelta, datetime
-
 from celery.schedules import crontab
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'TeStSeCrEtKeY')
@@ -34,6 +33,7 @@ INSTALLED_APPS = [
     'app_market.apps.AppMarketConfig',
     'app_feedback.apps.AppFeedbackConfig',
     'app_sockets.apps.AppSocketsConfig',
+    'app_chats.apps.AppChatsConfig',
 ]
 
 CHANNEL_LAYERS = {
@@ -84,7 +84,7 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = 'giberno.routing.application'
+ASGI_APPLICATION = 'giberno.asgi.application'
 WSGI_APPLICATION = 'giberno.wsgi.application'
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -381,6 +381,5 @@ try:
         DEBUG_TOOLBAR_PANELS, \
         EMAIL_HOST_USER, \
         EMAIL_HOST_PASSWORD
-
 except ImportError as e:
     pass

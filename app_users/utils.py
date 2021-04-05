@@ -7,7 +7,7 @@ from loguru import logger
 
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
-from backend.errors.http_exception import CustomException
+from backend.errors.http_exceptions import CustomException
 
 
 class EmailSender:
@@ -44,16 +44,25 @@ def generate_password():
     return ''.join(random.choice(allowed) for _ in range(limit))
 
 
+# Требования к логину:
+# логин должен начинаться с буквы и состоять не менее чем из 6 символов и не более чем из 20 символов;
+# при создании логина можно использовать латинские буквы, цифры, символы тире (-), подчеркивания (_) и точки (.),
+# остальные символы недопустимы;
+# пробел в логине недопустим;
+# логин не может заканчиваться точкой.
+# Логин можно вводить в любом регистре (PETROV, petrov и PeTrOv - один и тот же логин).
+
+
 def validate_username(username):
     allowed_symbols = '-_.'
-    allowed_letters = string.ascii_lowercase + string.ascii_uppercase
+    allowed_letters = string.ascii_lowercase + string.ascii_uppercase + string.digits
 
     allowed = allowed_symbols + allowed_letters
     if len(username) not in range(6, 20):
         raise CustomException(errors=[
             dict(Error(ErrorsCodes.USERNAME_INVALID_LENGTH))
         ])
-    elif username[0] not in allowed_letters or username[-1] == '.':
+    elif username[0] not in allowed_letters or username[0] in string.digits or username[-1] == '.':
         raise CustomException(errors=[
             dict(Error(ErrorsCodes.USERNAME_INVALID_SYMBOLS))
         ])

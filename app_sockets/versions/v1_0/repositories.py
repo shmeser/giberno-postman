@@ -1,4 +1,5 @@
 from channels.db import database_sync_to_async
+from django.contrib.postgres.aggregates import ArrayAgg
 
 from app_sockets.models import Socket
 from app_users.models import UserProfile
@@ -18,14 +19,13 @@ class SocketsRepository:
         )
 
     def remove_socket(self, socket_id):
-        Socket.objects.filter(socket_id=socket_id).delete()
+        Socket.objects.filter(user=self.me, socket_id=socket_id).delete()
 
     def check_if_connected(self, room_name=None, room_id=None):
         return Socket.objects.filter(user=self.me, room_name=room_name, room_id=room_id).exists()
 
-    def get_user_single_connection(self):
-        # Если вдруг несколько негрупповых соединений, то берем последнее посвежее
-        return Socket.objects.filter(user=self.me, room_id=None, room_name=None).last()
+    def get_user_connections(self, **kwargs):
+        return Socket.objects.filter(user=self.me, **kwargs)
 
 
 class AsyncSocketsRepository(SocketsRepository):
@@ -41,5 +41,11 @@ class AsyncSocketsRepository(SocketsRepository):
         super().remove_socket(socket_id)
 
     @database_sync_to_async
-    def check_if_connected(self, room_name=None, room_id=None):
-        return super().check_if_connected(room_name, room_id)
+    def get_connections_for_users(self, users, room_name=None, room_id=None):
+        return Socket.objects.filter(
+            user__in=users,
+            room_name=room_name,
+            room_id=room_id
+        ).aggregate(
+            connections=ArrayAgg('socket_id')
+        )['connections']
