@@ -145,9 +145,7 @@ class SingleVacancyActiveDatesForManagerListAPIView(BaseAPIView):
 class VacancyShiftsWithAppealsListForManagerAPIView(BaseAPIView):
     """
     Просмотр Списка откликнувшихся на вакансию со стороны менеджера
-    Параметры :
-    limit
-    offset
+    Параметры : current_date
     """
     permission_classes = [IsAuthenticated, IsManager]
 

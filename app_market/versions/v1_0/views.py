@@ -10,7 +10,8 @@ from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewM
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
-    ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer
+    ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
+    ShiftsWithAppealsSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
@@ -291,7 +292,7 @@ class VacancyShiftsWithAppealsListForManagerAPIView(CRUDAPIView):
     serializer_class = ShiftsWithAppealsSerializer
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
-    filter_params = {'shift': 'shift'}
+    filter_params = {}
     order_params = {}
 
     def get(self, request, **kwargs):
@@ -307,6 +308,7 @@ class VacancyShiftsWithAppealsListForManagerAPIView(CRUDAPIView):
 
         serialized = self.serializer_class(dataset, many=True, context={
             'me': request.user,
+            'current_date': current_date,
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)

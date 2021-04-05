@@ -5,6 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Avg
 from rest_framework import serializers
 
+from app_market.enums import ShiftAppealStatus
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category, ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
@@ -439,6 +440,29 @@ class ShiftAppealsSerializer(CRUDSerializer):
     class Meta:
         model = ShiftAppeal
         fields = '__all__'
+
+
+class ShiftsWithAppealsSerializer(CRUDSerializer):
+    appliers = serializers.SerializerMethodField()
+
+    def get_appliers(self, instance):
+        appliers = [appeal.applier for appeal in
+                    instance.appeals.filter(shift_active_date=self.context.get('current_date'))]
+        return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
+
+    confirmed_appliers = serializers.SerializerMethodField()
+
+    def get_confirmed_appliers(self, instance):
+        filtered_by_date = instance.appeals.filter(
+            status=ShiftAppealStatus.CONFIRMED,
+            shift_active_date=self.context.get('current_date')
+        )
+        appliers = [appeal.applier for appeal in filtered_by_date]
+        return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
+
+    class Meta:
+        model = Shift
+        fields = ['id', 'time_start', 'time_end', 'max_employees_count', 'appliers', 'confirmed_appliers']
 
 
 class ShiftsSerializer(CRUDSerializer):
