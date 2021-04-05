@@ -56,10 +56,10 @@ class Consumer(AsyncJsonWebsocketConsumer):
                 await self.socket_controller.update_location(content)
             elif content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
                 await self.socket_controller.client_message_to_chat(content)
-            elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
-                pass
-            elif content.get('eventType') == SocketEventType.READ_MESSAGE_IN_CHAT.value:
-                pass
+            # elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
+            #     pass
+            # elif content.get('eventType') == SocketEventType.READ_MESSAGE_IN_CHAT.value:
+            #     pass
             else:
                 await self.channel_layer.send(self.channel_name, {
                     'type': handler_type,
@@ -173,10 +173,10 @@ class GroupConsumer(Consumer):
         try:
             if content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
                 await self.socket_controller.client_message_to_chat(content)
-            elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
-                pass
-            elif content.get('eventType') == SocketEventType.READ_MESSAGE_IN_CHAT.value:
-                pass
+            # elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
+            #     pass
+            # elif content.get('eventType') == SocketEventType.READ_MESSAGE_IN_CHAT.value:
+            #     pass
             else:
                 await self.channel_layer.group_send(self.group_name, {
                     'type': handler_type,
