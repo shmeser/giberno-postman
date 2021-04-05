@@ -890,6 +890,17 @@ class ShiftAppealsRepository(MasterRepository):
         super().__init__()
         self.me = me
 
+    def get_or_create(self, **data):
+        data.update({'applier': self.me})
+        instance, created = self.model.objects.get_or_create(**data)
+        return instance
+
+    def delete(self, record_id):
+        instance = self.get_by_id(record_id=record_id)
+        if not instance.applier == self.me:
+            raise PermissionDenied()
+        instance.delete()
+
     def is_related_manager(self, instance):
         if instance.shift.vacancy.shop not in self.me.shops.all():
             raise PermissionDenied()

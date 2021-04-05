@@ -148,14 +148,6 @@ class Vacancy(BaseModel):
     reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
     likes = GenericRelation(Like, object_id_field='target_id', content_type_field='target_ct')
 
-    @property
-    def first_three_appliers(self):
-        return UserProfile.objects.filter(id__in=ShiftAppeal.objects.filter(shift__vacancy=self))[:3]
-
-    @property
-    def appliers_count(self):
-        return ShiftAppeal.objects.filter(shift__vacancy=self).count()
-
     def __str__(self):
         return f'{self.title}'
 
@@ -224,6 +216,7 @@ class Shift(BaseModel):
 class ShiftAppeal(BaseModel):
     applier = models.ForeignKey(to=UserProfile, on_delete=models.CASCADE)
     shift = models.ForeignKey(to=Shift, on_delete=models.CASCADE, related_name='appeals')
+    shift_active_date = models.DateTimeField(null=True, blank=True)
     status = models.PositiveIntegerField(choices=choices(ShiftAppealStatus), default=ShiftAppealStatus.INITIAL)
 
     class Meta:
