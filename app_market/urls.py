@@ -38,6 +38,8 @@ urlpatterns = [
 
     path('market/managers/vacancies', ActiveVacanciesWithAppliersByDateForManagerListAPIView.as_view()),
     path('market/managers/vacancies/<int:record_id>', VacancyByManagerRetrieveAPIView.as_view()),
+    path('market/managers/vacancies/<int:record_id>/appeals',
+         VacancyShiftsWithAppealsListForManagerAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
     path('market/managers/vacancies/active_dates', VacanciesActiveDatesForManagerListAPIView.as_view()),
