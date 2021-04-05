@@ -1,6 +1,7 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch, Count, Max
+from django.db.models import Prefetch, Count, Max, Field
+from django.db.models.functions.datetime import TruncBase
 from djangorestframework_camel_case.util import camelize
 
 from app_chats.models import Chat, Message, ChatUser
@@ -16,6 +17,13 @@ from backend.errors.enums import RESTErrors
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
+
+
+class TruncMilliecond(TruncBase):
+    """
+        Отсутствующий в Django класс для миллисекунд
+    """
+    kind = 'millisecond'
 
 
 class ChatsRepository(MasterRepository):
@@ -42,7 +50,10 @@ class ChatsRepository(MasterRepository):
 
         # Выражения для вычисляемых полей в annotate
         self.unread_count_expression = Count('id')
-        self.last_message_created_at_expression = Max('messages__created_at')
+        self.last_message_created_at_expression = Max(
+            # Округляем до миллисекунд, так как в бд DateTimeField хранит с точностью до МИКРОсекунд
+            TruncMilliecond('messages__created_at')
+        )
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.filter(users__in=[self.me]).annotate(
             unread_count=self.unread_count_expression,
