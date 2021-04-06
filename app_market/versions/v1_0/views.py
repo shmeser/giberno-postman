@@ -229,6 +229,7 @@ class ActiveVacanciesWithAppliersByDateForManagerListAPIView(CRUDAPIView):
         serialized = self.serializer_class(dataset, many=True, context={
             'me': request.user,
             'current_date': current_date,
+            'next_day': next_day,
             'headers': get_request_headers(request),
         })
 
