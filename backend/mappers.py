@@ -118,6 +118,13 @@ class RequestMapper:
                 django_order = '' if order == 'asc' else '-'
                 django_field = self.order_params[inflection.underscore(field)]
 
+                # Удаляем сортировку по умолчанию если сортировка по тому же полю
+                if django_field in self.default_order_params:
+                    self.default_order_params.remove(django_field)
+                if f'-{django_field}' in self.default_order_params:
+                    self.default_order_params.remove(f'-{django_field}')
+                ###
+
                 django_order_params.append(f'{django_order}{django_field}')
 
         return django_order_params + self.default_order_params

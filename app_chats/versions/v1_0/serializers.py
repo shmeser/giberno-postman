@@ -46,6 +46,7 @@ class ChatSerializer(ChatsSerializer):
             'id',
             'title',
             'created_at',
+            'unread_count',
             'last_message',
             'users'
         ]
