@@ -404,17 +404,28 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
         return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
 
     def get_max_count(self, instance):
-        return self.active_shifts(instance=instance).aggregate(Sum('max_employees_count')).get(
-            'max_employees_count__sum', 0)
+        queryset = self.active_shifts(instance=instance)
+        if queryset.count():
+            return queryset.aggregate(Sum('max_employees_count')).get('max_employees_count__sum', 0)
+        return 0
 
     def get_employees_count(self, instance):
-        return self.active_shifts(instance=instance).aggregate(Sum('employees_count')).get(
-            'employees_count__sum', 0)
+        queryset = self.active_shifts(instance=instance)
+        if queryset.count():
+            return queryset.aggregate(Sum('employees_count')).get('employees_count__sum', 0)
+        return 0
 
     def active_shifts(self, instance):
-        return instance.shift_set.filter(
-            appeals__shift_active_date=self.context.get('current_date')
-        )
+        active_shifts_ids_by_date = []
+        shifts = ShiftsRepository(
+            calendar_from=self.context.get('current_date'),
+            calendar_to=self.context.get('next_day')
+        ).filter_by_kwargs({'vacancy': instance})
+        for item in shifts:
+            if self.context.get('current_date') in item.active_dates:
+                active_shifts_ids_by_date.append(item.id)
+
+        return Shift.objects.filter(id__in=list(set(active_shifts_ids_by_date)))
 
     def active_appeals(self, instance):
         return ShiftAppeal.objects.filter(
