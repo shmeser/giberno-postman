@@ -204,6 +204,40 @@ class AsyncSocketController:
         except Exception as e:
             logger.error(e)
 
+    async def client_read_message_in_chat(self, content):
+        try:
+            room_id = self.consumer.room_id
+            group_name = self.consumer.group_name
+            if not room_id:
+                room_id = chained_get(content, 'chatId')
+                group_name = f'{AvailableRoom.CHATS.value}{room_id}'
+
+            if await self.check_permission_for_group_connection(**{
+                'room_name': AvailableRoom.CHATS.value,
+                'room_id': room_id
+            }):
+                # Обрабатываем полученное от клиента сообщение
+                processed_serialized_message = await AsyncMessagesRepository(
+                    me=self.consumer.scope['user']
+                ).save_client_message(
+                    chat_id=room_id,
+                    content=content,
+                )
+
+                # Отправялем сообщение автору сообщения о том что оно прочитано
+                await self.consumer.channel_layer.send(group_name, {
+                    'type': 'chat_message',
+                    'chat_id': room_id,
+                    'prepared_data': processed_serialized_message,
+                })
+            else:
+                await self.send_error(
+                    code=SocketErrors.FORBIDDEN.value, details='Действие запрещено'
+                )
+
+        except Exception as e:
+            logger.error(e)
+
 
 class SocketController:
     def __init__(self, me: UserProfile = None) -> None:
