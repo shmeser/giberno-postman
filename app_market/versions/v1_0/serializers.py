@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytz
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Avg
+from django.db.models import Avg, Sum
 from rest_framework import serializers
 
 from app_market.enums import ShiftAppealStatus
@@ -384,38 +384,47 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
 
     total_count = serializers.SerializerMethodField()
 
-    @staticmethod
-    def get_total_count(instance):
-        return instance.total_count
+    def get_total_count(self, instance):
+        return self.get_max_count(instance=instance)
 
     free_count = serializers.SerializerMethodField()
 
-    @staticmethod
-    def get_free_count(instance):
-        return instance.free_count
+    def get_free_count(self, instance):
+        return self.get_max_count(instance=instance) - self.get_employees_count(instance=instance)
 
     appliers_count = serializers.SerializerMethodField()
 
-    @staticmethod
-    def get_appliers_count(instance):
-        return ShiftAppeal.objects.filter(shift__vacancy=instance).count()
+    def get_appliers_count(self, instance):
+        return self.active_appeals(instance=instance).count()
 
     appliers = serializers.SerializerMethodField()
 
     def get_appliers(self, instance):
-        active_appliers_by_date = ShiftAppeal.objects.filter(
+        appliers = [appeal.applier for appeal in self.active_appeals(instance=instance)][:3]
+        return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
+
+    def get_max_count(self, instance):
+        return self.active_shifts(instance=instance).aggregate(Sum('max_employees_count')).get(
+            'max_employees_count__sum', 0)
+
+    def get_employees_count(self, instance):
+        return self.active_shifts(instance=instance).aggregate(Sum('employees_count')).get(
+            'employees_count__sum', 0)
+
+    def active_shifts(self, instance):
+        return instance.shift_set.filter(
+            appeals__shift_active_date=self.context.get('current_date')
+        )
+
+    def active_appeals(self, instance):
+        return ShiftAppeal.objects.filter(
             shift__vacancy=instance,
             shift_active_date=self.context.get('current_date')
-        ).values('applier')
-
-        appliers = UserProfile.objects.filter(
-            id__in=[item.get('applier') for item in active_appliers_by_date])[:3]
-
-        return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
+        )
 
     class Meta:
         model = Vacancy
-        exclude = ['created_at', 'updated_at', 'deleted']
+        fields = ['id', 'title', 'banner', 'total_count', 'free_count', 'appliers_count', 'appliers']
 
 
 class ShiftAppealCreateSerializer(CRUDSerializer):
