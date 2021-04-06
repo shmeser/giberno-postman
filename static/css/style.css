@@ -124,7 +124,7 @@ input, button {
     border: 1px solid #9a9a9a;
     border-radius: 5px;
     padding: 10px 10px;
-    font-size: 14px;
+    font-size: 13px;
     color: #54c3ce;
     height: 45px;
 }
@@ -277,8 +277,8 @@ input, button {
 }
 
 .message-type-button {
-    width: 100px;
-    margin-bottom: 10px;
+    width: 110px;
+    margin-bottom: 5px;
 }
 
 .outcomming {
