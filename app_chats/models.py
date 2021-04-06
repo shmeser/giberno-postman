@@ -72,7 +72,7 @@ class Message(BaseModel):
         verbose_name='Статус обработки сообщения с типом "FORM"'
     )
 
-    read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником')
+    read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником моего сообщения')
     command_data = models.JSONField(default=dict)
     uuid = models.UUIDField(default=uuid.uuid4)
 
@@ -83,3 +83,18 @@ class Message(BaseModel):
         db_table = 'app_chats__messages'
         verbose_name = 'Сообщение в чате'
         verbose_name_plural = 'Сообщения в чатах'
+
+
+class MessageStat(BaseModel):
+    user = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.SET_NULL)
+    message = models.ForeignKey(Message, null=True, blank=True, on_delete=models.SET_NULL, related_name='stats')
+
+    is_read = models.BooleanField(default=False, verbose_name='Прочитано')
+
+    def __str__(self):
+        return f'{self.message.text} - {self.user.username}'
+
+    class Meta:
+        db_table = 'app_chats__message_stat'
+        verbose_name = 'Состояние сообщения для пользователя'
+        verbose_name_plural = 'Состояния сообщений для пользователей'

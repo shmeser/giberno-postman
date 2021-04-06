@@ -1,6 +1,6 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch, Count, Max, Field
+from django.db.models import Prefetch, Count, Max, Lookup, Field
 from django.db.models.functions.datetime import TruncBase
 from djangorestframework_camel_case.util import camelize
 
@@ -273,6 +273,10 @@ class ChatsRepository(MasterRepository):
                     'sockets',
                 )
             )
+        ).select_related(
+            'subject_user'
+        ).prefetch_related(
+            'target'
         )
 
         return queryset
@@ -304,6 +308,32 @@ class AsyncChatsRepository(ChatsRepository):
         return True
 
 
+class CustomLookupBase(Lookup):
+    # Кастомный lookup
+    lookup_name = 'custom'
+    parametric_string = "%s <= %s AT TIME ZONE timezone"
+
+    def as_sql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+        return self.parametric_string % (lhs, rhs), params
+
+
+@Field.register_lookup
+class MSLteContains(CustomLookupBase):
+    # Кастомный lookup для фильтрации DateTime по миллисекундам (в бд записи с точностью до МИКРОсекунд)
+    lookup_name = 'ms_lte'
+    parametric_string = "DATE_TRUNC('millisecond', %s)::TIMESTAMPTZ <= %s"
+
+
+@Field.register_lookup
+class MSGteContains(CustomLookupBase):
+    # Кастомный lookup для фильтрации DateTime по миллисекундам (в бд записи с точностью до МИКРОсекунд)
+    lookup_name = 'ms_gte'
+    parametric_string = "DATE_TRUNC('millisecond', %s)::TIMESTAMPTZ >= %s"
+
+
 class MessagesRepository(MasterRepository):
     model = Message
 
@@ -312,7 +342,32 @@ class MessagesRepository(MasterRepository):
 
         self.me = me
         self.chat_id = chat_id
-        self.base_query = self.model.objects.filter(chat_id=self.chat_id)
+
+        # Выражения для вычисляемых полей в annotate
+        self.unread_count_expression = Count('id')
+        self.last_message_created_at_expression = Max(
+            # Округляем до миллисекунд, так как в бд DateTimeField хранит с точностью до МИКРОсекунд
+            TruncMilliecond('messages__created_at')
+        )
+        # Основная часть запроса, содержащая вычисляемые поля
+        self.base_query = self.model.objects.filter(
+            chat__users__in=[self.me],  # Должен быть в списке пользователей
+            chat_id=self.chat_id  # Сообщения искомого чата
+        )
+
+    def modify_kwargs(self, kwargs, order_by):
+
+        created_at = kwargs.pop('created_at', None)  # Неважно когда создан чат, важно - посл. сообщение
+
+        # Используем кастомные lookups ms_lte и ms_lte для точной фильтрации по DateTime
+        if '-created_at' in order_by and created_at:
+            kwargs.update({
+                'created_at__ms_lte': created_at
+            })
+        if 'created_at' in order_by and created_at:
+            kwargs.update({
+                'created_at__ms_gte': created_at
+            })
 
     @staticmethod
     def fast_related_loading(queryset, point=None):
@@ -348,6 +403,7 @@ class MessagesRepository(MasterRepository):
         return queryset
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        self.modify_kwargs(kwargs, order_by)
         records = self.base_query.exclude(deleted=True).filter(**kwargs)
         if order_by:
             records = records.order_by(*order_by)

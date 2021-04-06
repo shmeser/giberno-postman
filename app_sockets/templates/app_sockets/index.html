@@ -219,6 +219,14 @@
                 }, undefined, 4);
             }
 
+            if (eventType === _EVENT_TYPES.READ_MESSAGE_IN_CHAT) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "chatId": 1,
+                    "uuid": uuidv4()
+                }, undefined, 4);
+            }
+
         };
 
 
@@ -239,6 +247,7 @@
                                     <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.LEAVE_TOPIC})">Leave Topic</button>
                                     <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.LOCATION})">Location</button>
                                     <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.NEW_MESSAGE_TO_CHAT})">Message</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.READ_MESSAGE_IN_CHAT})">Read Message</button>
                                 </div>
                                 <button id="disconnect-${connectionId}" type="button" class="connection-button disconnect-button" onclick="disconnect(${connectionId});">Disconnect</button>
                             </div>
