@@ -405,11 +405,11 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
 
     def get_max_count(self, instance):
         return self.active_shifts(instance=instance).aggregate(Sum('max_employees_count')).get(
-            'max_employees_count__sum')
+            'max_employees_count__sum', 0)
 
     def get_employees_count(self, instance):
         return self.active_shifts(instance=instance).aggregate(Sum('employees_count')).get(
-            'employees_count__sum')
+            'employees_count__sum', 0)
 
     def active_shifts(self, instance):
         return instance.shift_set.filter(
