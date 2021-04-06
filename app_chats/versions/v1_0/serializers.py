@@ -14,6 +14,27 @@ class ChatsSerializer(CRUDSerializer):
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
     users = serializers.SerializerMethodField()
+    vacancy = serializers.SerializerMethodField()
+    shop = serializers.SerializerMethodField()
+    subject_user = serializers.SerializerMethodField()
+
+    def get_vacancy(self, data):
+        if data.target and data.target._meta.model_name == 'vacancy':
+            return {
+                'id': data.target.id,
+                'title': data.target.title,
+                'price': data.target.price
+            }
+
+    def get_shop(self, data):
+        if data.target and data.target._meta.model_name == 'shop':
+            return {
+                'id': data.target.id,
+                'title': data.target.title,
+            }
+
+    def get_subject_user(self, data):
+        return ChatSubjectUserSerializer(data.subject_user, many=False, context={'me': self.me}).data
 
     def get_users(self, data):
         return ChatProfileSerializer(data.users, many=True, context={'me': self.me}).data
@@ -35,7 +56,10 @@ class ChatsSerializer(CRUDSerializer):
             'created_at',
             'unread_count',
             'last_message',
-            'users'
+            'users',
+            'vacancy',
+            'shop',
+            'subject_user',
         ]
 
 
@@ -48,7 +72,10 @@ class ChatSerializer(ChatsSerializer):
             'created_at',
             'unread_count',
             'last_message',
-            'users'
+            'users',
+            'vacancy',
+            'shop',
+            'subject_user',
         ]
 
 
@@ -95,6 +122,18 @@ class ChatProfileSerializer(CRUDSerializer):
             "online",
             "is_me",
             "avatar"
+        ]
+
+
+class ChatSubjectUserSerializer(CRUDSerializer):
+    class Meta:
+        model = UserProfile
+        fields = [
+            "id",
+            "username",
+            "first_name",
+            "middle_name",
+            "last_name",
         ]
 
 

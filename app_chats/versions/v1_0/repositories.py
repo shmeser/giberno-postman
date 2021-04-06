@@ -273,6 +273,10 @@ class ChatsRepository(MasterRepository):
                     'sockets',
                 )
             )
+        ).select_related(
+            'subject_user'
+        ).prefetch_related(
+            'target'
         )
 
         return queryset
