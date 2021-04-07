@@ -6,9 +6,16 @@ from app_media.versions.v1_0.controllers import MediaController
 from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
+from backend.utils import chained_get
 
 
-class ChatsSerializer(CRUDSerializer):
+class ChatsSerializer(serializers.ModelSerializer):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.me = chained_get(kwargs, 'context', 'me')
+        self.unread_count = chained_get(kwargs, 'context', 'unread_count')
+
     created_at = DateTimeField()
 
     last_message = serializers.SerializerMethodField()
@@ -40,12 +47,16 @@ class ChatsSerializer(CRUDSerializer):
         return ChatProfileSerializer(data.users, many=True, context={'me': self.me}).data
 
     def get_last_message(self, data):
-        if data.last_message:
-            return LastMessagesSerializer(data.last_message[0], many=False).data
+        if data.prefetched_messages:
+            return LastMessagesSerializer(data.prefetched_messages[0], many=False).data
         else:
             return None
 
     def get_unread_count(self, data):
+        if self.unread_count:  # Данные из context, используется в сокетах для отправки нужных данных участникам чата
+            return self.unread_count
+        if getattr(data, 'unread_count', None):
+            return data.unread_count
         return 0
 
     class Meta:
@@ -152,6 +163,7 @@ class MessagesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = [
+            'id',
             'uuid',
             'user_id',
             'chat_id',

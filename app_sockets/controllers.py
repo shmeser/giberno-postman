@@ -153,20 +153,20 @@ class AsyncSocketController:
                 room_id = chained_get(content, 'chatId')
                 group_name = f'{AvailableRoom.CHATS.value}{room_id}'
 
-            if await self.check_permission_for_group_connection(**{
+            if await self.check_permission_for_group_connection(**{  # 3
                 'room_name': AvailableRoom.CHATS.value,
                 'room_id': room_id
             }):
                 # Обрабатываем полученное от клиента сообщение
-                processed_serialized_message = await AsyncMessagesRepository(
+                processed_serialized_message = await AsyncMessagesRepository(  # 5
                     me=self.consumer.scope['user']
                 ).save_client_message(
                     chat_id=room_id,
                     content=content,
                 )
-                processed_serialized_chat, chat_users = await AsyncChatsRepository(
+                processed_serialized_chats_with_sockets, chat_users = await AsyncChatsRepository(  # 9
                     me=self.consumer.scope['user']
-                ).get_client_chat(
+                ).get_chat_for_all_participants(
                     chat_id=room_id,
                 )
 
@@ -177,17 +177,16 @@ class AsyncSocketController:
                     'prepared_data': processed_serialized_message,
                 })
 
-                chat_users_connections = await AsyncSocketsRepository.get_connections_for_users(chat_users)
-
                 # Отправляем обновленные данные о чате всем участникам чата по сокетам
-                for connection_name in chat_users_connections:
-                    await self.consumer.channel_layer.send(connection_name, {
-                        'type': 'chat_info',
-                        'prepared_data': processed_serialized_chat,
-                    })
+                for data in processed_serialized_chats_with_sockets:
+                    for connection_name in data['sockets']:
+                        await self.consumer.channel_layer.send(connection_name, {
+                            'type': 'chat_info',
+                            'prepared_data': data['chat'],
+                        })
 
                 # Отправляем сообщение по пушам всем участникам чата
-                await AsyncPushController().send_message(
+                await AsyncPushController().send_message(  # 2
                     users_to_send=chat_users,
                     title='',
                     message=chained_get(content, 'text', default=''),
@@ -207,29 +206,29 @@ class AsyncSocketController:
     async def client_read_message_in_chat(self, content):
         try:
             room_id = self.consumer.room_id
-            group_name = self.consumer.group_name
             if not room_id:
                 room_id = chained_get(content, 'chatId')
-                group_name = f'{AvailableRoom.CHATS.value}{room_id}'
 
             if await self.check_permission_for_group_connection(**{
                 'room_name': AvailableRoom.CHATS.value,
                 'room_id': room_id
             }):
                 # Обрабатываем полученное от клиента сообщение
-                processed_serialized_message = await AsyncMessagesRepository(
+                processed_serialized_message, message_author = await AsyncMessagesRepository(
                     me=self.consumer.scope['user']
-                ).save_client_message(
+                ).read_client_message(
                     chat_id=room_id,
                     content=content,
                 )
-
-                # Отправялем сообщение автору сообщения о том что оно прочитано
-                await self.consumer.channel_layer.send(group_name, {
-                    'type': 'chat_message',
-                    'chat_id': room_id,
-                    'prepared_data': processed_serialized_message,
-                })
+                if message_author and message_author.id != self.consumer.scope['user'].id:
+                    # Если автор прочитаного сообщения не тот, кто его читает
+                    for connection in message_author.sockets:
+                        # Отправялем сообщение автору сообщения о том, что оно прочитано
+                        await self.consumer.channel_layer.send(connection.socket_id, {
+                            'type': 'chat_message',
+                            'chat_id': room_id,
+                            'prepared_data': processed_serialized_message,
+                        })
             else:
                 await self.send_error(
                     code=SocketErrors.FORBIDDEN.value, details='Действие запрещено'
