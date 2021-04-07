@@ -437,6 +437,31 @@ class MessagesRepository(MasterRepository):
 
         return queryset
 
+    @staticmethod
+    def fast_related_loading_sockets(queryset, point=None):
+        """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
+            -> Media (attachments)
+            -> User + Media
+        """
+        queryset = queryset.select_related(
+            'user',
+        ).prefetch_related(
+            # Подгрузка сокетов
+            'user__sockets',
+        ).prefetch_related(
+            # Подгрузка медиа для сообщений
+            Prefetch(
+                'attachments',
+                queryset=MediaModel.objects.filter(
+                    type=MediaType.ATTACHMENT.value,
+                    owner_ct_id=ContentType.objects.get_for_model(Message).id
+                ),
+                to_attr='medias'
+            )
+        )
+
+        return queryset
+
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs, order_by)
         records = self.base_query.exclude(deleted=True).filter(**kwargs)
@@ -482,12 +507,13 @@ class AsyncMessagesRepository(MessagesRepository):
         chat_with_last_msg_read = None
         last_msg = self.model.objects.filter(chat_id=chat_id).last()
 
-        message = self.model.objects.filter(
+        messages = self.model.objects.filter(
             chat_id=chat_id,
             uuid=content.get('uuid')
         ).exclude(
             user=self.me  # Не читаем свои сообщения
-        ).first()
+        )
+        message = MessagesRepository.fast_related_loading_sockets(messages).first()  #4
 
         data = None
         author = None
@@ -514,9 +540,7 @@ class AsyncMessagesRepository(MessagesRepository):
                     is_read=True
                 )
 
-            data = camelize(MessagesSerializer(message, many=False, context={
-                'me': message.user
-            }).data)
+            data = camelize(MessagesSerializer(message, many=False).data)
 
             if last_msg.id == message.id:
                 chat_with_last_msg_read = camelize(

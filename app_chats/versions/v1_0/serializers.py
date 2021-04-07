@@ -159,7 +159,8 @@ class MessagesSerializer(serializers.ModelSerializer):
         return MediaController(self.instance).get_related_media_urls(
             prefetched_data,
             MediaType.ATTACHMENT.value,
-            multiple=True
+            multiple=True,
+            only_prefetched=True
         )
 
     class Meta:
