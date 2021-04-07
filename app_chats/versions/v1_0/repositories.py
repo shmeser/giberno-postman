@@ -253,7 +253,7 @@ class ChatsRepository(MasterRepository):
             )
 
             prepared_data.append({
-                'sockets': list(user.sockets.all().values_list('socket_id', flat=True)),
+                'sockets': [s.socket_id for s in user.sockets.all()],
                 'chat': camelize(
                     ChatSerializer(record, many=False, context={
                         'me': user,
@@ -466,6 +466,7 @@ class AsyncMessagesRepository(MessagesRepository):
                 target_owner_id=message.id
             )
 
+        # TODO сделать prefetch для attachments
         return camelize(MessagesSerializer(message, many=False).data)
 
     @database_sync_to_async

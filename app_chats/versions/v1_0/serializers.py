@@ -114,7 +114,9 @@ class ChatProfileSerializer(CRUDSerializer):
     is_me = serializers.SerializerMethodField()
 
     def get_avatar(self, prefetched_data):
-        return MediaController(self.instance).get_related_images_urls(prefetched_data, MediaType.AVATAR.value)
+        return MediaController(self.instance).get_related_images_urls(
+            prefetched_data, MediaType.AVATAR.value, only_prefetched=True
+        )
 
     def get_online(self, data):
         return data.sockets.count() > 0
