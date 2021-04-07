@@ -214,21 +214,29 @@ class AsyncSocketController:
                 'room_id': room_id
             }):
                 # Обрабатываем полученное от клиента сообщение
-                processed_serialized_message, message_author = await AsyncMessagesRepository(
-                    me=self.consumer.scope['user']
-                ).read_client_message(
-                    chat_id=room_id,
-                    content=content,
-                )
+                processed_serialized_message, message_author, author_sockets, chat_with_last_msg_read = \
+                    await AsyncMessagesRepository(
+                        me=self.consumer.scope['user']
+                    ).read_client_message(
+                        chat_id=room_id,
+                        content=content,
+                    )
                 if message_author and message_author.id != self.consumer.scope['user'].id:
                     # Если автор прочитаного сообщения не тот, кто его читает
-                    for connection in message_author.sockets:
+                    for socket_id in author_sockets:
                         # Отправялем сообщение автору сообщения о том, что оно прочитано
-                        await self.consumer.channel_layer.send(connection.socket_id, {
-                            'type': 'chat_message',
+                        await self.consumer.channel_layer.send(socket_id, {
+                            'type': 'chat_message_updated',
                             'chat_id': room_id,
                             'prepared_data': processed_serialized_message,
                         })
+
+                        # Если прочитанное сообщение последнее в чате, то отправляем автору сообщения обновленный чат
+                        if chat_with_last_msg_read:
+                            await self.consumer.channel_layer.send(socket_id, {
+                                'type': 'chat_info',
+                                'prepared_data': chat_with_last_msg_read,
+                            })
             else:
                 await self.send_error(
                     code=SocketErrors.FORBIDDEN.value, details='Действие запрещено'

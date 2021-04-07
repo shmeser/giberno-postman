@@ -1,6 +1,6 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch, Count, Max, Lookup, Field
+from django.db.models import Prefetch, Count, Max, Lookup, Field, Q
 from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
@@ -50,7 +50,15 @@ class ChatsRepository(MasterRepository):
         # TODO без указания target, создаем чат p2p
 
         # Выражения для вычисляемых полей в annotate
-        self.unread_count_expression = Count('id')
+        # self.unread_count_expression = Count('messages_stats', filter=Q(messages_stats__user=self.me))
+        self.unread_count_expression = Count(
+            'messages',
+            filter=~Q(messages__user=self.me)  # Отсекаем свои сообщения в чате остаются только чужие
+        ) - Count(
+            'messages',
+            filter=~Q(messages__user=self.me) &  # Отсекаем свои сообщения в чате, остаются только чужие
+                   Q(messages__stats__user=self.me, messages__stats__is_read=True)  # только те, что я прочитал
+        )
         self.last_message_created_at_expression = Max(
             # Округляем до миллисекунд, так как в бд DateTimeField хранит с точностью до МИКРОсекунд
             TruncMilliecond('messages__created_at')
@@ -471,6 +479,9 @@ class AsyncMessagesRepository(MessagesRepository):
 
     @database_sync_to_async
     def read_client_message(self, chat_id, content):
+        chat_with_last_msg_read = None
+        last_msg = self.model.objects.filter(chat_id=chat_id).last()
+
         message = self.model.objects.filter(
             chat_id=chat_id,
             uuid=content.get('uuid')
@@ -480,9 +491,11 @@ class AsyncMessagesRepository(MessagesRepository):
 
         data = None
         author = None
+        author_sockets = []
 
         if message:
             author = message.user
+            author_sockets = [s.socket_id for s in author.sockets.all()]
             message.read_at = now()
             message.save()
 
@@ -505,4 +518,11 @@ class AsyncMessagesRepository(MessagesRepository):
                 'me': message.user
             }).data)
 
-        return data, author
+            if last_msg.id == message.id:
+                chat_with_last_msg_read = camelize(
+                    ChatSerializer(ChatsRepository(me=author).get_by_id(chat_id), many=False, context={
+                        'me': author,
+                    }).data
+                )
+
+        return data, author, author_sockets, chat_with_last_msg_read

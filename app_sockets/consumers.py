@@ -114,6 +114,16 @@ class Consumer(AsyncJsonWebsocketConsumer):
             },
         )
 
+    # Сообщение в чате обновлено
+    async def chat_message_updated(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_MESSAGE_IN_CHAT_UPDATED.value,
+                'chatId': data.get('chat_id'),
+                'message': data.get('prepared_data')
+            },
+        )
+
     # Информация о чате
     async def chat_info(self, data):
         await self.send_json(
