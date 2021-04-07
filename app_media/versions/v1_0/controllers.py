@@ -12,30 +12,36 @@ class MediaController:
         self.instance = model_instance
         self.mime_type = mime_type
 
-    def get_related_images(self, prefetched_data, media_type, multiple=False):
+    def get_related_images(self, prefetched_data, media_type, multiple=False, only_prefetched=False):
         empty = [] if multiple else None
         files = MediaRepository.get_related_media(
             self.instance, prefetched_data, media_type, MediaFormat.IMAGE.value, mime_type=self.mime_type,
-            multiple=multiple
+            multiple=multiple,
+            only_prefetched=only_prefetched,
         )
         return MediaSerializer(files, many=multiple).data if files else empty
 
-    def get_related_images_urls(self, prefetched_data, media_type, multiple=False):
+    def get_related_images_urls(self, prefetched_data, media_type, multiple=False, only_prefetched=False):
         """ Облегченная версия изображения, только ссылка на превью """
         empty = [] if multiple else None
         file = MediaRepository.get_related_media(
             self.instance, prefetched_data, media_type, MediaFormat.IMAGE.value, mime_type=self.mime_type,
-            multiple=multiple
+            multiple=multiple,
+            only_prefetched=only_prefetched,
         )
         return MediaUrlsSerializer(file, many=multiple).data if file else empty
 
-    def get_related_media(self, prefetched_data, media_type, multiple=False):
+    def get_related_media(self, prefetched_data, media_type, multiple=False, only_prefetched=False):
         empty = [] if multiple else None
-        file = MediaRepository.get_related_media(self.instance, prefetched_data, media_type, multiple=multiple)
+        file = MediaRepository.get_related_media(
+            self.instance, prefetched_data, media_type, multiple=multiple, only_prefetched=only_prefetched
+        )
         return MediaSerializer(file, many=multiple).data if file else empty
 
-    def get_related_media_urls(self, prefetched_data, media_type, multiple=False):
+    def get_related_media_urls(self, prefetched_data, media_type, multiple=False, only_prefetched=False):
         """ Облегченная версия файла только ссылка на файл """
         empty = [] if multiple else None
-        file = MediaRepository.get_related_media(self.instance, prefetched_data, media_type, multiple=multiple)
+        file = MediaRepository.get_related_media(
+            self.instance, prefetched_data, media_type, multiple=multiple, only_prefetched=only_prefetched
+        )
         return MediaUrlsSerializer(file, many=multiple).data if file else empty

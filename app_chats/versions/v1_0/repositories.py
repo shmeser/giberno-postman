@@ -1,10 +1,11 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch, Count, Max, Lookup, Field
+from django.db.models import Prefetch, Count, Max, Lookup, Field, Q
 from django.db.models.functions.datetime import TruncBase
+from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
 
-from app_chats.models import Chat, Message, ChatUser
+from app_chats.models import Chat, Message, ChatUser, MessageStat
 from app_chats.versions.v1_0.serializers import MessagesSerializer, ChatSerializer
 from app_market.models import Shop, Vacancy
 from app_media.enums import MediaType, MediaFormat
@@ -49,7 +50,15 @@ class ChatsRepository(MasterRepository):
         # TODO без указания target, создаем чат p2p
 
         # Выражения для вычисляемых полей в annotate
-        self.unread_count_expression = Count('id')
+        # self.unread_count_expression = Count('messages_stats', filter=Q(messages_stats__user=self.me))
+        self.unread_count_expression = Count(
+            'messages',
+            filter=~Q(messages__user=self.me)  # Отсекаем свои сообщения в чате остаются только чужие
+        ) - Count(
+            'messages',
+            filter=~Q(messages__user=self.me) &  # Отсекаем свои сообщения в чате, остаются только чужие
+                   Q(messages__stats__user=self.me, messages__stats__is_read=True)  # только те, что я прочитал
+        )
         self.last_message_created_at_expression = Max(
             # Округляем до миллисекунд, так как в бд DateTimeField хранит с точностью до МИКРОсекунд
             TruncMilliecond('messages__created_at')
@@ -57,7 +66,7 @@ class ChatsRepository(MasterRepository):
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.filter(users__in=[self.me]).annotate(
             unread_count=self.unread_count_expression,
-            last_message_created_at=self.last_message_created_at_expression
+            last_message_created_at=self.last_message_created_at_expression  # Нужен для сортировки и фильтрации чатов
         )
 
     def modify_kwargs(self, kwargs, order_by):
@@ -221,22 +230,47 @@ class ChatsRepository(MasterRepository):
         )
 
     def get_by_id(self, record_id):
-        record = self.base_query.filter(id=record_id)
-        record = self.fast_related_loading(record).first()
+        records = self.base_query.filter(id=record_id)
+        record = self.fast_related_loading(records).first()
         if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
         return record
 
-    def get_client_chat(self, record_id):
-        record = self.base_query.filter(id=record_id)
+    def get_chat_for_all_participants(self, record_id):
+        """ Возвращает массив сериализованных чатов и сокеты для каждого участника, самих участников """
+        record = self.model.objects.filter(users__in=[self.me], id=record_id)
         record = self.fast_related_loading(record).first()
         if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
-        return camelize(ChatSerializer(record, many=False, context={'me': self.me}).data), record.users.all()
+
+        prepared_data = []
+        users = record.users.all()
+        for user in users:
+            all_other_messages = len(
+                list(filter(lambda x, u=user: x.user_id == u.id, record.prefetched_messages))
+            )
+            all_other_messages_read = len(
+                list(filter(lambda x, u=user:
+                            x.user_id == u.id and getattr(x, 'stats', None) and x.stats.is_read,
+                            record.prefetched_messages
+                            ))
+            )
+
+            prepared_data.append({
+                'sockets': [s.socket_id for s in user.sockets.all()],
+                'chat': camelize(
+                    ChatSerializer(record, many=False, context={
+                        'me': user,
+                        'unread_count': all_other_messages - all_other_messages_read
+                    }).data
+                )
+            })
+
+        return prepared_data, users
 
     @staticmethod
     def fast_related_loading(queryset, point=None):
@@ -246,13 +280,14 @@ class ChatsRepository(MasterRepository):
                 -> Media + Sockets
         """
         queryset = queryset.prefetch_related(
-            # Подгрузка медиа для сообщений
+            # Подгрузка сообщений
             Prefetch(
                 'messages',
-                queryset=Message.objects.order_by('-id'),
-                to_attr='last_message'
+                queryset=Message.objects.select_related('stats').order_by('-id'),
+                to_attr='prefetched_messages'
             )
         ).prefetch_related(
+            # Подгрузка участников чата
             Prefetch(
                 'users',
                 queryset=UserProfile.objects.filter(
@@ -267,9 +302,9 @@ class ChatsRepository(MasterRepository):
                             format=MediaFormat.IMAGE.value
                         ),
                         to_attr='medias'
-                    )
+                    ),
                 ).prefetch_related(
-                    # Подгрузка сокетов
+                    # Подгрузка сокетов для определения online|offline
                     'sockets',
                 )
             )
@@ -292,8 +327,8 @@ class AsyncChatsRepository(ChatsRepository):
         return super().get_by_id(record_id)
 
     @database_sync_to_async
-    def get_client_chat(self, chat_id):
-        return super().get_client_chat(chat_id)
+    def get_chat_for_all_participants(self, chat_id):
+        return super().get_chat_for_all_participants(chat_id)
 
     @database_sync_to_async
     def check_connection_to_group(self, record_id):
@@ -402,6 +437,31 @@ class MessagesRepository(MasterRepository):
 
         return queryset
 
+    @staticmethod
+    def fast_related_loading_sockets(queryset, point=None):
+        """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
+            -> Media (attachments)
+            -> User + Media
+        """
+        queryset = queryset.select_related(
+            'user',
+        ).prefetch_related(
+            # Подгрузка сокетов
+            'user__sockets',
+        ).prefetch_related(
+            # Подгрузка медиа для сообщений
+            Prefetch(
+                'attachments',
+                queryset=MediaModel.objects.filter(
+                    type=MediaType.ATTACHMENT.value,
+                    owner_ct_id=ContentType.objects.get_for_model(Message).id
+                ),
+                to_attr='medias'
+            )
+        )
+
+        return queryset
+
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs, order_by)
         records = self.base_query.exclude(deleted=True).filter(**kwargs)
@@ -439,4 +499,54 @@ class AsyncMessagesRepository(MessagesRepository):
                 target_owner_id=message.id
             )
 
+        # TODO сделать prefetch для attachments
         return camelize(MessagesSerializer(message, many=False).data)
+
+    @database_sync_to_async
+    def read_client_message(self, chat_id, content):
+        chat_with_last_msg_read = None
+        last_msg = self.model.objects.filter(chat_id=chat_id).last()
+
+        messages = self.model.objects.filter(
+            chat_id=chat_id,
+            uuid=content.get('uuid')
+        ).exclude(
+            user=self.me  # Не читаем свои сообщения
+        )
+        message = MessagesRepository.fast_related_loading_sockets(messages).first()  #4
+
+        data = None
+        author = None
+        author_sockets = []
+
+        if message:
+            author = message.user
+            author_sockets = [s.socket_id for s in author.sockets.all()]
+            message.read_at = now()
+            message.save()
+
+            stat = MessageStat.objects.filter(
+                message=message,
+                user=self.me
+            ).first()
+
+            if stat:
+                stat.is_read = True
+                stat.save()
+            else:
+                MessageStat.objects.create(
+                    message=message,
+                    user=self.me,
+                    is_read=True
+                )
+
+            data = camelize(MessagesSerializer(message, many=False).data)
+
+            if last_msg.id == message.id:
+                chat_with_last_msg_read = camelize(
+                    ChatSerializer(ChatsRepository(me=author).get_by_id(chat_id), many=False, context={
+                        'me': author,
+                    }).data
+                )
+
+        return data, author, author_sockets, chat_with_last_msg_read
