@@ -183,6 +183,7 @@ class AsyncSocketController:
                         await self.consumer.channel_layer.send(connection_name, {
                             'type': 'chat_last_msg_updated',
                             'prepared_data': {
+                                'id': room_id,
                                 'unreadCount': chained_get(data, 'chat', 'unreadCount'),
                                 'lastMessage': processed_serialized_message
                             },
@@ -216,31 +217,46 @@ class AsyncSocketController:
                 'room_name': AvailableRoom.CHATS.value,
                 'room_id': room_id
             }):
-                # Обрабатываем полученное от клиента сообщение
-                processed_serialized_message, message_author, author_sockets, should_send_read_event, unread_count = \
+                # Обрабатываем полученные от клиента данные
+                owner_prepared_msg, owner, owner_sockets, should_response_owner, owner_unread_cnt, my_unread_cnt = \
                     await AsyncMessagesRepository(
                         me=self.consumer.scope['user']
-                    ).read_client_message(
+                    ).client_read_message(
                         chat_id=room_id,
                         content=content,
                     )
-                if message_author and message_author.id != self.consumer.scope['user'].id and should_send_read_event:
+
+                # Отправялем ответ на свой запрос с числом непрочитанных сообщений в чате
+                if my_unread_cnt is not None:
+                    await self.consumer.channel_layer.send(self.consumer.channel_name, {
+                        'type': 'chat_message_was_read',
+                        'chat': {
+                            'id': room_id,
+                            'unreadCount': my_unread_cnt,
+                        },
+                        'message': {
+                            'uuid': chained_get(content, 'uuid'),
+                        }
+                    })
+
+                if owner and owner.id != self.consumer.scope['user'].id and should_response_owner:
                     # Если автор прочитаного сообщения не тот, кто его читает, и сообщение ранее не читали
-                    for socket_id in author_sockets:
+                    for socket_id in owner_sockets:
                         # Отправялем сообщение автору сообщения о том, что оно прочитано
                         await self.consumer.channel_layer.send(socket_id, {
                             'type': 'chat_message_updated',
                             'chat_id': room_id,
-                            'prepared_data': processed_serialized_message,
+                            'prepared_data': owner_prepared_msg,
                         })
 
                         # Если прочитанное сообщение последнее в чате, то отправляем автору SERVER_CHAT_LAST_MSG_UPDATED
-                        if unread_count is not None:
+                        if owner_unread_cnt is not None:
                             await self.consumer.channel_layer.send(socket_id, {
                                 'type': 'chat_last_msg_updated',
                                 'prepared_data': {
-                                    'unreadCount': unread_count,
-                                    'lastMessage': processed_serialized_message
+                                    'id': room_id,
+                                    'unreadCount': owner_unread_cnt,
+                                    'lastMessage': owner_prepared_msg
                                 },
                             })
             else:

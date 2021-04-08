@@ -109,7 +109,9 @@ class Consumer(AsyncJsonWebsocketConsumer):
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_NEW_MESSAGE_IN_CHAT.value,
-                'chatId': data.get('chat_id'),
+                'chat': {
+                    'id': data.get('chat_id')
+                },
                 'message': data.get('prepared_data')
             },
         )
@@ -118,8 +120,10 @@ class Consumer(AsyncJsonWebsocketConsumer):
     async def chat_message_updated(self, data):
         await self.send_json(
             {
-                'eventType': SocketEventType.SERVER_MESSAGE_IN_CHAT_UPDATED.value,
-                'chatId': data.get('chat_id'),
+                'eventType': SocketEventType.SERVER_CHAT_MESSAGE_UPDATED.value,
+                'chat': {
+                    'id': data.get('chat_id')
+                },
                 'message': data.get('prepared_data')
             },
         )
@@ -128,8 +132,18 @@ class Consumer(AsyncJsonWebsocketConsumer):
     async def chat_last_msg_updated(self, data):
         await self.send_json(
             {
-                'eventType': SocketEventType.SERVER_CHAT_LAST_MSG_UPDATED.value,
+                'eventType': SocketEventType.SERVER_CHAT_LAST_MESSAGE_UPDATED.value,
                 'chat': data.get('prepared_data')
+            },
+        )
+
+    # Сообщение чата прочитано
+    async def chat_message_was_read(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_MESSAGE_WAS_READ.value,
+                'chat': data.get('chat'),
+                'message': data.get('message')
             },
         )
 

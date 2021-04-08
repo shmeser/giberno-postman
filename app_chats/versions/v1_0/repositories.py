@@ -507,11 +507,12 @@ class AsyncMessagesRepository(MessagesRepository):
         return camelize(MessagesSerializer(message, many=False).data)
 
     @database_sync_to_async
-    def read_client_message(self, chat_id, content):
+    def client_read_message(self, chat_id, content):
         serialized_message = None
-        author = None
-        unread_count = None
-        should_send_read_event = False
+        msg_owner = None
+        owner_unread_count = None
+        my_unread_count = None
+        should_response_owner = False
         author_sockets = []
 
         last_msg = self.model.objects.filter(chat_id=chat_id).last()
@@ -525,13 +526,13 @@ class AsyncMessagesRepository(MessagesRepository):
         message = MessagesRepository.fast_related_loading_sockets(messages).first()  # 4
 
         if message:
-            author = message.user
-            author_sockets = [s.socket_id for s in author.sockets.all()]
+            msg_owner = message.user
+            author_sockets = [s.socket_id for s in msg_owner.sockets.all()]
 
             if not message.read_at:  # Если сообщение ранее никем не прочитано
                 message.read_at = now()
                 message.save()
-                should_send_read_event = True
+                should_response_owner = True
 
             stat = MessageStat.objects.filter(
                 message=message,
@@ -549,12 +550,15 @@ class AsyncMessagesRepository(MessagesRepository):
                     is_read=True
                 )
 
+            # Количество непрочитанных сообщений в чате для себя
+            my_unread_count = ChatsRepository(me=self.me).get_chat_unread_count(chat_id)
+
             serialized_message = camelize(MessagesSerializer(message, many=False).data)
 
-            if last_msg.id == message.id and should_send_read_event:
+            if last_msg.id == message.id and should_response_owner:
                 # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
                 # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
                 # по unread_count
-                unread_count = ChatsRepository(me=author).get_chat_unread_count(chat_id)
+                owner_unread_count = ChatsRepository(me=msg_owner).get_chat_unread_count(chat_id)
 
-        return serialized_message, author, author_sockets, should_send_read_event, unread_count
+        return serialized_message, msg_owner, author_sockets, should_response_owner, owner_unread_count, my_unread_count
