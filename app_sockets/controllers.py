@@ -181,8 +181,11 @@ class AsyncSocketController:
                 for data in processed_serialized_chats_with_sockets:
                     for connection_name in data['sockets']:
                         await self.consumer.channel_layer.send(connection_name, {
-                            'type': 'chat_info',
-                            'prepared_data': data['chat'],
+                            'type': 'chat_last_msg_updated',
+                            'prepared_data': {
+                                'unreadCount': chained_get(data, 'chat', 'unreadCount'),
+                                'lastMessage': processed_serialized_message
+                            },
                         })
 
                 # Отправляем сообщение по пушам всем участникам чата
@@ -214,15 +217,15 @@ class AsyncSocketController:
                 'room_id': room_id
             }):
                 # Обрабатываем полученное от клиента сообщение
-                processed_serialized_message, message_author, author_sockets, chat_with_last_msg_read = \
+                processed_serialized_message, message_author, author_sockets, should_send_read_event, unread_count = \
                     await AsyncMessagesRepository(
                         me=self.consumer.scope['user']
                     ).read_client_message(
                         chat_id=room_id,
                         content=content,
                     )
-                if message_author and message_author.id != self.consumer.scope['user'].id:
-                    # Если автор прочитаного сообщения не тот, кто его читает
+                if message_author and message_author.id != self.consumer.scope['user'].id and should_send_read_event:
+                    # Если автор прочитаного сообщения не тот, кто его читает, и сообщение ранее не читали
                     for socket_id in author_sockets:
                         # Отправялем сообщение автору сообщения о том, что оно прочитано
                         await self.consumer.channel_layer.send(socket_id, {
@@ -231,11 +234,14 @@ class AsyncSocketController:
                             'prepared_data': processed_serialized_message,
                         })
 
-                        # Если прочитанное сообщение последнее в чате, то отправляем автору сообщения обновленный чат
-                        if chat_with_last_msg_read:
+                        # Если прочитанное сообщение последнее в чате, то отправляем автору SERVER_CHAT_LAST_MSG_UPDATED
+                        if unread_count is not None:
                             await self.consumer.channel_layer.send(socket_id, {
-                                'type': 'chat_info',
-                                'prepared_data': chat_with_last_msg_read,
+                                'type': 'chat_last_msg_updated',
+                                'prepared_data': {
+                                    'unreadCount': unread_count,
+                                    'lastMessage': processed_serialized_message
+                                },
                             })
             else:
                 await self.send_error(

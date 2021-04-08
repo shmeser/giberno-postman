@@ -166,7 +166,6 @@ class MessagesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = [
-            'id',
             'uuid',
             'user_id',
             'chat_id',

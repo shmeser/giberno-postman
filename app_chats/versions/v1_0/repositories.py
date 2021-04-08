@@ -238,6 +238,10 @@ class ChatsRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
         return record
 
+    def get_chat_unread_count(self, record_id):
+        record = self.base_query.filter(id=record_id).first()
+        return record.unread_count if record else None
+
     def get_chat_for_all_participants(self, record_id):
         """ Возвращает массив сериализованных чатов и сокеты для каждого участника, самих участников """
         record = self.model.objects.filter(users__in=[self.me], id=record_id)
@@ -504,7 +508,12 @@ class AsyncMessagesRepository(MessagesRepository):
 
     @database_sync_to_async
     def read_client_message(self, chat_id, content):
-        chat_with_last_msg_read = None
+        serialized_message = None
+        author = None
+        unread_count = None
+        should_send_read_event = False
+        author_sockets = []
+
         last_msg = self.model.objects.filter(chat_id=chat_id).last()
 
         messages = self.model.objects.filter(
@@ -513,17 +522,16 @@ class AsyncMessagesRepository(MessagesRepository):
         ).exclude(
             user=self.me  # Не читаем свои сообщения
         )
-        message = MessagesRepository.fast_related_loading_sockets(messages).first()  #4
-
-        data = None
-        author = None
-        author_sockets = []
+        message = MessagesRepository.fast_related_loading_sockets(messages).first()  # 4
 
         if message:
             author = message.user
             author_sockets = [s.socket_id for s in author.sockets.all()]
-            message.read_at = now()
-            message.save()
+
+            if not message.read_at:  # Если сообщение ранее никем не прочитано
+                message.read_at = now()
+                message.save()
+                should_send_read_event = True
 
             stat = MessageStat.objects.filter(
                 message=message,
@@ -531,8 +539,9 @@ class AsyncMessagesRepository(MessagesRepository):
             ).first()
 
             if stat:
-                stat.is_read = True
-                stat.save()
+                if not stat.is_read:  # Не читаем заново от имени своего пользователя = не делаем лишний запрос на save
+                    stat.is_read = True
+                    stat.save()
             else:
                 MessageStat.objects.create(
                     message=message,
@@ -540,13 +549,12 @@ class AsyncMessagesRepository(MessagesRepository):
                     is_read=True
                 )
 
-            data = camelize(MessagesSerializer(message, many=False).data)
+            serialized_message = camelize(MessagesSerializer(message, many=False).data)
 
-            if last_msg.id == message.id:
-                chat_with_last_msg_read = camelize(
-                    ChatSerializer(ChatsRepository(me=author).get_by_id(chat_id), many=False, context={
-                        'me': author,
-                    }).data
-                )
+            if last_msg.id == message.id and should_send_read_event:
+                # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
+                # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
+                # по unread_count
+                unread_count = ChatsRepository(me=author).get_chat_unread_count(chat_id)
 
-        return data, author, author_sockets, chat_with_last_msg_read
+        return serialized_message, author, author_sockets, should_send_read_event, unread_count
