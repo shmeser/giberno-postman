@@ -57,7 +57,7 @@ class ChatUser(BaseModel):
 
 
 class Message(BaseModel):
-    user = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.SET_NULL)
+    user = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.SET_NULL, related_name='messages')
     chat = models.ForeignKey(Chat, null=True, blank=True, on_delete=models.SET_NULL, related_name='messages')
 
     title = models.CharField(max_length=255, null=True, blank=True)
@@ -88,7 +88,7 @@ class Message(BaseModel):
 class MessageStat(BaseModel):
     user = models.ForeignKey(UserProfile, null=True, blank=True, on_delete=models.SET_NULL,
                              related_name='interacted_messages')
-    message = models.OneToOneField(Message, null=True, blank=True, on_delete=models.SET_NULL, related_name='stats')
+    message = models.ForeignKey(Message, null=True, blank=True, on_delete=models.SET_NULL, related_name='stats')
     chat = models.ForeignKey(Chat, null=True, blank=True, on_delete=models.SET_NULL, related_name='messages_stats')
 
     is_read = models.BooleanField(default=False, verbose_name='Прочитано')

@@ -18,6 +18,7 @@ from backend.errors.enums import RESTErrors
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
+from backend.utils import chained_get
 
 
 class TruncMilliecond(TruncBase):
@@ -225,6 +226,7 @@ class ChatsRepository(MasterRepository):
         if order_by:
             records = records.order_by(*order_by)
 
+        records = self.prefetch_first_unread_message(records)
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
@@ -239,13 +241,24 @@ class ChatsRepository(MasterRepository):
         return record
 
     def get_chat_unread_count(self, record_id):
-        record = self.base_query.filter(id=record_id).first()
-        return record.unread_count if record else None
+        records = self.base_query.filter(id=record_id)
+        records = self.prefetch_first_unread_message(records)
+        record = records.first()
+        return record.unread_count, record.first_unread_message if record else None, None
+
+    @staticmethod
+    def get_chat_unread_count_for_all_participants(chat, users):
+        # TODO
+        return {
+            'user1': 1,
+        }
 
     def get_chat_for_all_participants(self, record_id):
-        """ Возвращает массив сериализованных чатов и сокеты для каждого участника, самих участников """
-        record = self.model.objects.filter(users__in=[self.me], id=record_id)
-        record = self.fast_related_loading(record).first()
+        """ Возвращает массив сериализованных чатов и сокеты для каждого участника, и самих участников """
+        records = self.model.objects.filter(users__in=[self.me], id=record_id)
+        records = self.fast_related_loading(records)
+        record = records.first()
+
         if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
@@ -253,23 +266,16 @@ class ChatsRepository(MasterRepository):
 
         prepared_data = []
         users = record.users.all()
-        for user in users:
-            all_other_messages = len(
-                list(filter(lambda x, u=user: x.user_id == u.id, record.prefetched_messages))
-            )
-            all_other_messages_read = len(
-                list(filter(lambda x, u=user:
-                            x.user_id == u.id and getattr(x, 'stats', None) and x.stats.is_read,
-                            record.prefetched_messages
-                            ))
-            )
 
+        unread_counts_dict = self.get_chat_unread_count_for_all_participants(record, users)
+
+        for user in users:
             prepared_data.append({
                 'sockets': [s.socket_id for s in user.sockets.all()],
                 'chat': camelize(
                     ChatSerializer(record, many=False, context={
                         'me': user,
-                        'unread_count': all_other_messages - all_other_messages_read
+                        'unread_count': chained_get(unread_counts_dict, f'user{user.id}', default=None)
                     }).data
                 )
             })
@@ -284,11 +290,13 @@ class ChatsRepository(MasterRepository):
                 -> Media + Sockets
         """
         queryset = queryset.prefetch_related(
-            # Подгрузка сообщений
+            # Подгрузка последних сообщений #
             Prefetch(
                 'messages',
-                queryset=Message.objects.select_related('stats').order_by('-id'),
-                to_attr='prefetched_messages'
+                queryset=Message.objects.prefetch_related('stats').order_by(
+                    'chat_id', '-id'  # Сортируем по ид по убыванию, чтоб в distinct попали последние сообщения
+                ).distinct('chat_id'),  # Нужно по 1 последнему сообщению для каждого чата
+                to_attr='last_messages'
             )
         ).prefetch_related(
             # Подгрузка участников чата
@@ -304,7 +312,7 @@ class ChatsRepository(MasterRepository):
                             type=MediaType.AVATAR.value,
                             owner_ct_id=ContentType.objects.get_for_model(UserProfile).id,
                             format=MediaFormat.IMAGE.value
-                        ),
+                        ).order_by('-created_at'),  # Сортировка по дате обязательно
                         to_attr='medias'
                     ),
                 ).prefetch_related(
@@ -319,6 +327,26 @@ class ChatsRepository(MasterRepository):
         )
 
         return queryset
+
+    def prefetch_first_unread_message(self, queryset):
+        # Подгружаем первое непрочитанное сообщение чатов для 1 пользователя, делающего запрос
+        return queryset.prefetch_related(
+            Prefetch(
+                'messages',
+                queryset=Message.objects.exclude(
+                    Q(
+                        user=self.me,  # Отсекаем свои сообщения
+                    ) |  # или
+                    Q(
+                        stats__user=self.me, stats__is_read=True  # Отсекаем те что я прочитал
+                    )
+                ).order_by(
+                    'chat_id', 'id'
+                ).distinct('chat_id'),
+                # Берем 1 сообщение чата самое раннее, не прочитанное пользователем и не написанное им
+                to_attr='first_unread_messages'
+            )
+        )
 
 
 class AsyncChatsRepository(ChatsRepository):
@@ -512,6 +540,7 @@ class AsyncMessagesRepository(MessagesRepository):
         msg_owner = None
         owner_unread_count = None
         my_unread_count = None
+        my_first_unread_message = None
         should_response_owner = False
         author_sockets = []
 
@@ -551,7 +580,7 @@ class AsyncMessagesRepository(MessagesRepository):
                 )
 
             # Количество непрочитанных сообщений в чате для себя
-            my_unread_count = ChatsRepository(me=self.me).get_chat_unread_count(chat_id)
+            my_unread_count, my_first_unread_message = ChatsRepository(me=self.me).get_chat_unread_count(chat_id)
 
             serialized_message = camelize(MessagesSerializer(message, many=False).data)
 
