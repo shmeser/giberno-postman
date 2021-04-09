@@ -20,9 +20,9 @@ class Consumer(AsyncJsonWebsocketConsumer):
         self.is_group_consumer = False
 
     async def connect(self):
-        self.socket_controller = AsyncSocketController(self)
         self.version = chained_get(self.scope, 'url_route', 'kwargs', 'version')
         self.user = chained_get(self.scope, 'user')
+        self.socket_controller = AsyncSocketController(self)
         try:
             await self.accept()  # Принимаем соединение
 
