@@ -49,14 +49,13 @@ class ChatsSerializer(serializers.ModelSerializer):
 
     def get_last_message(self, data):
         if data.last_messages:
-            # TODO переделать на подсчет в Postgres
             return LastMessagesSerializer(data.last_messages[0], many=False).data
         else:
             return None
 
     def get_first_unread_message(self, data):
         if data.first_unread_messages:
-            return FirstUnreadMessagesSerializer(data.first_unread_messages[0], many=False).data
+            return FirstUnreadMessageSerializer(data.first_unread_messages[0], many=False).data
         else:
             return None
 
@@ -118,13 +117,12 @@ class LastMessagesSerializer(serializers.ModelSerializer):
         ]
 
 
-class FirstUnreadMessagesSerializer(serializers.ModelSerializer):
+class FirstUnreadMessageSerializer(serializers.ModelSerializer):
     created_at = DateTimeField()
 
     class Meta:
         model = Message
         fields = [
-            'id',  # TODO убрать
             'uuid',
             'user_id',
             'created_at',
