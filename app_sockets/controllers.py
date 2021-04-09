@@ -104,7 +104,7 @@ class AsyncSocketController:
             room_name = chained_get(kwargs, 'room_name', default=self.consumer.room_name)
             room_id = chained_get(kwargs, 'room_id', default=self.consumer.room_id)
             me = self.consumer.scope['user']  # Пользователь текущего соединения
-            # TODO версионность для маппера и контроллеров
+
             if not RoutingMapper.check_room_version(room_name, version):
                 logger.info(f'Такой точки соединения не существует для версии {version}')
 
