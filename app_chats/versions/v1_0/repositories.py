@@ -233,6 +233,7 @@ class ChatsRepository(MasterRepository):
 
     def get_by_id(self, record_id):
         records = self.base_query.filter(id=record_id)
+        records = self.prefetch_first_unread_message(records)
         record = self.fast_related_loading(records).first()
         if not record:
             raise HttpException(
