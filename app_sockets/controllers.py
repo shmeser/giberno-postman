@@ -78,7 +78,7 @@ class AsyncSocketController:
             await self.topic_joined(group_name)
         else:
             await self.send_error(
-                code=SocketErrors.FORBIDDEN.value, details='Действие запрещено'
+                code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
             )
 
     async def topic_joined(self, topic):
@@ -202,7 +202,7 @@ class AsyncSocketController:
                 )
             else:
                 await self.send_error(
-                    code=SocketErrors.FORBIDDEN.value, details='Действие запрещено'
+                    code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
                 )
 
         except Exception as e:
@@ -219,7 +219,7 @@ class AsyncSocketController:
                 'room_id': room_id
             }) is False:
                 await self.send_error(
-                    code=SocketErrors.FORBIDDEN.value, details='Действие запрещено'
+                    code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
                 )
                 return
 
