@@ -1,6 +1,6 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch, Count, Max, Lookup, Field, Q
+from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef
 from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
@@ -244,14 +244,31 @@ class ChatsRepository(MasterRepository):
         records = self.base_query.filter(id=record_id)
         records = self.prefetch_first_unread_message(records)
         record = records.first()
-        return record.unread_count, record.first_unread_message if record else None, None
+        if record:
+            first_unread_message = record.first_unread_messages[0] if record.first_unread_messages else None
+            return record.unread_count, first_unread_message
+        else:
+            return None, None
 
     @staticmethod
     def get_chat_unread_count_for_all_participants(chat, users):
-        # TODO
-        return {
-            'user1': 1,
-        }
+        unread_counts_for_users = users.annotate(
+            unread_count=Subquery(
+                Message.objects
+                    .filter(chat=chat)
+                    .exclude(user=OuterRef('id'))
+                    .exclude(stats__user=OuterRef('id'), stats__is_read=True)
+                    .values('user')
+                    .annotate(count=Count('pk'))
+                    .values('count')
+            )
+        )
+
+        result = {}
+        for u in unread_counts_for_users:
+            result[f'user{u.id}'] = u.unread_count
+
+        return result
 
     def get_chat_for_all_participants(self, record_id):
         """ Возвращает массив сериализованных чатов и сокеты для каждого участника, и самих участников """
@@ -540,7 +557,7 @@ class AsyncMessagesRepository(MessagesRepository):
         msg_owner = None
         owner_unread_count = None
         my_unread_count = None
-        my_first_unread_message = None
+        serialized_first_unread_message = None
         should_response_owner = False
         author_sockets = []
 
@@ -583,6 +600,7 @@ class AsyncMessagesRepository(MessagesRepository):
             my_unread_count, my_first_unread_message = ChatsRepository(me=self.me).get_chat_unread_count(chat_id)
 
             serialized_message = camelize(MessagesSerializer(message, many=False).data)
+            serialized_first_unread_message = camelize(MessagesSerializer(my_first_unread_message, many=False).data)
 
             if last_msg.id == message.id and should_response_owner:
                 # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
@@ -590,4 +608,12 @@ class AsyncMessagesRepository(MessagesRepository):
                 # по unread_count
                 owner_unread_count = ChatsRepository(me=msg_owner).get_chat_unread_count(chat_id)
 
-        return serialized_message, msg_owner, author_sockets, should_response_owner, owner_unread_count, my_unread_count
+        return (
+            serialized_message,
+            msg_owner,
+            author_sockets,
+            should_response_owner,
+            owner_unread_count,
+            my_unread_count,
+            serialized_first_unread_message
+        )

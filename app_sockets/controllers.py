@@ -231,7 +231,7 @@ class AsyncSocketController:
                 should_response_owner,
                 owner_unread_cnt,
                 my_unread_cnt,
-                my_first_unread_message
+                my_first_unread_message_prepared
             ) = \
                 await AsyncMessagesRepository(
                     me=self.consumer.scope['user']
@@ -247,7 +247,7 @@ class AsyncSocketController:
                     'chat': {
                         'id': room_id,
                         'unreadCount': my_unread_cnt,
-                        'firstUnreadMessage': my_first_unread_message,
+                        'firstUnreadMessage': my_first_unread_message_prepared,
                     },
                     'message': {
                         'uuid': chained_get(content, 'uuid'),
