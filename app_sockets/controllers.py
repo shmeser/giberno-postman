@@ -2,13 +2,10 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from loguru import logger
 
-from app_chats.versions.v1_0.repositories import AsyncChatsRepository, AsyncMessagesRepository
 from app_sockets.enums import SocketEventType, AvailableRoom
 from app_sockets.mappers import RoutingMapper
-from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository, SocketsRepository
 from app_users.enums import NotificationAction, NotificationType
 from app_users.models import UserProfile
-from app_users.versions.v1_0.repositories import AsyncProfileRepository
 from backend.controllers import AsyncPushController
 from backend.errors.enums import SocketErrors
 from backend.errors.exceptions import EntityDoesNotExistException
@@ -20,12 +17,13 @@ class AsyncSocketController:
     def __init__(self, consumer=None) -> None:
         super().__init__()
         self.consumer = consumer
+        self.repository_class = RoutingMapper.room_async_repository(consumer.version)
 
     async def store_single_connection(self):
         try:
             me = self.consumer.scope['user']  # Прользователь текущего соединения
 
-            await AsyncSocketsRepository(me).add_socket(
+            await self.repository_class(me).add_socket(
                 self.consumer.channel_name  # ид соединения
             )
         except Exception as e:
@@ -35,7 +33,7 @@ class AsyncSocketController:
         try:
             me = self.consumer.scope['user']  # Прользователь текущего соединения
 
-            await AsyncSocketsRepository(me).add_socket(
+            await self.repository_class(me).add_socket(
                 self.consumer.channel_name,  # ид соединения,
                 chained_get(kwargs, 'room_name', default=self.consumer.room_name),  # имя комнаты
                 chained_get(kwargs, 'room_id', default=self.consumer.room_id)  # ид комнаты
@@ -46,7 +44,7 @@ class AsyncSocketController:
 
     async def remove_connection(self):
         me = self.consumer.scope['user']  # Пользователь текущего соединения
-        await AsyncSocketsRepository(me).remove_socket(self.consumer.channel_name)
+        await self.repository_class(me).remove_socket(self.consumer.channel_name)
 
     async def send_error(self, code, details):
         await self.consumer.channel_layer.send(self.consumer.channel_name, {
@@ -116,9 +114,9 @@ class AsyncSocketController:
 
                 return False
 
-            repository_class = RoutingMapper.room_repository(version, room_name)
+            self.repository_class, *other = RoutingMapper.room_async_repository(version, room_name)
 
-            if not await repository_class(me).check_connection_to_group(room_id):
+            if not await self.repository_class(me).check_connection_to_group(room_id):
                 logger.info(f'Действие запрещено')
                 if self.consumer.is_group_consumer:
                     # Закрываем соединение, если это GroupConsumer
@@ -142,7 +140,8 @@ class AsyncSocketController:
                 raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=e)
 
     async def update_location(self, event):
-        user = await AsyncProfileRepository(me=self.consumer.scope['user']).update_location(event)
+        self.repository_class = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.USERS.value)
+        user = await self.repository_class(me=self.consumer.scope['user']).update_location(event)
         return user
 
     async def client_message_to_chat(self, content):
@@ -153,19 +152,22 @@ class AsyncSocketController:
                 room_id = chained_get(content, 'chatId')
                 group_name = f'{AvailableRoom.CHATS.value}{room_id}'
 
-            if await self.check_permission_for_group_connection(**{  # 3
+            if await self.check_permission_for_group_connection(**{
                 'room_name': AvailableRoom.CHATS.value,
                 'room_id': room_id
             }):
+                self.repository_class, message_repository = RoutingMapper.room_async_repository(
+                    self.consumer.version, AvailableRoom.CHATS.value
+                )
                 # Обрабатываем полученное от клиента сообщение
-                processed_serialized_message = await AsyncMessagesRepository(  # 5
+                processed_serialized_message = await message_repository(
                     me=self.consumer.scope['user']
                 ).save_client_message(
                     chat_id=room_id,
                     content=content,
                 )
 
-                personalized_chat_variants_with_sockets, chat_users = await AsyncChatsRepository(  # 9
+                personalized_chat_variants_with_sockets, chat_users = await self.repository_class(
                     me=self.consumer.scope['user']
                 ).get_chat_for_all_participants(
                     chat_id=room_id,
@@ -191,7 +193,7 @@ class AsyncSocketController:
                         })
 
                 # Отправляем сообщение по пушам всем участникам чата
-                await AsyncPushController().send_message(  # 2
+                await AsyncPushController().send_message(
                     users_to_send=chat_users,
                     title='',
                     message=chained_get(content, 'text', default=''),
@@ -223,6 +225,10 @@ class AsyncSocketController:
                 )
                 return
 
+            self.repository_class, message_repository = RoutingMapper.room_async_repository(
+                self.consumer.version, AvailableRoom.CHATS.value
+            )
+
             # Обрабатываем полученные от клиента данные
             (
                 owner_prepared_msg,
@@ -233,7 +239,7 @@ class AsyncSocketController:
                 my_unread_cnt,
                 my_first_unread_message_prepared
             ) = \
-                await AsyncMessagesRepository(
+                await message_repository(
                     me=self.consumer.scope['user']
                 ).client_read_message(
                     chat_id=room_id,
@@ -280,23 +286,28 @@ class AsyncSocketController:
 
 
 class SocketController:
-    def __init__(self, me: UserProfile = None) -> None:
+    def __init__(self, me: UserProfile = None, version=None) -> None:
         super().__init__()
         self.me = me
+        self.version = version
+        self.repository_class = RoutingMapper.room_repository(version)
 
     def send_notification_to_one_connection(self, prepared_data):
         # Отправка уведомления в одиночный канал подключенного пользователя
-        connections = SocketsRepository(self.me).get_user_connections(**{
-            'room_id': None,
-            'room_name': None,
-        })
-
-        for connection in connections:
-            channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.send)(connection.socket_id, {
-                'type': 'notification_handler',
-                'prepared_data': prepared_data
+        try:
+            connections = self.repository_class(self.me).get_user_connections(**{
+                'room_id': None,
+                'room_name': None,
             })
+
+            for connection in connections:
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.send)(connection.socket_id, {
+                    'type': 'notification_handler',
+                    'prepared_data': prepared_data
+                })
+        except Exception as e:
+            logger.error(e)
 
     @staticmethod
     def send_notification_to_connections_group(group_name, prepared_data):
