@@ -99,6 +99,16 @@ class ChatSerializer(ChatsSerializer):
         ]
 
 
+class SocketChatSerializer(ChatsSerializer):
+    class Meta:
+        model = Chat
+        fields = [
+            'id',
+            'unread_count',
+            'last_message',
+        ]
+
+
 class LastMessagesSerializer(serializers.ModelSerializer):
     created_at = DateTimeField()
     read_at = DateTimeField()

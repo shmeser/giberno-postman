@@ -6,7 +6,8 @@ from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
 
 from app_chats.models import Chat, Message, ChatUser, MessageStat
-from app_chats.versions.v1_0.serializers import MessagesSerializer, ChatSerializer, FirstUnreadMessageSerializer
+from app_chats.versions.v1_0.serializers import MessagesSerializer, FirstUnreadMessageSerializer, \
+    SocketChatSerializer
 from app_market.models import Shop, Vacancy
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -291,7 +292,7 @@ class ChatsRepository(MasterRepository):
             prepared_data.append({
                 'sockets': [s.socket_id for s in user.sockets.all()],
                 'chat': camelize(
-                    ChatSerializer(record, many=False, context={
+                    SocketChatSerializer(record, many=False, context={
                         'me': user,
                         'unread_count': chained_get(unread_counts_dict, f'user{user.id}', default=None)
                     }).data
@@ -601,7 +602,8 @@ class AsyncMessagesRepository(MessagesRepository):
             my_unread_count, my_first_unread_message = ChatsRepository(me=self.me).get_chat_unread_count(chat_id)
 
             serialized_message = camelize(MessagesSerializer(message, many=False).data)
-            serialized_first_unread_message = camelize(FirstUnreadMessageSerializer(my_first_unread_message, many=False).data)
+            serialized_first_unread_message = camelize(
+                FirstUnreadMessageSerializer(my_first_unread_message, many=False).data)
 
             if last_msg.id == message.id and should_response_owner:
                 # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
