@@ -164,7 +164,8 @@ class AsyncSocketController:
                     chat_id=room_id,
                     content=content,
                 )
-                processed_serialized_chats_with_sockets, chat_users = await AsyncChatsRepository(  # 9
+
+                personalized_chat_variants_with_sockets, chat_users = await AsyncChatsRepository(  # 9
                     me=self.consumer.scope['user']
                 ).get_chat_for_all_participants(
                     chat_id=room_id,
@@ -178,11 +179,15 @@ class AsyncSocketController:
                 })
 
                 # Отправляем обновленные данные о чате всем участникам чата по сокетам
-                for data in processed_serialized_chats_with_sockets:
+                for data in personalized_chat_variants_with_sockets:
                     for connection_name in data['sockets']:
                         await self.consumer.channel_layer.send(connection_name, {
-                            'type': 'chat_info',
-                            'prepared_data': data['chat'],
+                            'type': 'chat_last_msg_updated',
+                            'prepared_data': {
+                                'id': room_id,
+                                'unreadCount': chained_get(data, 'chat', 'unreadCount'),
+                                'lastMessage': processed_serialized_message
+                            },
                         })
 
                 # Отправляем сообщение по пушам всем участникам чата
@@ -212,35 +217,63 @@ class AsyncSocketController:
             if await self.check_permission_for_group_connection(**{
                 'room_name': AvailableRoom.CHATS.value,
                 'room_id': room_id
-            }):
-                # Обрабатываем полученное от клиента сообщение
-                processed_serialized_message, message_author, author_sockets, chat_with_last_msg_read = \
-                    await AsyncMessagesRepository(
-                        me=self.consumer.scope['user']
-                    ).read_client_message(
-                        chat_id=room_id,
-                        content=content,
-                    )
-                if message_author and message_author.id != self.consumer.scope['user'].id:
-                    # Если автор прочитаного сообщения не тот, кто его читает
-                    for socket_id in author_sockets:
-                        # Отправялем сообщение автору сообщения о том, что оно прочитано
-                        await self.consumer.channel_layer.send(socket_id, {
-                            'type': 'chat_message_updated',
-                            'chat_id': room_id,
-                            'prepared_data': processed_serialized_message,
-                        })
-
-                        # Если прочитанное сообщение последнее в чате, то отправляем автору сообщения обновленный чат
-                        if chat_with_last_msg_read:
-                            await self.consumer.channel_layer.send(socket_id, {
-                                'type': 'chat_info',
-                                'prepared_data': chat_with_last_msg_read,
-                            })
-            else:
+            }) is False:
                 await self.send_error(
                     code=SocketErrors.FORBIDDEN.value, details='Действие запрещено'
                 )
+                return
+
+            # Обрабатываем полученные от клиента данные
+            (
+                owner_prepared_msg,
+                owner,
+                owner_sockets,
+                should_response_owner,
+                owner_unread_cnt,
+                my_unread_cnt,
+                my_first_unread_message_prepared
+            ) = \
+                await AsyncMessagesRepository(
+                    me=self.consumer.scope['user']
+                ).client_read_message(
+                    chat_id=room_id,
+                    content=content,
+                )
+
+            # Отправялем ответ на свой запрос с числом непрочитанных сообщений в чате
+            if my_unread_cnt is not None:
+                await self.consumer.channel_layer.send(self.consumer.channel_name, {
+                    'type': 'chat_message_was_read',
+                    'chat': {
+                        'id': room_id,
+                        'unreadCount': my_unread_cnt,
+                        'firstUnreadMessage': my_first_unread_message_prepared,
+                    },
+                    'message': {
+                        'uuid': chained_get(content, 'uuid'),
+                    }
+                })
+
+            if owner and owner.id != self.consumer.scope['user'].id and should_response_owner:
+                # Если автор прочитаного сообщения не тот, кто его читает, и сообщение ранее не читали
+                for socket_id in owner_sockets:
+                    # Отправялем сообщение автору сообщения о том, что оно прочитано
+                    await self.consumer.channel_layer.send(socket_id, {
+                        'type': 'chat_message_updated',
+                        'chat_id': room_id,
+                        'prepared_data': owner_prepared_msg,
+                    })
+
+                    # Если прочитанное сообщение последнее в чате, то отправляем автору SERVER_CHAT_LAST_MSG_UPDATED
+                    if owner_unread_cnt is not None:
+                        await self.consumer.channel_layer.send(socket_id, {
+                            'type': 'chat_last_msg_updated',
+                            'prepared_data': {
+                                'id': room_id,
+                                'unreadCount': owner_unread_cnt,
+                                'lastMessage': owner_prepared_msg
+                            },
+                        })
 
         except Exception as e:
             logger.error(e)

@@ -18,6 +18,7 @@ class ChatsSerializer(serializers.ModelSerializer):
 
     created_at = DateTimeField()
 
+    first_unread_message = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
     users = serializers.SerializerMethodField()
@@ -47,8 +48,14 @@ class ChatsSerializer(serializers.ModelSerializer):
         return ChatProfileSerializer(data.users, many=True, context={'me': self.me}).data
 
     def get_last_message(self, data):
-        if data.prefetched_messages:
-            return LastMessagesSerializer(data.prefetched_messages[0], many=False).data
+        if data.last_messages:
+            return LastMessagesSerializer(data.last_messages[0], many=False).data
+        else:
+            return None
+
+    def get_first_unread_message(self, data):
+        if data.first_unread_messages:
+            return FirstUnreadMessageSerializer(data.first_unread_messages[0], many=False).data
         else:
             return None
 
@@ -66,6 +73,7 @@ class ChatsSerializer(serializers.ModelSerializer):
             'title',
             'created_at',
             'unread_count',
+            'first_unread_message',
             'last_message',
             'users',
             'vacancy',
@@ -82,6 +90,7 @@ class ChatSerializer(ChatsSerializer):
             'title',
             'created_at',
             'unread_count',
+            'first_unread_message',
             'last_message',
             'users',
             'vacancy',
@@ -105,6 +114,18 @@ class LastMessagesSerializer(serializers.ModelSerializer):
             'form_status',
             'created_at',
             'read_at',
+        ]
+
+
+class FirstUnreadMessageSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+
+    class Meta:
+        model = Message
+        fields = [
+            'uuid',
+            'user_id',
+            'created_at',
         ]
 
 
@@ -166,7 +187,6 @@ class MessagesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = [
-            'id',
             'uuid',
             'user_id',
             'chat_id',
