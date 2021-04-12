@@ -211,6 +211,7 @@ class AsyncSocketController:
 
         except Exception as e:
             logger.error(e)
+            raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=str(e))
 
     async def client_read_message_in_chat(self, content):
         try:

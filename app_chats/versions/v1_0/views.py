@@ -126,6 +126,7 @@ class Messages(CRUDAPIView):
             # Если нет доступа к чату
             raise HttpException(status_code=RESTErrors.FORBIDDEN.value, detail=RESTErrors.FORBIDDEN.name)
 
+        # TODO отправка по сокетам событий об успешности сохранения сообщения
         dataset = self.repository_class(request.user, chat_id=chat_id).save_client_message(
             chat_id=chat_id,
             content=body
@@ -154,6 +155,7 @@ class ReadMessages(CRUDAPIView):
             # Если нет доступа к чату
             raise HttpException(status_code=RESTErrors.FORBIDDEN.value, detail=RESTErrors.FORBIDDEN.name)
 
+        # TODO отправка по сокетам событий об успешности прочтения
         dataset, *_ = self.repository_class(request.user, chat_id=chat_id).read_message(
             chat_id=chat_id,
             content=body
