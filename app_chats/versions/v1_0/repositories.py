@@ -71,13 +71,25 @@ class ChatsRepository(MasterRepository):
             last_message_created_at=self.last_message_created_at_expression  # Нужен для сортировки и фильтрации чатов
         )
 
-    def modify_kwargs(self, kwargs, order_by):
+    @staticmethod
+    def modify_kwargs(kwargs, order_by):
+        created_at = kwargs.pop('last_message_created_at', None)  # Неважно когда создан чат, важно - посл. сообщение
+
+        if '-last_message_created_at' in order_by and created_at:
+            kwargs.update({
+                'last_message_created_at__lte': created_at
+            })
+        if 'last_message_created_at' in order_by and created_at:
+            kwargs.update({
+                'last_message_created_at__gte': created_at
+            })
+
+    def check_conditions_for_chat_creation(self, kwargs):
         need_to_create = False
 
         user_id = kwargs.pop('user_id', None)
         shop_id = kwargs.pop('shop_id', None)
         vacancy_id = kwargs.pop('vacancy_id', None)
-        created_at = kwargs.pop('last_message_created_at', None)  # Неважно когда создан чат, важно - посл. сообщение
 
         checking_kwargs = {}
 
@@ -88,15 +100,6 @@ class ChatsRepository(MasterRepository):
         target_ct = None
         subject_user = None
         # ##
-
-        if '-last_message_created_at' in order_by and created_at:
-            kwargs.update({
-                'last_message_created_at__lte': created_at
-            })
-        if 'last_message_created_at' in order_by and created_at:
-            kwargs.update({
-                'last_message_created_at__gte': created_at
-            })
 
         if self.me.account_type == AccountType.MANAGER.value:  # Если роль менеджера
             # Запрашивается чат с пользователем по вакансии, если тот откликнулся на нее
@@ -210,9 +213,11 @@ class ChatsRepository(MasterRepository):
 
     def get_chats_or_create(self, kwargs, paginator=None, order_by: list = None):
         # Изменяем kwargs для работы с objects.filter(**kwargs)
-        checking_kwargs, need_to_create, chat_data = self.modify_kwargs(kwargs, order_by)
+        self.modify_kwargs(kwargs, order_by)
+        # Проверяем условия для создания чата
+        checking_kwargs, should_create, chat_data = self.check_conditions_for_chat_creation(kwargs)
 
-        if not self.base_query.filter(**checking_kwargs).exists() and need_to_create:
+        if not self.base_query.filter(**checking_kwargs).exists() and should_create:
             # Если не найдены нужные чаты
             self.create_chat(
                 users=chat_data['users'],
