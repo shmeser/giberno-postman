@@ -28,6 +28,7 @@ class AsyncSocketController:
             )
         except Exception as e:
             logger.error(e)
+            raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=e)
 
     async def store_group_connection(self, **kwargs):
         try:
@@ -41,6 +42,7 @@ class AsyncSocketController:
 
         except Exception as e:
             logger.error(e)
+            raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=e)
 
     async def remove_connection(self):
         me = self.consumer.scope['user']  # Пользователь текущего соединения
