@@ -159,6 +159,9 @@ class ReadMessages(CRUDAPIView):
             content=body
         )
 
+        if not dataset:
+            raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=RESTErrors.NOT_FOUND.name)
+
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,
             'headers': get_request_headers(request),
