@@ -118,7 +118,7 @@ class AsyncSocketController:
 
             self.repository_class, *other = RoutingMapper.room_async_repository(version, room_name)
 
-            if not await self.repository_class(me).check_connection_to_group(room_id):
+            if not await self.repository_class(me).check_permission_for_action(room_id):
                 logger.info(f'Действие запрещено')
                 if self.consumer.is_group_consumer:
                     # Закрываем соединение, если это GroupConsumer
