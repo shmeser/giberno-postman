@@ -28,6 +28,7 @@ class AsyncSocketController:
             )
         except Exception as e:
             logger.error(e)
+            raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=e)
 
     async def store_group_connection(self, **kwargs):
         try:
@@ -41,6 +42,7 @@ class AsyncSocketController:
 
         except Exception as e:
             logger.error(e)
+            raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=e)
 
     async def remove_connection(self):
         me = self.consumer.scope['user']  # Пользователь текущего соединения
@@ -116,7 +118,7 @@ class AsyncSocketController:
 
             self.repository_class, *other = RoutingMapper.room_async_repository(version, room_name)
 
-            if not await self.repository_class(me).check_connection_to_group(room_id):
+            if not await self.repository_class(me).check_permission_for_action(room_id):
                 logger.info(f'Действие запрещено')
                 if self.consumer.is_group_consumer:
                     # Закрываем соединение, если это GroupConsumer
@@ -209,6 +211,7 @@ class AsyncSocketController:
 
         except Exception as e:
             logger.error(e)
+            raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=str(e))
 
     async def client_read_message_in_chat(self, content):
         try:

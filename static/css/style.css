@@ -271,7 +271,7 @@ input, button {
 .event-options {
     display: flex;
     flex-flow: wrap;
-    height: 215px;
+    height: 162px;
     justify-content: space-around;
     align-items: center;
 }
@@ -328,7 +328,7 @@ input, button {
     box-sizing: border-box;
     border-radius: 5px;
     padding: 10px;
-    height: 320px;
+    height: 273px;
     color: #085664;
     background: #D5FCE0;
 }

@@ -1,9 +1,10 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef
+from django.contrib.postgres.aggregates import ArrayAgg
+from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef, Case, When, F, IntegerField
 from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import now
-from djangorestframework_camel_case.util import camelize
+from djangorestframework_camel_case.util import camelize, underscoreize
 
 from app_chats.models import Chat, Message, ChatUser, MessageStat
 from app_chats.versions.v1_0.serializers import MessagesSerializer, FirstUnreadMessageSerializer, \
@@ -19,7 +20,7 @@ from backend.errors.enums import RESTErrors
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
-from backend.utils import chained_get
+from backend.utils import chained_get, ArrayRemove
 
 
 class TruncMilliecond(TruncBase):
@@ -71,13 +72,25 @@ class ChatsRepository(MasterRepository):
             last_message_created_at=self.last_message_created_at_expression  # Нужен для сортировки и фильтрации чатов
         )
 
-    def modify_kwargs(self, kwargs, order_by):
+    @staticmethod
+    def modify_kwargs(kwargs, order_by):
+        created_at = kwargs.pop('last_message_created_at', None)  # Неважно когда создан чат, важно - посл. сообщение
+
+        if '-last_message_created_at' in order_by and created_at:
+            kwargs.update({
+                'last_message_created_at__lte': created_at
+            })
+        if 'last_message_created_at' in order_by and created_at:
+            kwargs.update({
+                'last_message_created_at__gte': created_at
+            })
+
+    def check_conditions_for_chat_creation(self, kwargs):
         need_to_create = False
 
         user_id = kwargs.pop('user_id', None)
         shop_id = kwargs.pop('shop_id', None)
         vacancy_id = kwargs.pop('vacancy_id', None)
-        created_at = kwargs.pop('last_message_created_at', None)  # Неважно когда создан чат, важно - посл. сообщение
 
         checking_kwargs = {}
 
@@ -88,15 +101,6 @@ class ChatsRepository(MasterRepository):
         target_ct = None
         subject_user = None
         # ##
-
-        if '-last_message_created_at' in order_by and created_at:
-            kwargs.update({
-                'last_message_created_at__lte': created_at
-            })
-        if 'last_message_created_at' in order_by and created_at:
-            kwargs.update({
-                'last_message_created_at__gte': created_at
-            })
 
         if self.me.account_type == AccountType.MANAGER.value:  # Если роль менеджера
             # Запрашивается чат с пользователем по вакансии, если тот откликнулся на нее
@@ -210,9 +214,11 @@ class ChatsRepository(MasterRepository):
 
     def get_chats_or_create(self, kwargs, paginator=None, order_by: list = None):
         # Изменяем kwargs для работы с objects.filter(**kwargs)
-        checking_kwargs, need_to_create, chat_data = self.modify_kwargs(kwargs, order_by)
+        self.modify_kwargs(kwargs, order_by)
+        # Проверяем условия для создания чата
+        checking_kwargs, should_create, chat_data = self.check_conditions_for_chat_creation(kwargs)
 
-        if not self.base_query.filter(**checking_kwargs).exists() and need_to_create:
+        if not self.base_query.filter(**checking_kwargs).exists() and should_create:
             # Если не найдены нужные чаты
             self.create_chat(
                 users=chat_data['users'],
@@ -367,6 +373,17 @@ class ChatsRepository(MasterRepository):
             )
         )
 
+    def check_permission_for_action(self, record_id):
+        record = self.model.objects.filter(id=record_id).prefetch_related('users').first()
+        if not record:
+            raise EntityDoesNotExistException
+
+        if not record.users.filter(pk=self.me.id).exists():
+            # TODO расширенная логика проверки присоединения к группе
+            # Если не участник чата
+            return False
+        return True
+
 
 class AsyncChatsRepository(ChatsRepository):
     def __init__(self, me=None) -> None:
@@ -382,16 +399,8 @@ class AsyncChatsRepository(ChatsRepository):
         return super().get_chat_for_all_participants(chat_id)
 
     @database_sync_to_async
-    def check_connection_to_group(self, record_id):
-        record = self.model.objects.filter(id=record_id).prefetch_related('users').first()
-        if not record:
-            raise EntityDoesNotExistException
-
-        if not record.users.filter(pk=self.me.id).exists():
-            # TODO расширенная логика проверки присоединения к группе
-            # Если не участник чата
-            return False
-        return True
+    def check_permission_for_action(self, record_id):
+        return super().check_permission_for_action(record_id)
 
 
 class CustomLookupBase(Lookup):
@@ -523,22 +532,19 @@ class MessagesRepository(MasterRepository):
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
 
-
-class AsyncMessagesRepository(MessagesRepository):
-    def __init__(self, me=None) -> None:
-        self.me = me
-        super().__init__(self.me)
-
-    @database_sync_to_async
     def save_client_message(self, chat_id, content):
+        content = underscoreize(content)
         message = self.model.objects.create(
             user=self.me,
             chat_id=chat_id,
             uuid=content.get('uuid'),
-            message_type=content.get('messageType'),
+            message_type=content.get('message_type'),
             text=content.get('text'),
-            command_data=content.get('commandData'),
+            command_data=content.get('command_data'),
         )
+
+        # Читаем все сообщения перед созданным
+        self.read_all_before(chat_id, message)
 
         attachments = content.get('attachments')
         if attachments:
@@ -550,20 +556,75 @@ class AsyncMessagesRepository(MessagesRepository):
                 target_owner_id=message.id
             )
 
-        # TODO сделать prefetch для attachments
-        return camelize(MessagesSerializer(message, many=False).data)
+        return message
 
-    @database_sync_to_async
-    def client_read_message(self, chat_id, content):
-        serialized_message = None
+    def read_all_before(self, chat_id, message):
+        # Все непрочитанные чужие сообщения до того сообщения, которое читается
+        all_others_unread_messages = Message.objects.filter(
+            chat_id=chat_id,
+            created_at__lt=message.created_at
+        ).exclude(
+            user=self.me  # Исключаем мои сообщения
+        ).filter(
+            Q(stats__isnull=True) | Q(stats__is_read=False)  # Либо без статистики либо с ней но с is_read=False
+        ).aggregate(
+            stats_isnull=ArrayRemove(
+                ArrayAgg(
+                    Case(
+                        When(
+                            stats__isnull=True,
+                            then=F('id')
+                        ),
+                        default=None,
+                        output_field=IntegerField()
+                    )
+                ),
+                None  # Удаляем null'ы из массива
+            ),
+            is_read_false=ArrayRemove(
+                ArrayAgg(
+                    Case(
+                        When(
+                            stats__is_read=False,
+                            then=F('id')
+                        ),
+                        default=None,
+                        output_field=IntegerField()
+                    )
+                ),
+                None  # Удаляем null'ы из массива
+            ),
+        )
+
+        if all_others_unread_messages['stats_isnull']:
+            # Все непрочитанные сообщения без моей статистики по ним
+            create_stats_links = []
+            for m_id in all_others_unread_messages['stats_isnull']:
+                create_stats_links.append(MessageStat(user=self.me, message_id=m_id, is_read=True))
+
+            if create_stats_links:
+                MessageStat.objects.bulk_create(create_stats_links)  # Массовое создание статистики по сообщениям
+
+        if all_others_unread_messages['is_read_false']:
+            # Все непрочитанные с имеющейся моей статистикой по ним
+            MessageStat.objects.filter(
+                message__id__in=all_others_unread_messages['is_read_false'],
+                user=self.me
+            ).update(
+                is_read=True
+            )
+
+    def read_message(self, chat_id, content, prefetch=False):
+        """
+        :param chat_id:
+        :param content:
+        :param prefetch: Сделать предзагрузку данных для автора сообщения и его сокетов
+        :return:
+        """
+
         msg_owner = None
-        owner_unread_count = None
-        my_unread_count = None
-        serialized_first_unread_message = None
+        msg_owner_sockets = []
         should_response_owner = False
-        author_sockets = []
-
-        last_msg = self.model.objects.filter(chat_id=chat_id).last()
 
         messages = self.model.objects.filter(
             chat_id=chat_id,
@@ -571,11 +632,18 @@ class AsyncMessagesRepository(MessagesRepository):
         ).exclude(
             user=self.me  # Не читаем свои сообщения
         )
-        message = MessagesRepository.fast_related_loading_sockets(messages).first()  # 4
+
+        if prefetch:
+            message = self.fast_related_loading_sockets(messages).first()
+        else:
+            message = messages.first()
 
         if message:
             msg_owner = message.user
-            author_sockets = [s.socket_id for s in msg_owner.sockets.all()]
+            msg_owner_sockets = [s.socket_id for s in msg_owner.sockets.all()] if prefetch else []
+
+            # Читаем все предыдущие сообщения
+            self.read_all_before(chat_id, message)
 
             if not message.read_at:  # Если сообщение ранее никем не прочитано
                 message.read_at = now()
@@ -598,6 +666,34 @@ class AsyncMessagesRepository(MessagesRepository):
                     is_read=True
                 )
 
+        return message, msg_owner, msg_owner_sockets, should_response_owner
+
+
+class AsyncMessagesRepository(MessagesRepository):
+    def __init__(self, me=None) -> None:
+        self.me = me
+        super().__init__(self.me)
+
+    @database_sync_to_async
+    def save_client_message(self, chat_id, content):
+        message = super().save_client_message(chat_id, content)
+        # TODO сделать prefetch для attachments
+        return camelize(MessagesSerializer(message, many=False).data)
+
+    @database_sync_to_async
+    def client_read_message(self, chat_id, content):
+        serialized_message = None
+        owner_unread_count = None
+        my_unread_count = None
+        serialized_first_unread_message = None
+
+        last_msg = self.model.objects.filter(chat_id=chat_id).last()
+
+        message, msg_owner, msg_owner_sockets, should_response_owner = super().read_message(
+            chat_id=chat_id, content=content, prefetch=True
+        )
+
+        if message:
             # Количество непрочитанных сообщений в чате для себя
             my_unread_count, my_first_unread_message = ChatsRepository(me=self.me).get_chat_unread_count(chat_id)
 
@@ -614,7 +710,7 @@ class AsyncMessagesRepository(MessagesRepository):
         return (
             serialized_message,
             msg_owner,
-            author_sockets,
+            msg_owner_sockets,
             should_response_owner,
             owner_unread_count,
             my_unread_count,

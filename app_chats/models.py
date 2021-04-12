@@ -73,7 +73,7 @@ class Message(BaseModel):
     )
 
     read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником моего сообщения')
-    command_data = models.JSONField(default=dict)
+    command_data = models.JSONField(null=True, blank=True)
     uuid = models.UUIDField(default=uuid.uuid4)
 
     def __str__(self):
