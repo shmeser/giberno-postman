@@ -6,6 +6,8 @@ from app_chats.versions.v1_0.repositories import ChatsRepository, MessagesReposi
 from app_chats.versions.v1_0.serializers import ChatsSerializer, MessagesSerializer, ChatSerializer, \
     FirstUnreadMessageSerializer
 from app_sockets.controllers import SocketController
+from app_users.enums import NotificationAction, NotificationType
+from backend.controllers import PushController
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exceptions import HttpException
 from backend.mappers import RequestMapper
@@ -127,8 +129,7 @@ class Messages(CRUDAPIView):
             # Если нет доступа к чату
             raise HttpException(status_code=RESTErrors.FORBIDDEN.value, detail=RESTErrors.FORBIDDEN.name)
 
-        # TODO отправка по сокетам событий об успешности сохранения сообщения
-        dataset = self.repository_class(request.user, chat_id=chat_id).save_client_message(
+        dataset = self.repository_class(me=request.user, chat_id=chat_id).save_client_message(
             content=body
         )
 
@@ -137,7 +138,39 @@ class Messages(CRUDAPIView):
             'headers': get_request_headers(request),
         })
 
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+        processed_serialized_message = camelize(serialized.data)
+
+        personalized_chat_variants_with_sockets, chat_users = ChatsRepository(
+            me=request.user
+        ).get_chat_for_all_participants(chat_id)
+
+        # Отправляем обновленные данные о чате всем участникам чата по сокетам
+        for data in personalized_chat_variants_with_sockets:
+            for connection_name in data['sockets']:
+                SocketController(version='v1.0').send_message_to_one_connection(
+                    connection_name,
+                    {
+                        'type': 'chat_last_msg_updated',
+                        'prepared_data': {
+                            'id': chat_id,
+                            'unreadCount': chained_get(data, 'chat', 'unreadCount'),
+                            'lastMessage': processed_serialized_message
+                        },
+                    }
+                )
+
+        # Отправляем сообщение по пушам всем участникам чата
+        PushController().send_message(
+            users_to_send=chat_users,
+            title='',
+            message=chained_get(processed_serialized_message, 'text', default=''),
+            action=NotificationAction.CHAT.value,
+            subject_id=chat_id,
+            notification_type=NotificationType.CHAT.value,
+            icon_type=''
+        )
+
+        return Response(processed_serialized_message, status=status.HTTP_200_OK)
 
 
 class ReadMessages(CRUDAPIView):
