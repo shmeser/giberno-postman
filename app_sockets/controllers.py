@@ -163,15 +163,15 @@ class AsyncSocketController:
                 )
                 # Обрабатываем полученное от клиента сообщение
                 processed_serialized_message = await message_repository(
-                    me=self.consumer.scope['user']
-                ).save_client_message(
+                    me=self.consumer.scope['user'],
                     chat_id=room_id,
-                    content=content,
+                ).save_client_message(
+                    content=content
                 )
 
                 personalized_chat_variants_with_sockets, chat_users = await self.repository_class(
                     me=self.consumer.scope['user']
-                ).get_chat_for_all_participants(
+                ).get_chat_for_all_participants(  # 10
                     chat_id=room_id,
                 )
 
@@ -243,9 +243,9 @@ class AsyncSocketController:
                 my_first_unread_message_prepared
             ) = \
                 await message_repository(
-                    me=self.consumer.scope['user']
-                ).client_read_message(
+                    me=self.consumer.scope['user'],
                     chat_id=room_id,
+                ).client_read_message(
                     content=content,
                 )
 
