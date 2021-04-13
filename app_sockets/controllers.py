@@ -286,6 +286,7 @@ class AsyncSocketController:
 
         except Exception as e:
             logger.error(e)
+            raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
 
 
 class SocketController:
@@ -320,3 +321,25 @@ class SocketController:
             'type': 'notification_handler',
             'prepared_data': prepared_data
         })
+
+    def send_message_to_my_connections(self, data):
+        # Отправка сообщения в себе по сокетам, если есть подключения
+        try:
+            connections = self.repository_class(self.me).get_user_connections(**{
+                'room_id': None,
+                'room_name': None,
+            })
+
+            for connection in connections:
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.send)(connection.socket_id, data)
+        except Exception as e:
+            logger.error(e)
+
+    def send_message_to_one_connection(self, socket_id, data):
+        # Отправка уведомления в одиночный канал подключенного пользователя
+        try:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.send)(socket_id, data)
+        except Exception as e:
+            logger.error(e)

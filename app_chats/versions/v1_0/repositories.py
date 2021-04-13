@@ -248,7 +248,7 @@ class ChatsRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
         return record
 
-    def get_chat_unread_count(self, record_id):
+    def get_chat_unread_count_and_first_unread(self, record_id):
         records = self.base_query.filter(id=record_id)
         records = self.prefetch_first_unread_message(records)
         record = records.first()
@@ -558,8 +558,11 @@ class MessagesRepository(MasterRepository):
 
         return message
 
+    def get_last_message(self):
+        return self.model.objects.filter(chat_id=self.chat_id).last()
+
     def read_all_before(self, chat_id, message):
-        # Все непрочитанные чужие сообщения до того сообщения, которое читается
+        # Прочитать все непрочитанные чужие сообщения до того сообщения, которое читается
         all_others_unread_messages = Message.objects.filter(
             chat_id=chat_id,
             created_at__lt=message.created_at
@@ -687,7 +690,7 @@ class AsyncMessagesRepository(MessagesRepository):
         my_unread_count = None
         serialized_first_unread_message = None
 
-        last_msg = self.model.objects.filter(chat_id=chat_id).last()
+        last_msg = super().get_last_message()  # TODO проверить инициализацию
 
         message, msg_owner, msg_owner_sockets, should_response_owner = super().read_message(
             chat_id=chat_id, content=content, prefetch=True
@@ -695,7 +698,8 @@ class AsyncMessagesRepository(MessagesRepository):
 
         if message:
             # Количество непрочитанных сообщений в чате для себя
-            my_unread_count, my_first_unread_message = ChatsRepository(me=self.me).get_chat_unread_count(chat_id)
+            my_unread_count, my_first_unread_message = ChatsRepository(
+                me=self.me).get_chat_unread_count_and_first_unread(chat_id)
 
             serialized_message = camelize(MessagesSerializer(message, many=False).data)
             serialized_first_unread_message = camelize(
@@ -705,7 +709,7 @@ class AsyncMessagesRepository(MessagesRepository):
                 # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
                 # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
                 # по unread_count
-                owner_unread_count = ChatsRepository(me=msg_owner).get_chat_unread_count(chat_id)
+                owner_unread_count, *_ = ChatsRepository(me=msg_owner).get_chat_unread_count_and_first_unread(chat_id)
 
         return (
             serialized_message,

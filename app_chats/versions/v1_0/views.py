@@ -3,12 +3,14 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from app_chats.versions.v1_0.repositories import ChatsRepository, MessagesRepository
-from app_chats.versions.v1_0.serializers import ChatsSerializer, MessagesSerializer, ChatSerializer
+from app_chats.versions.v1_0.serializers import ChatsSerializer, MessagesSerializer, ChatSerializer, \
+    FirstUnreadMessageSerializer
+from app_sockets.controllers import SocketController
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exceptions import HttpException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_headers, get_request_body
+from backend.utils import get_request_headers, get_request_body, chained_get
 
 
 class Chats(CRUDAPIView):
@@ -28,7 +30,6 @@ class Chats(CRUDAPIView):
 
     date_filter_params = {
         'created_at': 'last_message_created_at',
-        # TODO сделать по last_message и gte или lte в зависимости от order=asc/desc
     }
 
     array_filter_params = {
@@ -155,18 +156,69 @@ class ReadMessages(CRUDAPIView):
             # Если нет доступа к чату
             raise HttpException(status_code=RESTErrors.FORBIDDEN.value, detail=RESTErrors.FORBIDDEN.name)
 
-        # TODO отправка по сокетам событий об успешности прочтения
-        dataset, *_ = self.repository_class(request.user, chat_id=chat_id).read_message(
+        last_msg = self.repository_class(chat_id=chat_id).get_last_message()
+        (
+            message,
+            msg_owner,
+            msg_owner_sockets,
+            should_response_owner
+        ) = self.repository_class(request.user, chat_id=chat_id).read_message(
             chat_id=chat_id,
-            content=body
+            content=body,
+            prefetch=True
         )
 
-        if not dataset:
+        if not message:
             raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=RESTErrors.NOT_FOUND.name)
 
-        serialized = self.serializer_class(dataset, many=self.many, context={
-            'me': request.user,
-            'headers': get_request_headers(request),
-        })
+        # Количество непрочитанных сообщений в чате для себя
+        my_unread_count, my_first_unread_message = ChatsRepository(
+            me=request.user
+        ).get_chat_unread_count_and_first_unread(chat_id)
 
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+        serialized_message = camelize(MessagesSerializer(message, many=False).data)
+        serialized_first_unread_message = camelize(
+            FirstUnreadMessageSerializer(my_first_unread_message, many=False).data)
+
+        owner_unread_count = None
+        if last_msg.id == message.id and should_response_owner:
+            # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
+            # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
+            # по unread_count
+            owner_unread_count, *_ = ChatsRepository(me=msg_owner).get_chat_unread_count_and_first_unread(chat_id)
+
+        if my_unread_count is not None:
+            SocketController(version='1.0').send_message_to_my_connections({
+                'type': 'chat_message_was_read',
+                'chat': {
+                    'id': chat_id,
+                    'unreadCount': my_unread_count,
+                    'firstUnreadMessage': serialized_first_unread_message,
+                },
+                'message': {
+                    'uuid': chained_get(body, 'uuid'),
+                }
+            })
+
+        if msg_owner and msg_owner.id != request.user.id and should_response_owner:
+            # Если автор прочитаного сообщения не тот, кто его читает, и сообщение ранее не читали
+            for socket_id in msg_owner_sockets:
+                # Отправялем сообщение автору сообщения о том, что оно прочитано
+                SocketController(version='1.0').send_message_to_one_connection(socket_id, {
+                    'type': 'chat_message_updated',
+                    'chat_id': chat_id,
+                    'prepared_data': serialized_message,
+                })
+
+                # Если прочитанное сообщение последнее в чате, то отправляем автору SERVER_CHAT_LAST_MSG_UPDATED
+                if owner_unread_count is not None:
+                    SocketController(version='1.0').send_message_to_one_connection(socket_id, {
+                        'type': 'chat_last_msg_updated',
+                        'prepared_data': {
+                            'id': chat_id,
+                            'unreadCount': owner_unread_count,
+                            'lastMessage': serialized_message
+                        },
+                    })
+
+        return Response(serialized_message, status=status.HTTP_200_OK)
