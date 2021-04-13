@@ -163,15 +163,15 @@ class AsyncSocketController:
                 )
                 # Обрабатываем полученное от клиента сообщение
                 processed_serialized_message = await message_repository(
-                    me=self.consumer.scope['user']
-                ).save_client_message(
+                    me=self.consumer.scope['user'],
                     chat_id=room_id,
-                    content=content,
+                ).save_client_message(
+                    content=content
                 )
 
                 personalized_chat_variants_with_sockets, chat_users = await self.repository_class(
                     me=self.consumer.scope['user']
-                ).get_chat_for_all_participants(
+                ).get_chat_for_all_participants(  # 10
                     chat_id=room_id,
                 )
 
@@ -243,9 +243,9 @@ class AsyncSocketController:
                 my_first_unread_message_prepared
             ) = \
                 await message_repository(
-                    me=self.consumer.scope['user']
-                ).client_read_message(
+                    me=self.consumer.scope['user'],
                     chat_id=room_id,
+                ).client_read_message(
                     content=content,
                 )
 
@@ -286,6 +286,7 @@ class AsyncSocketController:
 
         except Exception as e:
             logger.error(e)
+            raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
 
 
 class SocketController:
@@ -320,3 +321,25 @@ class SocketController:
             'type': 'notification_handler',
             'prepared_data': prepared_data
         })
+
+    def send_message_to_my_connections(self, data):
+        # Отправка сообщения в себе по сокетам, если есть подключения
+        try:
+            connections = self.repository_class(self.me).get_user_connections(**{
+                'room_id': None,
+                'room_name': None,
+            })
+
+            for connection in connections:
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.send)(connection.socket_id, data)
+        except Exception as e:
+            logger.error(e)
+
+    def send_message_to_one_connection(self, socket_id, data):
+        # Отправка уведомления в одиночный канал подключенного пользователя
+        try:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.send)(socket_id, data)
+        except Exception as e:
+            logger.error(e)

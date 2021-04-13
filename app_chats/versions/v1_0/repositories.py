@@ -248,7 +248,7 @@ class ChatsRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
         return record
 
-    def get_chat_unread_count(self, record_id):
+    def get_chat_unread_count_and_first_unread(self, record_id):
         records = self.base_query.filter(id=record_id)
         records = self.prefetch_first_unread_message(records)
         record = records.first()
@@ -532,11 +532,11 @@ class MessagesRepository(MasterRepository):
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
 
-    def save_client_message(self, chat_id, content):
+    def save_client_message(self, content):
         content = underscoreize(content)
-        message = self.model.objects.create(
+        message = self.model.objects.create(  # 1
             user=self.me,
-            chat_id=chat_id,
+            chat_id=self.chat_id,
             uuid=content.get('uuid'),
             message_type=content.get('message_type'),
             text=content.get('text'),
@@ -544,11 +544,11 @@ class MessagesRepository(MasterRepository):
         )
 
         # Читаем все сообщения перед созданным
-        self.read_all_before(chat_id, message)
+        self.read_all_before(message)  # 3
 
         attachments = content.get('attachments')
         if attachments:
-            MediaRepository().reattach_files(
+            MediaRepository().reattach_files(  # 1
                 uuids=attachments,
                 current_model=self.me,
                 current_owner_id=self.me.id,
@@ -558,10 +558,13 @@ class MessagesRepository(MasterRepository):
 
         return message
 
-    def read_all_before(self, chat_id, message):
-        # Все непрочитанные чужие сообщения до того сообщения, которое читается
+    def get_last_message(self):
+        return self.model.objects.filter(chat_id=self.chat_id).last()
+
+    def read_all_before(self, message):
+        # Прочитать все непрочитанные чужие сообщения до того сообщения, которое читается
         all_others_unread_messages = Message.objects.filter(
-            chat_id=chat_id,
+            chat_id=self.chat_id,
             created_at__lt=message.created_at
         ).exclude(
             user=self.me  # Исключаем мои сообщения
@@ -614,9 +617,8 @@ class MessagesRepository(MasterRepository):
                 is_read=True
             )
 
-    def read_message(self, chat_id, content, prefetch=False):
+    def read_message(self, content, prefetch=False):
         """
-        :param chat_id:
         :param content:
         :param prefetch: Сделать предзагрузку данных для автора сообщения и его сокетов
         :return:
@@ -627,7 +629,7 @@ class MessagesRepository(MasterRepository):
         should_response_owner = False
 
         messages = self.model.objects.filter(
-            chat_id=chat_id,
+            chat_id=self.chat_id,
             uuid=content.get('uuid')
         ).exclude(
             user=self.me  # Не читаем свои сообщения
@@ -643,7 +645,7 @@ class MessagesRepository(MasterRepository):
             msg_owner_sockets = [s.socket_id for s in msg_owner.sockets.all()] if prefetch else []
 
             # Читаем все предыдущие сообщения
-            self.read_all_before(chat_id, message)
+            self.read_all_before(message)
 
             if not message.read_at:  # Если сообщение ранее никем не прочитано
                 message.read_at = now()
@@ -670,42 +672,46 @@ class MessagesRepository(MasterRepository):
 
 
 class AsyncMessagesRepository(MessagesRepository):
-    def __init__(self, me=None) -> None:
+    def __init__(self, me=None, chat_id=None) -> None:
         self.me = me
-        super().__init__(self.me)
+        self.chat_id = chat_id
+        super().__init__(self.me, self.chat_id)
 
     @database_sync_to_async
-    def save_client_message(self, chat_id, content):
-        message = super().save_client_message(chat_id, content)
+    def save_client_message(self, content):
+        message = super().save_client_message(content)
         # TODO сделать prefetch для attachments
         return camelize(MessagesSerializer(message, many=False).data)
 
     @database_sync_to_async
-    def client_read_message(self, chat_id, content):
+    def client_read_message(self, content):
         serialized_message = None
         owner_unread_count = None
         my_unread_count = None
         serialized_first_unread_message = None
 
-        last_msg = self.model.objects.filter(chat_id=chat_id).last()
+        last_msg = super().get_last_message()  # TODO проверить инициализацию
 
         message, msg_owner, msg_owner_sockets, should_response_owner = super().read_message(
-            chat_id=chat_id, content=content, prefetch=True
+            content=content, prefetch=True
         )
 
         if message:
             # Количество непрочитанных сообщений в чате для себя
-            my_unread_count, my_first_unread_message = ChatsRepository(me=self.me).get_chat_unread_count(chat_id)
+            my_unread_count, my_first_unread_message = ChatsRepository(
+                me=self.me).get_chat_unread_count_and_first_unread(self.chat_id)
 
             serialized_message = camelize(MessagesSerializer(message, many=False).data)
             serialized_first_unread_message = camelize(
                 FirstUnreadMessageSerializer(my_first_unread_message, many=False).data)
 
-            if last_msg.id == message.id and should_response_owner:
+            if last_msg and last_msg.id == message.id and should_response_owner:
                 # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
                 # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
                 # по unread_count
-                owner_unread_count = ChatsRepository(me=msg_owner).get_chat_unread_count(chat_id)
+                owner_unread_count, *_ = ChatsRepository(
+                    me=msg_owner
+                ).get_chat_unread_count_and_first_unread(self.chat_id)
 
         return (
             serialized_message,
