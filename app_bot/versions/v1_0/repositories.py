@@ -50,7 +50,7 @@ class ChatterBotRepository:
                 'code': intent.code,
                 'topic': intent.topic,
                 'request': [req.text for req in intent.requests.all()],
-                'responses': [res.text for res in intent.responses.all()],
+                'response': [res.text for res in intent.responses.all()],
             })
 
         return prepared_intents

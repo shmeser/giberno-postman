@@ -100,5 +100,5 @@ class IntentResponse(BaseModel):
 
     class Meta:
         db_table = 'app_bot__intents_responses'
-        verbose_name = 'Вариант ответа для теме'
-        verbose_name_plural = 'Варианты ответов для теме'
+        verbose_name = 'Вариант ответа для темы'
+        verbose_name_plural = 'Варианты ответов для темы'
