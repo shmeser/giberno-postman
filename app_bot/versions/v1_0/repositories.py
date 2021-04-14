@@ -2,7 +2,7 @@ from app_bot.enums import TelegramBotNotificationType
 from app_bot.models import BotChat, BotMessage
 
 
-class BotRepository:
+class TelegramBotRepository:
     @staticmethod
     def get_or_create_chat(chat_id, chat_type, chat_title, username, first_name, last_name):
         chat, created = BotChat.objects.get_or_create(
