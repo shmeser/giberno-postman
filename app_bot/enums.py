@@ -1,3 +1,5 @@
+from enum import IntEnum
+
 from backend.enums import EnumM
 
 
@@ -22,3 +24,10 @@ class TelegramBotCommand(EnumM):
 
     LOG_ERRORS_ON = '/log_errors_on'
     LOG_ERRORS_OFF = '/log_errors_off'
+
+
+class ChatterBotIntentCode(IntEnum):
+    DISABLE = 0  # Отключение бота, разговор только с менеджером
+    GREETING = 1  # Приветствие
+    FAREWELL = 2  # Прощание
+    VACANCY = 3  # Вопросы по вакансии

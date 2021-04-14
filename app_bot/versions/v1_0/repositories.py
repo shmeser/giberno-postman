@@ -1,11 +1,12 @@
 import random
+import re
 
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 
 from app_bot.enums import TelegramBotNotificationType
-from app_bot.models import BotChat, BotMessage
+from app_bot.models import BotChat, BotMessage, Intent
 
 
 class TelegramBotRepository:
@@ -42,25 +43,23 @@ class ChatterBotRepository:
     @staticmethod
     def get_intents():
         # Темы, на которые бот может отвечать
-        return [
-            {
-                'request': ['привет', 'добрый день, робот'],
-                'response': ['_привет', 'ну здарова', 'шаломчик'],
-                'topic': 'Приветствия',
-                'code': 1
-            },
-            {
-                'request': ['пока', 'до свидания', 'отключить робота и позвать менеджера'],
-                'response': ['_пока', 'не звони мне больше'],
-                'topic': 'Прощания',
-                'code': 2
-            }
-        ]
+        prepared_intents = []
+
+        for intent in Intent.support.all():
+            prepared_intents.append({
+                'code': intent.code,
+                'topic': intent.topic,
+                'request': [req.text for req in intent.requests.all()],
+                'responses': [res.text for res in intent.responses.all()],
+            })
+
+        return prepared_intents
 
     @staticmethod
     def normalize_text(text):
         # Удаление слов паразитов, лишних символов, окончаний
-        words = word_tokenize(text)
+        clean = re.sub(r'[^ a-z A-Z А-Я а-я Ёё 0-9]', " ", text)
+        words = word_tokenize(clean)
         stop_words = stopwords.words('russian')
 
         snowball = SnowballStemmer(language='russian')
