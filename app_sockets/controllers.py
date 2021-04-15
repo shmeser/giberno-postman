@@ -329,6 +329,12 @@ class SocketController:
             'prepared_data': prepared_data
         })
 
+    @staticmethod
+    def send_message_to_connections_group(group_name, data):
+        # Отправка сообщения в групповой канал
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(group_name, data)
+
     def send_message_to_my_connections(self, data):
         # Отправка сообщения в себе по сокетам, если есть подключения
         try:
@@ -353,6 +359,15 @@ class SocketController:
 
     def send_chat_message(self, prepared_message=None, chat_id=None):
         try:
+
+            group_name = f'{AvailableRoom.CHATS.value}{chat_id}'
+            # Отправялем сообщение в канал по сокетам
+            self.send_message_to_connections_group(group_name, {
+                'type': 'chat_message',
+                'chat_id': chat_id,
+                'prepared_data': prepared_message,
+            })
+
             personalized_chat_variants_with_sockets, chat_users = self.repository_class(
                 me=self.me
             ).get_chat_for_all_participants(chat_id)
@@ -360,7 +375,7 @@ class SocketController:
             # Отправляем обновленные данные о чате всем участникам чата по сокетам
             for data in personalized_chat_variants_with_sockets:
                 for connection_name in data['sockets']:
-                    SocketController(version=AvailableVersion.V1_0.value).send_message_to_one_connection(
+                    self.send_message_to_one_connection(
                         connection_name,
                         {
                             'type': 'chat_last_msg_updated',
@@ -408,6 +423,14 @@ class SocketController:
                     'command_data': None
                 }
             )
+
+            group_name = f'{AvailableRoom.CHATS.value}{chat_id}'
+            # Отправялем сообщение в канал по сокетам
+            self.send_message_to_connections_group(group_name, {
+                'type': 'chat_message',
+                'chat_id': chat_id,
+                'prepared_data': bot_message_serialized,
+            })
 
             personalized_chat_variants_with_sockets, chat_users = self.repository_class(
             ).get_chat_for_all_participants(chat_id)
