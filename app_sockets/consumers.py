@@ -1,7 +1,7 @@
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from loguru import logger
 
-from app_sockets.controllers import AsyncSocketController
+from app_sockets.async_controllers import AsyncSocketController
 from app_sockets.enums import SocketEventType
 from backend.errors.enums import SocketErrors
 from backend.errors.ws_exceptions import WebSocketError

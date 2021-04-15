@@ -206,7 +206,7 @@ class ReadMessages(CRUDAPIView):
             owner_unread_count, *_ = ChatsRepository(me=msg_owner).get_chat_unread_count_and_first_unread(chat_id)  # 2
 
         if my_unread_count is not None:
-            SocketController(version='1.0').send_message_to_my_connections({
+            SocketController(version=AvailableVersion.V1_0.value).send_message_to_my_connections({
                 'type': 'chat_message_was_read',
                 'chat': {
                     'id': chat_id,
@@ -222,7 +222,7 @@ class ReadMessages(CRUDAPIView):
             # Если автор прочитаного сообщения не тот, кто его читает, и сообщение ранее не читали
             for socket_id in msg_owner_sockets:
                 # Отправялем сообщение автору сообщения о том, что оно прочитано
-                SocketController(version='1.0').send_message_to_one_connection(socket_id, {
+                SocketController(version=AvailableVersion.V1_0.value).send_message_to_one_connection(socket_id, {
                     'type': 'chat_message_updated',
                     'chat_id': chat_id,
                     'prepared_data': serialized_message,
@@ -230,7 +230,7 @@ class ReadMessages(CRUDAPIView):
 
                 # Если прочитанное сообщение последнее в чате, то отправляем автору SERVER_CHAT_LAST_MSG_UPDATED
                 if owner_unread_count is not None:
-                    SocketController(version='1.0').send_message_to_one_connection(socket_id, {
+                    SocketController(version=AvailableVersion.V1_0.value).send_message_to_one_connection(socket_id, {
                         'type': 'chat_last_msg_updated',
                         'prepared_data': {
                             'id': chat_id,
