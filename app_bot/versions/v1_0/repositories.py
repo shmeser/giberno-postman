@@ -1,6 +1,7 @@
 import random
 import re
 
+from channels.db import database_sync_to_async
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
@@ -104,7 +105,7 @@ class ChatterBotRepository:
     def process_human_language(cls, text):
         # Обработка пользовательского ввода
         found_intent = None  # Бот пока не нашел подходящей темы
-        _MIN_INTENT_RELEVANCY = 0.5  # Минимальная релевантность темы для данного текста
+        _MIN_INTENT_RELEVANCY = 0.3  # Минимальная релевантность темы для данного текста
 
         processed_intents = []
 
@@ -129,4 +130,11 @@ class ChatterBotRepository:
         if intent:
             return random.choice(intent['response'])
 
-        return 'Не знаю, что на это ответить'
+        return 'Не знаю, что на это ответить...'
+
+
+class AsyncChatterBotRepository(ChatterBotRepository):
+
+    @database_sync_to_async
+    def get_response(self, text):
+        return super().get_response(text)

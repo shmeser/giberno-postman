@@ -43,5 +43,7 @@ class AvailableRoom(EnumM):
     CHATS = 'chats'
     SHOPS = 'shops'
     USERS = 'users'
+    MESSAGES = 'messages'
+    BOT = 'bot'
     VACANCIES = 'vacancies'
     DISTRIBUTORS = 'distributors'

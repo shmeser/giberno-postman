@@ -1,10 +1,10 @@
 import re
 
+from app_bot.versions.v1_0 import repositories as bot_1_0
 from app_chats.versions.v1_0 import repositories as chats_1_0
-
-from app_sockets.versions.v1_0 import repositories as socket_1_0
 from app_market.versions.v1_0 import repositories as market_1_0
 from app_sockets.enums import AvailableRoom, AvailableVersion
+from app_sockets.versions.v1_0 import repositories as socket_1_0
 from app_users.versions.v1_0 import repositories as user_1_0
 
 
@@ -30,7 +30,11 @@ class RoutingMapper:
         if version == AvailableVersion.V1_0.value and room_name is None:
             return socket_1_0.AsyncSocketsRepository
         if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.CHATS.value:
-            return chats_1_0.AsyncChatsRepository, chats_1_0.AsyncMessagesRepository
+            return chats_1_0.AsyncChatsRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.MESSAGES.value:
+            return chats_1_0.AsyncMessagesRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.BOT.value:
+            return bot_1_0.AsyncChatterBotRepository
         if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.USERS.value:
             return user_1_0.AsyncProfileRepository
         if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.SHOPS.value:
@@ -44,8 +48,24 @@ class RoutingMapper:
 
     @staticmethod
     def room_repository(version, room_name=None):
+        # chained get from dict
         if version == AvailableVersion.V1_0.value and room_name is None:
             return socket_1_0.SocketsRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.CHATS.value:
+            return chats_1_0.ChatsRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.MESSAGES.value:
+            return chats_1_0.MessagesRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.BOT.value:
+            return bot_1_0.ChatterBotRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.USERS.value:
+            return user_1_0.ProfileRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.SHOPS.value:
+            return market_1_0.ShopsRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.VACANCIES.value:
+            return market_1_0.VacanciesRepository
+        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.DISTRIBUTORS.value:
+            return market_1_0.DistributorsRepository
+
         return None
 
     @staticmethod

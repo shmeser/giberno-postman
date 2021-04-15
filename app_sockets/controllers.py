@@ -2,11 +2,11 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from loguru import logger
 
-from app_sockets.enums import SocketEventType, AvailableRoom
+from app_sockets.enums import SocketEventType, AvailableRoom, AvailableVersion
 from app_sockets.mappers import RoutingMapper
-from app_users.enums import NotificationAction, NotificationType
+from app_users.enums import NotificationAction, NotificationType, AccountType
 from app_users.models import UserProfile
-from backend.controllers import AsyncPushController
+from backend.controllers import AsyncPushController, PushController
 from backend.errors.enums import SocketErrors
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.ws_exceptions import WebSocketError
@@ -17,13 +17,14 @@ class AsyncSocketController:
     def __init__(self, consumer=None) -> None:
         super().__init__()
         self.consumer = consumer
-        self.repository_class = RoutingMapper.room_async_repository(consumer.version)
+        self.own_repository_class = RoutingMapper.room_async_repository(consumer.version)
+        self.repository_class = RoutingMapper.room_async_repository(consumer.version, consumer.room_name)
 
     async def store_single_connection(self):
         try:
             me = self.consumer.scope['user']  # Прользователь текущего соединения
 
-            await self.repository_class(me).add_socket(
+            await self.own_repository_class(me).add_socket(
                 self.consumer.channel_name  # ид соединения
             )
         except Exception as e:
@@ -34,7 +35,7 @@ class AsyncSocketController:
         try:
             me = self.consumer.scope['user']  # Прользователь текущего соединения
 
-            await self.repository_class(me).add_socket(
+            await self.own_repository_class(me).add_socket(
                 self.consumer.channel_name,  # ид соединения,
                 chained_get(kwargs, 'room_name', default=self.consumer.room_name),  # имя комнаты
                 chained_get(kwargs, 'room_id', default=self.consumer.room_id)  # ид комнаты
@@ -46,7 +47,7 @@ class AsyncSocketController:
 
     async def remove_connection(self):
         me = self.consumer.scope['user']  # Пользователь текущего соединения
-        await self.repository_class(me).remove_socket(self.consumer.channel_name)
+        await self.own_repository_class(me).remove_socket(self.consumer.channel_name)
 
     async def send_error(self, code, details):
         await self.consumer.channel_layer.send(self.consumer.channel_name, {
@@ -116,7 +117,7 @@ class AsyncSocketController:
 
                 return False
 
-            self.repository_class, *other = RoutingMapper.room_async_repository(version, room_name)
+            self.repository_class = RoutingMapper.room_async_repository(version, room_name)
 
             if not await self.repository_class(me).check_permission_for_action(room_id):
                 logger.info(f'Действие запрещено')
@@ -228,8 +229,12 @@ class AsyncSocketController:
                 )
                 return
 
-            self.repository_class, message_repository = RoutingMapper.room_async_repository(
+            self.repository_class = RoutingMapper.room_async_repository(
                 self.consumer.version, AvailableRoom.CHATS.value
+            )
+
+            message_repository = RoutingMapper.room_async_repository(
+                self.consumer.version, AvailableRoom.MESSAGES.value
             )
 
             # Обрабатываем полученные от клиента данные
@@ -290,16 +295,18 @@ class AsyncSocketController:
 
 
 class SocketController:
-    def __init__(self, me: UserProfile = None, version=None) -> None:
+    def __init__(self, me: UserProfile = None, version=None, room_name=None) -> None:
         super().__init__()
         self.me = me
         self.version = version
-        self.repository_class = RoutingMapper.room_repository(version)
+        self.room_name = room_name
+        self.own_repository_class = RoutingMapper.room_repository(version)
+        self.repository_class = RoutingMapper.room_repository(version, room_name)
 
     def send_notification_to_one_connection(self, prepared_data):
         # Отправка уведомления в одиночный канал подключенного пользователя
         try:
-            connections = self.repository_class(self.me).get_user_connections(**{
+            connections = self.own_repository_class(self.me).get_user_connections(**{
                 'room_id': None,
                 'room_name': None,
             })
@@ -325,7 +332,7 @@ class SocketController:
     def send_message_to_my_connections(self, data):
         # Отправка сообщения в себе по сокетам, если есть подключения
         try:
-            connections = self.repository_class(self.me).get_user_connections(**{
+            connections = self.own_repository_class(self.me).get_user_connections(**{
                 'room_id': None,
                 'room_name': None,
             })
@@ -341,5 +348,94 @@ class SocketController:
         try:
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.send)(socket_id, data)
+        except Exception as e:
+            logger.error(e)
+
+    def send_chat_message(self, prepared_message=None, chat_id=None):
+        try:
+            personalized_chat_variants_with_sockets, chat_users = self.repository_class(
+                me=self.me
+            ).get_chat_for_all_participants(chat_id)
+
+            # Отправляем обновленные данные о чате всем участникам чата по сокетам
+            for data in personalized_chat_variants_with_sockets:
+                for connection_name in data['sockets']:
+                    SocketController(version=AvailableVersion.V1_0.value).send_message_to_one_connection(
+                        connection_name,
+                        {
+                            'type': 'chat_last_msg_updated',
+                            'prepared_data': {
+                                'id': chat_id,
+                                'unreadCount': chained_get(data, 'chat', 'unreadCount'),
+                                'lastMessage': prepared_message
+                            },
+                        }
+                    )
+
+            # Отправляем сообщение по пушам всем участникам чата
+            PushController().send_message(
+                users_to_send=chat_users,
+                title='',
+                message=chained_get(prepared_message, 'text', default=''),
+                action=NotificationAction.CHAT.value,
+                subject_id=chat_id,
+                notification_type=NotificationType.CHAT.value,
+                icon_type=''
+            )
+
+        except Exception as e:
+            logger.error(e)
+
+    def check_and_send_bot_reply(self, prepared_message=None, chat_id=None):
+        try:
+            # Проверяем необходимость отправки сообщения в чат от имени бота
+            if self.me is None or self.me.account_type != AccountType.SELF_EMPLOYED.value:
+                return
+
+            # TODO Определить тип ответа - список документов, форма, обычное сообщение и т.д.
+
+            bot_repository = RoutingMapper.room_repository(
+                version=AvailableVersion.V1_0.value, room_name=AvailableRoom.BOT.value)
+            message_repository = RoutingMapper.room_repository(
+                version=AvailableVersion.V1_0.value, room_name=AvailableRoom.MESSAGES.value)
+
+            reply = bot_repository.get_response(chained_get(prepared_message, 'text'))
+
+            bot_message_serialized = message_repository(chat_id=chat_id).save_bot_message(
+                {
+                    'message_type': 1,
+                    'text': reply,
+                    'command_data': None
+                }
+            )
+
+            personalized_chat_variants_with_sockets, chat_users = self.repository_class(
+            ).get_chat_for_all_participants(chat_id)
+
+            # Отправляем обновленные данные о чате всем участникам чата по сокетам
+            for data in personalized_chat_variants_with_sockets:
+                for connection_name in data['sockets']:
+                    self.send_message_to_one_connection(
+                        connection_name,
+                        {
+                            'type': 'chat_last_msg_updated',
+                            'prepared_data': {
+                                'id': chat_id,
+                                'unreadCount': chained_get(data, 'chat', 'unreadCount'),
+                                'lastMessage': bot_message_serialized
+                            },
+                        }
+                    )
+
+            # Отправляем сообщение по пушам всем участникам чата
+            PushController().send_message(
+                users_to_send=chat_users,
+                title='',
+                message=chained_get(bot_message_serialized, 'text', default=''),
+                action=NotificationAction.CHAT.value,
+                subject_id=chat_id,
+                notification_type=NotificationType.CHAT.value,
+                icon_type=''
+            )
         except Exception as e:
             logger.error(e)

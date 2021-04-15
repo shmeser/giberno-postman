@@ -1,3 +1,4 @@
+import uuid
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
@@ -266,7 +267,7 @@ class ChatsRepository(MasterRepository):
                     .filter(chat=chat)
                     .exclude(user=OuterRef('id'))
                     .exclude(stats__user=OuterRef('id'), stats__is_read=True)
-                    .values('user')
+                    .values('chat')
                     .annotate(count=Count('pk'))
                     .values('count')
             )
@@ -280,14 +281,12 @@ class ChatsRepository(MasterRepository):
 
     def get_chat_for_all_participants(self, record_id):
         """ Возвращает массив сериализованных чатов и сокеты для каждого участника, и самих участников """
-        records = self.model.objects.filter(users__in=[self.me], id=record_id)
+        records = self.model.objects.filter(id=record_id)
         records = self.fast_related_loading(records)
         record = records.first()
 
         if not record:
-            raise HttpException(
-                status_code=RESTErrors.NOT_FOUND.value,
-                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+            raise EntityDoesNotExistException
 
         prepared_data = []
         users = record.users.all()
@@ -669,6 +668,30 @@ class MessagesRepository(MasterRepository):
                 )
 
         return message, msg_owner, msg_owner_sockets, should_response_owner
+
+    def save_bot_message(self, content):
+        content = underscoreize(content)
+        message = self.model.objects.create(  # 1
+            user=None,
+            chat_id=self.chat_id,
+            uuid=uuid.uuid4(),
+            message_type=content.get('message_type'),
+            text=content.get('text'),
+            command_data=content.get('command_data'),
+        )
+
+        # TODO общие файлы для сообщений сделать
+        # attachments = content.get('attachments')
+        # if attachments:
+        #     MediaRepository().reattach_files(  # 1
+        #         uuids=attachments,
+        #         current_model=self.me,
+        #         current_owner_id=self.me.id,
+        #         target_model=self.model,
+        #         target_owner_id=message.id
+        #     )
+
+        return camelize(MessagesSerializer(message, many=False).data)
 
 
 class AsyncMessagesRepository(MessagesRepository):
