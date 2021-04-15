@@ -738,8 +738,10 @@ class AsyncMessagesRepository(MessagesRepository):
                 me=self.me).get_chat_unread_count_and_first_unread(self.chat_id)
 
             serialized_message = camelize(MessagesSerializer(message, many=False).data)
-            serialized_first_unread_message = camelize(
-                FirstUnreadMessageSerializer(my_first_unread_message, many=False).data)
+
+            if my_first_unread_message:
+                serialized_first_unread_message = camelize(
+                    FirstUnreadMessageSerializer(my_first_unread_message, many=False).data)
 
             if last_msg and last_msg.id == message.id and should_response_owner:
                 # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
