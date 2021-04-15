@@ -2,9 +2,9 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from loguru import logger
 
-from app_sockets.enums import SocketEventType, AvailableRoom, AvailableVersion
+from app_sockets.enums import SocketEventType, AvailableRoom
 from app_sockets.mappers import RoutingMapper
-from app_users.enums import NotificationAction, NotificationType, AccountType
+from app_users.enums import NotificationAction, NotificationType
 from app_users.models import UserProfile
 from backend.controllers import AsyncPushController, PushController
 from backend.errors.enums import SocketErrors
@@ -398,67 +398,5 @@ class SocketController:
                 icon_type=''
             )
 
-        except Exception as e:
-            logger.error(e)
-
-    def check_and_send_bot_reply(self, prepared_message=None, chat_id=None):
-        try:
-            # Проверяем необходимость отправки сообщения в чат от имени бота
-            if self.me is None or self.me.account_type != AccountType.SELF_EMPLOYED.value:
-                return
-
-            # TODO Определить тип ответа - список документов, форма, обычное сообщение и т.д.
-
-            bot_repository = RoutingMapper.room_repository(
-                version=AvailableVersion.V1_0.value, room_name=AvailableRoom.BOT.value)
-            message_repository = RoutingMapper.room_repository(
-                version=AvailableVersion.V1_0.value, room_name=AvailableRoom.MESSAGES.value)
-
-            reply = bot_repository.get_response(chained_get(prepared_message, 'text'))
-
-            bot_message_serialized = message_repository(chat_id=chat_id).save_bot_message(
-                {
-                    'message_type': 1,
-                    'text': reply,
-                    'command_data': None
-                }
-            )
-
-            group_name = f'{AvailableRoom.CHATS.value}{chat_id}'
-            # Отправялем сообщение в канал по сокетам
-            self.send_message_to_connections_group(group_name, {
-                'type': 'chat_message',
-                'chat_id': chat_id,
-                'prepared_data': bot_message_serialized,
-            })
-
-            personalized_chat_variants_with_sockets, chat_users = self.repository_class(
-            ).get_chat_for_all_participants(chat_id)
-
-            # Отправляем обновленные данные о чате всем участникам чата по сокетам
-            for data in personalized_chat_variants_with_sockets:
-                for connection_name in data['sockets']:
-                    self.send_message_to_one_connection(
-                        connection_name,
-                        {
-                            'type': 'chat_last_msg_updated',
-                            'prepared_data': {
-                                'id': chat_id,
-                                'unreadCount': chained_get(data, 'chat', 'unreadCount'),
-                                'lastMessage': bot_message_serialized
-                            },
-                        }
-                    )
-
-            # Отправляем сообщение по пушам всем участникам чата
-            PushController().send_message(
-                users_to_send=chat_users,
-                title='',
-                message=chained_get(bot_message_serialized, 'text', default=''),
-                action=NotificationAction.CHAT.value,
-                subject_id=chat_id,
-                notification_type=NotificationType.CHAT.value,
-                icon_type=''
-            )
         except Exception as e:
             logger.error(e)

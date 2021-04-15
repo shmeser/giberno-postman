@@ -2,6 +2,7 @@ from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.response import Response
 
+from app_bot.tasks import delayed_checking_for_bot_reply
 from app_chats.versions.v1_0.repositories import ChatsRepository, MessagesRepository
 from app_chats.versions.v1_0.serializers import ChatsSerializer, MessagesSerializer, ChatSerializer, \
     FirstUnreadMessageSerializer
@@ -148,14 +149,13 @@ class Messages(CRUDAPIView):
             chat_id=chat_id
         )
 
-        SocketController(
-            me=request.user,
+        # Ответ бота через Celery с задержкой
+        delayed_checking_for_bot_reply.s(
             version=AvailableVersion.V1_0.value,
-            room_name=AvailableRoom.CHATS.value,
-        ).check_and_send_bot_reply(
-            prepared_message=processed_serialized_message,
-            chat_id=chat_id
-        )
+            chat_id=chat_id,
+            user_id=request.user.id,
+            message_text=chained_get(processed_serialized_message, 'text')
+        ).apply_async(countdown=3)
 
         return Response(processed_serialized_message, status=status.HTTP_200_OK)
 
