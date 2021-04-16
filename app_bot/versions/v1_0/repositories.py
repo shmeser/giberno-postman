@@ -63,14 +63,19 @@ class ChatterBotRepository:
         # Удаление слов паразитов, лишних символов, окончаний
         clean = re.sub(r'[^ a-z A-Z А-Я а-я Ёё 0-9]', " ", text)
         words = word_tokenize(clean)
+
         stop_words = stopwords.words('russian')
+        # Оставляем слова да нет
+        stop_words.pop('да', None)
+        stop_words.pop('нет', None)
 
         snowball = SnowballStemmer(language='russian')
 
         words = list(
             map(
                 lambda y, s=snowball: s.stem(y),
-                filter(lambda x, stop=stop_words: x not in stop, words)
+                words
+                # filter(lambda x, stop=stop_words: x not in stop, words) # TODO пока отключим стопслова
             )
         )
         return words
