@@ -1,7 +1,10 @@
+import uuid
+
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef, Case, When, F, IntegerField
+from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef, Case, When, F, IntegerField, \
+    Exists
 from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize, underscoreize
@@ -53,11 +56,18 @@ class ChatsRepository(MasterRepository):
         # TODO без указания target, создаем чат p2p
 
         # Выражения для вычисляемых полей в annotate
-        # self.unread_count_expression = Count('messages_stats', filter=Q(messages_stats__user=self.me))
-        self.unread_count_expression = Count(
+        self.unread_count_expression = Count(  # Подсчет всех чужих сообщений в чате
             'messages',
-            filter=~Q(messages__user=self.me)  # Отсекаем свои сообщения в чате остаются только чужие
-        ) - Count(
+            filter=Q(
+                ~Q(messages__user=self.me) &  # Отсекаем свои сообщения в чате остаются только чужие
+                Q(
+                    # Из-за join'ов и group by которые порождаются через лукапы связанных полей можно просчитаться
+                    # и будет другое значение, поэтому фильтрация максимальна подробная
+                    Q(messages__stats__isnull=True) |  # Либо вообще без чьей-лио статистики
+                    Q(messages__stats__user=self.me)  # Либо только с моей статистикой
+                )
+            )
+        ) - Count(  # Подсчет прочитанных мной чужих сообщений
             'messages',
             filter=~Q(messages__user=self.me) &  # Отсекаем свои сообщения в чате, остаются только чужие
                    Q(messages__stats__user=self.me, messages__stats__is_read=True)  # только те, что я прочитал
@@ -266,7 +276,7 @@ class ChatsRepository(MasterRepository):
                     .filter(chat=chat)
                     .exclude(user=OuterRef('id'))
                     .exclude(stats__user=OuterRef('id'), stats__is_read=True)
-                    .values('user')
+                    .values('chat')
                     .annotate(count=Count('pk'))
                     .values('count')
             )
@@ -280,14 +290,12 @@ class ChatsRepository(MasterRepository):
 
     def get_chat_for_all_participants(self, record_id):
         """ Возвращает массив сериализованных чатов и сокеты для каждого участника, и самих участников """
-        records = self.model.objects.filter(users__in=[self.me], id=record_id)
+        records = self.model.objects.filter(id=record_id)
         records = self.fast_related_loading(records)
         record = records.first()
 
         if not record:
-            raise HttpException(
-                status_code=RESTErrors.NOT_FOUND.value,
-                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+            raise EntityDoesNotExistException
 
         prepared_data = []
         users = record.users.all()
@@ -568,14 +576,17 @@ class MessagesRepository(MasterRepository):
             created_at__lt=message.created_at
         ).exclude(
             user=self.me  # Исключаем мои сообщения
-        ).filter(
-            Q(stats__isnull=True) | Q(stats__is_read=False)  # Либо без статистики либо с ней но с is_read=False
+        ).annotate(
+            # Моя статистика существует
+            my_stat_exists=Exists(MessageStat.objects.filter(message_id=OuterRef('pk'), user=self.me)),
+            # В моей статистике стоит флаг is_read=True
+            my_stat_is_read=Exists(MessageStat.objects.filter(message_id=OuterRef('pk'), user=self.me, is_read=True))
         ).aggregate(
             stats_isnull=ArrayRemove(
                 ArrayAgg(
                     Case(
                         When(
-                            stats__isnull=True,
+                            my_stat_exists=False,
                             then=F('id')
                         ),
                         default=None,
@@ -588,7 +599,8 @@ class MessagesRepository(MasterRepository):
                 ArrayAgg(
                     Case(
                         When(
-                            stats__is_read=False,
+                            my_stat_exists=True,
+                            my_stat_is_read=False,
                             then=F('id')
                         ),
                         default=None,
@@ -642,7 +654,7 @@ class MessagesRepository(MasterRepository):
 
         if message:
             msg_owner = message.user
-            msg_owner_sockets = [s.socket_id for s in msg_owner.sockets.all()] if prefetch else []
+            msg_owner_sockets = [s.socket_id for s in msg_owner.sockets.all()] if prefetch and msg_owner else []
 
             # Читаем все предыдущие сообщения
             self.read_all_before(message)
@@ -669,6 +681,30 @@ class MessagesRepository(MasterRepository):
                 )
 
         return message, msg_owner, msg_owner_sockets, should_response_owner
+
+    def save_bot_message(self, content):
+        content = underscoreize(content)
+        message = self.model.objects.create(  # 1
+            user=None,
+            chat_id=self.chat_id,
+            uuid=uuid.uuid4(),
+            message_type=content.get('message_type'),
+            text=content.get('text'),
+            command_data=content.get('command_data'),
+        )
+
+        # TODO общие файлы для сообщений сделать
+        # attachments = content.get('attachments')
+        # if attachments:
+        #     MediaRepository().reattach_files(  # 1
+        #         uuids=attachments,
+        #         current_model=self.me,
+        #         current_owner_id=self.me.id,
+        #         target_model=self.model,
+        #         target_owner_id=message.id
+        #     )
+
+        return camelize(MessagesSerializer(message, many=False).data)
 
 
 class AsyncMessagesRepository(MessagesRepository):
@@ -702,8 +738,10 @@ class AsyncMessagesRepository(MessagesRepository):
                 me=self.me).get_chat_unread_count_and_first_unread(self.chat_id)
 
             serialized_message = camelize(MessagesSerializer(message, many=False).data)
-            serialized_first_unread_message = camelize(
-                FirstUnreadMessageSerializer(my_first_unread_message, many=False).data)
+
+            if my_first_unread_message:
+                serialized_first_unread_message = camelize(
+                    FirstUnreadMessageSerializer(my_first_unread_message, many=False).data)
 
             if last_msg and last_msg.id == message.id and should_response_owner:
                 # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата

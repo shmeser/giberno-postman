@@ -2,12 +2,12 @@ from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.response import Response
 
+from app_bot.tasks import delayed_checking_for_bot_reply
 from app_chats.versions.v1_0.repositories import ChatsRepository, MessagesRepository
 from app_chats.versions.v1_0.serializers import ChatsSerializer, MessagesSerializer, ChatSerializer, \
     FirstUnreadMessageSerializer
 from app_sockets.controllers import SocketController
-from app_users.enums import NotificationAction, NotificationType
-from backend.controllers import PushController
+from app_sockets.enums import AvailableVersion, AvailableRoom
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exceptions import HttpException
 from backend.mappers import RequestMapper
@@ -140,35 +140,22 @@ class Messages(CRUDAPIView):
 
         processed_serialized_message = camelize(serialized.data)
 
-        personalized_chat_variants_with_sockets, chat_users = ChatsRepository(
-            me=request.user
-        ).get_chat_for_all_participants(chat_id)
-
-        # Отправляем обновленные данные о чате всем участникам чата по сокетам
-        for data in personalized_chat_variants_with_sockets:
-            for connection_name in data['sockets']:
-                SocketController(version='v1.0').send_message_to_one_connection(
-                    connection_name,
-                    {
-                        'type': 'chat_last_msg_updated',
-                        'prepared_data': {
-                            'id': chat_id,
-                            'unreadCount': chained_get(data, 'chat', 'unreadCount'),
-                            'lastMessage': processed_serialized_message
-                        },
-                    }
-                )
-
-        # Отправляем сообщение по пушам всем участникам чата
-        PushController().send_message(
-            users_to_send=chat_users,
-            title='',
-            message=chained_get(processed_serialized_message, 'text', default=''),
-            action=NotificationAction.CHAT.value,
-            subject_id=chat_id,
-            notification_type=NotificationType.CHAT.value,
-            icon_type=''
+        SocketController(
+            me=request.user,
+            version=AvailableVersion.V1_0.value,
+            room_name=AvailableRoom.CHATS.value,
+        ).send_chat_message(
+            prepared_message=processed_serialized_message,
+            chat_id=chat_id
         )
+
+        # Ответ бота через Celery с задержкой
+        delayed_checking_for_bot_reply.s(
+            version=AvailableVersion.V1_0.value,
+            chat_id=chat_id,
+            user_id=request.user.id,
+            message_text=chained_get(processed_serialized_message, 'text')
+        ).apply_async(countdown=3)
 
         return Response(processed_serialized_message, status=status.HTTP_200_OK)
 
@@ -219,7 +206,7 @@ class ReadMessages(CRUDAPIView):
             owner_unread_count, *_ = ChatsRepository(me=msg_owner).get_chat_unread_count_and_first_unread(chat_id)  # 2
 
         if my_unread_count is not None:
-            SocketController(version='1.0').send_message_to_my_connections({
+            SocketController(version=AvailableVersion.V1_0.value).send_message_to_my_connections({
                 'type': 'chat_message_was_read',
                 'chat': {
                     'id': chat_id,
@@ -235,7 +222,7 @@ class ReadMessages(CRUDAPIView):
             # Если автор прочитаного сообщения не тот, кто его читает, и сообщение ранее не читали
             for socket_id in msg_owner_sockets:
                 # Отправялем сообщение автору сообщения о том, что оно прочитано
-                SocketController(version='1.0').send_message_to_one_connection(socket_id, {
+                SocketController(version=AvailableVersion.V1_0.value).send_message_to_one_connection(socket_id, {
                     'type': 'chat_message_updated',
                     'chat_id': chat_id,
                     'prepared_data': serialized_message,
@@ -243,7 +230,7 @@ class ReadMessages(CRUDAPIView):
 
                 # Если прочитанное сообщение последнее в чате, то отправляем автору SERVER_CHAT_LAST_MSG_UPDATED
                 if owner_unread_count is not None:
-                    SocketController(version='1.0').send_message_to_one_connection(socket_id, {
+                    SocketController(version=AvailableVersion.V1_0.value).send_message_to_one_connection(socket_id, {
                         'type': 'chat_last_msg_updated',
                         'prepared_data': {
                             'id': chat_id,

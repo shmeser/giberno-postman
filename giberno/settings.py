@@ -266,7 +266,7 @@ LOGGING = {
     'handlers': {
         'telegram_log': {
             'level': 'ERROR',
-            'class': 'app_bot.controllers.BotLogger',
+            'class': 'app_bot.controllers.TelegramBotLogger',
         },
         'file_log': {
             'level': 'ERROR',
