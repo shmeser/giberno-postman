@@ -5,6 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef, Case, When, F, IntegerField, \
     Exists
+from django.db.models.functions import Coalesce
 from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize, underscoreize
@@ -56,16 +57,19 @@ class ChatsRepository(MasterRepository):
         # TODO без указания target, создаем чат p2p
 
         # Выражения для вычисляемых полей в annotate
-        self.unread_count_expression = Subquery(
-            Message.objects.filter(
-                chat=OuterRef('id')
-            ).exclude(
-                user=self.me
-            ).exclude(
-                stats__user=self.me, stats__is_read=True
-            ).values('chat').annotate(
-                count=Count('pk')
-            ).values('count')
+        self.unread_count_expression = Coalesce(  # Если ниче не найдено то вместо null ставим 0
+            Subquery(
+                Message.objects.filter(
+                    chat=OuterRef('id')
+                ).exclude(
+                    user=self.me
+                ).exclude(
+                    stats__user=self.me, stats__is_read=True
+                ).values('chat').annotate(
+                    count=Count('pk')
+                ).values('count')
+            ),
+            0
         )
 
         self.last_message_created_at_expression = Max(
@@ -267,15 +271,17 @@ class ChatsRepository(MasterRepository):
     @staticmethod
     def get_chat_unread_count_for_all_participants(chat, users):
         unread_counts_for_users = users.annotate(
-            unread_count=Subquery(
-                Message.objects
-                    .filter(chat=chat)
-                    .exclude(user=OuterRef('id'))
-                    .exclude(stats__user=OuterRef('id'), stats__is_read=True)
-                    .values('chat')
-                    .annotate(count=Count('pk'))
-                    .values('count')
-            )
+            unread_count=Coalesce(
+                Subquery(
+                    Message.objects
+                        .filter(chat=chat)
+                        .exclude(user=OuterRef('id'))
+                        .exclude(stats__user=OuterRef('id'), stats__is_read=True)
+                        .values('chat')
+                        .annotate(count=Count('pk'))
+                        .values('count')
+                ),
+                0)
         )
 
         result = {}
