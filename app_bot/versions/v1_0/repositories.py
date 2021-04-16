@@ -64,10 +64,10 @@ class ChatterBotRepository:
         clean = re.sub(r'[^ a-z A-Z А-Я а-я Ёё 0-9]', " ", text)
         words = word_tokenize(clean)
 
-        stop_words = stopwords.words('russian')
+        # stop_words = stopwords.words('russian')
         # Оставляем слова да нет
-        stop_words.pop('да', None)
-        stop_words.pop('нет', None)
+        # stop_words.pop('да', None)
+        # stop_words.pop('нет', None)
 
         snowball = SnowballStemmer(language='russian')
 
