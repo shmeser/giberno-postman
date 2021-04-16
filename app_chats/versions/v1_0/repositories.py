@@ -56,22 +56,18 @@ class ChatsRepository(MasterRepository):
         # TODO без указания target, создаем чат p2p
 
         # Выражения для вычисляемых полей в annotate
-        self.unread_count_expression = Count(  # Подсчет всех чужих сообщений в чате
-            'messages',
-            filter=Q(
-                ~Q(messages__user=self.me) &  # Отсекаем свои сообщения в чате остаются только чужие
-                Q(
-                    # Из-за join'ов и group by которые порождаются через лукапы связанных полей можно просчитаться
-                    # и будет другое значение, поэтому фильтрация максимальна подробная
-                    Q(messages__stats__isnull=True) |  # Либо вообще без чьей-лио статистики
-                    Q(messages__stats__user=self.me)  # Либо только с моей статистикой
-                )
-            )
-        ) - Count(  # Подсчет прочитанных мной чужих сообщений
-            'messages',
-            filter=~Q(messages__user=self.me) &  # Отсекаем свои сообщения в чате, остаются только чужие
-                   Q(messages__stats__user=self.me, messages__stats__is_read=True)  # только те, что я прочитал
+        self.unread_count_expression = Subquery(
+            Message.objects.filter(
+                chat=OuterRef('id')
+            ).exclude(
+                user=self.me
+            ).exclude(
+                stats__user=self.me, stats__is_read=True
+            ).values('chat').annotate(
+                count=Count('pk')
+            ).values('count')
         )
+
         self.last_message_created_at_expression = Max(
             # Округляем до миллисекунд, так как в бд DateTimeField хранит с точностью до МИКРОсекунд
             TruncMilliecond('messages__created_at')

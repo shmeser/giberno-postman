@@ -223,6 +223,9 @@ class PushController:
         devices_ids = []  # Список ID моделей пуш-токенов
         notifications_links = []  # Список объектов-связок для bulk_create
 
+        # TODO добавить uuid для массовой рассылки оповещений,
+        #  у пользователей в бд будут созданы оповещения с одинаковым uuid
+
         for u in users_with_divided_tokens:
             devices_ids += u['devices']  # Добавляем список устройств пользователя в общий массив
 
@@ -268,7 +271,7 @@ class PushController:
             is_sound_enabled: bool,
             **kwargs
     ):
-        """ Отправка пуша как оповещения, создание записи в бд """
+        """ Отправка пуша как сообщения, без создания записи в бд """
 
         # Получаем только ид устройств с токенами
         devices_ids = FCMDevice.objects.filter(
