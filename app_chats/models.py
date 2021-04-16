@@ -4,6 +4,7 @@ from django.contrib.contenttypes.fields import GenericRelation, GenericForeignKe
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
+from app_bot.enums import ChatterBotStates
 from app_chats.enums import ChatMessageType, FormMessageStatus
 from app_media.models import MediaModel
 from app_users.models import UserProfile
@@ -45,6 +46,10 @@ class Chat(BaseModel):
 class ChatUser(BaseModel):
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    is_bot_enabled = models.BooleanField(default=True, verbose_name='Бот для чата включен')
+    bot_state = models.IntegerField(
+        default=ChatterBotStates.IDLE.value, choices=choices(ChatterBotStates), verbose_name='Состояние бота'
+    )
     blocked_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата блокировки')
 
     def __str__(self):
