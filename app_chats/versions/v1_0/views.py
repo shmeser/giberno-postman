@@ -206,7 +206,7 @@ class ReadMessages(CRUDAPIView):
             owner_unread_count, *_ = ChatsRepository(me=msg_owner).get_chat_unread_count_and_first_unread(chat_id)  # 2
 
         if my_unread_count is not None:
-            SocketController(version=AvailableVersion.V1_0.value).send_message_to_my_connections({
+            SocketController(me=request.user, version=AvailableVersion.V1_0.value).send_message_to_my_connections({
                 'type': 'chat_message_was_read',
                 'chat': {
                     'id': chat_id,
