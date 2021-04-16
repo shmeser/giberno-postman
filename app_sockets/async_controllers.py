@@ -215,7 +215,7 @@ class AsyncSocketController:
                     chat_id=room_id,
                     user_id=self.consumer.scope['user'].id,
                     message_text=chained_get(processed_serialized_message, 'text')
-                ).apply_async(countdown=3)
+                ).apply_async(countdown=2)  # Отвечаем через 2 сек
 
             else:
                 await self.send_error(

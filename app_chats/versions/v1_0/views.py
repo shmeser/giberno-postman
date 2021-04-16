@@ -155,7 +155,7 @@ class Messages(CRUDAPIView):
             chat_id=chat_id,
             user_id=request.user.id,
             message_text=chained_get(processed_serialized_message, 'text')
-        ).apply_async(countdown=3)
+        ).apply_async(countdown=2)  # Отвечаем через 2 сек
 
         return Response(processed_serialized_message, status=status.HTTP_200_OK)
 
