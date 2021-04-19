@@ -59,7 +59,7 @@ class SendTestPush(APIView):
         SocketController(request.user, version='1.0').send_notification_to_one_connection({
             'title': title,
             'message': message,
-            'uuid': common_uuid,
+            'uuid': str(common_uuid),
             'action': action,
             'subjectId': subject_id,
             'notificationType': notification_type,
