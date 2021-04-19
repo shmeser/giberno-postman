@@ -20,7 +20,7 @@ class AsyncSocketController:
 
     async def store_single_connection(self):
         try:
-            me = self.consumer.scope['user']  # Прользователь текущего соединения
+            me = self.consumer.user  # Прользователь текущего соединения
 
             await self.own_repository_class(me).add_socket(
                 self.consumer.channel_name  # ид соединения
@@ -31,7 +31,7 @@ class AsyncSocketController:
 
     async def store_group_connection(self, **kwargs):
         try:
-            me = self.consumer.scope['user']  # Прользователь текущего соединения
+            me = self.consumer.user  # Прользователь текущего соединения
 
             await self.own_repository_class(me).add_socket(
                 self.consumer.channel_name,  # ид соединения,
@@ -44,7 +44,7 @@ class AsyncSocketController:
             raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=e)
 
     async def remove_connection(self):
-        me = self.consumer.scope['user']  # Пользователь текущего соединения
+        me = self.consumer.user  # Пользователь текущего соединения
         await self.own_repository_class(me).remove_socket(self.consumer.channel_name)
 
     async def send_error(self, code, details):
@@ -104,7 +104,7 @@ class AsyncSocketController:
             version = self.consumer.version
             room_name = chained_get(kwargs, 'room_name', default=self.consumer.room_name)
             room_id = chained_get(kwargs, 'room_id', default=self.consumer.room_id)
-            me = self.consumer.scope['user']  # Пользователь текущего соединения
+            me = self.consumer.user  # Пользователь текущего соединения
 
             if not RoutingMapper.check_room_version(room_name, version):
                 logger.info(f'Такой точки соединения не существует для версии {version}')
@@ -142,7 +142,7 @@ class AsyncSocketController:
 
     async def update_location(self, event):
         self.repository_class = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.USERS.value)
-        user = await self.repository_class(me=self.consumer.scope['user']).update_location(event)
+        user = await self.repository_class(me=self.consumer.user).update_location(event)
         return user
 
     async def client_message_to_chat(self, content):
@@ -167,26 +167,26 @@ class AsyncSocketController:
 
                 # Обрабатываем полученное от клиента сообщение
                 processed_serialized_message = await message_repository(
-                    me=self.consumer.scope['user'],
+                    me=self.consumer.user,
                     chat_id=room_id,
                 ).save_client_message(
                     content=content
                 )
 
-                personalized_chat_variants_with_sockets, chat_users = await self.repository_class(
-                    me=self.consumer.scope['user']
+                personalized_chat_variants_with_sockets, chat_users, push_title = await self.repository_class(
+                    me=self.consumer.user
                 ).get_chat_for_all_participants(  # 10
                     chat_id=room_id,
                 )
 
-                # Отправялем сообщение обратно в канал по сокетам
+                # Отправялем сообщение обратно в групповой канал по сокетам
                 await self.consumer.channel_layer.group_send(group_name, {
                     'type': 'chat_message',
                     'chat_id': room_id,
                     'prepared_data': processed_serialized_message,
                 })
 
-                # Отправляем обновленные данные о чате всем участникам чата по сокетам
+                # Отправляем обновленные данные о чате всем участникам чата по одиночным сокетам
                 for data in personalized_chat_variants_with_sockets:
                     for connection_name in data['sockets']:
                         await self.consumer.channel_layer.send(connection_name, {
@@ -198,11 +198,12 @@ class AsyncSocketController:
                             },
                         })
 
-                # Отправляем сообщение по пушам всем участникам чата
+                # Отправляем сообщение по пушам всем участникам чата, кроме самого себя
+                # Заголовки сообщения формируется исходя из роли отправителя
                 await AsyncPushController().send_message(
-                    users_to_send=chat_users,
-                    title='',
-                    message=chained_get(content, 'text', default=''),
+                    users_to_send=chat_users.exclude(pk=self.consumer.user.id),  # Не отправляем себе пуш о новом сообщ.
+                    title=push_title,
+                    message=chained_get(processed_serialized_message, 'text', default=''),
                     uuid=chained_get(processed_serialized_message, 'uuid', default=''),
                     action=NotificationAction.CHAT.value,
                     subject_id=room_id,
@@ -214,7 +215,7 @@ class AsyncSocketController:
                 delayed_checking_for_bot_reply.s(
                     version=self.consumer.version,
                     chat_id=room_id,
-                    user_id=self.consumer.scope['user'].id,
+                    user_id=self.consumer.user.id,
                     message_text=chained_get(processed_serialized_message, 'text')
                 ).apply_async(countdown=2)  # Отвечаем через 2 сек
 
@@ -261,7 +262,7 @@ class AsyncSocketController:
                 my_first_unread_message_prepared
             ) = \
                 await message_repository(
-                    me=self.consumer.scope['user'],
+                    me=self.consumer.user,
                     chat_id=room_id,
                 ).client_read_message(
                     content=content,
@@ -281,7 +282,7 @@ class AsyncSocketController:
                     }
                 })
 
-            if owner and owner.id != self.consumer.scope['user'].id and should_response_owner:
+            if owner and owner.id != self.consumer.user.id and should_response_owner:
                 # Если автор прочитаного сообщения не тот, кто его читает, и сообщение ранее не читали
                 for socket_id in owner_sockets:
                     # Отправялем сообщение автору сообщения о том, что оно прочитано

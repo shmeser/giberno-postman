@@ -302,6 +302,16 @@ class ChatsRepository(MasterRepository):
         prepared_data = []
         users = record.users.all()
 
+        push_title_for_non_owner = ''
+
+        # Если автор - менеджер или бот - название вакансии, магазина
+        if not self.me or self.me.account_type != AccountType.SELF_EMPLOYED.value:
+            push_title_for_non_owner = f'{record.target.title}' if record.target else ''
+
+        # Если автор - смз, то его имя фамилия
+        if self.me and self.me.account_type == AccountType.SELF_EMPLOYED.value:
+            push_title_for_non_owner = f'{self.me.first_name} {self.me.last_name}'
+
         unread_counts_dict = self.get_chat_unread_count_for_all_participants(record, users)
 
         for user in users:
@@ -315,7 +325,7 @@ class ChatsRepository(MasterRepository):
                 )
             })
 
-        return prepared_data, users
+        return prepared_data, users, push_title_for_non_owner
 
     @staticmethod
     def fast_related_loading(queryset, point=None):
@@ -613,6 +623,18 @@ class MessagesRepository(MasterRepository):
             ),
         )
 
+        # Проставляем read_at в непрочтенные никем сообщения
+        Message.objects.filter(
+            chat_id=self.chat_id,
+            created_at__lt=message.created_at,
+            read_at__isnull=True  # Непрочитанные никем
+        ).exclude(
+            user=self.me
+        ).update(
+            read_at=now()
+        )
+
+        # Проверяем свою статистику
         if all_others_unread_messages['stats_isnull']:
             # Все непрочитанные сообщения без моей статистики по ним
             create_stats_links = []
