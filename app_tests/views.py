@@ -1,5 +1,6 @@
 import random
 
+import uuid
 from django.db import transaction
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
@@ -36,10 +37,17 @@ class SendTestPush(APIView):
         subject_id = body.pop('subject_id', None)
         notification_type = body.pop('notification_type', None)
         icon_type = body.pop('icon_type', None)
+
+        # uuid для массовой рассылки оповещений,
+        # у пользователей в бд будут созданы оповещения с одинаковым uuid
+        # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+        common_uuid = uuid.uuid4()
+
         PushController().send_notification(
             users_to_send=[request.user],
             title=title,
             message=message,
+            common_uuid=common_uuid,
             action=action,
             subject_id=subject_id,
             notification_type=notification_type,
@@ -51,12 +59,14 @@ class SendTestPush(APIView):
         SocketController(request.user, version='1.0').send_notification_to_one_connection({
             'title': title,
             'message': message,
+            'uuid': common_uuid,
             'action': action,
             'subjectId': subject_id,
             'notificationType': notification_type,
             'iconType': icon_type,
         })
         return Response(camelize({
+            'uuid': common_uuid,
             'title': title,
             'message': message,
             'action': action,
