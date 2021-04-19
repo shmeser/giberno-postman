@@ -1,3 +1,4 @@
+import uuid
 from asgiref.sync import sync_to_async
 from celery import group
 from django.contrib.postgres.aggregates import ArrayAgg
@@ -76,6 +77,7 @@ class PushController:
             users_to_send: [UserProfile],
             title,
             message,
+            uuid,
             action,
             subject_id,
             notification_type,
@@ -99,6 +101,7 @@ class PushController:
                 users_to_send_queryset=users_to_send_queryset_sound,
                 title=title,
                 message=message,
+                uuid=uuid,
                 action=action,
                 subject_id=subject_id,
                 notification_type=notification_type,
@@ -113,6 +116,7 @@ class PushController:
                 users_to_send_queryset=users_to_send_queryset_soundless,
                 title=title,
                 message=message,
+                uuid=uuid,
                 action=action,
                 subject_id=subject_id,
                 notification_type=notification_type,
@@ -223,14 +227,17 @@ class PushController:
         devices_ids = []  # Список ID моделей пуш-токенов
         notifications_links = []  # Список объектов-связок для bulk_create
 
-        # TODO добавить uuid для массовой рассылки оповещений,
-        #  у пользователей в бд будут созданы оповещения с одинаковым uuid
+        # uuid для массовой рассылки оповещений,
+        # у пользователей в бд будут созданы оповещения с одинаковым uuid
+        # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+        common_uuid = uuid.uuid4()
 
         for u in users_with_divided_tokens:
             devices_ids += u['devices']  # Добавляем список устройств пользователя в общий массив
 
             notifications_links.append(
                 Notification(
+                    uuid=common_uuid,
                     user_id=u['user_id'],
                     subject_id=subject_id,
                     title=title,
@@ -248,6 +255,7 @@ class PushController:
 
         # Все данные должны быть строками
         push_data = camelize({
+            'uuid': str(common_uuid),
             'type': str(notification_type),
             'action': str(action),
             'icon_type': str(icon_type) if icon_type else '',
@@ -264,6 +272,7 @@ class PushController:
             users_to_send_queryset,
             title,
             message,
+            uuid,
             action,
             subject_id,
             notification_type,
@@ -288,6 +297,7 @@ class PushController:
             'action': str(action),
             'icon_type': str(icon_type) if icon_type else '',
             'subject_id': str(subject_id) if subject_id else '',
+            'uuid': str(uuid),
             'title': str(title),
             'message': str(message),
             'created_at': str(datetime_to_timestamp(now()))
@@ -325,6 +335,7 @@ class AsyncPushController(PushController):
             users_to_send: [UserProfile],
             title,
             message,
+            uuid,
             action,
             subject_id,
             notification_type,
@@ -339,6 +350,7 @@ class AsyncPushController(PushController):
             users_to_send,
             title,
             message,
+            uuid,
             action,
             subject_id,
             notification_type,

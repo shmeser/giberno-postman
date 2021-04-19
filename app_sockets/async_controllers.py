@@ -203,6 +203,7 @@ class AsyncSocketController:
                     users_to_send=chat_users,
                     title='',
                     message=chained_get(content, 'text', default=''),
+                    uuid=chained_get(processed_serialized_message, 'uuid', default=''),
                     action=NotificationAction.CHAT.value,
                     subject_id=room_id,
                     notification_type=NotificationType.CHAT.value,

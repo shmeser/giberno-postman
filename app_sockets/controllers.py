@@ -108,6 +108,7 @@ class SocketController:
                 users_to_send=chat_users,
                 title='',
                 message=chained_get(prepared_message, 'text', default=''),
+                uuid=chained_get(prepared_message, 'uuid', default=''),
                 action=NotificationAction.CHAT.value,
                 subject_id=chat_id,
                 notification_type=NotificationType.CHAT.value,
