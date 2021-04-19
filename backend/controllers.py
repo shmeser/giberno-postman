@@ -1,4 +1,3 @@
-import uuid
 from asgiref.sync import sync_to_async
 from celery import group
 from django.contrib.postgres.aggregates import ArrayAgg
@@ -27,6 +26,7 @@ class PushController:
             users_to_send: [UserProfile],
             title,
             message,
+            common_uuid,
             action,
             subject_id,
             notification_type,
@@ -50,6 +50,7 @@ class PushController:
                 users_to_send_queryset=users_to_send_queryset_sound,
                 title=title,
                 message=message,
+                common_uuid=common_uuid,
                 action=action,
                 subject_id=subject_id,
                 notification_type=notification_type,
@@ -64,6 +65,7 @@ class PushController:
                 users_to_send_queryset=users_to_send_queryset_soundless,
                 title=title,
                 message=message,
+                common_uuid=common_uuid,
                 action=action,
                 subject_id=subject_id,
                 notification_type=notification_type,
@@ -178,6 +180,7 @@ class PushController:
             users_to_send_queryset,
             title,
             message,
+            common_uuid,
             action,
             subject_id,
             notification_type,
@@ -226,11 +229,6 @@ class PushController:
 
         devices_ids = []  # Список ID моделей пуш-токенов
         notifications_links = []  # Список объектов-связок для bulk_create
-
-        # uuid для массовой рассылки оповещений,
-        # у пользователей в бд будут созданы оповещения с одинаковым uuid
-        # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
-        common_uuid = uuid.uuid4()
 
         for u in users_with_divided_tokens:
             devices_ids += u['devices']  # Добавляем список устройств пользователя в общий массив
