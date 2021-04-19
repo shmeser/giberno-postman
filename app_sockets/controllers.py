@@ -84,7 +84,7 @@ class SocketController:
                 'prepared_data': prepared_message,
             })
 
-            personalized_chat_variants_with_sockets, chat_users = self.repository_class(
+            personalized_chat_variants_with_sockets, chat_users, push_title = self.repository_class(
                 me=self.me
             ).get_chat_for_all_participants(chat_id)
 
@@ -106,7 +106,7 @@ class SocketController:
             # Отправляем сообщение по пушам всем участникам чата
             PushController().send_message(
                 users_to_send=chat_users,
-                title='',
+                title=push_title,
                 message=chained_get(prepared_message, 'text', default=''),
                 uuid=chained_get(prepared_message, 'uuid', default=''),
                 action=NotificationAction.CHAT.value,
