@@ -144,14 +144,13 @@ class LastMessagesSerializer(serializers.ModelSerializer):
 
 
 class FirstUnreadMessageSerializer(serializers.ModelSerializer):
-    # created_at = DateTimeField()
+    created_at = DateTimeField()
 
     class Meta:
         model = Message
         fields = [
             'uuid',
-            # 'user_id',
-            # 'created_at',
+            'created_at',
         ]
 
 

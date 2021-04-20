@@ -24,7 +24,7 @@ from backend.errors.enums import RESTErrors
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
-from backend.utils import chained_get, ArrayRemove
+from backend.utils import chained_get, ArrayRemove, datetime_to_timestamp
 
 
 class TruncMilliecond(TruncBase):
@@ -291,6 +291,16 @@ class ChatsRepository(MasterRepository):
                         stats__user=OuterRef('id'), stats__is_read=True  # Отсекаем те что я прочитал
                     )
                 ).order_by('id').values('uuid')[:1]
+            ),
+            first_unread_message_created_at=Subquery(
+                Message.objects.filter(chat=chat).exclude(
+                    Q(
+                        user=OuterRef('id'),  # Отсекаем свои сообщения
+                    ) |  # или
+                    Q(
+                        stats__user=OuterRef('id'), stats__is_read=True  # Отсекаем те что я прочитал
+                    )
+                ).order_by('id').values('created_at')[:1]
             )
         )
 
@@ -299,7 +309,8 @@ class ChatsRepository(MasterRepository):
             result[f'user{u.id}'] = {
                 'unread_count': u.unread_count,
                 'first_unread_message': {
-                    'uuid': str(u.first_unread_message_uuid)
+                    'uuid': str(u.first_unread_message_uuid),
+                    'createdAt': datetime_to_timestamp(u.first_unread_message_created_at),
                 } if u.first_unread_message_uuid else None
             }
 
