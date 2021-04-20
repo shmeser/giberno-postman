@@ -14,7 +14,6 @@ class ChatsSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.me = chained_get(kwargs, 'context', 'me')
-        self.unread_count = chained_get(kwargs, 'context', 'unread_count')
 
     created_at = DateTimeField()
 
@@ -54,14 +53,12 @@ class ChatsSerializer(serializers.ModelSerializer):
             return None
 
     def get_first_unread_message(self, data):
-        if data.first_unread_messages:
+        if getattr(data, 'first_unread_messages', None):
             return FirstUnreadMessageSerializer(data.first_unread_messages[0], many=False).data
         else:
             return None
 
     def get_unread_count(self, data):
-        if self.unread_count:  # Данные из context, используется в сокетах для отправки нужных данных участникам чата
-            return self.unread_count
         if getattr(data, 'unread_count', None):
             return data.unread_count
         return 0
@@ -100,11 +97,30 @@ class ChatSerializer(ChatsSerializer):
 
 
 class SocketChatSerializer(ChatsSerializer):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.unread_count = chained_get(kwargs, 'context', 'unread_count')
+        self.first_unread_message = chained_get(kwargs, 'context', 'first_unread_message')
+
+    def get_first_unread_message(self, data):
+        # Данные из context, используется в сокетах для отправки нужных данных участникам чата
+        if self.first_unread_message:
+            return self.first_unread_message
+        return None
+
+    def get_unread_count(self, data):
+        # Данные из context, используется в сокетах для отправки нужных данных участникам чата
+        if self.unread_count:
+            return self.unread_count
+        return 0
+
     class Meta:
         model = Chat
         fields = [
             'id',
             'unread_count',
+            'first_unread_message',
             'last_message',
         ]
 
@@ -128,14 +144,14 @@ class LastMessagesSerializer(serializers.ModelSerializer):
 
 
 class FirstUnreadMessageSerializer(serializers.ModelSerializer):
-    created_at = DateTimeField()
+    # created_at = DateTimeField()
 
     class Meta:
         model = Message
         fields = [
             'uuid',
-            'user_id',
-            'created_at',
+            # 'user_id',
+            # 'created_at',
         ]
 
 

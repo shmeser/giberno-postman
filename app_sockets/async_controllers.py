@@ -194,6 +194,7 @@ class AsyncSocketController:
                             'prepared_data': {
                                 'id': room_id,
                                 'unreadCount': chained_get(data, 'chat', 'unreadCount'),
+                                'firstUnreadMessage': chained_get(data, 'chat', 'firstUnreadMessage'),
                                 'lastMessage': processed_serialized_message
                             },
                         })
@@ -252,6 +253,7 @@ class AsyncSocketController:
             )
 
             # Обрабатываем полученные от клиента данные
+            # TODO refactor
             (
                 owner_prepared_msg,
                 owner,
@@ -259,7 +261,8 @@ class AsyncSocketController:
                 should_response_owner,
                 owner_unread_cnt,
                 my_unread_cnt,
-                my_first_unread_message_prepared
+                my_first_unread_message_prepared,
+                owner_first_unread
             ) = \
                 await message_repository(
                     me=self.consumer.user,
@@ -299,6 +302,7 @@ class AsyncSocketController:
                             'prepared_data': {
                                 'id': room_id,
                                 'unreadCount': owner_unread_cnt,
+                                'firstUnreadMessage': owner_first_unread,
                                 'lastMessage': owner_prepared_msg
                             },
                         })
