@@ -269,7 +269,7 @@ class ChatsRepository(MasterRepository):
             return None, None
 
     @staticmethod
-    def get_chat_unread_count_for_all_participants(chat, users):
+    def get_chat_unread_data_for_all_participants(chat, users):
         unread_counts_for_users = users.annotate(
             unread_count=Coalesce(
                 Subquery(
@@ -281,12 +281,27 @@ class ChatsRepository(MasterRepository):
                         .annotate(count=Count('pk'))
                         .values('count')
                 ),
-                0)
+                0),
+            first_unread_message_uuid=Subquery(
+                Message.objects.filter(chat=chat).exclude(
+                    Q(
+                        user=OuterRef('id'),  # Отсекаем свои сообщения
+                    ) |  # или
+                    Q(
+                        stats__user=OuterRef('id'), stats__is_read=True  # Отсекаем те что я прочитал
+                    )
+                ).order_by('id').values('uuid')[:1]
+            )
         )
 
         result = {}
         for u in unread_counts_for_users:
-            result[f'user{u.id}'] = u.unread_count
+            result[f'user{u.id}'] = {
+                'unread_count': u.unread_count,
+                'first_unread_message': {
+                    'uuid': str(u.first_unread_message_uuid)
+                } if u.first_unread_message_uuid else None
+            }
 
         return result
 
@@ -312,7 +327,7 @@ class ChatsRepository(MasterRepository):
         if self.me and self.me.account_type == AccountType.SELF_EMPLOYED.value:
             push_title_for_non_owner = f'{self.me.first_name} {self.me.last_name}'
 
-        unread_counts_dict = self.get_chat_unread_count_for_all_participants(record, users)
+        unread_data_dict = self.get_chat_unread_data_for_all_participants(record, users)
 
         for user in users:
             prepared_data.append({
@@ -320,7 +335,14 @@ class ChatsRepository(MasterRepository):
                 'chat': camelize(
                     SocketChatSerializer(record, many=False, context={
                         'me': user,
-                        'unread_count': chained_get(unread_counts_dict, f'user{user.id}', default=None)
+                        'unread_count': chained_get(
+                            unread_data_dict, f'user{user.id}', 'unread_count',
+                            default=None
+                        ),
+                        'first_unread_message': chained_get(
+                            unread_data_dict, f'user{user.id}', 'first_unread_message',
+                            default=None
+                        )
                     }).data
                 )
             })
@@ -747,6 +769,7 @@ class AsyncMessagesRepository(MessagesRepository):
     def client_read_message(self, content):
         serialized_message = None
         owner_unread_count = None
+        owner_first_unread = None
         my_unread_count = None
         serialized_first_unread_message = None
 
@@ -771,9 +794,13 @@ class AsyncMessagesRepository(MessagesRepository):
                 # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
                 # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
                 # по unread_count
-                owner_unread_count, *_ = ChatsRepository(
+                owner_unread_count, owner_first_unread = ChatsRepository(
                     me=msg_owner
                 ).get_chat_unread_count_and_first_unread(self.chat_id)
+
+                owner_first_unread = serialized_first_unread_message = camelize(
+                    FirstUnreadMessageSerializer(my_first_unread_message, many=False).data
+                ) if owner_first_unread else None
 
         return (
             serialized_message,
@@ -782,5 +809,6 @@ class AsyncMessagesRepository(MessagesRepository):
             should_response_owner,
             owner_unread_count,
             my_unread_count,
-            serialized_first_unread_message
+            serialized_first_unread_message,
+            owner_first_unread
         )

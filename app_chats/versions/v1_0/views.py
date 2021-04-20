@@ -199,11 +199,15 @@ class ReadMessages(CRUDAPIView):
             FirstUnreadMessageSerializer(my_first_unread_message, many=False).data)
 
         owner_unread_count = None
+        owner_first_unread = None
+
         if last_msg.id == message.id and should_response_owner:
             # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
             # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
             # по unread_count
-            owner_unread_count, *_ = ChatsRepository(me=msg_owner).get_chat_unread_count_and_first_unread(chat_id)  # 2
+            owner_unread_count, owner_first_unread = ChatsRepository(
+                me=msg_owner
+            ).get_chat_unread_count_and_first_unread(chat_id)  # 2
 
         if my_unread_count is not None:
             SocketController(me=request.user, version=AvailableVersion.V1_0.value).send_message_to_my_connections({
@@ -234,6 +238,7 @@ class ReadMessages(CRUDAPIView):
                         'type': 'chat_last_msg_updated',
                         'prepared_data': {
                             'id': chat_id,
+                            'firstUnreadMessage': owner_first_unread,
                             'unreadCount': owner_unread_count,
                             'lastMessage': serialized_message
                         },
