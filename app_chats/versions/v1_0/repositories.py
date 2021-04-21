@@ -778,48 +778,45 @@ class AsyncMessagesRepository(MessagesRepository):
 
     @database_sync_to_async
     def client_read_message(self, content):
-        serialized_message = None
-        owner_unread_count = None
-        owner_first_unread = None
-        my_unread_count = None
-        serialized_first_unread_message = None
-
-        last_msg = super().get_last_message()  # TODO проверить инициализацию
-
-        message, msg_owner, msg_owner_sockets, should_response_owner = super().read_message(
+        return super().read_message(
             content=content, prefetch=True
         )
 
-        if message:
-            # Количество непрочитанных сообщений в чате для себя
-            my_unread_count, my_first_unread_message = ChatsRepository(
-                me=self.me).get_chat_unread_count_and_first_unread(self.chat_id)
+    @database_sync_to_async
+    def get_unread_data(self, message, msg_owner, should_response_owner):
 
-            serialized_message = camelize(MessagesSerializer(message, many=False).data)
+        owner_unread_count = None
+        owner_first_unread_serialized = None
+        my_first_unread_message_serialized = None
 
-            if my_first_unread_message:
-                serialized_first_unread_message = camelize(
-                    FirstUnreadMessageSerializer(my_first_unread_message, many=False).data)
+        last_msg = super().get_last_message()  # TODO проверить инициализацию
 
-            if last_msg and last_msg.id == message.id and should_response_owner:
-                # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
-                # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
-                # по unread_count
-                owner_unread_count, owner_first_unread = ChatsRepository(
-                    me=msg_owner
-                ).get_chat_unread_count_and_first_unread(self.chat_id)
+        # Количество непрочитанных сообщений в чате для себя
+        my_unread_count, my_first_unread_message = ChatsRepository(
+            me=self.me).get_chat_unread_count_and_first_unread(self.chat_id)
 
-                owner_first_unread = serialized_first_unread_message = camelize(
-                    FirstUnreadMessageSerializer(my_first_unread_message, many=False).data
-                ) if owner_first_unread else None
+        serialized_message = camelize(MessagesSerializer(message, many=False).data)
+
+        if my_first_unread_message:
+            my_first_unread_message_serialized = camelize(
+                FirstUnreadMessageSerializer(my_first_unread_message, many=False).data)
+
+        if last_msg and last_msg.id == message.id and should_response_owner:
+            # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
+            # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
+            # по unread_count
+            owner_unread_count, owner_first_unread = ChatsRepository(
+                me=msg_owner
+            ).get_chat_unread_count_and_first_unread(self.chat_id)
+
+            owner_first_unread_serialized = camelize(
+                FirstUnreadMessageSerializer(owner_first_unread, many=False).data
+            ) if owner_first_unread else None
 
         return (
             serialized_message,
-            msg_owner,
-            msg_owner_sockets,
-            should_response_owner,
             owner_unread_count,
+            owner_first_unread_serialized,
             my_unread_count,
-            serialized_first_unread_message,
-            owner_first_unread
+            my_first_unread_message_serialized,
         )
