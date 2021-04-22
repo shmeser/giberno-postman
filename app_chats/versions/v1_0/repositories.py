@@ -14,6 +14,7 @@ from app_chats.models import Chat, Message, ChatUser, MessageStat
 from app_chats.versions.v1_0.serializers import MessagesSerializer, FirstUnreadMessageSerializer, \
     SocketChatSerializer
 from app_market.models import Shop, Vacancy
+from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -127,6 +128,8 @@ class ChatsRepository(MasterRepository):
                     self.me,
                     subject_user
                 ]
+                if not ShiftAppealsRepository.check_if_active_appeal(vacancy_id=vacancy_id, user_id=self.me.id):
+                    need_to_create = False
 
         elif self.me.account_type == AccountType.SELF_EMPLOYED.value:  # Если роль самозанятого
             if user_id:  # user-user

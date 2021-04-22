@@ -890,16 +890,59 @@ class ShiftAppealsRepository(MasterRepository):
         super().__init__()
         self.me = me
 
+        self.base_query = self.model.objects.filter(applier=self.me)
+
     def get_or_create(self, **data):
         data.update({'applier': self.me})
         instance, created = self.model.objects.get_or_create(**data)
         return instance
 
+    def get_by_id(self, record_id):
+        record = self.base_query.filter(pk=record_id).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+
+        return record
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+
+        # return self.fast_related_loading(  # Предзагрузка связанных сущностей
+        #     queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        #     me=self.me
+        # )
+
+        return records
+
     def delete(self, record_id):
         instance = self.get_by_id(record_id=record_id)
         if not instance.applier == self.me:
             raise PermissionDenied()
-        instance.delete()
+        instance.deleted = True
+        instance.save()
+
+    def cancel(self, record_id, reason=None, text=None):
+        instance = self.get_by_id(record_id=record_id)
+        if instance.applier != self.me:
+            raise PermissionDenied()
+        instance.state = ShiftAppealStatus.CANCELED.value
+        if reason is not None:
+            instance.reason = reason
+            instance.reason_text = text
+        instance.save()
+
+    @staticmethod
+    def check_if_active_appeal(vacancy_id, user_id):
+        return ShiftAppeal.objects.filter(
+            applier_id=user_id,
+            shift__vacancy__id=vacancy_id,
+            # status__in=[ShiftAppealStatus.INITIAL.value] # TODO нужно ли учитывать отклоненные заявки
+        ).exists()
 
     def is_related_manager(self, instance):
         if instance.shift.vacancy.shop not in self.me.shops.all():

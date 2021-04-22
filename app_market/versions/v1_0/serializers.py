@@ -451,15 +451,12 @@ class ShiftAppealCreateSerializer(CRUDSerializer):
 
 
 class ShiftAppealsSerializer(CRUDSerializer):
-    shift_active_date = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_shift_active_date(instance):
-        return datetime_to_timestamp(instance.shift_active_date)
+    shift_active_date = DateTimeField()
+    created_at = DateTimeField()
 
     class Meta:
         model = ShiftAppeal
-        exclude = ['created_at', 'updated_at', 'deleted']
+        fields = ['id', 'status', 'shift_id', 'shift_active_date', 'created_at']
 
 
 class ShiftsWithAppealsSerializer(CRUDSerializer):

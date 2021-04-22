@@ -45,31 +45,34 @@ class Vacancies(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class ShiftAppealCreateAPIView(BaseAPIView):
+class ShiftAppeals(BaseAPIView):
     permission_classes = [IsAuthenticated, IsSelfEmployed]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('OK')})
-    def post(request, **kwargs):
-        '''
-        Откликнуться на рабочую смену
-        '''
+    def get(request, **kwargs):
+        """ Список своих откликов на рабочие смены """
         if request.version in ['market_1_0']:
-            return v1_0.ShiftAppealCreateAPIView().post(request, **kwargs)
+            return v1_0.ShiftAppeals().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def post(request, **kwargs):
+        """ Откликнуться на рабочую смену """
+        if request.version in ['market_1_0']:
+            return v1_0.ShiftAppeals().post(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class ShiftAppealDestroyAPIView(BaseAPIView):
+class ShiftAppealCancel(BaseAPIView):
     permission_classes = [IsAuthenticated, IsSelfEmployed]
 
     @staticmethod
-    @swagger_auto_schema(responses={204: openapi.Response('No Content')})
-    def delete(request, **kwargs):
+    def post(request, **kwargs):
         '''
-        Удалить отклик на рабочую смену
+        Отменить отклик на рабочую смену
         '''
         if request.version in ['market_1_0']:
-            return v1_0.ShiftAppealDestroyAPIView().delete(request, **kwargs)
+            return v1_0.ShiftAppealCancel().post(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
