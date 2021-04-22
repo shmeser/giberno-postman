@@ -30,8 +30,7 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
         bot_message_serialized = message_repository(chat_id=chat_id).save_bot_message(
             {
                 'message_type': 1,
-                'text': reply,
-                'command_data': None
+                'text': reply
             }
         )
 

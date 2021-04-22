@@ -137,7 +137,6 @@ class LastMessagesSerializer(serializers.ModelSerializer):
             'title',
             'text',
             'message_type',
-            'form_status',
             'created_at',
             'read_at',
         ]
@@ -218,7 +217,6 @@ class MessagesSerializer(serializers.ModelSerializer):
             'title',
             'text',
             'message_type',
-            'form_status',
             'created_at',
             'read_at',
             'attachments',
