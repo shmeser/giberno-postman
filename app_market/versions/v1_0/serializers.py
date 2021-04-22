@@ -159,6 +159,20 @@ class ShopInVacancySerializer(ShopsSerializer):
         ]
 
 
+class ShopInVacancyShiftSerializer(ShopsSerializer):
+    """ Вложенная модель магазина в вакансии (на экране просмотра откликов по вакансиям) """
+
+    class Meta:
+        model = Shop
+        fields = [
+            'id',
+            'title',
+            'address',
+            'walk_time',
+            'logo',
+        ]
+
+
 class DistributorInVacancySerializer(serializers.ModelSerializer):
     logo = serializers.SerializerMethodField()
     banner = serializers.SerializerMethodField()
@@ -353,6 +367,29 @@ class VacancySerializer(VacanciesSerializer):
         ]
 
 
+class VacancyInShiftSerializer(VacanciesSerializer):
+    utc_offset = serializers.SerializerMethodField()
+    shop = serializers.SerializerMethodField()
+
+    def get_utc_offset(self, vacancy):
+        return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
+
+    def get_shop(self, instance):
+        if instance.shop:
+            return ShopInVacancyShiftSerializer(instance.shop, many=False).data
+        return None
+
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id',
+            'title',
+            'price',
+            'utc_offset',
+            'shop',
+        ]
+
+
 class UserProfileInVacanciesForManagerSerializer(CRUDSerializer):
     id = serializers.IntegerField()
 
@@ -454,9 +491,20 @@ class ShiftAppealsSerializer(CRUDSerializer):
     shift_active_date = DateTimeField()
     created_at = DateTimeField()
 
+    shift = serializers.SerializerMethodField()
+    vacancy = serializers.SerializerMethodField()
+
+    def get_shift(self, instance):
+        return ShiftsSerializer(instance.shift, many=False).data
+
+    def get_vacancy(self, instance):
+        if instance.shift.vacancy:
+            return VacancyInShiftSerializer(instance.shift.vacancy, many=False).data
+        return None
+
     class Meta:
         model = ShiftAppeal
-        fields = ['id', 'status', 'shift_id', 'shift_active_date', 'created_at']
+        fields = ['id', 'status', 'shift_active_date', 'created_at', 'shift', 'vacancy']
 
 
 class ShiftsWithAppealsSerializer(CRUDSerializer):

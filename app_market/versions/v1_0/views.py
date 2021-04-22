@@ -216,12 +216,13 @@ class ShiftAppeals(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         if record_id:
-            dataset = self.repository_class(me=request.user).get_by_id(record_id)
+            dataset = self.repository_class(me=request.user, point=point).get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class(me=request.user).filter_by_kwargs(
+            dataset = self.repository_class(me=request.user, point=point).filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
