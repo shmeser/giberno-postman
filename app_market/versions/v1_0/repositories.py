@@ -930,9 +930,9 @@ class ShiftAppealsRepository(MasterRepository):
         instance = self.get_by_id(record_id=record_id)
         if instance.applier != self.me:
             raise PermissionDenied()
-        instance.state = ShiftAppealStatus.CANCELED.value
-        if reason is not None:
-            instance.reason = reason
+        instance.status = ShiftAppealStatus.CANCELED.value
+        if reason is not None and instance.cancel_reason is None:
+            instance.cancel_reason = reason
             instance.reason_text = text
         instance.save()
 

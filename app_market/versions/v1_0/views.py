@@ -197,6 +197,7 @@ class ShiftAppeals(CRUDAPIView):
     }
 
     array_filter_params = {
+        'status': 'status__in'
     }
 
     default_order_params = [
