@@ -596,7 +596,6 @@ class MessagesRepository(MasterRepository):
             uuid=content.get('uuid'),
             message_type=content.get('message_type'),
             text=content.get('text'),
-            command_data=content.get('command_data'),
         )
 
         # Читаем все сообщения перед созданным
@@ -750,7 +749,6 @@ class MessagesRepository(MasterRepository):
             uuid=uuid.uuid4(),
             message_type=content.get('message_type'),
             text=content.get('text'),
-            command_data=content.get('command_data'),
         )
 
         # TODO общие файлы для сообщений сделать
