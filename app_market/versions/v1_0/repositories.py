@@ -886,11 +886,54 @@ class AsyncVacanciesRepository(VacanciesRepository):
 class ShiftAppealsRepository(MasterRepository):
     model = ShiftAppeal
 
-    def __init__(self, me=None):
+    def __init__(self, me=None, point=None):
         super().__init__()
         self.me = me
+        self.point = point
 
         self.base_query = self.model.objects.filter(applier=self.me)
+
+    @staticmethod
+    def fast_related_loading(queryset, point=None):
+        """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
+            ShiftAppeal
+            -> Vacancy + Media
+                -> Shop + Media
+
+                .prefetch_related(
+            Prefetch(
+                'shop',
+                #  Подгрузка магазинов и вычисление расстояния от каждого до переданной точки
+                queryset=Shop.objects.annotate(  # Вычисляем расстояние, если переданы координаты
+                    distance=Distance('location', point) if point else Value(None, IntegerField())
+                ).prefetch_related(
+                    # Подгрузка медиа для магазинов
+                    Prefetch(
+                        'media',
+                        queryset=MediaModel.objects.filter(
+                            type=MediaType.LOGO.value,
+                            owner_ct_id=ContentType.objects.get_for_model(Shop).id,
+                            format=MediaFormat.IMAGE.value
+                        ),
+                        to_attr='medias'
+                    )
+                )
+            )
+        )
+
+        """
+        queryset = queryset.select_related(
+            'shift__vacancy'
+        ).prefetch_related(
+            Prefetch(
+                'shift__vacancy__shop',
+                queryset=Shop.objects.filter().annotate(
+                    distance=Distance('location', point) if point else Value(None, IntegerField())
+                )
+            )
+        )
+
+        return queryset
 
     def get_or_create(self, **data):
         data.update({'applier': self.me})
@@ -898,7 +941,12 @@ class ShiftAppealsRepository(MasterRepository):
         return instance
 
     def get_by_id(self, record_id):
-        record = self.base_query.filter(pk=record_id).first()
+        records = self.base_query.filter(pk=record_id)
+        records = self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records,
+            point=self.point
+        )
+        record = records.first()
         if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
@@ -912,12 +960,10 @@ class ShiftAppealsRepository(MasterRepository):
         else:
             records = self.base_query.exclude(deleted=True).filter(**kwargs)
 
-        # return self.fast_related_loading(  # Предзагрузка связанных сущностей
-        #     queryset=records[paginator.offset:paginator.limit] if paginator else records,
-        #     me=self.me
-        # )
-
-        return records
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
 
     def delete(self, record_id):
         instance = self.get_by_id(record_id=record_id)
