@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer
+from app_market.enums import AppealCancelReason
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
@@ -17,6 +18,9 @@ from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSe
 from app_users.permissions import IsManagerOrSecurity
 from app_users.versions.v1_0.repositories import ProfileRepository
 from backend.api_views import BaseAPIView
+from backend.entity import Error
+from backend.errors.enums import ErrorsCodes
+from backend.errors.http_exceptions import CustomException
 from backend.mappers import RequestMapper, DataMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_body, chained_get, get_request_headers
@@ -178,23 +182,75 @@ class Vacancies(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class ShiftAppealCreateAPIView(CRUDAPIView):
+class ShiftAppeals(CRUDAPIView):
     repository_class = ShiftAppealsRepository
-    serializer_class = ShiftAppealCreateSerializer
+    serializer_class = ShiftAppealsSerializer
+
+    allowed_http_methods = ['get', 'post']
+
+    filter_params = {
+        'shift': 'shift_id',
+        'vacancy': 'shift__vacancy_id'
+    }
+
+    bool_filter_params = {
+    }
+
+    array_filter_params = {
+        'status': 'status__in'
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    default_filters = {}
+
+    order_params = {
+        'created_at': 'created_at',
+        'id': 'id'
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class(me=request.user).get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class(me=request.user).filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=get_request_body(request))
+        serializer = ShiftAppealCreateSerializer(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             instance = self.repository_class(me=request.user).get_or_create(**serializer.validated_data)
             return Response(camelize(ShiftAppealsSerializer(instance=instance, many=False).data))
 
 
-class ShiftAppealDestroyAPIView(CRUDAPIView):
+class ShiftAppealCancel(CRUDAPIView):
     repository_class = ShiftAppealsRepository
 
-    def delete(self, request, **kwargs):
+    def post(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        self.repository_class(me=request.user).delete(record_id=record_id)
+        data = get_request_body(request)
+        reason = data.get('reason')
+        if reason is not None and not AppealCancelReason.has_value(reason):
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.VALIDATION_ERROR)),
+            ])
+        self.repository_class(me=request.user).cancel(record_id=record_id, reason=reason, text=data.get('text'))
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 

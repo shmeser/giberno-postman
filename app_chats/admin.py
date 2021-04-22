@@ -21,7 +21,7 @@ class ChatUserAdmin(FormattedAdmin):
 @admin.register(Message)
 class MessageAdmin(FormattedAdmin):
     list_display = [
-        'chat_id', 'title', 'text', 'message_type', 'user_id', 'form_status', 'read_at'
+        'chat_id', 'title', 'text', 'message_type', 'user_id', 'read_at'
     ]
 
 

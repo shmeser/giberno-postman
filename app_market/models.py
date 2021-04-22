@@ -10,7 +10,7 @@ from django.contrib.postgres.indexes import GinIndex
 from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
-    ShiftStatus, ShiftAppealStatus
+    ShiftStatus, ShiftAppealStatus, AppealCancelReason
 from app_media.models import MediaModel
 from app_users.enums import DocumentType
 from app_users.models import UserProfile
@@ -218,6 +218,9 @@ class ShiftAppeal(BaseModel):
     shift = models.ForeignKey(to=Shift, on_delete=models.CASCADE, related_name='appeals')
     shift_active_date = models.DateTimeField(null=True, blank=True)
     status = models.PositiveIntegerField(choices=choices(ShiftAppealStatus), default=ShiftAppealStatus.INITIAL)
+    cancel_reason = models.PositiveIntegerField(
+        null=True, blank=True, choices=choices(AppealCancelReason), verbose_name='Причина отмены самозанятым')
+    reason_text = models.CharField(max_length=255, null=True, blank=True, verbose_name='Текст причины отменыF')
 
     class Meta:
         db_table = 'app_market__shifts_appeals'

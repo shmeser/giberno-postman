@@ -5,7 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 from app_bot.enums import ChatterBotStates
-from app_chats.enums import ChatMessageType, FormMessageStatus
+from app_chats.enums import ChatMessageType
 from app_media.models import MediaModel
 from app_users.models import UserProfile
 from backend.models import GenericSourceTargetBase, BaseModel
@@ -71,14 +71,7 @@ class Message(BaseModel):
     message_type = models.PositiveIntegerField(choices=choices(ChatMessageType), default=ChatMessageType.SIMPLE.value)
     attachments = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
-    form_status = models.PositiveIntegerField(
-        choices=choices(FormMessageStatus),
-        default=FormMessageStatus.INITIAL.value,
-        verbose_name='Статус обработки сообщения с типом "FORM"'
-    )
-
     read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником моего сообщения')
-    command_data = models.JSONField(null=True, blank=True)
     uuid = models.UUIDField(default=uuid.uuid4)
 
     def __str__(self):
