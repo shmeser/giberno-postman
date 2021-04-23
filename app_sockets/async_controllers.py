@@ -3,7 +3,7 @@ from loguru import logger
 from app_bot.tasks import delayed_checking_for_bot_reply
 from app_sockets.enums import SocketEventType, AvailableRoom
 from app_sockets.mappers import RoutingMapper
-from app_users.enums import NotificationAction, NotificationType
+from app_users.enums import NotificationAction, NotificationType, AccountType
 from backend.controllers import AsyncPushController
 from backend.errors.enums import SocketErrors
 from backend.errors.exceptions import EntityDoesNotExistException
@@ -334,3 +334,31 @@ class AsyncSocketController:
                         first_unread=first_unread,
                         last_msg=last_msg
                     )
+
+    async def send_counters(self):
+        notifications_repository = RoutingMapper.room_async_repository(
+            self.consumer.version, AvailableRoom.NOTIFICATIONS.value
+        )
+        chats_repository = RoutingMapper.room_async_repository(
+            self.consumer.version, AvailableRoom.CHATS.value
+        )
+        appeals_repository = RoutingMapper.room_async_repository(
+            self.consumer.version, AvailableRoom.APPEALS.value
+        )
+
+        indicators_dict = {
+            'newNotifications': await notifications_repository(me=self.consumer.user).get_unread_notifications_count(),
+            'chatUnreadMessages': await chats_repository(me=self.consumer.user).get_all_chats_unread_count()
+        }
+        if self.consumer.user.account_type == AccountType.SELF_EMPLOYED.value:
+            indicators_dict['newConfirmedAppeals'] = await appeals_repository(
+                me=self.consumer.user).get_new_confirmed_count()
+
+        if self.consumer.user.account_type == AccountType.MANAGER.value:
+            indicators_dict['newAppeals'] = await appeals_repository(
+                me=self.consumer.user).get_new_appeals_count()
+
+        await self.consumer.channel_layer.send(self.consumer.channel_name, {
+            'type': 'counters_for_indicators',
+            'prepared_data': indicators_dict,
+        })
