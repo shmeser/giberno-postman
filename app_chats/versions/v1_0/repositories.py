@@ -14,7 +14,7 @@ from app_chats.models import Chat, Message, ChatUser, MessageStat
 from app_chats.versions.v1_0.serializers import MessagesSerializer, FirstUnreadMessageSerializer, \
     SocketChatSerializer
 from app_market.models import Shop, Vacancy
-from app_market.versions.v1_0.repositories import ShiftAppealsRepository
+from app_market.versions.v1_0.repositories import ShiftAppealsRepository, VacanciesRepository, ShopsRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -115,20 +115,21 @@ class ChatsRepository(MasterRepository):
 
         if self.me.account_type == AccountType.MANAGER.value:  # Если роль менеджера
             # Запрашивается чат с пользователем по вакансии, если тот откликнулся на нее
-            # TODO проверка на отклик по вакансии
             if user_id and vacancy_id:
                 need_to_create = True
                 # Цель обсуждения в чате - вакансия
                 target_ct = ContentType.objects.get_for_model(Vacancy)
                 target_id = vacancy_id
                 # Основной пользователь в чате - самозанятый
-                subject_user = ProfileRepository().get_by_id(user_id)
+                subject_user = ProfileRepository().get_by_id_and_type(user_id, AccountType.SELF_EMPLOYED.value)
                 # Участники чата
                 users = [
                     self.me,
                     subject_user
                 ]
-                if not ShiftAppealsRepository.check_if_active_appeal(vacancy_id=vacancy_id, user_id=self.me.id):
+                # Проверяем есть ли такой пользователь и есть ли от него отклики на указанную вакансию
+                if not subject_user or not ShiftAppealsRepository.check_if_active_appeal(
+                        vacancy_id=vacancy_id, applier_id=user_id):
                     need_to_create = False
 
         elif self.me.account_type == AccountType.SELF_EMPLOYED.value:  # Если роль самозанятого
@@ -155,10 +156,9 @@ class ChatsRepository(MasterRepository):
                 # Основной пользователь в чате - самозанятый
                 subject_user = self.me
                 # Участники чата
-                users = [
-                    subject_user,
-                    # TODO менеджер добавляется в чат на других этапах, при создании чата неизвестно кто присоединится
-                ]
+                # Все менеджеры магазина
+                shop_managers = ShopsRepository().get_managers(shop_id)
+                users = [subject_user] + shop_managers
             elif vacancy_id:  # user-vacancy
                 need_to_create = True
                 # Цель обсуждения в чате - вакансия
@@ -167,10 +167,9 @@ class ChatsRepository(MasterRepository):
                 # Основной пользователь в чате - самозанятый
                 subject_user = self.me
                 # Участники чата
-                users = [
-                    subject_user,
-                    # TODO менеджер, создавший вакансию
-                ]
+                # Все менеджеры магазина, в котором размещена вакансия
+                vacancy_managers = VacanciesRepository().get_vacancy_managers(vacancy_id)
+                users = [subject_user] + vacancy_managers
 
         target_ct_id = None
         target_ct_name = None
