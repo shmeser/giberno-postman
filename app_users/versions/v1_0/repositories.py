@@ -419,6 +419,10 @@ class AsyncProfileRepository(ProfileRepository):
 class NotificationsRepository(MasterRepository):
     model = Notification
 
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
     def get_by_id(self, record_id):
         record = self.model.objects.filter(id=record_id)
         record = self.fast_related_loading(record).first()
@@ -463,6 +467,19 @@ class NotificationsRepository(MasterRepository):
         )
 
         return queryset
+
+    def get_unread_notifications_count(self):
+        return self.model.objects.filter(user=self.me, read_at__isnull=True).count()
+
+
+class AsyncNotificationsRepository(NotificationsRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    @database_sync_to_async
+    def get_unread_notifications_count(self):
+        return super().get_unread_notifications_count()
 
 
 class FCMDeviceRepository(MasterRepository):

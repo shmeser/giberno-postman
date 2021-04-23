@@ -4,7 +4,7 @@ from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef, Case, When, F, IntegerField, \
-    Exists
+    Exists, Sum
 from django.db.models.functions import Coalesce
 from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import now
@@ -78,7 +78,7 @@ class ChatsRepository(MasterRepository):
             TruncMilliecond('messages__created_at')
         )
         # Основная часть запроса, содержащая вычисляемые поля
-        self.base_query = self.model.objects.filter(users__in=[self.me]).annotate(
+        self.base_query = self.model.objects.filter(users=self.me).annotate(
             unread_count=self.unread_count_expression,
             last_message_created_at=self.last_message_created_at_expression  # Нужен для сортировки и фильтрации чатов
         )
@@ -439,6 +439,11 @@ class ChatsRepository(MasterRepository):
             return False
         return True
 
+    def get_all_chats_unread_count(self):
+        return self.model.objects.filter(users=self.me).annotate(unread_count=self.unread_count_expression).aggregate(
+            total_unread_count=Sum('unread_count')
+        )['total_unread_count']
+
 
 class AsyncChatsRepository(ChatsRepository):
     def __init__(self, me=None) -> None:
@@ -456,6 +461,10 @@ class AsyncChatsRepository(ChatsRepository):
     @database_sync_to_async
     def check_permission_for_action(self, record_id):
         return super().check_permission_for_action(record_id)
+
+    @database_sync_to_async
+    def get_all_chats_unread_count(self):
+        return super().get_all_chats_unread_count()
 
 
 class CustomLookupBase(Lookup):

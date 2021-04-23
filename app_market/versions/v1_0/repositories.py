@@ -1046,6 +1046,27 @@ class ShiftAppealsRepository(MasterRepository):
         self.is_related_manager(instance=instance)
         return instance
 
+    def get_new_confirmed_count(self):
+        return 0
+
+    def get_new_appeals_count(self):
+        return 0
+
+
+class AsyncShiftAppealsRepository(ShiftAppealsRepository):
+    def __init__(self, me=None, point=None):
+        super().__init__()
+        self.me = me
+        self.point = point
+
+    @database_sync_to_async
+    def get_new_confirmed_count(self):
+        return super().get_new_confirmed_count()
+
+    @database_sync_to_async
+    def get_new_appeals_count(self):
+        return super().get_new_appeals_count()
+
 
 class ProfessionsRepository(MasterRepository):
     model = Profession

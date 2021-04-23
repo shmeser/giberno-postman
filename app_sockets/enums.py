@@ -26,7 +26,7 @@ class SocketEventType(IntEnumM):
     SERVER_CHAT_USER_JOINED = 107
     SERVER_CHAT_USER_LEAVED = 108
 
-    SERVER_APPEALS_COUNT_UPDATE = 120
+    SERVER_COUNTERS_UPDATE = 120
 
     NOTIFICATION = 200
 
@@ -48,4 +48,6 @@ class AvailableRoom(EnumM):
     MESSAGES = 'messages'
     BOT = 'bot'
     VACANCIES = 'vacancies'
+    APPEALS = 'appeals'
     DISTRIBUTORS = 'distributors'
+    NOTIFICATIONS = 'notifications'

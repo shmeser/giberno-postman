@@ -28,6 +28,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
             if self.user.is_authenticated:  # Проверка авторизации подключаемого соединения
                 await self.socket_controller.store_single_connection()
+                await self.socket_controller.send_counters()
             else:
                 # После установления сразу закрываем содинение, чтобы не было ERR_CONNECTION_REFUSED
                 await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
@@ -153,6 +154,15 @@ class Consumer(AsyncJsonWebsocketConsumer):
             {
                 'eventType': SocketEventType.SERVER_CHAT_UPDATED.value,
                 'chat': data.get('prepared_data')
+            },
+        )
+
+    # Счетчики
+    async def counters_for_indicators(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_COUNTERS_UPDATE.value,
+                'indicators': data.get('prepared_data')
             },
         )
 
