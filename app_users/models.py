@@ -74,7 +74,7 @@ class UserProfile(AbstractUser, BaseModel):
 
     # использовано в формате app_label.ModelName из - за циркулярного импорта
     distributors = models.ManyToManyField(to='app_market.Distributor', blank=True, verbose_name='Торговая сеть',
-                                          related_name='distributors')
+                                          related_name='staff')
 
     location = models.PointField(srid=settings.SRID, blank=True, null=True, verbose_name='Геопозиция')
 
@@ -82,7 +82,7 @@ class UserProfile(AbstractUser, BaseModel):
 
     # конкретные магазины к которым прикреплен админ, менеджер или охранник
     shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины',
-                                   related_name='shops')
+                                   related_name='staff')
 
     # у самозанятых есть рейтинг формирующийся на основе отзывов со стороны менеджеров и админов
     rating = models.FloatField(default=0, verbose_name='Рейтинг пользователя')

@@ -24,6 +24,7 @@ from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_users.enums import AccountType
+from app_users.models import UserProfile
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
@@ -260,6 +261,12 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
             ORDER BY 3 DESC
         '''
         return self.model.objects.raw(raw_sql)
+
+    def get_managers(self, record_id):
+        record = self.model.objects.filter(pk=record_id).first()
+        if record:
+            return [manager for manager in record.staff.filter(account_type=AccountType.MANAGER.value)]
+        return []
 
 
 class AsyncShopsRepository(ShopsRepository):
@@ -569,6 +576,15 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
             point=self.point
         )
+
+    def get_vacancy_managers(self, record_id):
+        record = self.model.objects.filter(pk=record_id).prefetch_related(Prefetch(
+            'shop__staff',
+            queryset=UserProfile.objects.filter(account_type=AccountType.MANAGER.value)
+        )).first()
+        if record:
+            return [manager for manager in record.shop.staff.all()]
+        return []
 
     def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
@@ -900,6 +916,8 @@ class ShiftAppealsRepository(MasterRepository):
             -> Vacancy + Media
                 -> Shop + Media
 
+            TODO предзагрузка медиа
+
                 .prefetch_related(
             Prefetch(
                 'shop',
@@ -983,9 +1001,9 @@ class ShiftAppealsRepository(MasterRepository):
         instance.save()
 
     @staticmethod
-    def check_if_active_appeal(vacancy_id, user_id):
+    def check_if_active_appeal(vacancy_id, applier_id):
         return ShiftAppeal.objects.filter(
-            applier_id=user_id,
+            applier_id=applier_id,
             shift__vacancy__id=vacancy_id,
             # status__in=[ShiftAppealStatus.INITIAL.value] # TODO нужно ли учитывать отклоненные заявки
         ).exists()

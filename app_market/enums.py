@@ -49,6 +49,7 @@ class ShiftAppealStatus(IntEnumM):
     CONFIRMED = 1
     CANCELED = 2
     REJECTED = 3
+    COMPLETED = 4
 
 
 class AppealCancelReason(IntEnumM):

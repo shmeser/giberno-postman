@@ -277,6 +277,9 @@ class ProfileRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
 
+    def get_by_id_and_type(self, record_id, account_type):
+        return self.model.objects.filter(id=record_id, account_type=account_type).first()
+
     def get_by_username(self, username):
         username = username.lower()
         try:

@@ -602,7 +602,7 @@ class CreateManagerByAdminAPIView(BaseAPIView):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             user = self.repository_class(me=request.user).create_manager_by_admin(serializer.validated_data)
-            return Response(ProfileSerializer(instance=user).data)
+            return Response(camelize(ProfileSerializer(instance=user).data))
 
 
 class GetManagerByUsernameAPIView(BaseAPIView):
