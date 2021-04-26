@@ -19,7 +19,8 @@ from rest_framework.exceptions import PermissionDenied
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal, \
+    GlobalDocument, VacancyDocument, DistributorDocument
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -1077,3 +1078,45 @@ class ProfessionsRepository(MasterRepository):
 
 class SkillsRepository(MasterRepository):
     model = Skill
+
+
+class MarketDocumentsRepository(MasterRepository):
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+    def accept_market_documents(self, distributor_id=None, vacancy_id=None):
+        # TODO получение документов Гиберно
+        global_document = None
+        GlobalDocument.objects.get_or_create(
+            user=self.me,
+            document=global_document
+        )
+
+        distributor = Distributor.objects.filter(pk=distributor_id).first()
+        if not distributor:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {Distributor._meta.verbose_name} с ID={distributor_id} не найден')
+
+        # TODO получение документов торговой сети
+        distributor_document = None
+        DistributorDocument.objects.get_or_create(
+            user=self.me,
+            distributor=distributor,
+            document=distributor_document
+        )
+
+        vacancy = Vacancy.objects.filter(pk=vacancy_id).first()
+        if not distributor:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {Vacancy._meta.verbose_name} с ID={vacancy_id} не найден')
+
+        # TODO получение документов вакансии
+        vacancy_document = None
+        VacancyDocument.objects.get_or_create(
+            user=self.me,
+            vacancy=vacancy,
+            document=vacancy_document
+        )

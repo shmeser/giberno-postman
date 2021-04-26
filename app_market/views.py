@@ -445,3 +445,12 @@ class Skills(APIView):
             return v1_0.Skills().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class MarketDocuments(APIView):
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.MarketDocuments().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

@@ -9,7 +9,8 @@ from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewM
     POSTReviewByManagerSerializer
 from app_market.enums import AppealCancelReason
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository
+    DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository, \
+    MarketDocumentsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer
@@ -791,3 +792,17 @@ class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
             user_shift = self.repository_class().get_by_qr_data(qr_data=serializer.validated_data.get('qr_data'))
             self.repository_class(me=request.user).update_status_by_qr_check(instance=user_shift)
             return Response(UserShiftSerializer(instance=user_shift).data, status=status.HTTP_200_OK)
+
+
+class MarketDocuments(CRUDAPIView):
+    allowed_http_methods = ['post']
+    repository_class = MarketDocumentsRepository
+
+    def post(self, request, *args, **kwargs):
+        body = get_request_body(request)
+
+        self.repository_class(me=request.user).accept_market_documents(
+            distributor_id=body.get('distributor'),
+            vacancy_id=body.get('vacancy')
+        )
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
