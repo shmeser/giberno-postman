@@ -1,4 +1,4 @@
-from djangorestframework_camel_case.util import camelize
+from djangorestframework_camel_case.util import camelize, underscoreize
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -9,18 +9,19 @@ from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewM
     POSTReviewByManagerSerializer
 from app_market.enums import AppealCancelReason
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository
+    DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository, \
+    MarketDocumentsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
-    ShiftsWithAppealsSerializer
+    ShiftsWithAppealsSerializer, ShiftConditionsSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_users.permissions import IsManagerOrSecurity
 from app_users.versions.v1_0.repositories import ProfileRepository
 from backend.api_views import BaseAPIView
 from backend.entity import Error
-from backend.errors.enums import ErrorsCodes
-from backend.errors.http_exceptions import CustomException
+from backend.errors.enums import ErrorsCodes, RESTErrors
+from backend.errors.http_exceptions import CustomException, HttpException
 from backend.mappers import RequestMapper, DataMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_body, chained_get, get_request_headers
@@ -791,3 +792,30 @@ class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
             user_shift = self.repository_class().get_by_qr_data(qr_data=serializer.validated_data.get('qr_data'))
             self.repository_class(me=request.user).update_status_by_qr_check(instance=user_shift)
             return Response(UserShiftSerializer(instance=user_shift).data, status=status.HTTP_200_OK)
+
+
+class GetDocumentsForShift(CRUDAPIView):
+    repository_class = ShiftsRepository
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        shift = self.repository_class().get_by_id(record_id)
+        active_date = underscoreize(request.query_params).get('active_date')
+        if active_date is None:
+            raise HttpException(status_code=RESTErrors.BAD_REQUEST.value, detail='Необходимо передать active_date')
+        conditions = MarketDocumentsRepository(me=request.user).get_conditions_for_user_on_shift(shift, active_date)
+        return Response(camelize(ShiftConditionsSerializer(conditions, many=False).data), status=status.HTTP_200_OK)
+
+
+class MarketDocuments(CRUDAPIView):
+    allowed_http_methods = ['post']
+    repository_class = MarketDocumentsRepository
+
+    def post(self, request, *args, **kwargs):
+        body = get_request_body(request)
+
+        self.repository_class(me=request.user).accept_market_documents(
+            distributor_id=body.get('distributor'),
+            vacancy_id=body.get('vacancy')
+        )
+        return Response(None, status=status.HTTP_204_NO_CONTENT)

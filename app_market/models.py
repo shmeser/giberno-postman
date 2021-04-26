@@ -382,3 +382,44 @@ class UserSkill(BaseModel):
         db_table = 'app_market__skill_user'
         verbose_name = 'Специальный навык пользователя'
         verbose_name_plural = 'Специальные навыки пользователей'
+
+
+class GlobalDocument(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    document = models.ForeignKey(MediaModel, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.document.title}'
+
+    class Meta:
+        db_table = 'app_market__user_global_document'
+        verbose_name = 'Документ сервиса для пользователя'
+        verbose_name_plural = 'Документы сервиса для пользователей'
+
+
+class DistributorDocument(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE)
+    document = models.ForeignKey(MediaModel, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.distributor.title} - {self.document.title}'
+
+    class Meta:
+        db_table = 'app_market__user_distributor_document'
+        verbose_name = 'Документ торговой сети для пользователя'
+        verbose_name_plural = 'Документы торговых сетей для пользователей'
+
+
+class VacancyDocument(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    vacancy = models.ForeignKey(Vacancy, on_delete=models.CASCADE)
+    document = models.ForeignKey(MediaModel, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.vacancy.title} - {self.document.title}'
+
+    class Meta:
+        db_table = 'app_market__user_vacancy_document'
+        verbose_name = 'Документ вакансии для пользователя'
+        verbose_name_plural = 'Документы вакансий для пользователей'
