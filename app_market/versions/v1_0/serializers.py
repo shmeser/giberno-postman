@@ -601,3 +601,53 @@ class UserShiftSerializer(serializers.ModelSerializer):
 
 class QRCodeSerializer(serializers.Serializer):
     qr_data = serializers.JSONField()
+
+
+class ShiftConditionsSerializer(serializers.Serializer):
+    date = serializers.SerializerMethodField()
+    time_start = serializers.SerializerMethodField()
+    time_end = serializers.SerializerMethodField()
+    full_price = serializers.SerializerMethodField()
+    tax = serializers.SerializerMethodField()
+    insurance = serializers.SerializerMethodField()
+    clean_price = serializers.SerializerMethodField()
+    text = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
+
+    def get_date(self, instance):
+        return instance.date
+
+    def get_time_start(self, instance):
+        return instance.time_start
+
+    def get_time_end(self, instance):
+        return instance.time_end
+
+    def get_full_price(self, instance):
+        return instance.full_price
+
+    def get_tax(self, instance):
+        return instance.tax
+
+    def get_insurance(self, instance):
+        return instance.insurance
+
+    def get_clean_price(self, instance):
+        return instance.clean_price
+
+    def get_text(self, instance):
+        return instance.text
+
+    def get_documents(self, instance):
+        return ShiftDocumentsSerializer(instance.documents, many=True).data
+
+
+class ShiftDocumentsSerializer(serializers.Serializer):
+    document = serializers.SerializerMethodField()
+    is_confirmed = serializers.SerializerMethodField()
+
+    def get_document(self, instance):
+        return MediaSerializer(instance, many=False).data
+
+    def get_is_confirmed(self, instance):
+        return instance.is_confirmed

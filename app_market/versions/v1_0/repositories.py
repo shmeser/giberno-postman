@@ -10,8 +10,8 @@ from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
-    DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef
-from django.db.models.functions import Cast, Concat
+    DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField
+from django.db.models.functions import Cast, Concat, Extract, Round
 from django.utils.timezone import now, localtime
 from pytz import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -1085,6 +1085,43 @@ class MarketDocumentsRepository(MasterRepository):
         super().__init__()
         self.me = me
 
+    _SERVICE_TAX_RATE = 0.3
+    _SERVICE_INSURANCE_AMOUNT = 100
+
+    def get_conditions_for_user_on_shift(self, shift, active_date):
+        # TODO проверка переданной active_date
+
+        conditions = Shift.objects.filter(id=shift.id).annotate(
+            rounded_hours=Case(  # Количество часов (с округлением)
+                When(
+                    time_start__gt=F('time_end'),  # Если время начала больше времени окончания
+                    then=Round(
+                        (Extract(Value("23:59:59", TimeField()) - F('time_start'), 'epoch') +  # Время до полуночи
+                         Extract(F('time_end') - Value("00:00:00", TimeField()), 'epoch'))  # Время после полуночи
+                        / 3600)  # делим на 3600 чтобы получить кол-во часов
+                ),
+                default=Round(Extract(F('time_end') - F('time_start'), 'epoch') / 3600),
+                output_field=IntegerField()
+            )
+        ).annotate(
+            date=Value(active_date, output_field=IntegerField()),
+            full_price=ExpressionWrapper(F('rounded_hours') * F('vacancy__price'), output_field=IntegerField()),
+            # TODO поставить price из смены
+            insurance=ExpressionWrapper(Value(self._SERVICE_INSURANCE_AMOUNT), output_field=IntegerField()),
+            # TODO поставить размер страховки
+            tax=ExpressionWrapper(Round(F('rounded_hours') * F('vacancy__price') * Value(self._SERVICE_TAX_RATE)),
+                                  output_field=IntegerField())
+        ).annotate(
+            clean_price=ExpressionWrapper(
+                Round(F('full_price') - F('insurance') - F('tax')), output_field=IntegerField())
+        ).first()
+
+        conditions.documents = MediaModel.objects.filter(mime_type='application/pdf').annotate(
+            is_confirmed=Value(False, output_field=BooleanField()))
+        conditions.text = "Текст о цифровой подписи"
+
+        return conditions
+
     def accept_market_documents(self, distributor_id=None, vacancy_id=None):
         # TODO получение документов Гиберно
         global_document = None
@@ -1093,30 +1130,32 @@ class MarketDocumentsRepository(MasterRepository):
             document=global_document
         )
 
-        distributor = Distributor.objects.filter(pk=distributor_id).first()
-        if not distributor:
-            raise HttpException(
-                status_code=RESTErrors.NOT_FOUND.value,
-                detail=f'Объект {Distributor._meta.verbose_name} с ID={distributor_id} не найден')
+        if distributor_id:
+            distributor = Distributor.objects.filter(pk=distributor_id).first()
+            if not distributor:
+                raise HttpException(
+                    status_code=RESTErrors.NOT_FOUND.value,
+                    detail=f'Объект {Distributor._meta.verbose_name} с ID={distributor_id} не найден')
 
-        # TODO получение документов торговой сети
-        distributor_document = None
-        DistributorDocument.objects.get_or_create(
-            user=self.me,
-            distributor=distributor,
-            document=distributor_document
-        )
+            # TODO получение документов торговой сети
+            distributor_document = None
+            DistributorDocument.objects.get_or_create(
+                user=self.me,
+                distributor=distributor,
+                document=distributor_document
+            )
 
-        vacancy = Vacancy.objects.filter(pk=vacancy_id).first()
-        if not distributor:
-            raise HttpException(
-                status_code=RESTErrors.NOT_FOUND.value,
-                detail=f'Объект {Vacancy._meta.verbose_name} с ID={vacancy_id} не найден')
+        if vacancy_id:
+            vacancy = Vacancy.objects.filter(pk=vacancy_id).first()
+            if not vacancy:
+                raise HttpException(
+                    status_code=RESTErrors.NOT_FOUND.value,
+                    detail=f'Объект {Vacancy._meta.verbose_name} с ID={vacancy_id} не найден')
 
-        # TODO получение документов вакансии
-        vacancy_document = None
-        VacancyDocument.objects.get_or_create(
-            user=self.me,
-            vacancy=vacancy,
-            document=vacancy_document
-        )
+            # TODO получение документов вакансии
+            vacancy_document = None
+            VacancyDocument.objects.get_or_create(
+                user=self.me,
+                vacancy=vacancy,
+                document=vacancy_document
+            )
