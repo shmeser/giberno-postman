@@ -134,7 +134,8 @@ class Consumer(AsyncJsonWebsocketConsumer):
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_CHAT_LAST_MESSAGE_UPDATED.value,
-                'chat': data.get('prepared_data')
+                'chat': data.get('prepared_data'),
+                'indicators': data.get('indicators')
             },
         )
 
@@ -144,7 +145,8 @@ class Consumer(AsyncJsonWebsocketConsumer):
             {
                 'eventType': SocketEventType.SERVER_CHAT_MESSAGE_WAS_READ.value,
                 'chat': data.get('chat'),
-                'message': data.get('message')
+                'message': data.get('message'),
+                'indicators': data.get('indicators')
             },
         )
 

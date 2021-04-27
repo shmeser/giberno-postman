@@ -190,7 +190,7 @@ class ReadMessages(CRUDAPIView):
             raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=RESTErrors.NOT_FOUND.name)
 
         # Количество непрочитанных сообщений в чате для себя
-        my_unread_count, my_first_unread_message = ChatsRepository(
+        my_unread_count, my_first_unread_message, my_chats_unread_messages_count = ChatsRepository(
             me=request.user
         ).get_chat_unread_count_and_first_unread(chat_id)  # 2
 
@@ -200,12 +200,13 @@ class ReadMessages(CRUDAPIView):
 
         owner_unread_count = None
         owner_first_unread = None
+        owner_chats_unread_messages_count = None
 
         if last_msg.id == message.id and should_response_owner:
             # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
             # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
             # по unread_count
-            owner_unread_count, owner_first_unread = ChatsRepository(
+            owner_unread_count, owner_first_unread, owner_chats_unread_messages_count = ChatsRepository(
                 me=msg_owner
             ).get_chat_unread_count_and_first_unread(chat_id)  # 2
 
@@ -219,6 +220,9 @@ class ReadMessages(CRUDAPIView):
                 },
                 'message': {
                     'uuid': chained_get(body, 'uuid'),
+                },
+                'indicators': {
+                    'chatsUnreadMessages': my_chats_unread_messages_count
                 }
             })
 
@@ -242,6 +246,9 @@ class ReadMessages(CRUDAPIView):
                             'unreadCount': owner_unread_count,
                             'lastMessage': serialized_message
                         },
+                        'indicators': {
+                            'chatsUnreadMessages': owner_chats_unread_messages_count
+                        }
                     })
 
         return Response(serialized_message, status=status.HTTP_200_OK)

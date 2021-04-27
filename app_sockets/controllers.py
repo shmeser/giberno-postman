@@ -101,6 +101,9 @@ class SocketController:
                                 'firstUnreadMessage': chained_get(data, 'chat', 'firstUnreadMessage'),
                                 'lastMessage': prepared_message
                             },
+                            'indicators': {
+                                'chatsUnreadMessages': chained_get(data, 'chats_unread_messages'),
+                            }
                         }
                     )
 
