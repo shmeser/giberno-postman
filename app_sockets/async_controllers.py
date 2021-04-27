@@ -194,7 +194,8 @@ class AsyncSocketController:
                             room_id=room_id,
                             unread_cnt=chained_get(data, 'chat', 'unreadCount'),
                             first_unread=chained_get(data, 'chat', 'firstUnreadMessage'),
-                            last_msg=processed_serialized_message
+                            last_msg=processed_serialized_message,
+                            chats_unread_messages_count=chained_get(data, 'chats_unread_messages'),
                         )
 
                 # Отправляем сообщение по пушам всем участникам чата, кроме самого себя
@@ -259,7 +260,7 @@ class AsyncSocketController:
             )
 
             if message:
-                msg, owner_unread_cnt, owner_first_unread, my_unread_cnt, my_first_unread = await message_repository(
+                msg, owner_unread_cnt, owner_first_unread, owner_chats_unread_count, my_unread_cnt, my_first_unread, my_chats_unread_cnt = await message_repository(
                     me=self.consumer.user,
                     chat_id=room_id,
                 ).get_unread_data(message=message, msg_owner=owner, should_response_owner=should_response_owner)
@@ -269,7 +270,8 @@ class AsyncSocketController:
                     unread_cnt=my_unread_cnt,
                     room_id=room_id,
                     first_unread=my_first_unread,
-                    uuid=chained_get(content, 'uuid')
+                    uuid=chained_get(content, 'uuid'),
+                    chats_unread_messages_count=my_chats_unread_cnt
                 )
 
                 # Отправляем автору сообщения событие о прочтении, если сообщение последнее в чате
@@ -280,14 +282,17 @@ class AsyncSocketController:
                     room_id=room_id,
                     unread_cnt=owner_unread_cnt,
                     last_msg=msg,
-                    first_unread=owner_first_unread
+                    first_unread=owner_first_unread,
+                    chats_unread_count=owner_chats_unread_count
                 )
 
         except Exception as e:
             logger.error(e)
             raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
 
-    async def send_last_msg_updated_to_one_connection(self, socket_id, room_id, unread_cnt, first_unread, last_msg):
+    async def send_last_msg_updated_to_one_connection(
+            self, socket_id, room_id, unread_cnt, first_unread, last_msg, chats_unread_messages_count
+    ):
         await self.consumer.channel_layer.send(socket_id, {
             'type': 'chat_last_msg_updated',
             'prepared_data': {
@@ -296,9 +301,12 @@ class AsyncSocketController:
                 'firstUnreadMessage': first_unread,
                 'lastMessage': last_msg
             },
+            'indicators': {
+                'chatsUnreadMessages': chats_unread_messages_count
+            }
         })
 
-    async def send_message_was_read(self, unread_cnt, room_id, first_unread, uuid):
+    async def send_message_was_read(self, unread_cnt, room_id, first_unread, uuid, chats_unread_messages_count):
         if unread_cnt is not None:
             await self.consumer.channel_layer.send(self.consumer.channel_name, {
                 'type': 'chat_message_was_read',
@@ -309,11 +317,14 @@ class AsyncSocketController:
                 },
                 'message': {
                     'uuid': uuid,
+                },
+                'indicators': {
+                    'chatsUnreadMessages': chats_unread_messages_count
                 }
             })
 
     async def response_to_msg_owner_when_read(
-            self, owner, sockets, should_response, room_id, unread_cnt, last_msg, first_unread
+            self, owner, sockets, should_response, room_id, unread_cnt, last_msg, first_unread, chats_unread_count
     ):
         if owner and owner.id != self.consumer.user.id and should_response:
             # Если автор прочитаного сообщения не тот, кто его читает, и сообщение ранее не читали
@@ -332,7 +343,8 @@ class AsyncSocketController:
                         room_id=room_id,
                         unread_cnt=unread_cnt,
                         first_unread=first_unread,
-                        last_msg=last_msg
+                        last_msg=last_msg,
+                        chats_unread_messages_count=chats_unread_count
                     )
 
     async def send_counters(self):
@@ -348,7 +360,7 @@ class AsyncSocketController:
 
         indicators_dict = {
             'newNotifications': await notifications_repository(me=self.consumer.user).get_unread_notifications_count(),
-            'chatUnreadMessages': await chats_repository(me=self.consumer.user).get_all_chats_unread_count()
+            'chatsUnreadMessages': await chats_repository(me=self.consumer.user).get_all_chats_unread_count()
         }
         if self.consumer.user.account_type == AccountType.SELF_EMPLOYED.value:
             indicators_dict['newConfirmedAppeals'] = await appeals_repository(
