@@ -21,6 +21,7 @@ from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument
+from app_market.utils import handle_date_for_appeals
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -958,26 +959,42 @@ class ShiftAppealsRepository(MasterRepository):
         return queryset
 
     def get_or_create(self, **data):
-        shift_active_date = data.get('shift_active_date')
-        shift = data.get('shift')
-        queryset = self.base_query
 
+        shift = data.get('shift')
+        if not shift.time_start or not shift.time_end:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.SHIFT_WITHOUT_TIME))
+            ])
+
+        shift_active_date = data.get('shift_active_date')
+        time_start = handle_date_for_appeals(shift_active_date=shift_active_date, time_object=shift.time_start)
+
+        if shift.time_start > shift.time_end:
+            time_end = handle_date_for_appeals(shift_active_date=shift_active_date + timedelta(days=1),
+                                               time_object=shift.time_end)
+        else:
+            time_end = handle_date_for_appeals(shift_active_date=shift_active_date, time_object=shift.time_end)
+
+        queryset = self.base_query
         # проверяем наличие отклика в бд
-        appeals = queryset.filter(
+        appeal = queryset.filter(
             shift=shift,
             shift_active_date=shift_active_date,
-            time_start=shift.time_start,
-            time_end=shift.time_end
-        )
+            time_start=time_start,
+            time_end=time_end
+        ).first()
 
-        if appeals.count():
+        if appeal:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.APPEAL_EXISTS))
             ])
 
         # проверяем количество откликов на разные смены в одинаковое время
-        appeals = queryset.filter(Q(time_start__lte=shift.time_start) and Q(time_end__gte=shift.time_end))
-        if appeals.count() > self.limit:
+        appeals = queryset.filter(
+            Q(time_start__range=(time_start, time_end)) | Q(time_end__range=(time_start, time_end))
+        )
+
+        if appeals.count() >= self.limit:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.APPEALS_LIMIT_REACHED))
             ])
@@ -985,8 +1002,8 @@ class ShiftAppealsRepository(MasterRepository):
         # записываем отклик в бд
         data.update({
             'applier': self.me,
-            'time_start': shift.time_start,
-            'time_end': shift.time_end
+            'time_start': time_start,
+            'time_end': time_end
         })
         instance, created = self.model.objects.get_or_create(**data)
 

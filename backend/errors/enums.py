@@ -35,6 +35,7 @@ class ErrorsCodes(EnumM):
 
     APPEAL_EXISTS = 'Вы уже откликнулись на эту смену'
     APPEALS_LIMIT_REACHED = 'Слишком много откликов на смены в одинаковое время'
+    SHIFT_WITHOUT_TIME = 'У cмены нет времени начала и окончания'
 
 
 class SocketErrors(IntEnumM):
