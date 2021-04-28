@@ -1130,6 +1130,8 @@ class MarketDocumentsRepository(MasterRepository):
                 Round(F('full_price') - F('insurance') - F('tax')), output_field=IntegerField())
         ).first()
 
+        conditions.shift_id = shift.id  # Для облегчения внутренней логики на ios
+
         conditions.documents = MediaModel.objects.filter(mime_type='application/pdf').annotate(
             is_confirmed=Value(False, output_field=BooleanField()))
         conditions.text = "Текст о цифровой подписи"

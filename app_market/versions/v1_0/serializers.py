@@ -604,6 +604,7 @@ class QRCodeSerializer(serializers.Serializer):
 
 
 class ShiftConditionsSerializer(serializers.Serializer):
+    shift_id = serializers.SerializerMethodField()
     date = serializers.SerializerMethodField()
     time_start = serializers.SerializerMethodField()
     time_end = serializers.SerializerMethodField()
@@ -613,6 +614,9 @@ class ShiftConditionsSerializer(serializers.Serializer):
     clean_price = serializers.SerializerMethodField()
     text = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
+
+    def get_shift_id(self, instance):
+        return instance.shift_id
 
     def get_date(self, instance):
         return instance.date
