@@ -98,6 +98,9 @@ class Shop(BaseModel):
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
     reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
 
+    chats = GenericRelation('app_chats.Chat', object_id_field='target_id', content_type_field='target_ct',
+                            related_query_name='generic_target')
+
     def __str__(self):
         return f'{self.title}'
 
@@ -147,6 +150,9 @@ class Vacancy(BaseModel):
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
     reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
     likes = GenericRelation(Like, object_id_field='target_id', content_type_field='target_ct')
+
+    chats = GenericRelation('app_chats.Chat', object_id_field='target_id', content_type_field='target_ct',
+                            related_query_name='generic_target')
 
     def __str__(self):
         return f'{self.title}'

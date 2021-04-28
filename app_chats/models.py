@@ -5,7 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 from app_bot.enums import ChatterBotStates
-from app_chats.enums import ChatMessageType
+from app_chats.enums import ChatMessageType, ChatManagerState, ChatMessageIconType
 from app_media.models import MediaModel
 from app_users.models import UserProfile
 from backend.models import GenericSourceTargetBase, BaseModel
@@ -34,6 +34,16 @@ class Chat(BaseModel):
         UserProfile, through='ChatUser', blank=True, related_name='chats', verbose_name='Участники чата'
     )
 
+    state = models.PositiveIntegerField(
+        choices=choices(ChatManagerState), default=ChatManagerState.BOT_IS_USED.value,
+        verbose_name='Участие менеджера в чате'
+    )
+
+    active_manager = models.ForeignKey(
+        UserProfile, null=True, blank=True, on_delete=models.SET_NULL, related_name='ruled_chats',
+        verbose_name='Активный менеджер'
+    )
+
     def __str__(self):
         return f'{self.id} - {self.subject_user.username if self.subject_user else None}=>{self.target_ct_name}'
 
@@ -48,7 +58,7 @@ class ChatUser(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     is_bot_enabled = models.BooleanField(default=True, verbose_name='Бот для чата включен')
     bot_state = models.IntegerField(
-        default=ChatterBotStates.IDLE.value, choices=choices(ChatterBotStates), verbose_name='Состояние бота'
+        default=ChatterBotStates.IDLE.value, choices=choices(ChatterBotStates), verbose_name='Состояние бота для СМЗ'
     )
     blocked_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата блокировки')
 
@@ -73,6 +83,7 @@ class Message(BaseModel):
 
     read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником моего сообщения')
     uuid = models.UUIDField(default=uuid.uuid4)
+    icon_type = models.PositiveIntegerField(choices=choices(ChatMessageIconType), null=True, blank=True)
 
     def __str__(self):
         return f'{self.id} - {self.user.username}'

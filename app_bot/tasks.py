@@ -1,5 +1,6 @@
 from loguru import logger
 
+from app_chats.enums import ChatMessageType, ChatMessageIconType
 from app_sockets.controllers import SocketController
 from app_sockets.enums import AvailableRoom, AvailableVersion
 from app_sockets.mappers import RoutingMapper
@@ -29,7 +30,7 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
 
         bot_message_serialized = message_repository(chat_id=chat_id).save_bot_message(
             {
-                'message_type': 1,
+                'message_type': ChatMessageType.SIMPLE.value,
                 'text': reply
             }
         )

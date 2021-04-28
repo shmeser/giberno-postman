@@ -81,8 +81,7 @@ class UserProfile(AbstractUser, BaseModel):
     password_changed = models.BooleanField(default=False)
 
     # конкретные магазины к которым прикреплен админ, менеджер или охранник
-    shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины',
-                                   related_name='staff')
+    shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины', related_name='staff')
 
     # у самозанятых есть рейтинг формирующийся на основе отзывов со стороны менеджеров и админов
     rating = models.FloatField(default=0, verbose_name='Рейтинг пользователя')

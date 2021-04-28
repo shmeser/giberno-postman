@@ -38,6 +38,7 @@ class ChatsSerializer(serializers.ModelSerializer):
             return {
                 'id': data.target.id,
                 'title': data.target.title,
+                'address': data.target.address,
             }
 
     def get_subject_user(self, data):
@@ -70,6 +71,8 @@ class ChatsSerializer(serializers.ModelSerializer):
             'title',
             'created_at',
             'unread_count',
+            'state',
+            'active_manager_id',
             'first_unread_message',
             'last_message',
             'users',
@@ -87,6 +90,8 @@ class ChatSerializer(ChatsSerializer):
             'title',
             'created_at',
             'unread_count',
+            'state',
+            'active_manager_id',
             'first_unread_message',
             'last_message',
             'users',
@@ -137,6 +142,7 @@ class LastMessagesSerializer(serializers.ModelSerializer):
             'title',
             'text',
             'message_type',
+            'icon_type',
             'created_at',
             'read_at',
         ]
@@ -217,6 +223,7 @@ class MessagesSerializer(serializers.ModelSerializer):
             'title',
             'text',
             'message_type',
+            'icon_type',
             'created_at',
             'read_at',
             'attachments',
