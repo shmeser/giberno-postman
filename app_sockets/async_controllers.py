@@ -412,6 +412,13 @@ class AsyncSocketController:
             # Если уже активен другой, то ставим его, но не отправляем инфо сообщение
             chat_repository = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.CHATS.value)
             should_send_info = await chat_repository(me=self.consumer.user).set_me_as_active_manager(chat_id=room_id)
+            # Отправляем событие о смене состояния чата всем релевантным менеджерам
+            await self.send_chat_state_to_managers(
+                chat_id=room_id,
+                state=ChatManagerState.MANAGER_CONNECTED.value,
+                active_manager_id=self.consumer.user.id
+            )
+            
             if should_send_info:
                 message_repository = RoutingMapper.room_async_repository(
                     self.consumer.version, AvailableRoom.MESSAGES.value
@@ -431,12 +438,6 @@ class AsyncSocketController:
                     prepared_message=bot_message_serialized
                 )
 
-                # Отправляем событие о смене состояния чата всем релевантным менеджерам
-                await self.send_chat_state_to_managers(
-                    chat_id=room_id,
-                    state=ChatManagerState.MANAGER_CONNECTED.value,
-                    active_manager_id=self.consumer.user.id
-                )
 
         else:
             await self.send_error(
