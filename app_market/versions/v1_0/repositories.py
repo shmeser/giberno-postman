@@ -963,21 +963,31 @@ class ShiftAppealsRepository(MasterRepository):
         queryset = self.base_query
 
         # проверяем наличие отклика в бд
-        appeals = queryset.filter(shift=shift, shift_active_date=shift_active_date)
+        appeals = queryset.filter(
+            shift=shift,
+            shift_active_date=shift_active_date,
+            time_start=shift.time_start,
+            time_end=shift.time_end
+        )
+
         if appeals.count():
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.APPEAL_EXISTS))
             ])
 
         # проверяем количество откликов на разные смены в одинаковое время
-        appeals = queryset.filter(shift_active_date=shift_active_date)
+        appeals = queryset.filter(Q(time_start__lte=shift.time_start) and Q(time_end__gte=shift.time_end))
         if appeals.count() > self.limit:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.APPEALS_LIMIT_REACHED))
             ])
 
         # записываем отклик в бд
-        data.update({'applier': self.me})
+        data.update({
+            'applier': self.me,
+            'time_start': shift.time_start,
+            'time_end': shift.time_end
+        })
         instance, created = self.model.objects.get_or_create(**data)
 
         return instance
