@@ -26,8 +26,9 @@ from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_users.enums import AccountType
 from app_users.models import UserProfile
-from backend.errors.enums import RESTErrors
-from backend.errors.http_exceptions import HttpException
+from backend.entity import Error
+from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
 from backend.utils import ArrayRemove, datetime_to_timestamp
 from giberno import settings
@@ -910,6 +911,8 @@ class ShiftAppealsRepository(MasterRepository):
 
         self.base_query = self.model.objects.filter(applier=self.me)
 
+        self.limit = 10
+
     @staticmethod
     def fast_related_loading(queryset, point=None):
         """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
@@ -955,8 +958,28 @@ class ShiftAppealsRepository(MasterRepository):
         return queryset
 
     def get_or_create(self, **data):
+        shift_active_date = data.get('shift_active_date')
+        shift = data.get('shift')
+        queryset = self.base_query
+
+        # проверяем наличие отклика в бд
+        appeals = queryset.filter(shift=shift, shift_active_date=shift_active_date)
+        if appeals.count():
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEAL_EXISTS))
+            ])
+
+        # проверяем количество откликов на разные смены в одинаковое время
+        appeals = queryset.filter(shift_active_date=shift_active_date)
+        if appeals.count() > self.limit:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEALS_LIMIT_REACHED))
+            ])
+
+        # записываем отклик в бд
         data.update({'applier': self.me})
         instance, created = self.model.objects.get_or_create(**data)
+
         return instance
 
     def get_by_id(self, record_id):
