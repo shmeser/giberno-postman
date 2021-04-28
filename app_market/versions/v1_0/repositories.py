@@ -587,6 +587,20 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             return [manager for manager in record.shop.staff.all()]
         return []
 
+    def get_vacancy_managers_sockets(self, record_id):
+        record = self.model.objects.filter(pk=record_id).annotate(
+            sockets=ArrayRemove(
+                ArrayAgg(
+                    'shop__staff__sockets__socket_id',
+                    filter=Q(staff__account_type=AccountType.MANAGER.value)
+                ),
+                None
+            )
+        )
+        if record:
+            return record.sockets
+        return []
+
     def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
         try:

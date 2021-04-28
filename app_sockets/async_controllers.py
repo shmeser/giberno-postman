@@ -1,6 +1,7 @@
 from loguru import logger
 
 from app_bot.tasks import delayed_checking_for_bot_reply
+from app_chats.enums import ChatMessageType, ChatMessageIconType, ChatManagerState
 from app_sockets.enums import SocketEventType, AvailableRoom
 from app_sockets.mappers import RoutingMapper
 from app_users.enums import NotificationAction, NotificationType, AccountType
@@ -145,6 +146,61 @@ class AsyncSocketController:
         user = await self.repository_class(me=self.consumer.user).update_location(event)
         return user
 
+    async def send_chat_state_to_managers(self, chat_id, state, active_manager_id=None):
+        chat_repository = RoutingMapper.room_async_repository(
+            version=self.consumer.version, room_name=AvailableRoom.CHATS.value
+        )
+
+        relevant_managers_sockets = await chat_repository().get_managers_sockets(chat_id=chat_id)
+        for socket in relevant_managers_sockets:
+            await self.consumer.channel_layer.send(socket, {
+                'type': 'chat_state_updated',
+                'prepared_data': {
+                    'id': chat_id,
+                    'state': state,
+                    'activeManagerId': active_manager_id
+                },
+            })
+
+    async def send_chat_message(self, room_id, group_name, prepared_message):
+        personalized_chat_variants_with_sockets, chat_users, push_title = await self.repository_class(
+            me=self.consumer.user
+        ).get_chat_for_all_participants(  # 10
+            chat_id=room_id,
+        )
+
+        # Отправялем сообщение обратно в групповой канал по сокетам
+        await self.consumer.channel_layer.group_send(group_name, {
+            'type': 'chat_message',
+            'chat_id': room_id,
+            'prepared_data': prepared_message,
+        })
+
+        # Отправляем обновленные данные о чате всем участникам чата по одиночным сокетам
+        for data in personalized_chat_variants_with_sockets:
+            for connection_name in data['sockets']:
+                await self.send_last_msg_updated_to_one_connection(
+                    socket_id=connection_name,
+                    room_id=room_id,
+                    unread_cnt=chained_get(data, 'chat', 'unreadCount'),
+                    first_unread=chained_get(data, 'chat', 'firstUnreadMessage'),
+                    last_msg=prepared_message,
+                    chats_unread_messages_count=chained_get(data, 'chats_unread_messages'),
+                )
+
+        # Отправляем сообщение по пушам всем участникам чата, кроме самого себя
+        # Заголовки сообщения формируется исходя из роли отправителя
+        await AsyncPushController().send_message(
+            users_to_send=chat_users.exclude(pk=self.consumer.user.id),  # Не отправляем себе пуш о новом сообщ.
+            title=push_title,
+            message=chained_get(prepared_message, 'text', default=''),
+            uuid=chained_get(prepared_message, 'uuid', default=''),
+            action=NotificationAction.CHAT.value,
+            subject_id=room_id,
+            notification_type=NotificationType.CHAT.value,
+            icon_type=''
+        )
+
     async def client_message_to_chat(self, content):
         try:
             room_id = self.consumer.room_id
@@ -173,42 +229,11 @@ class AsyncSocketController:
                     content=content
                 )
 
-                personalized_chat_variants_with_sockets, chat_users, push_title = await self.repository_class(
-                    me=self.consumer.user
-                ).get_chat_for_all_participants(  # 10
-                    chat_id=room_id,
-                )
-
-                # Отправялем сообщение обратно в групповой канал по сокетам
-                await self.consumer.channel_layer.group_send(group_name, {
-                    'type': 'chat_message',
-                    'chat_id': room_id,
-                    'prepared_data': processed_serialized_message,
-                })
-
-                # Отправляем обновленные данные о чате всем участникам чата по одиночным сокетам
-                for data in personalized_chat_variants_with_sockets:
-                    for connection_name in data['sockets']:
-                        await self.send_last_msg_updated_to_one_connection(
-                            socket_id=connection_name,
-                            room_id=room_id,
-                            unread_cnt=chained_get(data, 'chat', 'unreadCount'),
-                            first_unread=chained_get(data, 'chat', 'firstUnreadMessage'),
-                            last_msg=processed_serialized_message,
-                            chats_unread_messages_count=chained_get(data, 'chats_unread_messages'),
-                        )
-
-                # Отправляем сообщение по пушам всем участникам чата, кроме самого себя
-                # Заголовки сообщения формируется исходя из роли отправителя
-                await AsyncPushController().send_message(
-                    users_to_send=chat_users.exclude(pk=self.consumer.user.id),  # Не отправляем себе пуш о новом сообщ.
-                    title=push_title,
-                    message=chained_get(processed_serialized_message, 'text', default=''),
-                    uuid=chained_get(processed_serialized_message, 'uuid', default=''),
-                    action=NotificationAction.CHAT.value,
-                    subject_id=room_id,
-                    notification_type=NotificationType.CHAT.value,
-                    icon_type=''
+                # Отправляем сообщение в чат с персонализацией для всех участников
+                await self.send_chat_message(
+                    room_id=room_id,
+                    group_name=group_name,
+                    prepared_message=processed_serialized_message
                 )
 
                 # Ответ бота через Celery с задержкой
@@ -374,3 +399,87 @@ class AsyncSocketController:
             'type': 'counters_for_indicators',
             'prepared_data': indicators_dict,
         })
+
+    async def manager_join_chat(self, content):
+        room_id = content.get('chatId')
+        _MANAGER_CONNECTED_TEXT = 'Менеджер присоединился к беседе'
+
+        if await self.check_permission_for_group_connection(**{
+            'room_name': AvailableRoom.CHATS.value,
+            'room_id': room_id,
+        }):
+            # Обновляем состояние чата - текущий менеджер активный и отправляем инфо сообщение
+            # Если уже активен другой, то ставим его, но не отправляем инфо сообщение
+            chat_repository = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.CHATS.value)
+            should_send_info = await chat_repository(me=self.consumer.user).set_me_as_active_manager(chat_id=room_id)
+            if should_send_info:
+                message_repository = RoutingMapper.room_async_repository(
+                    self.consumer.version, AvailableRoom.MESSAGES.value
+                )
+                bot_message_serialized = await message_repository(chat_id=room_id).save_bot_message(
+                    {
+                        'message_type': ChatMessageType.INFO.value,
+                        'text': _MANAGER_CONNECTED_TEXT,
+                        'icon_type': ChatMessageIconType.DEFAULT.value
+                    }
+                )
+
+                # Отправляем сообщение в чат с персонализацией данных для всех участников
+                await self.send_chat_message(
+                    room_id=room_id,
+                    group_name=AvailableRoom.CHATS.value,
+                    prepared_message=bot_message_serialized
+                )
+
+                # Отправляем событие о смене состояния чата всем релевантным менеджерам
+                await self.send_chat_state_to_managers(
+                    chat_id=room_id,
+                    state=ChatManagerState.MANAGER_CONNECTED.value,
+                    active_manager_id=self.consumer.user.id
+                )
+
+        else:
+            await self.send_error(
+                code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
+            )
+
+    async def manager_leave_chat(self, content):
+        room_id = content.get('chatId')
+        _MANAGER_DISCONNECTED_TEXT = 'Менеджер завершил консультацию'
+
+        if await self.check_permission_for_group_connection(**{
+            'room_name': 'chats',
+            'room_id': room_id,
+        }):
+            # Обновляем состояние чата - убираем менеджера и отправляем инфо сообщение
+            chat_repository = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.CHATS.value)
+            should_send_info = await chat_repository(me=self.consumer.user).remove_active_manager(chat_id=room_id)
+            if should_send_info:
+                message_repository = RoutingMapper.room_async_repository(
+                    self.consumer.version, AvailableRoom.MESSAGES.value
+                )
+                bot_message_serialized = await message_repository(chat_id=room_id).save_bot_message(
+                    {
+                        'message_type': ChatMessageType.INFO.value,
+                        'text': _MANAGER_DISCONNECTED_TEXT,
+                        'icon_type': ChatMessageIconType.DEFAULT.value
+                    }
+                )
+
+                # Отправляем сообщение в чат с персонализацией данных для всех участников
+                await self.send_chat_message(
+                    room_id=room_id,
+                    group_name=AvailableRoom.CHATS.value,
+                    prepared_message=bot_message_serialized
+                )
+
+                # Отправляем событие о смене состояния чата всем релевантным менеджерам
+                await self.send_chat_state_to_managers(
+                    chat_id=room_id,
+                    state=ChatManagerState.BOT_IS_USED.value
+                )
+
+        else:
+            await self.send_error(
+                code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
+            )

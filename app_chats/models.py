@@ -5,7 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 from app_bot.enums import ChatterBotStates
-from app_chats.enums import ChatMessageType, ChatManagerState
+from app_chats.enums import ChatMessageType, ChatManagerState, ChatMessageIconType
 from app_media.models import MediaModel
 from app_users.models import UserProfile
 from backend.models import GenericSourceTargetBase, BaseModel
@@ -83,6 +83,7 @@ class Message(BaseModel):
 
     read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником моего сообщения')
     uuid = models.UUIDField(default=uuid.uuid4)
+    icon_type = models.PositiveIntegerField(choices=choices(ChatMessageIconType), null=True, blank=True)
 
     def __str__(self):
         return f'{self.id} - {self.user.username}'

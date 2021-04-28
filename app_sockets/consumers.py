@@ -59,8 +59,10 @@ class Consumer(AsyncJsonWebsocketConsumer):
                 await self.socket_controller.client_message_to_chat(content)
             elif content.get('eventType') == SocketEventType.READ_MESSAGE_IN_CHAT.value:
                 await self.socket_controller.client_read_message_in_chat(content)
-            # elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
-            #     pass
+            elif content.get('eventType') == SocketEventType.MANAGER_LEAVE_CHAT.value:
+                await self.socket_controller.manager_leave_chat(content)
+            elif content.get('eventType') == SocketEventType.MANAGER_JOIN_CHAT.value:
+                await self.socket_controller.manager_join_chat(content)
             else:
                 await self.channel_layer.send(self.channel_name, {
                     'type': handler_type,
@@ -165,6 +167,15 @@ class Consumer(AsyncJsonWebsocketConsumer):
             {
                 'eventType': SocketEventType.SERVER_COUNTERS_UPDATE.value,
                 'indicators': data.get('prepared_data')
+            },
+        )
+
+    # Состояние чата изменилось - менеджер подсоединился или завершил консультацию
+    async def chat_state_updated(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_STATE_UPDATED.value,
+                'chat': data.get('prepared_data')
             },
         )
 
