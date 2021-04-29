@@ -25,7 +25,7 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
         chat_repository = RoutingMapper.room_repository(
             version=version, room_name=AvailableRoom.CHATS.value)
         chat = chat_repository().get_by_id(chat_id)
-        if chat.deleted is False or chat.state != ChatManagerState.BOT_IS_USED.value:
+        if chat.deleted is True or chat.state != ChatManagerState.BOT_IS_USED.value:
             return  # НЕ обрабатываем сообщения в удаленных чатах и в состоянии НЕ в BOT_IS_USED
 
         bot_repository = RoutingMapper.room_repository(
@@ -80,6 +80,18 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
                 notification_type=notification_type,
                 icon_type=icon_type,
             )
+
+            # После отправки пушей (записи в бд создаются перед пушами) дублируем по сокетам уведомления
+            # TODO тут пока не учитываются настройки оповещений (notification_type)
+            SocketController().send_notification_to_many_connections(managers_sockets, {
+                'title': title,
+                'message': message,
+                'uuid': str(common_uuid),
+                'action': action,
+                'subjectId': chat_id,
+                'notificationType': notification_type,
+                'iconType': icon_type,
+            })
 
         bot_message_serialized = message_repository(chat_id=chat_id).save_bot_message(
             {
