@@ -959,6 +959,7 @@ class ShiftAppealsRepository(MasterRepository):
         return queryset
 
     def get_or_create(self, **data):
+
         shift = data.get('shift')
         if not shift.time_start or not shift.time_end:
             raise CustomException(errors=[
@@ -989,7 +990,7 @@ class ShiftAppealsRepository(MasterRepository):
             ])
 
         # проверяем количество откликов на разные смены в одинаковое время
-        appeals = queryset.filter(shift_active_date=shift_active_date).filter(
+        appeals = queryset.filter(
             Q(time_start__range=(time_start, time_end)) | Q(time_end__range=(time_start, time_end))
         )
 
