@@ -23,6 +23,7 @@ class MediaType(IntEnumM):
     MAP = 10
     NOTIFICATION_ICON = 11
     ATTACHMENT = 12
+    RULES_AND_ARTICLES = 13  # Уставы, правила, техники безопасности эксплуатации и т.д.
 
 
 class FileDownloadStatus(IntEnumM):
