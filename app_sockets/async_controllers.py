@@ -213,9 +213,9 @@ class AsyncSocketController:
                 'room_name': AvailableRoom.CHATS.value,
                 'room_id': room_id
             }):
-                self.repository_class = RoutingMapper.room_async_repository(
-                    self.consumer.version, AvailableRoom.CHATS.value
-                )
+                # self.repository_class = RoutingMapper.room_async_repository(
+                #     self.consumer.version, AvailableRoom.CHATS.value
+                # )
 
                 message_repository = RoutingMapper.room_async_repository(
                     self.consumer.version, AvailableRoom.MESSAGES.value

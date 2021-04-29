@@ -14,7 +14,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'debug_toolbar',
     'django.contrib.gis',
     'django.contrib.postgres',
     'rest_framework',
@@ -53,7 +52,6 @@ CELERY_RESULT_SERIALIZER = 'json'
 WORKER_MAX_MEMORY_PER_CHILD = 200000
 
 MIDDLEWARE = [
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -378,7 +376,6 @@ try:
         CONSTANCE_CONFIG, \
         LOGGING, \
         SOCIAL_AUTH_VK_OAUTH2_KEY, \
-        DEBUG_TOOLBAR_PANELS, \
         EMAIL_HOST_USER, \
         EMAIL_HOST_PASSWORD
 except ImportError as e:

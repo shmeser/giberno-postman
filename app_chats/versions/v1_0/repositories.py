@@ -4,7 +4,7 @@ from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef, Case, When, F, IntegerField, \
-    Exists, Sum, Window, CharField, Value
+    Exists, Sum, Window, Value
 from django.db.models.functions import Coalesce
 from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import now
@@ -279,6 +279,14 @@ class ChatsRepository(MasterRepository):
         )
 
     def get_by_id(self, record_id):
+        record = self.model.objects.filter(id=record_id).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def get_chat(self, record_id):
         records = self.base_query.filter(id=record_id)
         records = self.prefetch_first_unread_message(records)
         record = self.fast_related_loading(records).first()
@@ -527,20 +535,25 @@ class ChatsRepository(MasterRepository):
 
         return should_send_info
 
-    def get_managers_sockets(self, chat_id):
+    def get_managers(self, chat_id):
         shop_ct = ContentType.objects.get_for_model(Shop)
         vacancy_ct = ContentType.objects.get_for_model(Vacancy)
         record = self.model.objects.filter(pk=chat_id, deleted=False).first()
-        sockets = []
+        managers = []
         if record:
+            # TODO учитывать настройки отпуска у менеджеров
             if record.target_ct == shop_ct:
-                sockets = record.target.staff.filter(account_type=AccountType.MANAGER.value).aggregate(
-                    sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                )['sockets']
+                managers = record.target.staff.filter(account_type=AccountType.MANAGER.value)
             if record.target_ct == vacancy_ct:
-                sockets = record.target.shop.staff.filter(account_type=AccountType.MANAGER.value).aggregate(
-                    sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                )['sockets']
+                managers = record.target.shop.staff.filter(account_type=AccountType.MANAGER.value)
+
+        return managers
+
+    def get_managers_sockets(self, chat_id):
+        managers = self.get_managers(chat_id)
+        sockets = managers.aggregate(
+            sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+        )['sockets']
 
         return sockets
 
@@ -553,6 +566,10 @@ class AsyncChatsRepository(ChatsRepository):
     @database_sync_to_async
     def get_by_id(self, record_id):
         return super().get_by_id(record_id)
+
+    @database_sync_to_async
+    def get_chat(self, record_id):
+        return super().get_chat(record_id)
 
     @database_sync_to_async
     def get_chat_for_all_participants(self, chat_id):
