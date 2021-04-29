@@ -4,7 +4,7 @@ from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef, Case, When, F, IntegerField, \
-    Exists, Sum, Window, CharField
+    Exists, Sum, Window, CharField, Value
 from django.db.models.functions import Coalesce
 from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import now
@@ -246,6 +246,31 @@ class ChatsRepository(MasterRepository):
 
         records = self.base_query.exclude(deleted=True).filter(**kwargs).distinct()
         if order_by:
+            if self.me.account_type == AccountType.MANAGER.value:
+                # Многоуровневая сортировка для менеджеров
+                records = records.annotate(
+                    manager_order=Case(
+                        When(  # Первая подгруппа - нужен ответ человека
+                            Q(state=ChatManagerState.NEED_MANAGER.value), then=Value(0)
+                        ),
+                        When(  # Вторая подгруппа - активный менеджер я
+                            Q(state=ChatManagerState.MANAGER_CONNECTED, active_manager=self.me), then=Value(1)
+                        ),
+                        When(  # Третья подгруппа - активный менеджер НЕ я
+                            Q(
+                                Q(state=ChatManagerState.MANAGER_CONNECTED) &
+                                ~Q(active_manager=self.me)
+                            ),
+                            then=Value(2)
+                        ),
+                        When(  # Четвертая подгруппа - общение с ботом
+                            Q(state=ChatManagerState.BOT_IS_USED.value), then=Value(3)
+                        ),
+                        output_field=IntegerField(),
+                    )
+                )
+                order_by = ['manager_order'] + order_by
+
             records = records.order_by(*order_by)
 
         records = self.prefetch_first_unread_message(records)
