@@ -240,6 +240,13 @@ class ShiftAppeals(CRUDAPIView):
             instance = self.repository_class(me=request.user).get_or_create(**serializer.validated_data)
             return Response(camelize(ShiftAppealsSerializer(instance=instance, many=False).data))
 
+    def put(self, request, *args, **kwargs):
+        serializer = ShiftAppealCreateSerializer(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            record_id = kwargs.get(self.urlpattern_record_id_name)
+            instance = self.repository_class(me=request.user).update(record_id, **serializer.validated_data)
+            return Response(camelize(ShiftAppealsSerializer(instance=instance, many=False).data))
+
 
 class ShiftAppealCancel(CRUDAPIView):
     repository_class = ShiftAppealsRepository
