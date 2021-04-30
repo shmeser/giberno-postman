@@ -21,13 +21,15 @@ from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument
+from app_market.utils import handle_date_for_appeals
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_users.enums import AccountType
 from app_users.models import UserProfile
-from backend.errors.enums import RESTErrors
-from backend.errors.http_exceptions import HttpException
+from backend.entity import Error
+from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
 from backend.utils import ArrayRemove, datetime_to_timestamp
 from giberno import settings
@@ -924,6 +926,8 @@ class ShiftAppealsRepository(MasterRepository):
 
         self.base_query = self.model.objects.filter(applier=self.me)
 
+        self.limit = 10
+
     @staticmethod
     def fast_related_loading(queryset, point=None):
         """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
@@ -968,13 +972,68 @@ class ShiftAppealsRepository(MasterRepository):
 
         return queryset
 
+    @staticmethod
+    def get_start_end_time_range(**data):
+        shift = data.get('shift')
+        if not shift.time_start or not shift.time_end:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.SHIFT_WITHOUT_TIME))
+            ])
+
+        shift_active_date = data.get('shift_active_date')
+        time_start = handle_date_for_appeals(shift_active_date=shift_active_date, time_object=shift.time_start)
+
+        if shift.time_start > shift.time_end:
+            time_end = handle_date_for_appeals(shift_active_date=shift_active_date + timedelta(days=1),
+                                               time_object=shift.time_end)
+        else:
+            time_end = handle_date_for_appeals(shift_active_date=shift_active_date, time_object=shift.time_end)
+
+        return time_start, time_end
+
+    @staticmethod
+    def check_if_exists(queryset, data):
+        appeal = queryset.filter(**data).first()
+        if appeal:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEAL_EXISTS))
+            ])
+
+    def check_time_range(self, queryset, time_start, time_end):
+        if queryset.filter(
+                Q(time_start__range=(time_start, time_end)) | Q(time_end__range=(time_start, time_end))
+        ).count() >= self.limit:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEALS_LIMIT_REACHED))
+            ])
+
+    def update_data(self, data):
+        time_start, time_end = self.get_start_end_time_range(**data)
+        data.update({
+            'applier': self.me,
+            'time_start': time_start,
+            'time_end': time_end
+        })
+        return data
+
     def get_or_create(self, **data):
-        data.update({'applier': self.me})
+        time_start, time_end = self.get_start_end_time_range(**data)
+        data = self.update_data(data=data)
+
+        queryset = self.base_query
+
+        # проверяем наличие отклика в бд
+        self.check_if_exists(queryset=queryset, data=data)
+
+        # проверяем количество откликов на разные смены в одинаковое время
+        self.check_time_range(queryset=queryset, time_start=time_start, time_end=time_end)
+
         instance, created = self.model.objects.get_or_create(**data)
         return instance
 
     def get_by_id(self, record_id):
-        records = self.base_query.filter(pk=record_id)
+        # если будет self.base_query.filter() то manager ничего не сможет увидеть
+        records = self.model.objects.filter(pk=record_id)
         records = self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records,
             point=self.point
@@ -997,6 +1056,20 @@ class ShiftAppealsRepository(MasterRepository):
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
             point=self.point
         )
+
+    def update(self, record_id, **data):
+        time_start, time_end = self.get_start_end_time_range(**data)
+        data = self.update_data(data=data)
+
+        queryset = self.base_query
+
+        # проверяем наличие отклика в бд
+        self.check_if_exists(queryset=queryset, data=data)
+
+        # проверяем количество откликов на разные смены в одинаковое время
+        self.check_time_range(queryset=queryset, time_start=time_start, time_end=time_end)
+
+        return super().update(record_id, **data)
 
     def delete(self, record_id):
         instance = self.get_by_id(record_id=record_id)
@@ -1031,18 +1104,22 @@ class ShiftAppealsRepository(MasterRepository):
         instance = self.get_by_id(record_id=record_id)
 
         # проверяем доступ менеджера к смене на которую откликнулись
-        self.is_related_manager(instance=instance)
+        # self.is_related_manager(instance=instance)
 
         if not instance.status == ShiftAppealStatus.CONFIRMED:
             instance.status = ShiftAppealStatus.CONFIRMED
             instance.save()
+            self.model.objects.filter(
+                Q(time_start__range=(instance.time_start, instance.time_end)) |
+                Q(time_end__range=(instance.time_start, instance.time_end))
+            ).exclude(id=instance.id).delete()
 
             # создаем смену пользователя
             UserShift.objects.get_or_create(
                 user=instance.applier,
                 shift=instance.shift,
-                real_time_start=instance.shift.time_start,
-                real_time_end=instance.shift.time_end
+                real_time_start=instance.time_start,
+                real_time_end=instance.time_end
             )
 
     def reject_by_manager(self, record_id):

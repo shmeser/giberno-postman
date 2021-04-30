@@ -31,8 +31,8 @@ class VacancyAdmin(FormattedAdmin):
 
 
 @admin.register(ShiftAppeal)
-class VacancyAppealAdmin(FormattedAdmin):
-    list_display = ['id', 'applier', 'shift', 'status']
+class ShiftAppealAdmin(FormattedAdmin):
+    list_display = ['id', 'applier', 'shift', 'status', 'time_start', 'time_end']
 
 
 @admin.register(Shift)
