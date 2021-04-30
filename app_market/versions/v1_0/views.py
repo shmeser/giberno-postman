@@ -16,6 +16,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSeri
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
+from app_sockets.controllers import SocketController
 from app_users.permissions import IsManagerOrSecurity
 from app_users.versions.v1_0.repositories import ProfileRepository
 from backend.api_views import BaseAPIView
@@ -668,14 +669,34 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(ReviewsBaseAPIView):
 class ConfirmAppealByManagerAPIView(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        ShiftAppealsRepository(me=request.user).confirm_by_manager(record_id=record_id)
+        status_changed, sockets, appeal = ShiftAppealsRepository(me=request.user).confirm_by_manager(record_id=record_id)
+
+        if status_changed:
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'status': appeal.status,
+                }
+            })
+
         return Response(None, status=status.HTTP_200_OK)
 
 
 class RejectAppealByManagerAPIView(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        ShiftAppealsRepository(me=request.user).reject_by_manager(record_id=record_id)
+        status_changed, sockets, appeal = ShiftAppealsRepository(me=request.user).reject_by_manager(record_id=record_id)
+
+        if status_changed:
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'status': appeal.status,
+                }
+            })
+
         return Response(None, status=status.HTTP_200_OK)
 
 

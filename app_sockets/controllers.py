@@ -89,6 +89,11 @@ class SocketController:
         except Exception as e:
             logger.error(e)
 
+    def send_message_to_many_connections(self, sockets, data):
+        channel_layer = get_channel_layer()
+        for socket in sockets:
+            async_to_sync(channel_layer.send)(socket, data)
+
     def send_chat_message(self, prepared_message=None, chat_id=None):
         try:
 
