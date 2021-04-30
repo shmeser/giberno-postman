@@ -56,7 +56,7 @@ class Chats(CRUDAPIView):
 
         if record_id:
             self.serializer_class = ChatSerializer
-            dataset = self.repository_class(request.user).get_by_id(record_id)
+            dataset = self.repository_class(request.user).get_chat(record_id)
         else:
             self.many = True
             dataset = self.repository_class(request.user).get_chats_or_create(

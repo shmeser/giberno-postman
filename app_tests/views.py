@@ -56,7 +56,7 @@ class SendTestPush(APIView):
         )
 
         # Отправка уведомления по сокетам
-        SocketController(request.user, version='1.0').send_notification_to_one_connection({
+        SocketController(request.user, version='1.0').send_notification_to_my_connection({
             'title': title,
             'message': message,
             'uuid': str(common_uuid),

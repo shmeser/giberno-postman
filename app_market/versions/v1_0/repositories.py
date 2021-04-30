@@ -10,7 +10,7 @@ from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
-    DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField
+    DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists
 from django.db.models.functions import Cast, Concat, Extract, Round
 from django.utils.timezone import now, localtime
 from pytz import timezone
@@ -587,6 +587,20 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         )).first()
         if record:
             return [manager for manager in record.shop.staff.all()]
+        return []
+
+    def get_vacancy_managers_sockets(self, record_id):
+        record = self.model.objects.filter(pk=record_id).annotate(
+            sockets=ArrayRemove(
+                ArrayAgg(
+                    'shop__staff__sockets__socket_id',
+                    filter=Q(staff__account_type=AccountType.MANAGER.value)
+                ),
+                None
+            )
+        )
+        if record:
+            return record.sockets
         return []
 
     def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
@@ -1168,7 +1182,9 @@ class MarketDocumentsRepository(MasterRepository):
     def get_conditions_for_user_on_shift(self, shift, active_date):
         # TODO проверка переданной active_date
 
-        conditions = Shift.objects.filter(id=shift.id).annotate(
+        conditions = Shift.objects.filter(id=shift.id).select_related(
+            'vacancy', 'vacancy__shop', 'vacancy__shop__distributor'
+        ).annotate(
             rounded_hours=Case(  # Количество часов (с округлением)
                 When(
                     time_start__gt=F('time_end'),  # Если время начала больше времени окончания
@@ -1193,46 +1209,81 @@ class MarketDocumentsRepository(MasterRepository):
                 Round(F('full_price') - F('insurance') - F('tax')), output_field=IntegerField())
         ).first()
 
-        conditions.documents = MediaModel.objects.filter(mime_type='application/pdf').annotate(
-            is_confirmed=Value(False, output_field=BooleanField()))
+        conditions.shift_id = shift.id  # Для облегчения внутренней логики на ios
+
+        # ## Сбор нужных документов и статус по ним ##
+        distributor_ct = ContentType.objects.get_for_model(Distributor)
+        vacancy_ct = ContentType.objects.get_for_model(Vacancy)
+        # Media
+        conditions.documents = MediaModel.objects.filter(
+            Q(type=MediaType.RULES_AND_ARTICLES.value) &  # Только с типом документы, правила
+            Q(
+                Q(owner_id=None) |  # Либо глобальные (Гиберно)
+                Q(owner_ct=distributor_ct, owner_id=shift.vacancy.shop.distributor_id) |  # Либо торговой сети
+                Q(owner_ct=vacancy_ct, owner_id=shift.vacancy_id)  # Либо вакансии
+            )
+        ).annotate(
+            global_confirmed=Exists(GlobalDocument.objects.filter(document_id=OuterRef('pk'), user=self.me)),
+            distributor_confirmed=Exists(DistributorDocument.objects.filter(document_id=OuterRef('pk'), user=self.me)),
+            vacancy_confirmed=Exists(VacancyDocument.objects.filter(document_id=OuterRef('pk'), user=self.me))
+        ).annotate(
+            is_confirmed=Case(
+                When(Q(global_confirmed=True) | Q(distributor_confirmed=True) | Q(vacancy_confirmed=True), then=True),
+                default=False,
+                output_field=BooleanField()
+            )
+        )
+
         conditions.text = "Текст о цифровой подписи"
 
         return conditions
 
     def accept_market_documents(self, distributor_id=None, vacancy_id=None):
-        # TODO получение документов Гиберно
-        global_document = None
-        GlobalDocument.objects.get_or_create(
-            user=self.me,
-            document=global_document
-        )
+        # TODO получение документов Гиберно (документы без владельца - документы компании)
+        global_documents = MediaModel.objects.filter(owner_id=None, type=MediaType.RULES_AND_ARTICLES.value)
+
+        for global_document in global_documents:
+            GlobalDocument.objects.get_or_create(
+                user=self.me,
+                document=global_document
+            )
 
         if distributor_id:
-            distributor = Distributor.objects.filter(pk=distributor_id).first()
+            distributor = Distributor.objects.filter(pk=distributor_id).prefetch_related(
+                Prefetch(
+                    'media',
+                    queryset=MediaModel.objects.filter(type=MediaType.RULES_AND_ARTICLES.value),
+                    to_attr='documents'
+                )
+            ).first()
             if not distributor:
                 raise HttpException(
                     status_code=RESTErrors.NOT_FOUND.value,
                     detail=f'Объект {Distributor._meta.verbose_name} с ID={distributor_id} не найден')
 
-            # TODO получение документов торговой сети
-            distributor_document = None
-            DistributorDocument.objects.get_or_create(
-                user=self.me,
-                distributor=distributor,
-                document=distributor_document
-            )
+            for distributor_document in distributor.documents:
+                DistributorDocument.objects.get_or_create(
+                    user=self.me,
+                    distributor=distributor,
+                    document=distributor_document
+                )
 
         if vacancy_id:
-            vacancy = Vacancy.objects.filter(pk=vacancy_id).first()
+            vacancy = Vacancy.objects.filter(pk=vacancy_id).prefetch_related(
+                Prefetch(
+                    'media',
+                    queryset=MediaModel.objects.filter(type=MediaType.RULES_AND_ARTICLES.value),
+                    to_attr='documents'
+                )
+            ).first()
             if not vacancy:
                 raise HttpException(
                     status_code=RESTErrors.NOT_FOUND.value,
                     detail=f'Объект {Vacancy._meta.verbose_name} с ID={vacancy_id} не найден')
 
-            # TODO получение документов вакансии
-            vacancy_document = None
-            VacancyDocument.objects.get_or_create(
-                user=self.me,
-                vacancy=vacancy,
-                document=vacancy_document
-            )
+            for vacancy_document in vacancy.documents:
+                VacancyDocument.objects.get_or_create(
+                    user=self.me,
+                    vacancy=vacancy,
+                    document=vacancy_document
+                )

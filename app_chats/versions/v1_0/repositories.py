@@ -4,17 +4,18 @@ from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef, Case, When, F, IntegerField, \
-    Exists, Sum, Window
+    Exists, Sum, Window, Value
 from django.db.models.functions import Coalesce
 from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize, underscoreize
 
+from app_chats.enums import ChatManagerState
 from app_chats.models import Chat, Message, ChatUser, MessageStat
 from app_chats.versions.v1_0.serializers import MessagesSerializer, FirstUnreadMessageSerializer, \
     SocketChatSerializer
 from app_market.models import Shop, Vacancy
-from app_market.versions.v1_0.repositories import ShiftAppealsRepository, VacanciesRepository, ShopsRepository
+from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -157,8 +158,9 @@ class ChatsRepository(MasterRepository):
                 subject_user = self.me
                 # Участники чата
                 # Все менеджеры магазина
-                shop_managers = ShopsRepository().get_managers(shop_id)
-                users = [subject_user] + shop_managers
+                # shop_managers = ShopsRepository().get_managers(shop_id)
+                # TODO менеджеры добавляются после просьбы пользователя о разговоре с человеком
+                users = [subject_user]
             elif vacancy_id:  # user-vacancy
                 need_to_create = True
                 # Цель обсуждения в чате - вакансия
@@ -168,8 +170,9 @@ class ChatsRepository(MasterRepository):
                 subject_user = self.me
                 # Участники чата
                 # Все менеджеры магазина, в котором размещена вакансия
-                vacancy_managers = VacanciesRepository().get_vacancy_managers(vacancy_id)
-                users = [subject_user] + vacancy_managers
+                # TODO менеджеры добавляются после просьбы пользователя о разговоре с человеком
+                # vacancy_managers = VacanciesRepository().get_vacancy_managers(vacancy_id)
+                users = [subject_user]
 
         target_ct_id = None
         target_ct_name = None
@@ -243,6 +246,31 @@ class ChatsRepository(MasterRepository):
 
         records = self.base_query.exclude(deleted=True).filter(**kwargs).distinct()
         if order_by:
+            if self.me.account_type == AccountType.MANAGER.value:
+                # Многоуровневая сортировка для менеджеров
+                records = records.annotate(
+                    manager_order=Case(
+                        When(  # Первая подгруппа - нужен ответ человека
+                            Q(state=ChatManagerState.NEED_MANAGER.value), then=Value(0)
+                        ),
+                        When(  # Вторая подгруппа - активный менеджер я
+                            Q(state=ChatManagerState.MANAGER_CONNECTED, active_manager=self.me), then=Value(1)
+                        ),
+                        When(  # Третья подгруппа - активный менеджер НЕ я
+                            Q(
+                                Q(state=ChatManagerState.MANAGER_CONNECTED) &
+                                ~Q(active_manager=self.me)
+                            ),
+                            then=Value(2)
+                        ),
+                        When(  # Четвертая подгруппа - общение с ботом
+                            Q(state=ChatManagerState.BOT_IS_USED.value), then=Value(3)
+                        ),
+                        output_field=IntegerField(),
+                    )
+                )
+                order_by = ['manager_order'] + order_by
+
             records = records.order_by(*order_by)
 
         records = self.prefetch_first_unread_message(records)
@@ -251,6 +279,14 @@ class ChatsRepository(MasterRepository):
         )
 
     def get_by_id(self, record_id):
+        record = self.model.objects.filter(id=record_id).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def get_chat(self, record_id):
         records = self.base_query.filter(id=record_id)
         records = self.prefetch_first_unread_message(records)
         record = self.fast_related_loading(records).first()
@@ -445,13 +481,21 @@ class ChatsRepository(MasterRepository):
         )
 
     def check_permission_for_action(self, record_id):
-        record = self.model.objects.filter(id=record_id).prefetch_related('users').first()
+        record = self.model.objects.filter(id=record_id).first()
         if not record:
             raise EntityDoesNotExistException
 
         if not record.users.filter(pk=self.me.id).exists():
             # TODO расширенная логика проверки присоединения к группе
-            # Если не участник чата
+            # Если не участник чата, но является релевантным менеджером
+            if record.target_ct == ContentType.objects.get_for_model(Vacancy) and record.target.shop.staff.filter(
+                    pk=self.me.id).exists():
+                # Если цель вакансия и являюсь менеджером магазина, в котором размещена вакансия
+                return True
+            if record.target_ct == ContentType.objects.get_for_model(Shop) and record.target.staff.filter(
+                    pk=self.me.id).exists():
+                # Если цель магазин и являюсь менеджером магазинаF
+                return True
             return False
         return True
 
@@ -459,6 +503,59 @@ class ChatsRepository(MasterRepository):
         return self.model.objects.filter(users=self.me).annotate(unread_count=self.unread_count_expression).aggregate(
             total_unread_count=Sum('unread_count')
         )['total_unread_count']
+
+    def set_me_as_active_manager(self, chat_id):
+        should_send_info = False
+        if self.me and self.me.account_type == AccountType.MANAGER.value:
+            # Если менеджер
+            chat = Chat.objects.filter(pk=chat_id, deleted=False).first()
+
+            if chat.active_manager is None:
+                # Если не было активного менеджера
+                should_send_info = True
+
+            chat.active_manager = self.me  # Делаем себя активным менеджером, потом только я могу завершить консультацию
+            chat.state = ChatManagerState.MANAGER_CONNECTED.value  # Переводим в состояние подключенного менеджера
+            chat.save()
+
+        return should_send_info
+
+    def remove_active_manager(self, chat_id):
+        should_send_info = False
+        if self.me and self.me.account_type == AccountType.MANAGER.value:
+            # Если менеджер
+            chat = Chat.objects.filter(pk=chat_id, deleted=False).first()
+
+            if chat.active_manager is not None and chat.active_manager == self.me:
+                # Если есть активный менеджеор и это я
+                should_send_info = True
+                chat.active_manager = None
+                chat.state = ChatManagerState.BOT_IS_USED.value  # Переводим в состояние разгровара с ботом
+                chat.save()
+
+        return should_send_info
+
+    def get_managers(self, chat_id):
+        shop_ct = ContentType.objects.get_for_model(Shop)
+        vacancy_ct = ContentType.objects.get_for_model(Vacancy)
+        record = self.model.objects.filter(pk=chat_id, deleted=False).first()
+        managers = []
+        if record:
+            # TODO учитывать настройки отпуска у менеджеров
+            if record.target_ct == shop_ct:
+                managers = record.target.staff.filter(account_type=AccountType.MANAGER.value)
+            if record.target_ct == vacancy_ct:
+                managers = record.target.shop.staff.filter(account_type=AccountType.MANAGER.value)
+
+        return managers
+
+    def get_managers_sockets(self, chat_id):
+        managers = self.get_managers(chat_id)
+        sockets = managers.aggregate(
+            sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+        )['sockets']
+
+        return sockets
 
 
 class AsyncChatsRepository(ChatsRepository):
@@ -471,6 +568,10 @@ class AsyncChatsRepository(ChatsRepository):
         return super().get_by_id(record_id)
 
     @database_sync_to_async
+    def get_chat(self, record_id):
+        return super().get_chat(record_id)
+
+    @database_sync_to_async
     def get_chat_for_all_participants(self, chat_id):
         return super().get_chat_for_all_participants(chat_id)
 
@@ -481,6 +582,18 @@ class AsyncChatsRepository(ChatsRepository):
     @database_sync_to_async
     def get_all_chats_unread_count(self):
         return super().get_all_chats_unread_count()
+
+    @database_sync_to_async
+    def set_me_as_active_manager(self, chat_id):
+        return super().set_me_as_active_manager(chat_id)
+
+    @database_sync_to_async
+    def remove_active_manager(self, chat_id):
+        return super().remove_active_manager(chat_id)
+
+    @database_sync_to_async
+    def get_managers_sockets(self, chat_id):
+        return super().get_managers_sockets(chat_id)
 
 
 class CustomLookupBase(Lookup):
@@ -772,6 +885,8 @@ class MessagesRepository(MasterRepository):
             chat_id=self.chat_id,
             uuid=uuid.uuid4(),
             message_type=content.get('message_type'),
+            icon_type=content.get('icon_type'),
+            title=content.get('title'),
             text=content.get('text'),
         )
 
@@ -848,3 +963,7 @@ class AsyncMessagesRepository(MessagesRepository):
             my_first_unread_message_serialized,
             my_chats_unread_count
         )
+
+    @database_sync_to_async
+    def save_bot_message(self, content):
+        return super().save_bot_message(content)

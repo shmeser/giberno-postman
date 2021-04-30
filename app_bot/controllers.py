@@ -40,9 +40,12 @@ class TelegramFormatter(logging.Formatter):
         return result + "\n" + brackets_ident + "}"
 
     meta_attrs = [
-        'REMOTE_ADDR',
-        'HOSTNAME',
-        'HTTP_REFERER'
+        'REMOTE_HOST',
+        'SERVER_NAME',
+        'SERVER_PORT',
+        'REQUEST_METHOD',
+        'PATH_INFO',
+        'QUERY_STRING',
     ]
     limit = -1  # default per logging.Formatter is None
 

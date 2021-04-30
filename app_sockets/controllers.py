@@ -19,7 +19,23 @@ class SocketController:
         self.own_repository_class = RoutingMapper.room_repository(version)
         self.repository_class = RoutingMapper.room_repository(version, room_name)
 
-    def send_notification_to_one_connection(self, prepared_data):
+    def send_notification_to_one_connection(self, socket_id, prepared_data):
+        # Отправка уведомления в одиночный канал подключенного пользователя
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.send)(socket_id, {
+            'type': 'notification_handler',
+            'prepared_data': prepared_data
+        })
+
+    def send_notification_to_many_connections(self, sockets, prepared_data):
+        channel_layer = get_channel_layer()
+        for socket in sockets:
+            async_to_sync(channel_layer.send)(socket, {
+                'type': 'notification_handler',
+                'prepared_data': prepared_data
+            })
+
+    def send_notification_to_my_connection(self, prepared_data):
         # Отправка уведомления в одиночный канал подключенного пользователя
         try:
             connections = self.own_repository_class(self.me).get_user_connections(**{

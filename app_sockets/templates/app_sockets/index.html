@@ -52,11 +52,19 @@
             'READ_MESSAGE_IN_CHAT': 3,
             'NEW_COMMENT_TO_VACANCY': 4,
             'LOCATION': 10,
+            'MANAGER_LEAVE_CHAT': 30,
+            'MANAGER_JOIN_CHAT': 31,
             'SERVER_SYSTEM_MESSAGE': 100,
             'SERVER_PROFILE_UPDATED': 101,
             'SERVER_NEW_MESSAGE_IN_CHAT': 102,
             'SERVER_MESSAGE_IN_CHAT_UPDATED': 103,
             'SERVER_CHAT_UPDATED': 104,
+            'SERVER_CHAT_LAST_MESSAGE_UPDATED': 105,
+            'SERVER_CHAT_USER_STATUS_UPDATED': 106,
+            'SERVER_CHAT_USER_JOINED': 107,
+            'SERVER_CHAT_USER_LEAVED': 108,
+            'SERVER_CHAT_STATE_UPDATED': 109,
+            'SERVER_COUNTERS_UPDATE': 120,
             'NOTIFICATION': 200,
             'TOPIC_LEAVED': 300,
             'TOPIC_JOINED': 301,
@@ -227,6 +235,20 @@
                 }, undefined, 4);
             }
 
+            if (eventType === _EVENT_TYPES.MANAGER_LEAVE_CHAT) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "chatId": 1,
+                }, undefined, 4);
+            }
+
+            if (eventType === _EVENT_TYPES.MANAGER_JOIN_CHAT) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "chatId": 1,
+                }, undefined, 4);
+            }
+
         };
 
 
@@ -242,12 +264,14 @@
                                 <div class="connection-status mb-10 pb-10">
                                     <div class="jwt">${jwt}</div>
                                 </div>
-                                <div class="event-options mb-10">
+                                <div class="event-options mb-10 oy-scroll">
                                     <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.JOIN_TOPIC})">Join Topic</button>
                                     <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.LEAVE_TOPIC})">Leave Topic</button>
                                     <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.LOCATION})">Location</button>
                                     <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.NEW_MESSAGE_TO_CHAT})">Message</button>
                                     <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.READ_MESSAGE_IN_CHAT})">Read Message</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.MANAGER_JOIN_CHAT})">Manager join chat</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.MANAGER_LEAVE_CHAT})">Manager leave chat</button>
                                 </div>
                                 <button id="disconnect-${connectionId}" type="button" class="connection-button disconnect-button" onclick="disconnect(${connectionId});">Disconnect</button>
                             </div>
