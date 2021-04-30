@@ -605,6 +605,7 @@ class QRCodeSerializer(serializers.Serializer):
 
 class ShiftConditionsSerializer(serializers.Serializer):
     shift_id = serializers.SerializerMethodField()
+    vacancy = serializers.SerializerMethodField()
     date = serializers.SerializerMethodField()
     time_start = serializers.SerializerMethodField()
     time_end = serializers.SerializerMethodField()
@@ -616,7 +617,7 @@ class ShiftConditionsSerializer(serializers.Serializer):
     documents = serializers.SerializerMethodField()
 
     def get_shift_id(self, instance):
-        return instance.shift_id
+        return instance.id
 
     def get_date(self, instance):
         return instance.date
@@ -641,6 +642,9 @@ class ShiftConditionsSerializer(serializers.Serializer):
 
     def get_text(self, instance):
         return instance.text
+
+    def get_vacancy(self, instance):
+        return VacancyInShiftSerializer(instance.vacancy, many=False).data
 
     def get_documents(self, instance):
         return ShiftDocumentsSerializer(instance.documents, many=True).data
