@@ -1102,6 +1102,8 @@ class ShiftAppealsRepository(MasterRepository):
 
     def confirm_by_manager(self, record_id):
         instance = self.get_by_id(record_id=record_id)
+        status_changed = False
+        manager_and_user_sockets = []
 
         # проверяем доступ менеджера к смене на которую откликнулись
         # self.is_related_manager(instance=instance)
@@ -1122,14 +1124,36 @@ class ShiftAppealsRepository(MasterRepository):
                 real_time_end=instance.time_end
             )
 
+            status_changed = True
+            manager_and_user_sockets += instance.applier.sockets.aggregate(
+                sockets=ArrayAgg('socket_id')
+            )['sockets']
+            manager_and_user_sockets += self.me.sockets.aggregate(
+                sockets=ArrayAgg('socket_id')
+            )['sockets']
+
+        return status_changed, manager_and_user_sockets, instance
+
     def reject_by_manager(self, record_id):
+        status_changed = False
         instance = self.get_by_id(record_id=record_id)
+        manager_and_user_sockets = []
 
         # проверяем доступ менеджера к смене на которую откликнулись
         self.is_related_manager(instance=instance)
         if not instance.status == ShiftAppealStatus.REJECTED:
             instance.status = ShiftAppealStatus.REJECTED
             instance.save()
+
+            status_changed = True
+            manager_and_user_sockets += instance.applier.sockets.aggregate(
+                sockets=ArrayAgg('socket_id')
+            )['sockets']
+            manager_and_user_sockets += self.me.sockets.aggregate(
+                sockets=ArrayAgg('socket_id')
+            )['sockets']
+
+        return status_changed, manager_and_user_sockets, instance
 
     def get_by_id_for_manager(self, record_id):
         instance = self.get_by_id(record_id=record_id)

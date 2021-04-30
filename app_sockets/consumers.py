@@ -179,6 +179,15 @@ class Consumer(AsyncJsonWebsocketConsumer):
             },
         )
 
+    # Состояние чата изменилось - менеджер подсоединился или завершил консультацию
+    async def appeal_status_updated(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_APPEAL_STATUS_UPDATED.value,
+                'appeal': data.get('prepared_data')
+            },
+        )
+
 
 class GroupConsumer(Consumer):
     def __init__(self, *args, **kwargs):

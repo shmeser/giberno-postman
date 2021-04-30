@@ -490,6 +490,8 @@ class ShiftAppealCreateSerializer(CRUDSerializer):
 class ShiftAppealsSerializer(CRUDSerializer):
     shift_active_date = DateTimeField()
     created_at = DateTimeField()
+    time_start = DateTimeField()
+    time_end = DateTimeField()
 
     shift = serializers.SerializerMethodField()
     vacancy = serializers.SerializerMethodField()
@@ -504,7 +506,7 @@ class ShiftAppealsSerializer(CRUDSerializer):
 
     class Meta:
         model = ShiftAppeal
-        fields = ['id', 'status', 'shift_active_date', 'created_at', 'shift', 'vacancy']
+        fields = ['id', 'status', 'shift_active_date', 'time_start', 'time_end', 'created_at', 'shift', 'vacancy']
 
 
 class ShiftsWithAppealsSerializer(CRUDSerializer):
