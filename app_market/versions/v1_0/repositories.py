@@ -1105,7 +1105,9 @@ class MarketDocumentsRepository(MasterRepository):
     def get_conditions_for_user_on_shift(self, shift, active_date):
         # TODO проверка переданной active_date
 
-        conditions = Shift.objects.filter(id=shift.id).select_related('vacancy__shop__distributor').annotate(
+        conditions = Shift.objects.filter(id=shift.id).select_related(
+            'vacancy', 'vacancy__shop', 'vacancy__shop__distributor'
+        ).annotate(
             rounded_hours=Case(  # Количество часов (с округлением)
                 When(
                     time_start__gt=F('time_end'),  # Если время начала больше времени окончания
@@ -1132,10 +1134,10 @@ class MarketDocumentsRepository(MasterRepository):
 
         conditions.shift_id = shift.id  # Для облегчения внутренней логики на ios
 
-        # TODO добавить сбор нужных документов и статус по ним
-        # Media
+        # ## Сбор нужных документов и статус по ним ##
         distributor_ct = ContentType.objects.get_for_model(Distributor)
         vacancy_ct = ContentType.objects.get_for_model(Vacancy)
+        # Media
         conditions.documents = MediaModel.objects.filter(
             Q(type=MediaType.RULES_AND_ARTICLES.value) &  # Только с типом документы, правила
             Q(
