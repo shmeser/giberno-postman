@@ -392,7 +392,6 @@ class ConfirmAppealByManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('ok')})
     def get(request, **kwargs):
         '''
         подтвердить отклик на вакансию (подтверждают Администраторы\менеджеры))
@@ -407,7 +406,6 @@ class RejectAppealByManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('ok')})
     def get(request, **kwargs):
         '''
         отклонить отклик на вакансию (отклоняют Администраторы\менеджеры))
