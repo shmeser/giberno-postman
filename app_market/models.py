@@ -226,7 +226,12 @@ class ShiftAppeal(BaseModel):
     status = models.PositiveIntegerField(choices=choices(ShiftAppealStatus), default=ShiftAppealStatus.INITIAL)
     cancel_reason = models.PositiveIntegerField(
         null=True, blank=True, choices=choices(AppealCancelReason), verbose_name='Причина отмены самозанятым')
-    reason_text = models.CharField(max_length=255, null=True, blank=True, verbose_name='Текст причины отменыF')
+    reason_text = models.CharField(max_length=255, null=True, blank=True, verbose_name='Текст причины отмены')
+
+    # сделано отдельными полями (а не берется из смены) чтоб иметь возможность вычисления верного временного
+    # диапазона, когда рабочая смена начинается в один день, а заканчивается в другой
+    time_start = models.DateTimeField(null=True, blank=True, verbose_name='Время начала смены')
+    time_end = models.DateTimeField(null=True, blank=True, verbose_name='Время окончания смены')
 
     class Meta:
         db_table = 'app_market__shifts_appeals'

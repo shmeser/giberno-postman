@@ -62,6 +62,13 @@ class ShiftAppeals(BaseAPIView):
             return v1_0.ShiftAppeals().post(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
+    @staticmethod
+    def put(request, **kwargs):
+        """ Редактирование отклика """
+        if request.version in ['market_1_0']:
+            return v1_0.ShiftAppeals().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
 
 class ShiftAppealCancel(BaseAPIView):
     permission_classes = [IsAuthenticated, IsSelfEmployed]

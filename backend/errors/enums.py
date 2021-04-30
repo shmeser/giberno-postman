@@ -33,6 +33,10 @@ class ErrorsCodes(EnumM):
 
     WRONG_PASSWORD = 'Неверный пароль'
 
+    APPEAL_EXISTS = 'Вы уже откликнулись на эту смену'
+    APPEALS_LIMIT_REACHED = 'Слишком много откликов на смены с пересекающимся временем'
+    SHIFT_WITHOUT_TIME = 'У cмены нет времени начала и окончания'
+
 
 class SocketErrors(IntEnumM):
     # Диапазон 3000-4999
