@@ -669,7 +669,8 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(ReviewsBaseAPIView):
 class ConfirmAppealByManagerAPIView(CRUDAPIView):
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        status_changed, sockets, appeal = ShiftAppealsRepository(me=request.user).confirm_by_manager(record_id=record_id)
+        status_changed, sockets, appeal = ShiftAppealsRepository(me=request.user).confirm_by_manager(
+            record_id=record_id)
 
         if status_changed:
             SocketController().send_message_to_many_connections(sockets, {
@@ -843,7 +844,9 @@ class MarketDocuments(CRUDAPIView):
         body = get_request_body(request)
 
         self.repository_class(me=request.user).accept_market_documents(
+            global_docs=body.get('global'),
             distributor_id=body.get('distributor'),
-            vacancy_id=body.get('vacancy')
+            vacancy_id=body.get('vacancy'),
+            document_uuid=body.get('uuid'),
         )
         return Response(None, status=status.HTTP_204_NO_CONTENT)

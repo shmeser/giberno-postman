@@ -397,7 +397,9 @@ class UserSkill(BaseModel):
 
 class GlobalDocument(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
-    document = models.ForeignKey(MediaModel, on_delete=models.SET_NULL, null=True, blank=True)
+    document = models.ForeignKey(
+        MediaModel, on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_global_documents'
+    )
 
     def __str__(self):
         return f'{self.user.first_name} {self.user.last_name} - {self.document.title}'
@@ -411,7 +413,9 @@ class GlobalDocument(BaseModel):
 class DistributorDocument(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE)
-    document = models.ForeignKey(MediaModel, on_delete=models.SET_NULL, null=True, blank=True)
+    document = models.ForeignKey(
+        MediaModel, on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_distributor_documents'
+    )
 
     def __str__(self):
         return f'{self.user.first_name} {self.user.last_name} - {self.distributor.title} - {self.document.title}'
@@ -425,7 +429,9 @@ class DistributorDocument(BaseModel):
 class VacancyDocument(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     vacancy = models.ForeignKey(Vacancy, on_delete=models.CASCADE)
-    document = models.ForeignKey(MediaModel, on_delete=models.SET_NULL, null=True, blank=True)
+    document = models.ForeignKey(
+        MediaModel, on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_vacancy_documents'
+    )
 
     def __str__(self):
         return f'{self.user.first_name} {self.user.last_name} - {self.vacancy.title} - {self.document.title}'
