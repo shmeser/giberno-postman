@@ -1262,16 +1262,19 @@ class MarketDocumentsRepository(MasterRepository):
 
         return conditions
 
-    def accept_market_documents(self, distributor_id=None, vacancy_id=None):
-        # TODO получение документов Гиберно (документы без владельца - документы компании)
-        global_documents = MediaModel.objects.filter(owner_id=None, type=MediaType.RULES_AND_ARTICLES.value)
+    def accept_market_documents(self, global_docs=None, distributor_id=None, vacancy_id=None, document_uuid=None):
+        # Подтверждение всех глобальных документов
+        if global_docs is True:
+            # TODO получение документов Гиберно (документы без владельца - документы компании)
+            global_documents = MediaModel.objects.filter(owner_id=None, type=MediaType.RULES_AND_ARTICLES.value)
 
-        for global_document in global_documents:
-            GlobalDocument.objects.get_or_create(
-                user=self.me,
-                document=global_document
-            )
+            for global_document in global_documents:
+                GlobalDocument.objects.get_or_create(
+                    user=self.me,
+                    document=global_document
+                )
 
+        # Подтверждение всех документов торговой сети
         if distributor_id:
             distributor = Distributor.objects.filter(pk=distributor_id).prefetch_related(
                 Prefetch(
@@ -1292,6 +1295,7 @@ class MarketDocumentsRepository(MasterRepository):
                     document=distributor_document
                 )
 
+        # Подтверждение всех документов вакансии
         if vacancy_id:
             vacancy = Vacancy.objects.filter(pk=vacancy_id).prefetch_related(
                 Prefetch(
@@ -1310,4 +1314,48 @@ class MarketDocumentsRepository(MasterRepository):
                     user=self.me,
                     vacancy=vacancy,
                     document=vacancy_document
+                )
+
+        # Подтверждение конкретного документа
+        if document_uuid:
+            try:
+                # Ищем документ с типом RULES_AND_ARTICLES
+                document = MediaModel.objects.filter(
+                    uuid=document_uuid, type=MediaType.RULES_AND_ARTICLES.value
+                ).first()
+                if not document:
+                    raise HttpException(
+                        status_code=RESTErrors.NOT_FOUND.value,
+                        detail=f'Объект {MediaModel._meta.verbose_name} с UUID={document_uuid} и типом RULES_AND_ARTICLES не найден')
+
+                # Если документ никому не принадлежит, то он глобальный для сервиса
+                if document.owner is None:
+                    # Подтверждаем документ для пользователя
+                    GlobalDocument.objects.get_or_create(
+                        user=self.me,
+                        document=document
+                    )
+
+                # Если документ принадлежит торговой сети
+                if isinstance(document.owner, Distributor):
+                    # Подтверждаем документ для пользователя
+                    DistributorDocument.objects.get_or_create(
+                        user=self.me,
+                        distributor_id=document.owner_id,
+                        document=document
+                    )
+
+                # Если документ принадлежит вакансии
+                if isinstance(document.owner, Vacancy):
+                    # Подтверждаем документ для пользователя
+                    VacancyDocument.objects.get_or_create(
+                        user=self.me,
+                        vacancy_id=document.owner_id,
+                        document=document
+                    )
+
+            except Exception as e:
+                raise HttpException(
+                    status_code=RESTErrors.BAD_REQUEST.value,
+                    detail=e
                 )
