@@ -390,6 +390,33 @@ class VacancyInShiftSerializer(VacanciesSerializer):
         ]
 
 
+class VacancyInShiftForDocumentsSerializer(VacancyInShiftSerializer):
+    distributor = serializers.SerializerMethodField()
+
+    def get_distributor(self, instance):
+        return DistributorInShiftSerializer(instance.shop.distributor, many=False).data
+
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id',
+            'title',
+            'price',
+            'utc_offset',
+            'shop',
+            'distributor'
+        ]
+
+
+class DistributorInShiftSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Distributor
+        fields = [
+            'id',
+            'title',
+        ]
+
+
 class UserProfileInVacanciesForManagerSerializer(CRUDSerializer):
     id = serializers.IntegerField()
 
@@ -607,7 +634,6 @@ class QRCodeSerializer(serializers.Serializer):
 
 class ShiftConditionsSerializer(serializers.Serializer):
     shift_id = serializers.SerializerMethodField()
-    vacancy = serializers.SerializerMethodField()
     date = serializers.SerializerMethodField()
     time_start = serializers.SerializerMethodField()
     time_end = serializers.SerializerMethodField()
@@ -616,6 +642,7 @@ class ShiftConditionsSerializer(serializers.Serializer):
     insurance = serializers.SerializerMethodField()
     clean_price = serializers.SerializerMethodField()
     text = serializers.SerializerMethodField()
+    vacancy = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
 
     def get_shift_id(self, instance):
@@ -646,7 +673,7 @@ class ShiftConditionsSerializer(serializers.Serializer):
         return instance.text
 
     def get_vacancy(self, instance):
-        return VacancyInShiftSerializer(instance.vacancy, many=False).data
+        return VacancyInShiftForDocumentsSerializer(instance.vacancy, many=False).data
 
     def get_documents(self, instance):
         return ShiftDocumentsSerializer(instance.documents, many=True).data
