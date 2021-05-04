@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class QRHandler:
@@ -13,7 +13,8 @@ class QRHandler:
         }
 
 
-def handle_date_for_appeals(shift_active_date, time_object):
+def handle_date_for_appeals(shift_active_date, time_object, utc_offset):
+    utc_offset = utc_offset / 3600
     year = shift_active_date.year
     month = str(shift_active_date.month)
     if len(month) == 1:
@@ -21,4 +22,7 @@ def handle_date_for_appeals(shift_active_date, time_object):
     day = str(shift_active_date.day)
     if len(day) == 1:
         day = '0' + day
-    return datetime.fromisoformat(f'{year}-{month}-{day} {time_object}')
+
+    date = datetime.fromisoformat(f'{year}-{month}-{day} {time_object}')
+    date += timedelta(hours=utc_offset)
+    return date
