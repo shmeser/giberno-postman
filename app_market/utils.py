@@ -24,5 +24,5 @@ def handle_date_for_appeals(shift_active_date, time_object, utc_offset):
         day = '0' + day
 
     date = datetime.fromisoformat(f'{year}-{month}-{day} {time_object}')
-    date += timedelta(hours=utc_offset)
+    date -= timedelta(hours=utc_offset)
     return date
