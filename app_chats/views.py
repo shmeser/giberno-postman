@@ -1,3 +1,4 @@
+from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -37,3 +38,17 @@ class ReadMessages(APIView):
             return v1_0.ReadMessages().post(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+@api_view(['POST'])
+def block_chat(request, **kwargs):
+    if request.version in ['chats_1_0']:
+        return v1_0.block_chat(request._request, **kwargs)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+@api_view(['POST'])
+def unblock_chat(request, **kwargs):
+    if request.version in ['chats_1_0']:
+        return v1_0.unblock_chat(request._request, **kwargs)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

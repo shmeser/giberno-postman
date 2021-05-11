@@ -427,7 +427,7 @@ class AsyncSocketController:
                     {
                         'message_type': ChatMessageType.INFO.value,
                         'text': _MANAGER_CONNECTED_TEXT,
-                        'icon_type': ChatMessageIconType.DEFAULT.value
+                        'icon_type': ChatMessageIconType.SUPPORT.value
                     }
                 )
 
@@ -463,7 +463,7 @@ class AsyncSocketController:
                     {
                         'message_type': ChatMessageType.INFO.value,
                         'text': _MANAGER_DISCONNECTED_TEXT,
-                        'icon_type': ChatMessageIconType.DEFAULT.value
+                        'icon_type': ChatMessageIconType.SUPPORT.value
                     }
                 )
 
