@@ -1,4 +1,5 @@
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from django.contrib.auth.models import AnonymousUser
 from loguru import logger
 
 from app_sockets.async_controllers import AsyncSocketController
@@ -38,7 +39,8 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     async def disconnect(self, code):
         try:
-            await self.socket_controller.remove_connection()
+            if self.user.is_authenticated:
+                await self.socket_controller.remove_connection()
         except Exception as e:
             logger.error(e)
 
