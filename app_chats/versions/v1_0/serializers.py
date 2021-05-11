@@ -16,6 +16,8 @@ class ChatsSerializer(serializers.ModelSerializer):
         self.me = chained_get(kwargs, 'context', 'me')
 
     created_at = DateTimeField()
+    blocked_at = DateTimeField()
+    active_managers_ids = serializers.SerializerMethodField()
 
     first_unread_message = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
@@ -64,15 +66,21 @@ class ChatsSerializer(serializers.ModelSerializer):
             return data.unread_count
         return 0
 
+    def get_active_managers_ids(self, data):
+        if getattr(data, 'active_managers_ids', None):
+            return data.active_managers_ids
+        return []
+
     class Meta:
         model = Chat
         fields = [
             'id',
             'title',
             'created_at',
+            'blocked_at',
             'unread_count',
             'state',
-            'active_manager_id',
+            'active_managers_ids',
             'first_unread_message',
             'last_message',
             'users',
@@ -89,9 +97,10 @@ class ChatSerializer(ChatsSerializer):
             'id',
             'title',
             'created_at',
+            'blocked_at',
             'unread_count',
             'state',
-            'active_manager_id',
+            'active_managers_ids',
             'first_unread_message',
             'last_message',
             'users',

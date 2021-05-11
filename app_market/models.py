@@ -101,6 +101,9 @@ class Shop(BaseModel):
     chats = GenericRelation('app_chats.Chat', object_id_field='target_id', content_type_field='target_ct',
                             related_query_name='generic_target')
 
+    time_start = models.TimeField(null=True, blank=True, verbose_name='Время открытия магазина')
+    time_end = models.TimeField(null=True, blank=True, verbose_name='Время закрытия магазина')
+
     def __str__(self):
         return f'{self.title}'
 

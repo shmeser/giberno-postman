@@ -23,7 +23,7 @@ from app_users.enums import AccountType
 from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import ProfileRepository
 from backend.errors.enums import RESTErrors
-from backend.errors.exceptions import EntityDoesNotExistException
+from backend.errors.exceptions import EntityDoesNotExistException, ForbiddenException
 from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
 from backend.utils import chained_get, ArrayRemove, datetime_to_timestamp
@@ -78,8 +78,19 @@ class ChatsRepository(MasterRepository):
             # Округляем до миллисекунд, так как в бд DateTimeField хранит с точностью до МИКРОсекунд
             TruncMilliecond('messages__created_at')
         )
+
+        self.blocked_at_expression = Subquery(
+            ChatUser.objects.filter(chat=OuterRef('id'), user=OuterRef('subject_user')).values('blocked_at')[:1]
+        )
+
+        self.active_managers_ids_expression = ArrayRemove(
+            ArrayAgg('active_managers__id'), None
+        )
+
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.filter(users=self.me).annotate(
+            active_managers_ids=self.active_managers_ids_expression,
+            blocked_at=self.blocked_at_expression,
             unread_count=self.unread_count_expression,
             last_message_created_at=self.last_message_created_at_expression  # Нужен для сортировки и фильтрации чатов
         )
@@ -254,12 +265,12 @@ class ChatsRepository(MasterRepository):
                             Q(state=ChatManagerState.NEED_MANAGER.value), then=Value(0)
                         ),
                         When(  # Вторая подгруппа - активный менеджер я
-                            Q(state=ChatManagerState.MANAGER_CONNECTED, active_manager=self.me), then=Value(1)
+                            Q(state=ChatManagerState.MANAGER_CONNECTED, active_managers=self.me), then=Value(1)
                         ),
                         When(  # Третья подгруппа - активный менеджер НЕ я
                             Q(
                                 Q(state=ChatManagerState.MANAGER_CONNECTED) &
-                                ~Q(active_manager=self.me)
+                                ~Q(active_managers=self.me)
                             ),
                             then=Value(2)
                         ),
@@ -480,24 +491,27 @@ class ChatsRepository(MasterRepository):
             )
         )
 
+    def check_if_staff(self, chat):
+        if not chat.users.filter(pk=self.me.id).exists():
+            # TODO расширенная логика проверки присоединения к группе
+            # Если не участник чата, но является релевантным менеджером
+            if chat.target_ct == ContentType.objects.get_for_model(Vacancy) and record.target.shop.staff.filter(
+                    pk=self.me.id).exists():
+                # Если цель вакансия и являюсь менеджером магазина, в котором размещена вакансия
+                return True
+            if chat.target_ct == ContentType.objects.get_for_model(Shop) and record.target.staff.filter(
+                    pk=self.me.id).exists():
+                # Если цель магазин и являюсь менеджером магазина
+                return True
+            return False
+        return True
+
     def check_permission_for_action(self, record_id):
         record = self.model.objects.filter(id=record_id).first()
         if not record:
             raise EntityDoesNotExistException
 
-        if not record.users.filter(pk=self.me.id).exists():
-            # TODO расширенная логика проверки присоединения к группе
-            # Если не участник чата, но является релевантным менеджером
-            if record.target_ct == ContentType.objects.get_for_model(Vacancy) and record.target.shop.staff.filter(
-                    pk=self.me.id).exists():
-                # Если цель вакансия и являюсь менеджером магазина, в котором размещена вакансия
-                return True
-            if record.target_ct == ContentType.objects.get_for_model(Shop) and record.target.staff.filter(
-                    pk=self.me.id).exists():
-                # Если цель магазин и являюсь менеджером магазинаF
-                return True
-            return False
-        return True
+        return self.check_if_staff(record)
 
     def get_all_chats_unread_count(self):
         return self.model.objects.filter(users=self.me).annotate(unread_count=self.unread_count_expression).aggregate(
@@ -506,34 +520,50 @@ class ChatsRepository(MasterRepository):
 
     def set_me_as_active_manager(self, chat_id):
         should_send_info = False
+        active_managers_ids = []
+
         if self.me and self.me.account_type == AccountType.MANAGER.value:
             # Если менеджер
-            chat = Chat.objects.filter(pk=chat_id, deleted=False).first()
+            chat = Chat.objects.filter(pk=chat_id, deleted=False).prefetch_related('active_managers').first()
 
-            if chat.active_manager is None:
+            active_managers = chat.active_managers.all()
+            active_managers_ids = [am.id for am in active_managers]
+
+            if not active_managers:
                 # Если не было активного менеджера
                 should_send_info = True
 
-            chat.active_manager = self.me  # Делаем себя активным менеджером, потом только я могу завершить консультацию
+            # Добавляем себя в активные менеджеры
+            chat.active_managers.add(self.me)
+            active_managers_ids.append(self.me.id)
             chat.state = ChatManagerState.MANAGER_CONNECTED.value  # Переводим в состояние подключенного менеджера
             chat.save()
 
-        return should_send_info
+        return should_send_info, active_managers_ids
 
     def remove_active_manager(self, chat_id):
         should_send_info = False
+        active_managers_ids = []
+
         if self.me and self.me.account_type == AccountType.MANAGER.value:
             # Если менеджер
-            chat = Chat.objects.filter(pk=chat_id, deleted=False).first()
+            chat = Chat.objects.filter(pk=chat_id, deleted=False).prefetch_related('active_managers').first()
 
-            if chat.active_manager is not None and chat.active_manager == self.me:
-                # Если есть активный менеджеор и это я
-                should_send_info = True
-                chat.active_manager = None
-                chat.state = ChatManagerState.BOT_IS_USED.value  # Переводим в состояние разгровара с ботом
-                chat.save()
+            # TODO проверить prefetched на еще один запрос
+            active_managers = chat.active_managers.all()
+            active_managers_count = chat.active_managers.count()
+            active_managers_ids = [am.id for am in active_managers]
+            if active_managers and self.me.id in active_managers_ids:
+                # Если есть активный менеджер и это я
+                if active_managers_count == 1:  # Если был активный менеджер только я
+                    should_send_info = True
+                    chat.state = ChatManagerState.BOT_IS_USED.value  # Переводим в состояние разгровара с ботом
+                    chat.save()
 
-        return should_send_info
+                chat.active_managers.remove(self.me)
+                active_managers_ids.remove(self.me.id)
+
+        return should_send_info, active_managers_ids
 
     def get_managers(self, chat_id):
         shop_ct = ContentType.objects.get_for_model(Shop)
@@ -556,6 +586,35 @@ class ChatsRepository(MasterRepository):
         )['sockets']
 
         return sockets
+
+    def block_chat(self, record_id):
+        # Блокировка чата для смз
+        chat = self.model.objects.filter(id=record_id).first()
+        if not chat:
+            raise EntityDoesNotExistException
+
+        if self.check_if_staff(chat):
+            ChatUser.objects.filter(user=chat.subject_user, chat=chat).update(
+                updated_at=now(),
+                blocked_at=now()
+            )
+            return self.get_chat(record_id)  # Используем для вычисляемых полей
+        else:
+            raise ForbiddenException
+
+    def unblock_chat(self, record_id):
+        chat = self.model.objects.filter(id=record_id).first()
+        if not chat:
+            raise EntityDoesNotExistException
+
+        if self.check_if_staff(chat):
+            ChatUser.objects.filter(user=chat.subject_user, chat=chat).update(
+                updated_at=now(),
+                blocked_at=None
+            )
+            return self.get_chat(record_id)  # Используем для вычисляемых полей
+        else:
+            raise ForbiddenException
 
 
 class AsyncChatsRepository(ChatsRepository):

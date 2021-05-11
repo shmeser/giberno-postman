@@ -1,5 +1,6 @@
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from app_bot.tasks import delayed_checking_for_bot_reply
@@ -9,6 +10,7 @@ from app_chats.versions.v1_0.serializers import ChatsSerializer, MessagesSeriali
 from app_sockets.controllers import SocketController
 from app_sockets.enums import AvailableVersion, AvailableRoom
 from backend.errors.enums import RESTErrors
+from backend.errors.exceptions import EntityDoesNotExistException, ForbiddenException
 from backend.errors.http_exceptions import HttpException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
@@ -69,6 +71,31 @@ class Chats(CRUDAPIView):
         })
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def block_chat(request, **kwargs):
+    try:
+        chat = ChatsRepository(me=request.user).block_chat(kwargs.get('record_id'))
+        serializer = ChatSerializer(chat, many=False, context={'me': request.user})
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+    except EntityDoesNotExistException:
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=RESTErrors.NOT_FOUND.name)
+    except ForbiddenException:
+        raise HttpException(status_code=RESTErrors.FORBIDDEN.value, detail=RESTErrors.FORBIDDEN.name)
+
+
+@api_view(['POST'])
+def unblock_chat(request, **kwargs):
+    try:
+        chat = ChatsRepository(me=request.user).unblock_chat(kwargs.get('record_id'))
+        serializer = ChatSerializer(chat, many=False, context={'me': request.user})
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+    except EntityDoesNotExistException:
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=RESTErrors.NOT_FOUND.name)
+
+    except ForbiddenException:
+        raise HttpException(status_code=RESTErrors.FORBIDDEN.value, detail=RESTErrors.FORBIDDEN.name)
 
 
 class Messages(CRUDAPIView):
