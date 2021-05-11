@@ -1,6 +1,7 @@
 import datetime
 import os
 from datetime import timedelta, datetime
+
 from celery.schedules import crontab
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'TeStSeCrEtKeY')
@@ -120,6 +121,10 @@ CELERY_BEAT_SCHEDULE = {
     # },
     'set_qr_code_to_user_shifts': {
         'task': 'app_market.tasks.set_qr_code_to_user_shifts',
+        'schedule': crontab(minute='*')
+    },
+    'cancel_overdue_appeals': {
+        'task': 'app_market.tasks.cancel_overdue_appeals',
         'schedule': crontab(minute='*')
     }
 }

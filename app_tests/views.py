@@ -80,93 +80,93 @@ class SendTestPush(APIView):
 class SeedDataForMarketAppAPIView(APIView):
     permission_classes = []
 
-    @transaction.atomic
     def get(self, request, *args, **kwargs):
-        limit = 10
-        multiply = 50
+        limit = 5
+        multiply = 10
 
-        # USERS SEED
-        if UserProfile.objects.count() < limit * multiply:
-            for item in range(limit * multiply):
-                UserProfile.objects.create(account_type=random.choice([1, 2, 3]))
+        with transaction.atomic():
+            # USERS SEED
+            if UserProfile.objects.count() < limit * multiply:
+                for item in range(limit * multiply):
+                    UserProfile.objects.create(account_type=random.choice([1, 2, 3]))
 
-        users = UserProfile.objects.all()
+            users = UserProfile.objects.all()
 
-        print('Users seed complete')
+            print('Users seed complete')
 
-        # DISTRIBUTORS SEED
-        if Distributor.objects.count() < limit:
-            for item in range(limit):
-                Distributor.objects.create(title=f"""Distributor {item}""")
+            # DISTRIBUTORS SEED
+            if Distributor.objects.count() < limit:
+                for item in range(limit):
+                    Distributor.objects.create(title=f"""Distributor {item}""")
 
-        print('Distributors seed complete')
-        distributors = Distributor.objects.all()
+            print('Distributors seed complete')
+            distributors = Distributor.objects.all()
 
-        # SHOPS SEED
-        if Shop.objects.count() < limit * limit:
-            for item in range(limit * limit):
-                Shop.objects.create(
-                    distributor=random.choice(distributors),
-                    title=f"""Shop {item + 1}"""
+            # SHOPS SEED
+            if Shop.objects.count() < limit * limit:
+                for item in range(limit * limit):
+                    Shop.objects.create(
+                        distributor=random.choice(distributors),
+                        title=f"""Shop {item + 1}"""
+                    )
+
+            print('Shops seed complete')
+            shops = Shop.objects.all()
+
+            # SET SHOPS FOR MANAGERS
+            for user in users.filter(account_type=AccountType.MANAGER):
+                shop = random.choice(shops)
+                user.shops.add(shop)
+                user.distributors.add(shop.distributor)
+                user.save()
+
+            # SET SHOPS FOR SECURITY
+            for user in users.filter(account_type=AccountType.SECURITY):
+                user.shops.add(random.choice(shops))
+                user.save()
+
+            # VACANCIES SEED
+            if Vacancy.objects.count() < limit * limit:
+                for item in range(limit * limit):
+                    Vacancy.objects.create(
+                        shop=random.choice(shops),
+                        title=f"""Vacancy {item + 1}"""
+                    )
+
+            print('Vacancies seed complete')
+            vacancies = Vacancy.objects.all()
+
+            # SHIFTS SEED
+            if Shift.objects.count() < limit * multiply:
+                for item in range(limit * multiply):
+                    vacancy = random.choice(vacancies)
+                    shop = vacancy.shop
+                    Shift.objects.create(vacancy=vacancy, shop=shop)
+
+            print('Shifts seed complete')
+            shifts = Shift.objects.all()
+
+            # SET APPEALS FOR SELF EMPLOYED USERS
+            ShiftAppeal.objects.all().delete()
+            for user in users.filter(account_type=AccountType.SELF_EMPLOYED):
+                ShiftAppeal.objects.create(applier=user, shift=random.choice(shifts))
+            print('ShiftAppeal seed complete')
+
+            # USER SHIFTS SEED
+            shift_appeals = ShiftAppeal.objects.all()
+            for shift_appeal in shift_appeals:
+                UserShift.objects.create(
+                    user=shift_appeal.applier,
+                    shift=shift_appeal.shift
                 )
 
-        print('Shops seed complete')
-        shops = Shop.objects.all()
+            print('UserShifts seed complete')
 
-        # SET SHOPS FOR MANAGERS
-        for user in users.filter(account_type=AccountType.MANAGER):
-            shop = random.choice(shops)
-            user.shops.add(shop)
-            user.distributors.add(shop.distributor)
-            user.save()
-
-        # SET SHOPS FOR SECURITY
-        for user in users.filter(account_type=AccountType.SECURITY):
-            user.shops.add(random.choice(shops))
-            user.save()
-
-        # VACANCIES SEED
-        if Vacancy.objects.count() < limit * limit:
-            for item in range(limit * limit):
-                Vacancy.objects.create(
-                    shop=random.choice(shops),
-                    title=f"""Vacancy {item + 1}"""
-                )
-
-        print('Vacancies seed complete')
-        vacancies = Vacancy.objects.all()
-
-        # SHIFTS SEED
-        if Shift.objects.count() < limit * multiply:
-            for item in range(limit * multiply):
-                vacancy = random.choice(vacancies)
-                shop = vacancy.shop
-                Shift.objects.create(vacancy=vacancy, shop=shop)
-
-        print('Shifts seed complete')
-        shifts = Shift.objects.all()
-
-        # SET APPEALS FOR SELF EMPLOYED USERS
-        ShiftAppeal.objects.all().delete()
-        for user in users.filter(account_type=AccountType.SELF_EMPLOYED):
-            ShiftAppeal.objects.create(applier=user, shift=random.choice(shifts))
-        print('ShiftAppeal seed complete')
-
-        # USER SHIFTS SEED
-        shift_appeals = ShiftAppeal.objects.all()
-        for shift_appeal in shift_appeals:
-            UserShift.objects.create(
-                user=shift_appeal.applier,
-                shift=shift_appeal.shift
-            )
-
-        print('UserShifts seed complete')
-
-        # SET QR DATA TO USER SHIFTS
-        user_shifts = UserShift.objects.all()
-        for user_shift in user_shifts:
-            user_shift.qr_data = QRHandler(user_shift).create_qr_data()
-            user_shift.save()
+            # SET QR DATA TO USER SHIFTS
+            user_shifts = UserShift.objects.all()
+            for user_shift in user_shifts:
+                user_shift.qr_data = QRHandler(user_shift).create_qr_data()
+                user_shift.save()
 
         return Response('seed complete')
 
