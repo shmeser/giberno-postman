@@ -209,6 +209,8 @@ class ShiftAppeals(CRUDAPIView):
     default_filters = {}
 
     order_params = {
+        'time_start': 'time_start',
+        'time_end': 'time_end',
         'created_at': 'created_at',
         'id': 'id'
     }

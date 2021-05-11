@@ -8,9 +8,10 @@ class ChatMessageType(IntEnumM):
 
 class ChatMessageIconType(IntEnumM):
     DEFAULT = 0  # По умолчанию
-    ALARM = 1  # Звонок
+    ALARM = 1  # Колокольчик
     CONGRATULATIONS = 2  # Поздравление
     WAITING = 3  # Ожидание
+    SUPPORT = 4  # Поддержка
 
 
 class ChatManagerState(IntEnumM):
