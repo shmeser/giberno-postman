@@ -39,9 +39,9 @@ class Chat(BaseModel):
         verbose_name='Участие менеджера в чате'
     )
 
-    active_manager = models.ForeignKey(
-        UserProfile, null=True, blank=True, on_delete=models.SET_NULL, related_name='ruled_chats',
-        verbose_name='Активный менеджер'
+    active_managers = models.ManyToManyField(
+        UserProfile, db_table='app_chats__active_managers',
+        verbose_name='Активные менеджеры', related_name='ruled_chats'
     )
 
     def __str__(self):

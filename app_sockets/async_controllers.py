@@ -146,7 +146,7 @@ class AsyncSocketController:
         user = await self.repository_class(me=self.consumer.user).update_location(event)
         return user
 
-    async def send_chat_state_to_managers(self, chat_id, state, active_manager_id=None):
+    async def send_chat_state_to_managers(self, chat_id, state, active_managers_ids=[]):
         chat_repository = RoutingMapper.room_async_repository(
             version=self.consumer.version, room_name=AvailableRoom.CHATS.value
         )
@@ -158,7 +158,7 @@ class AsyncSocketController:
                 'prepared_data': {
                     'id': chat_id,
                     'state': state,
-                    'activeManagerId': active_manager_id
+                    'activeManagersIds': active_managers_ids
                 },
             })
 
@@ -411,13 +411,17 @@ class AsyncSocketController:
             # Обновляем состояние чата - текущий менеджер активный и отправляем инфо сообщение
             # Если уже активен другой, то ставим его, но не отправляем инфо сообщение
             chat_repository = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.CHATS.value)
-            should_send_info = await chat_repository(me=self.consumer.user).set_me_as_active_manager(chat_id=room_id)
+
+            should_send_info, active_managers_ids = await chat_repository(
+                me=self.consumer.user
+            ).set_me_as_active_manager(chat_id=room_id)
+
             if should_send_info:
                 # Отправляем событие о смене состояния чата всем релевантным менеджерам
                 await self.send_chat_state_to_managers(
                     chat_id=room_id,
                     state=ChatManagerState.MANAGER_CONNECTED.value,
-                    active_manager_id=self.consumer.user.id
+                    active_managers_ids=active_managers_ids
                 )
                 
                 message_repository = RoutingMapper.room_async_repository(
@@ -438,7 +442,6 @@ class AsyncSocketController:
                     prepared_message=bot_message_serialized
                 )
 
-
         else:
             await self.send_error(
                 code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
@@ -454,7 +457,10 @@ class AsyncSocketController:
         }):
             # Обновляем состояние чата - убираем менеджера и отправляем инфо сообщение
             chat_repository = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.CHATS.value)
-            should_send_info = await chat_repository(me=self.consumer.user).remove_active_manager(chat_id=room_id)
+            should_send_info, active_managers_ids = await chat_repository(me=self.consumer.user).remove_active_manager(
+                chat_id=room_id
+            )
+
             if should_send_info:
                 message_repository = RoutingMapper.room_async_repository(
                     self.consumer.version, AvailableRoom.MESSAGES.value

@@ -83,8 +83,13 @@ class ChatsRepository(MasterRepository):
             ChatUser.objects.filter(chat=OuterRef('id'), user=OuterRef('subject_user')).values('blocked_at')[:1]
         )
 
+        self.active_managers_ids_expression = ArrayRemove(
+            ArrayAgg('active_managers__id'), None
+        )
+
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.filter(users=self.me).annotate(
+            active_managers_ids=self.active_managers_ids_expression,
             blocked_at=self.blocked_at_expression,
             unread_count=self.unread_count_expression,
             last_message_created_at=self.last_message_created_at_expression  # Нужен для сортировки и фильтрации чатов
@@ -260,12 +265,12 @@ class ChatsRepository(MasterRepository):
                             Q(state=ChatManagerState.NEED_MANAGER.value), then=Value(0)
                         ),
                         When(  # Вторая подгруппа - активный менеджер я
-                            Q(state=ChatManagerState.MANAGER_CONNECTED, active_manager=self.me), then=Value(1)
+                            Q(state=ChatManagerState.MANAGER_CONNECTED, active_managers=self.me), then=Value(1)
                         ),
                         When(  # Третья подгруппа - активный менеджер НЕ я
                             Q(
                                 Q(state=ChatManagerState.MANAGER_CONNECTED) &
-                                ~Q(active_manager=self.me)
+                                ~Q(active_managers=self.me)
                             ),
                             then=Value(2)
                         ),
@@ -515,34 +520,50 @@ class ChatsRepository(MasterRepository):
 
     def set_me_as_active_manager(self, chat_id):
         should_send_info = False
+        active_managers_ids = []
+
         if self.me and self.me.account_type == AccountType.MANAGER.value:
             # Если менеджер
-            chat = Chat.objects.filter(pk=chat_id, deleted=False).first()
+            chat = Chat.objects.filter(pk=chat_id, deleted=False).prefetch_related('active_managers').first()
 
-            if chat.active_manager is None:
+            active_managers = chat.active_managers.all()
+            active_managers_ids = [am.id for am in active_managers]
+
+            if not active_managers:
                 # Если не было активного менеджера
                 should_send_info = True
 
-            chat.active_manager = self.me  # Делаем себя активным менеджером, потом только я могу завершить консультацию
+            # Добавляем себя в активные менеджеры
+            chat.active_managers.add(self.me)
+            active_managers_ids.append(self.me.id)
             chat.state = ChatManagerState.MANAGER_CONNECTED.value  # Переводим в состояние подключенного менеджера
             chat.save()
 
-        return should_send_info
+        return should_send_info, active_managers_ids
 
     def remove_active_manager(self, chat_id):
         should_send_info = False
+        active_managers_ids = []
+
         if self.me and self.me.account_type == AccountType.MANAGER.value:
             # Если менеджер
-            chat = Chat.objects.filter(pk=chat_id, deleted=False).first()
+            chat = Chat.objects.filter(pk=chat_id, deleted=False).prefetch_related('active_managers').first()
 
-            if chat.active_manager is not None and chat.active_manager == self.me:
-                # Если есть активный менеджеор и это я
-                should_send_info = True
-                chat.active_manager = None
-                chat.state = ChatManagerState.BOT_IS_USED.value  # Переводим в состояние разгровара с ботом
-                chat.save()
+            # TODO проверить prefetched на еще один запрос
+            active_managers = chat.active_managers.all()
+            active_managers_count = chat.active_managers.count()
+            active_managers_ids = [am.id for am in active_managers]
+            if active_managers and self.me.id in active_managers_ids:
+                # Если есть активный менеджер и это я
+                if active_managers_count == 1:  # Если был активный менеджер только я
+                    should_send_info = True
+                    chat.state = ChatManagerState.BOT_IS_USED.value  # Переводим в состояние разгровара с ботом
+                    chat.save()
 
-        return should_send_info
+                chat.active_managers.remove(self.me)
+                active_managers_ids.remove(self.me.id)
+
+        return should_send_info, active_managers_ids
 
     def get_managers(self, chat_id):
         shop_ct = ContentType.objects.get_for_model(Shop)

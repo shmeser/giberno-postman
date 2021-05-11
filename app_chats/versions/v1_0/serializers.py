@@ -6,7 +6,7 @@ from app_media.versions.v1_0.controllers import MediaController
 from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
-from backend.utils import chained_get, datetime_to_timestamp
+from backend.utils import chained_get
 
 
 class ChatsSerializer(serializers.ModelSerializer):
@@ -17,7 +17,7 @@ class ChatsSerializer(serializers.ModelSerializer):
 
     created_at = DateTimeField()
     blocked_at = DateTimeField()
-    # blocked_at = serializers.SerializerMethodField()
+    active_managers_ids = serializers.SerializerMethodField()
 
     first_unread_message = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
@@ -66,10 +66,10 @@ class ChatsSerializer(serializers.ModelSerializer):
             return data.unread_count
         return 0
 
-    # def get_blocked_at(self, data):
-    #     if data.blocked_at is not None:
-    #         return datetime_to_timestamp(data.blocked_at)
-    #     return None
+    def get_active_managers_ids(self, data):
+        if getattr(data, 'active_managers_ids', None):
+            return data.active_managers_ids
+        return []
 
     class Meta:
         model = Chat
@@ -80,7 +80,7 @@ class ChatsSerializer(serializers.ModelSerializer):
             'blocked_at',
             'unread_count',
             'state',
-            'active_manager_id',
+            'active_managers_ids',
             'first_unread_message',
             'last_message',
             'users',
@@ -100,7 +100,7 @@ class ChatSerializer(ChatsSerializer):
             'blocked_at',
             'unread_count',
             'state',
-            'active_manager_id',
+            'active_managers_ids',
             'first_unread_message',
             'last_message',
             'users',
