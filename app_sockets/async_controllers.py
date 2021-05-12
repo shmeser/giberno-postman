@@ -162,11 +162,11 @@ class AsyncSocketController:
                 },
             })
 
-    async def send_chat_message(self, room_id, group_name, prepared_message):
+    async def send_chat_message(self, room_id, group_name, prepared_message, exclude_users_ids=[]):
         personalized_chat_variants_with_sockets, chat_users, push_title = await self.repository_class(
             me=self.consumer.user
         ).get_chat_for_all_participants(  # 10
-            chat_id=room_id,
+            chat_id=room_id
         )
 
         # Отправялем сообщение обратно в групповой канал по сокетам
@@ -423,7 +423,7 @@ class AsyncSocketController:
                     state=ChatManagerState.MANAGER_CONNECTED.value,
                     active_managers_ids=active_managers_ids
                 )
-                
+
                 message_repository = RoutingMapper.room_async_repository(
                     self.consumer.version, AvailableRoom.MESSAGES.value
                 )
@@ -462,6 +462,7 @@ class AsyncSocketController:
             )
 
             if should_send_info:
+                # Отправить сообщение о том, что консультация завершена
                 message_repository = RoutingMapper.room_async_repository(
                     self.consumer.version, AvailableRoom.MESSAGES.value
                 )
@@ -477,13 +478,21 @@ class AsyncSocketController:
                 await self.send_chat_message(
                     room_id=room_id,
                     group_name=AvailableRoom.CHATS.value,
-                    prepared_message=bot_message_serialized
+                    prepared_message=bot_message_serialized,
+                    exclude_users_ids=[self.consumer.user.id]
                 )
 
                 # Отправляем событие о смене состояния чата всем релевантным менеджерам
                 await self.send_chat_state_to_managers(
                     chat_id=room_id,
                     state=ChatManagerState.BOT_IS_USED.value
+                )
+            else:
+                # Отправляем событие о смене активных менеджеров всем релевантным менеджерам
+                await self.send_chat_state_to_managers(
+                    chat_id=room_id,
+                    state=ChatManagerState.MANAGER_CONNECTED.value,
+                    active_managers_ids=active_managers_ids
                 )
 
         else:
