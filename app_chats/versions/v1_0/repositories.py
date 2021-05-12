@@ -314,9 +314,9 @@ class ChatsRepository(MasterRepository):
         if record:
             chats_unread_messages_count = self.get_all_chats_unread_count()
             first_unread_message = record.first_unread_messages[0] if record.first_unread_messages else None
-            return record.unread_count, first_unread_message, chats_unread_messages_count, record.blocked_at
+            return record.unread_count, first_unread_message, chats_unread_messages_count, record.blocked_at, record.state
         else:
-            return None, None, None, None
+            return None, None, None, None, None
 
     @staticmethod
     def get_chat_unread_data_for_all_participants(chat, users):
@@ -1009,7 +1009,7 @@ class AsyncMessagesRepository(MessagesRepository):
             # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
             # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
             # по unread_count
-            owner_unread_count, owner_first_unread, owner_chats_unread_count, blocked_at = ChatsRepository(
+            owner_unread_count, owner_first_unread, owner_chats_unread_count, blocked_at, state = ChatsRepository(
                 me=msg_owner
             ).get_chat_unread_count_and_first_unread(self.chat_id)
 
@@ -1025,7 +1025,8 @@ class AsyncMessagesRepository(MessagesRepository):
             my_unread_count,
             my_first_unread_message_serialized,
             my_chats_unread_count,
-            blocked_at
+            blocked_at,
+            state
         )
 
     @database_sync_to_async

@@ -119,6 +119,7 @@ class SocketController:
                             'prepared_data': {
                                 'id': chat_id,
                                 'unreadCount': chained_get(data, 'chat', 'unreadCount'),
+                                'state': chained_get(data, 'chat', 'state'),
                                 'firstUnreadMessage': chained_get(data, 'chat', 'firstUnreadMessage'),
                                 'lastMessage': prepared_message,
                                 'blockedAt': chained_get(data, 'chat', 'blockedAt'),
