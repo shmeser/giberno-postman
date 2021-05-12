@@ -10,7 +10,7 @@ from django.contrib.postgres.indexes import GinIndex
 from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
-    ShiftStatus, ShiftAppealStatus
+    ShiftStatus, ShiftAppealStatus, AppealCancelReason
 from app_media.models import MediaModel
 from app_users.enums import DocumentType
 from app_users.models import UserProfile
@@ -98,6 +98,12 @@ class Shop(BaseModel):
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
     reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
 
+    chats = GenericRelation('app_chats.Chat', object_id_field='target_id', content_type_field='target_ct',
+                            related_query_name='generic_target')
+
+    time_start = models.TimeField(null=True, blank=True, verbose_name='Время открытия магазина')
+    time_end = models.TimeField(null=True, blank=True, verbose_name='Время закрытия магазина')
+
     def __str__(self):
         return f'{self.title}'
 
@@ -147,6 +153,9 @@ class Vacancy(BaseModel):
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
     reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
     likes = GenericRelation(Like, object_id_field='target_id', content_type_field='target_ct')
+
+    chats = GenericRelation('app_chats.Chat', object_id_field='target_id', content_type_field='target_ct',
+                            related_query_name='generic_target')
 
     def __str__(self):
         return f'{self.title}'
@@ -218,6 +227,14 @@ class ShiftAppeal(BaseModel):
     shift = models.ForeignKey(to=Shift, on_delete=models.CASCADE, related_name='appeals')
     shift_active_date = models.DateTimeField(null=True, blank=True)
     status = models.PositiveIntegerField(choices=choices(ShiftAppealStatus), default=ShiftAppealStatus.INITIAL)
+    cancel_reason = models.PositiveIntegerField(
+        null=True, blank=True, choices=choices(AppealCancelReason), verbose_name='Причина отмены самозанятым')
+    reason_text = models.CharField(max_length=255, null=True, blank=True, verbose_name='Текст причины отмены')
+
+    # сделано отдельными полями (а не берется из смены) чтоб иметь возможность вычисления верного временного
+    # диапазона, когда рабочая смена начинается в один день, а заканчивается в другой
+    time_start = models.DateTimeField(null=True, blank=True, verbose_name='Время начала смены')
+    time_end = models.DateTimeField(null=True, blank=True, verbose_name='Время окончания смены')
 
     class Meta:
         db_table = 'app_market__shifts_appeals'
@@ -379,3 +396,50 @@ class UserSkill(BaseModel):
         db_table = 'app_market__skill_user'
         verbose_name = 'Специальный навык пользователя'
         verbose_name_plural = 'Специальные навыки пользователей'
+
+
+class GlobalDocument(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    document = models.ForeignKey(
+        MediaModel, on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_global_documents'
+    )
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.document.title}'
+
+    class Meta:
+        db_table = 'app_market__user_global_document'
+        verbose_name = 'Документ сервиса для пользователя'
+        verbose_name_plural = 'Документы сервиса для пользователей'
+
+
+class DistributorDocument(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE)
+    document = models.ForeignKey(
+        MediaModel, on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_distributor_documents'
+    )
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.distributor.title} - {self.document.title}'
+
+    class Meta:
+        db_table = 'app_market__user_distributor_document'
+        verbose_name = 'Документ торговой сети для пользователя'
+        verbose_name_plural = 'Документы торговых сетей для пользователей'
+
+
+class VacancyDocument(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    vacancy = models.ForeignKey(Vacancy, on_delete=models.CASCADE)
+    document = models.ForeignKey(
+        MediaModel, on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_vacancy_documents'
+    )
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.vacancy.title} - {self.document.title}'
+
+    class Meta:
+        db_table = 'app_market__user_vacancy_document'
+        verbose_name = 'Документ вакансии для пользователя'
+        verbose_name_plural = 'Документы вакансий для пользователей'

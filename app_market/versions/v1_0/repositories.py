@@ -10,8 +10,8 @@ from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
-    DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef
-from django.db.models.functions import Cast, Concat
+    DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists
+from django.db.models.functions import Cast, Concat, Extract, Round
 from django.utils.timezone import now, localtime
 from pytz import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -19,13 +19,17 @@ from rest_framework.exceptions import PermissionDenied
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal, \
+    GlobalDocument, VacancyDocument, DistributorDocument
+from app_market.utils import handle_date_for_appeals
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_users.enums import AccountType
-from backend.errors.enums import RESTErrors
-from backend.errors.http_exceptions import HttpException
+from app_users.models import UserProfile
+from backend.entity import Error
+from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
 from backend.utils import ArrayRemove, datetime_to_timestamp
 from giberno import settings
@@ -261,6 +265,12 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
         '''
         return self.model.objects.raw(raw_sql)
 
+    def get_managers(self, record_id):
+        record = self.model.objects.filter(pk=record_id).first()
+        if record:
+            return [manager for manager in record.staff.filter(account_type=AccountType.MANAGER.value)]
+        return []
+
 
 class AsyncShopsRepository(ShopsRepository):
     def __init__(self, me=None) -> None:
@@ -394,10 +404,11 @@ class ShiftsRepository(MasterRepository):
             for shift in queryset:
                 utc_offset = pytz.timezone(shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
                 for active_date in shift.active_dates:
-                    active_dates.append({
-                        'utc_offset': utc_offset,
-                        'timestamp': datetime_to_timestamp(active_date)
-                    })
+                    if active_date > now():
+                        active_dates.append({
+                            'utc_offset': utc_offset,
+                            'timestamp': datetime_to_timestamp(active_date)
+                        })
 
         return active_dates
 
@@ -569,6 +580,29 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
             point=self.point
         )
+
+    def get_vacancy_managers(self, record_id):
+        record = self.model.objects.filter(pk=record_id).prefetch_related(Prefetch(
+            'shop__staff',
+            queryset=UserProfile.objects.filter(account_type=AccountType.MANAGER.value)
+        )).first()
+        if record:
+            return [manager for manager in record.shop.staff.all()]
+        return []
+
+    def get_vacancy_managers_sockets(self, record_id):
+        record = self.model.objects.filter(pk=record_id).annotate(
+            sockets=ArrayRemove(
+                ArrayAgg(
+                    'shop__staff__sockets__socket_id',
+                    filter=Q(staff__account_type=AccountType.MANAGER.value)
+                ),
+                None
+            )
+        )
+        if record:
+            return record.sockets
+        return []
 
     def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
@@ -886,20 +920,192 @@ class AsyncVacanciesRepository(VacanciesRepository):
 class ShiftAppealsRepository(MasterRepository):
     model = ShiftAppeal
 
-    def __init__(self, me=None):
+    def __init__(self, me=None, point=None):
         super().__init__()
         self.me = me
+        self.point = point
+
+        self.base_query = self.model.objects.filter(applier=self.me)
+
+        self.limit = 10
+
+    @staticmethod
+    def fast_related_loading(queryset, point=None):
+        """ Подгрузка зависимостей с 3 уровнями вложенности по ForeignKey + GenericRelation
+            ShiftAppeal
+            -> Vacancy + Media
+                -> Shop + Media
+
+            TODO предзагрузка медиа
+
+                .prefetch_related(
+            Prefetch(
+                'shop',
+                #  Подгрузка магазинов и вычисление расстояния от каждого до переданной точки
+                queryset=Shop.objects.annotate(  # Вычисляем расстояние, если переданы координаты
+                    distance=Distance('location', point) if point else Value(None, IntegerField())
+                ).prefetch_related(
+                    # Подгрузка медиа для магазинов
+                    Prefetch(
+                        'media',
+                        queryset=MediaModel.objects.filter(
+                            type=MediaType.LOGO.value,
+                            owner_ct_id=ContentType.objects.get_for_model(Shop).id,
+                            format=MediaFormat.IMAGE.value
+                        ),
+                        to_attr='medias'
+                    )
+                )
+            )
+        )
+
+        """
+        queryset = queryset.select_related(
+            'shift__vacancy'
+        ).prefetch_related(
+            Prefetch(
+                'shift__vacancy__shop',
+                queryset=Shop.objects.filter().annotate(
+                    distance=Distance('location', point) if point else Value(None, IntegerField())
+                )
+            )
+        )
+
+        return queryset
+
+    @staticmethod
+    def get_start_end_time_range(**data):
+        shift = data.get('shift')
+        shift_active_date = data.get('shift_active_date')
+
+        if shift_active_date <= now():
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.SHIFT_OVERDUE))
+            ])
+
+        utc_offset = pytz.timezone(shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
+        if not shift.time_start or not shift.time_end:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.SHIFT_WITHOUT_TIME))
+            ])
+
+        time_start = handle_date_for_appeals(shift_active_date=shift_active_date, time_object=shift.time_start,
+                                             utc_offset=utc_offset)
+
+        if shift.time_start > shift.time_end:
+            time_end = handle_date_for_appeals(shift_active_date=shift_active_date + timedelta(days=1),
+                                               time_object=shift.time_end, utc_offset=utc_offset)
+        else:
+            time_end = handle_date_for_appeals(shift_active_date=shift_active_date, time_object=shift.time_end,
+                                               utc_offset=utc_offset)
+
+        return time_start, time_end
+
+    @staticmethod
+    def check_if_exists(queryset, data):
+        appeal = queryset.filter(**data).first()
+        if appeal:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEAL_EXISTS))
+            ])
+
+    def check_time_range(self, queryset, time_start, time_end):
+        if queryset.filter(
+                Q(time_start__range=(time_start, time_end)) | Q(time_end__range=(time_start, time_end))
+        ).count() >= self.limit:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEALS_LIMIT_REACHED))
+            ])
+
+    def update_data(self, data):
+        time_start, time_end = self.get_start_end_time_range(**data)
+        data.update({
+            'applier': self.me,
+            'time_start': time_start,
+            'time_end': time_end
+        })
+        return data
 
     def get_or_create(self, **data):
-        data.update({'applier': self.me})
+        time_start, time_end = self.get_start_end_time_range(**data)
+        data = self.update_data(data=data)
+
+        queryset = self.base_query
+
+        # проверяем наличие отклика в бд
+        self.check_if_exists(queryset=queryset, data=data)
+
+        # проверяем количество откликов на разные смены в одинаковое время
+        self.check_time_range(queryset=queryset, time_start=time_start, time_end=time_end)
+
         instance, created = self.model.objects.get_or_create(**data)
         return instance
+
+    def get_by_id(self, record_id):
+        # если будет self.base_query.filter() то manager ничего не сможет увидеть
+        records = self.model.objects.filter(pk=record_id)
+        records = self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records,
+            point=self.point
+        )
+        record = records.first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+
+        return record
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        )
+
+    def update(self, record_id, **data):
+
+        time_start, time_end = self.get_start_end_time_range(**data)
+        data = self.update_data(data=data)
+
+        queryset = self.base_query
+
+        # проверяем наличие отклика в бд
+        self.check_if_exists(queryset=queryset, data=data)
+
+        # проверяем количество откликов на разные смены в одинаковое время
+        self.check_time_range(queryset=queryset, time_start=time_start, time_end=time_end)
+
+        return super().update(record_id, **data)
 
     def delete(self, record_id):
         instance = self.get_by_id(record_id=record_id)
         if not instance.applier == self.me:
             raise PermissionDenied()
-        instance.delete()
+        instance.deleted = True
+        instance.save()
+
+    def cancel(self, record_id, reason=None, text=None):
+        instance = self.get_by_id(record_id=record_id)
+        if instance.applier != self.me:
+            raise PermissionDenied()
+        instance.status = ShiftAppealStatus.CANCELED.value
+        if reason is not None and instance.cancel_reason is None:
+            instance.cancel_reason = reason
+            instance.reason_text = text
+        instance.save()
+
+    @staticmethod
+    def check_if_active_appeal(vacancy_id, applier_id):
+        return ShiftAppeal.objects.filter(
+            applier_id=applier_id,
+            shift__vacancy__id=vacancy_id,
+            # status__in=[ShiftAppealStatus.INITIAL.value] # TODO нужно ли учитывать отклоненные заявки
+        ).exists()
 
     def is_related_manager(self, instance):
         if instance.shift.vacancy.shop not in self.me.shops.all():
@@ -907,24 +1113,42 @@ class ShiftAppealsRepository(MasterRepository):
 
     def confirm_by_manager(self, record_id):
         instance = self.get_by_id(record_id=record_id)
+        status_changed = False
+        manager_and_user_sockets = []
 
         # проверяем доступ менеджера к смене на которую откликнулись
-        self.is_related_manager(instance=instance)
+        # self.is_related_manager(instance=instance)
 
         if not instance.status == ShiftAppealStatus.CONFIRMED:
             instance.status = ShiftAppealStatus.CONFIRMED
             instance.save()
+            self.model.objects.filter(
+                Q(time_start__range=(instance.time_start, instance.time_end)) |
+                Q(time_end__range=(instance.time_start, instance.time_end))
+            ).exclude(id=instance.id).delete()
 
             # создаем смену пользователя
             UserShift.objects.get_or_create(
                 user=instance.applier,
                 shift=instance.shift,
-                real_time_start=instance.shift.time_start,
-                real_time_end=instance.shift.time_end
+                real_time_start=instance.time_start,
+                real_time_end=instance.time_end
             )
 
+            status_changed = True
+            manager_and_user_sockets += instance.applier.sockets.aggregate(
+                sockets=ArrayAgg('socket_id')
+            )['sockets']
+            manager_and_user_sockets += self.me.sockets.aggregate(
+                sockets=ArrayAgg('socket_id')
+            )['sockets']
+
+        return status_changed, manager_and_user_sockets, instance
+
     def reject_by_manager(self, record_id):
+        status_changed = False
         instance = self.get_by_id(record_id=record_id)
+        manager_and_user_sockets = []
 
         # проверяем доступ менеджера к смене на которую откликнулись
         self.is_related_manager(instance=instance)
@@ -932,12 +1156,43 @@ class ShiftAppealsRepository(MasterRepository):
             instance.status = ShiftAppealStatus.REJECTED
             instance.save()
 
+            status_changed = True
+            manager_and_user_sockets += instance.applier.sockets.aggregate(
+                sockets=ArrayAgg('socket_id')
+            )['sockets']
+            manager_and_user_sockets += self.me.sockets.aggregate(
+                sockets=ArrayAgg('socket_id')
+            )['sockets']
+
+        return status_changed, manager_and_user_sockets, instance
+
     def get_by_id_for_manager(self, record_id):
         instance = self.get_by_id(record_id=record_id)
 
         # проверяем доступ менеджера
         self.is_related_manager(instance=instance)
         return instance
+
+    def get_new_confirmed_count(self):
+        return 0
+
+    def get_new_appeals_count(self):
+        return 0
+
+
+class AsyncShiftAppealsRepository(ShiftAppealsRepository):
+    def __init__(self, me=None, point=None):
+        super().__init__()
+        self.me = me
+        self.point = point
+
+    @database_sync_to_async
+    def get_new_confirmed_count(self):
+        return super().get_new_confirmed_count()
+
+    @database_sync_to_async
+    def get_new_appeals_count(self):
+        return super().get_new_appeals_count()
 
 
 class ProfessionsRepository(MasterRepository):
@@ -949,3 +1204,185 @@ class ProfessionsRepository(MasterRepository):
 
 class SkillsRepository(MasterRepository):
     model = Skill
+
+
+class MarketDocumentsRepository(MasterRepository):
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+    _SERVICE_TAX_RATE = 0.3
+    _SERVICE_INSURANCE_AMOUNT = 100
+
+    def get_conditions_for_user_on_shift(self, shift, active_date):
+        # TODO проверка переданной active_date
+
+        conditions = Shift.objects.filter(id=shift.id).select_related(
+            'vacancy', 'vacancy__shop', 'vacancy__shop__distributor'
+        ).annotate(
+            rounded_hours=Case(  # Количество часов (с округлением)
+                When(
+                    time_start__gt=F('time_end'),  # Если время начала больше времени окончания
+                    then=Round(
+                        (Extract(Value("23:59:59", TimeField()) - F('time_start'), 'epoch') +  # Время до полуночи
+                         Extract(F('time_end') - Value("00:00:00", TimeField()), 'epoch'))  # Время после полуночи
+                        / 3600)  # делим на 3600 чтобы получить кол-во часов
+                ),
+                default=Round(Extract(F('time_end') - F('time_start'), 'epoch') / 3600),
+                output_field=IntegerField()
+            )
+        ).annotate(
+            date=Value(active_date, output_field=IntegerField()),
+            full_price=ExpressionWrapper(F('rounded_hours') * F('vacancy__price'), output_field=IntegerField()),
+            # TODO поставить price из смены
+            insurance=ExpressionWrapper(Value(self._SERVICE_INSURANCE_AMOUNT), output_field=IntegerField()),
+            # TODO поставить размер страховки
+            tax=ExpressionWrapper(
+                Round(F('rounded_hours') * F('vacancy__price') * Value(self._SERVICE_TAX_RATE)),
+                output_field=IntegerField()
+            )
+        ).annotate(
+            clean_price=ExpressionWrapper(
+                Round(F('full_price') - F('insurance') - F('tax')),
+                output_field=IntegerField()
+            )
+        ).first()
+
+        conditions.shift_id = shift.id  # Для облегчения внутренней логики на ios
+
+        # ## Сбор нужных документов и статус по ним ##
+        distributor_ct = ContentType.objects.get_for_model(Distributor)
+        vacancy_ct = ContentType.objects.get_for_model(Vacancy)
+        # Media
+        conditions.documents = MediaModel.objects.filter(
+            Q(type=MediaType.RULES_AND_ARTICLES.value) &  # Только с типом документы, правила
+            Q(
+                Q(owner_id=None) |  # Либо глобальные (Гиберно)
+                Q(owner_ct=distributor_ct, owner_id=shift.vacancy.shop.distributor_id) |  # Либо торговой сети
+                Q(owner_ct=vacancy_ct, owner_id=shift.vacancy_id)  # Либо вакансии
+            )
+        ).annotate(
+            global_confirmed=Exists(GlobalDocument.objects.filter(document_id=OuterRef('pk'), user=self.me)),
+            distributor_confirmed=Exists(DistributorDocument.objects.filter(document_id=OuterRef('pk'), user=self.me)),
+            vacancy_confirmed=Exists(VacancyDocument.objects.filter(document_id=OuterRef('pk'), user=self.me))
+        ).annotate(
+            is_confirmed=Case(
+                When(Q(global_confirmed=True) | Q(distributor_confirmed=True) | Q(vacancy_confirmed=True), then=True),
+                default=False,
+                output_field=BooleanField()
+            )
+        )
+
+        conditions.text = "Текст о цифровой подписи"
+
+        return conditions
+
+    def accept_global_docs(self):
+        global_documents = MediaModel.objects.filter(owner_id=None, type=MediaType.RULES_AND_ARTICLES.value)
+
+        for global_document in global_documents:
+            GlobalDocument.objects.get_or_create(
+                user=self.me,
+                document=global_document
+            )
+
+    def accept_distributor_docs(self, distributor_id):
+        distributor = Distributor.objects.filter(pk=distributor_id).prefetch_related(
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(type=MediaType.RULES_AND_ARTICLES.value),
+                to_attr='documents'
+            )
+        ).first()
+        if not distributor:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {Distributor._meta.verbose_name} с ID={distributor_id} не найден')
+
+        for distributor_document in distributor.documents:
+            DistributorDocument.objects.get_or_create(
+                user=self.me,
+                distributor=distributor,
+                document=distributor_document
+            )
+
+    def accept_vacancy_docs(self, vacancy_id):
+        vacancy = Vacancy.objects.filter(pk=vacancy_id).prefetch_related(
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(type=MediaType.RULES_AND_ARTICLES.value),
+                to_attr='documents'
+            )
+        ).first()
+        if not vacancy:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {Vacancy._meta.verbose_name} с ID={vacancy_id} не найден')
+
+        for vacancy_document in vacancy.documents:
+            VacancyDocument.objects.get_or_create(
+                user=self.me,
+                vacancy=vacancy,
+                document=vacancy_document
+            )
+
+    def accept_document(self, document_uuid):
+        try:
+            # Ищем документ с типом RULES_AND_ARTICLES
+            document = MediaModel.objects.filter(
+                uuid=document_uuid, type=MediaType.RULES_AND_ARTICLES.value
+            ).first()
+            if not document:
+                raise HttpException(
+                    status_code=RESTErrors.NOT_FOUND.value,
+                    detail=f'Объект {MediaModel._meta.verbose_name} с UUID={document_uuid} и типом RULES_AND_ARTICLES не найден')
+
+            # Если документ никому не принадлежит, то он глобальный для сервиса
+            if document.owner is None:
+                # Подтверждаем документ для пользователя
+                GlobalDocument.objects.get_or_create(
+                    user=self.me,
+                    document=document
+                )
+
+            # Если документ принадлежит торговой сети
+            if isinstance(document.owner, Distributor):
+                # Подтверждаем документ для пользователя
+                DistributorDocument.objects.get_or_create(
+                    user=self.me,
+                    distributor_id=document.owner_id,
+                    document=document
+                )
+
+            # Если документ принадлежит вакансии
+            if isinstance(document.owner, Vacancy):
+                # Подтверждаем документ для пользователя
+                VacancyDocument.objects.get_or_create(
+                    user=self.me,
+                    vacancy_id=document.owner_id,
+                    document=document
+                )
+
+        except Exception as e:
+            raise HttpException(
+                status_code=RESTErrors.BAD_REQUEST.value,
+                detail=e
+            )
+
+    def accept_market_documents(self, global_docs=None, distributor_id=None, vacancy_id=None, document_uuid=None):
+        # Подтверждение всех глобальных документов
+        if global_docs is True:
+            # TODO получение документов Гиберно (документы без владельца == документы компании)
+            self.accept_global_docs()
+
+        # Подтверждение всех документов торговой сети
+        if distributor_id:
+            self.accept_distributor_docs(distributor_id)
+
+        # Подтверждение всех документов вакансии
+        if vacancy_id:
+            self.accept_vacancy_docs(vacancy_id)
+
+        # Подтверждение конкретного документа
+        if document_uuid:
+            self.accept_document(document_uuid)

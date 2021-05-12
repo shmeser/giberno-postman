@@ -1,7 +1,8 @@
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from django.contrib.auth.models import AnonymousUser
 from loguru import logger
 
-from app_sockets.controllers import AsyncSocketController
+from app_sockets.async_controllers import AsyncSocketController
 from app_sockets.enums import SocketEventType
 from backend.errors.enums import SocketErrors
 from backend.errors.ws_exceptions import WebSocketError
@@ -20,14 +21,15 @@ class Consumer(AsyncJsonWebsocketConsumer):
         self.is_group_consumer = False
 
     async def connect(self):
-        self.socket_controller = AsyncSocketController(self)
         self.version = chained_get(self.scope, 'url_route', 'kwargs', 'version')
         self.user = chained_get(self.scope, 'user')
+        self.socket_controller = AsyncSocketController(self)
         try:
             await self.accept()  # Принимаем соединение
 
             if self.user.is_authenticated:  # Проверка авторизации подключаемого соединения
                 await self.socket_controller.store_single_connection()
+                await self.socket_controller.send_counters()
             else:
                 # После установления сразу закрываем содинение, чтобы не было ERR_CONNECTION_REFUSED
                 await self.close(code=SocketErrors.NOT_AUTHORIZED.value)  # Закрываем соединение с кодом НЕАВТОРИЗОВАН
@@ -37,7 +39,8 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     async def disconnect(self, code):
         try:
-            await self.socket_controller.remove_connection()
+            if self.user.is_authenticated:
+                await self.socket_controller.remove_connection()
         except Exception as e:
             logger.error(e)
 
@@ -56,10 +59,12 @@ class Consumer(AsyncJsonWebsocketConsumer):
                 await self.socket_controller.update_location(content)
             elif content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
                 await self.socket_controller.client_message_to_chat(content)
-            # elif content.get('eventType') == SocketEventType.NEW_COMMENT_TO_VACANCY.value:
-            #     pass
-            # elif content.get('eventType') == SocketEventType.READ_MESSAGE_IN_CHAT.value:
-            #     pass
+            elif content.get('eventType') == SocketEventType.READ_MESSAGE_IN_CHAT.value:
+                await self.socket_controller.client_read_message_in_chat(content)
+            elif content.get('eventType') == SocketEventType.MANAGER_LEAVE_CHAT.value:
+                await self.socket_controller.manager_leave_chat(content)
+            elif content.get('eventType') == SocketEventType.MANAGER_JOIN_CHAT.value:
+                await self.socket_controller.manager_join_chat(content)
             else:
                 await self.channel_layer.send(self.channel_name, {
                     'type': handler_type,
@@ -109,8 +114,43 @@ class Consumer(AsyncJsonWebsocketConsumer):
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_NEW_MESSAGE_IN_CHAT.value,
-                'chatId': data.get('chat_id'),
+                'chat': {
+                    'id': data.get('chat_id')
+                },
                 'message': data.get('prepared_data')
+            },
+        )
+
+    # Сообщение в чате обновлено
+    async def chat_message_updated(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_MESSAGE_UPDATED.value,
+                'chat': {
+                    'id': data.get('chat_id')
+                },
+                'message': data.get('prepared_data')
+            },
+        )
+
+    # Последнее сообщение в чате обновлено
+    async def chat_last_msg_updated(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_LAST_MESSAGE_UPDATED.value,
+                'chat': data.get('prepared_data'),
+                'indicators': data.get('indicators')
+            },
+        )
+
+    # Сообщение чата прочитано
+    async def chat_message_was_read(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_MESSAGE_WAS_READ.value,
+                'chat': data.get('chat'),
+                'message': data.get('message'),
+                'indicators': data.get('indicators')
             },
         )
 
@@ -120,6 +160,33 @@ class Consumer(AsyncJsonWebsocketConsumer):
             {
                 'eventType': SocketEventType.SERVER_CHAT_UPDATED.value,
                 'chat': data.get('prepared_data')
+            },
+        )
+
+    # Счетчики
+    async def counters_for_indicators(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_COUNTERS_UPDATE.value,
+                'indicators': data.get('prepared_data')
+            },
+        )
+
+    # Состояние чата изменилось - менеджер подсоединился или завершил консультацию
+    async def chat_state_updated(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_STATE_UPDATED.value,
+                'chat': data.get('prepared_data')
+            },
+        )
+
+    # Состояние чата изменилось - менеджер подсоединился или завершил консультацию
+    async def appeal_status_updated(self, data):
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_APPEAL_STATUS_UPDATED.value,
+                'appeal': data.get('prepared_data')
             },
         )
 

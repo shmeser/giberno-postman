@@ -26,6 +26,7 @@ class PushController:
             users_to_send: [UserProfile],
             title,
             message,
+            common_uuid,
             action,
             subject_id,
             notification_type,
@@ -49,6 +50,7 @@ class PushController:
                 users_to_send_queryset=users_to_send_queryset_sound,
                 title=title,
                 message=message,
+                common_uuid=common_uuid,
                 action=action,
                 subject_id=subject_id,
                 notification_type=notification_type,
@@ -63,6 +65,7 @@ class PushController:
                 users_to_send_queryset=users_to_send_queryset_soundless,
                 title=title,
                 message=message,
+                common_uuid=common_uuid,
                 action=action,
                 subject_id=subject_id,
                 notification_type=notification_type,
@@ -76,6 +79,7 @@ class PushController:
             users_to_send: [UserProfile],
             title,
             message,
+            uuid,
             action,
             subject_id,
             notification_type,
@@ -99,6 +103,7 @@ class PushController:
                 users_to_send_queryset=users_to_send_queryset_sound,
                 title=title,
                 message=message,
+                uuid=uuid,
                 action=action,
                 subject_id=subject_id,
                 notification_type=notification_type,
@@ -113,6 +118,7 @@ class PushController:
                 users_to_send_queryset=users_to_send_queryset_soundless,
                 title=title,
                 message=message,
+                uuid=uuid,
                 action=action,
                 subject_id=subject_id,
                 notification_type=notification_type,
@@ -174,6 +180,7 @@ class PushController:
             users_to_send_queryset,
             title,
             message,
+            common_uuid,
             action,
             subject_id,
             notification_type,
@@ -228,6 +235,7 @@ class PushController:
 
             notifications_links.append(
                 Notification(
+                    uuid=common_uuid,
                     user_id=u['user_id'],
                     subject_id=subject_id,
                     title=title,
@@ -245,6 +253,7 @@ class PushController:
 
         # Все данные должны быть строками
         push_data = camelize({
+            'uuid': str(common_uuid),
             'type': str(notification_type),
             'action': str(action),
             'icon_type': str(icon_type) if icon_type else '',
@@ -261,6 +270,7 @@ class PushController:
             users_to_send_queryset,
             title,
             message,
+            uuid,
             action,
             subject_id,
             notification_type,
@@ -268,7 +278,7 @@ class PushController:
             is_sound_enabled: bool,
             **kwargs
     ):
-        """ Отправка пуша как оповещения, создание записи в бд """
+        """ Отправка пуша как сообщения, без создания записи в бд """
 
         # Получаем только ид устройств с токенами
         devices_ids = FCMDevice.objects.filter(
@@ -285,6 +295,7 @@ class PushController:
             'action': str(action),
             'icon_type': str(icon_type) if icon_type else '',
             'subject_id': str(subject_id) if subject_id else '',
+            'uuid': str(uuid),
             'title': str(title),
             'message': str(message),
             'created_at': str(datetime_to_timestamp(now()))
@@ -322,6 +333,7 @@ class AsyncPushController(PushController):
             users_to_send: [UserProfile],
             title,
             message,
+            uuid,
             action,
             subject_id,
             notification_type,
@@ -336,6 +348,7 @@ class AsyncPushController(PushController):
             users_to_send,
             title,
             message,
+            uuid,
             action,
             subject_id,
             notification_type,

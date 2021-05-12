@@ -1,4 +1,3 @@
-import debug_toolbar
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
@@ -28,8 +27,8 @@ service_urls = [
     path('terms', TermsView.as_view()),
     path('policy', PolicyView.as_view()),
     path('agreement', AgreementView.as_view()),
-    path('bot/', include(('app_bot.urls', 'bot_1_0'))),
-    path('sockets/', include(('app_sockets.urls', 'sockets_1_0'))),
+    path('bot/', include('app_bot.urls')),
+    path('sockets/', include('app_sockets.urls')),
 ]
 
 v1_0 = 'v1.0/'
@@ -47,7 +46,6 @@ urlpatterns += service_urls
 urlpatterns += v1_0_urls
 if settings.DEBUG:
     test_urls = [
-        path('__debug__/', include(debug_toolbar.urls)),
         path('test/', include('app_tests.urls')),
     ]
     urlpatterns += test_urls

@@ -1,6 +1,7 @@
 import datetime
 import os
 from datetime import timedelta, datetime
+
 from celery.schedules import crontab
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'TeStSeCrEtKeY')
@@ -14,7 +15,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'debug_toolbar',
     'django.contrib.gis',
     'django.contrib.postgres',
     'rest_framework',
@@ -53,7 +53,6 @@ CELERY_RESULT_SERIALIZER = 'json'
 WORKER_MAX_MEMORY_PER_CHILD = 200000
 
 MIDDLEWARE = [
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -122,6 +121,10 @@ CELERY_BEAT_SCHEDULE = {
     # },
     'set_qr_code_to_user_shifts': {
         'task': 'app_market.tasks.set_qr_code_to_user_shifts',
+        'schedule': crontab(minute='*')
+    },
+    'cancel_overdue_appeals': {
+        'task': 'app_market.tasks.cancel_overdue_appeals',
         'schedule': crontab(minute='*')
     }
 }
@@ -266,7 +269,7 @@ LOGGING = {
     'handlers': {
         'telegram_log': {
             'level': 'ERROR',
-            'class': 'app_bot.controllers.BotLogger',
+            'class': 'app_bot.controllers.TelegramBotLogger',
         },
         'file_log': {
             'level': 'ERROR',
@@ -378,7 +381,6 @@ try:
         CONSTANCE_CONFIG, \
         LOGGING, \
         SOCIAL_AUTH_VK_OAUTH2_KEY, \
-        DEBUG_TOOLBAR_PANELS, \
         EMAIL_HOST_USER, \
         EMAIL_HOST_PASSWORD
 except ImportError as e:

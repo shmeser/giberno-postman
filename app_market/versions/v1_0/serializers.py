@@ -98,6 +98,8 @@ class ShopsSerializer(CRUDSerializer):
             'description',
             'address',
             'walk_time',
+            'time_start',
+            'time_end',
             'lon',
             'lat',
             'logo',
@@ -123,6 +125,8 @@ class ShopSerializer(ShopsSerializer):
             'description',
             'address',
             'walk_time',
+            'time_start',
+            'time_end',
             'vacancies_count',
             'rating',
             'rates_count',
@@ -150,12 +154,28 @@ class ShopInVacancySerializer(ShopsSerializer):
             'description',
             'address',
             'walk_time',
+            'time_start',
+            'time_end',
             'rating',
             'rates_count',
             'lon',
             'lat',
             'logo',
             'map',
+        ]
+
+
+class ShopInVacancyShiftSerializer(ShopsSerializer):
+    """ Вложенная модель магазина в вакансии (на экране просмотра откликов по вакансиям) """
+
+    class Meta:
+        model = Shop
+        fields = [
+            'id',
+            'title',
+            'address',
+            'walk_time',
+            'logo',
         ]
 
 
@@ -353,6 +373,56 @@ class VacancySerializer(VacanciesSerializer):
         ]
 
 
+class VacancyInShiftSerializer(VacanciesSerializer):
+    utc_offset = serializers.SerializerMethodField()
+    shop = serializers.SerializerMethodField()
+
+    def get_utc_offset(self, vacancy):
+        return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
+
+    def get_shop(self, instance):
+        if instance.shop:
+            return ShopInVacancyShiftSerializer(instance.shop, many=False).data
+        return None
+
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id',
+            'title',
+            'price',
+            'utc_offset',
+            'shop',
+        ]
+
+
+class VacancyInShiftForDocumentsSerializer(VacancyInShiftSerializer):
+    distributor = serializers.SerializerMethodField()
+
+    def get_distributor(self, instance):
+        return DistributorInShiftSerializer(instance.shop.distributor, many=False).data
+
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id',
+            'title',
+            'price',
+            'utc_offset',
+            'shop',
+            'distributor'
+        ]
+
+
+class DistributorInShiftSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Distributor
+        fields = [
+            'id',
+            'title',
+        ]
+
+
 class UserProfileInVacanciesForManagerSerializer(CRUDSerializer):
     id = serializers.IntegerField()
 
@@ -451,15 +521,25 @@ class ShiftAppealCreateSerializer(CRUDSerializer):
 
 
 class ShiftAppealsSerializer(CRUDSerializer):
-    shift_active_date = serializers.SerializerMethodField()
+    shift_active_date = DateTimeField()
+    created_at = DateTimeField()
+    time_start = DateTimeField()
+    time_end = DateTimeField()
 
-    @staticmethod
-    def get_shift_active_date(instance):
-        return datetime_to_timestamp(instance.shift_active_date)
+    shift = serializers.SerializerMethodField()
+    vacancy = serializers.SerializerMethodField()
+
+    def get_shift(self, instance):
+        return ShiftsSerializer(instance.shift, many=False).data
+
+    def get_vacancy(self, instance):
+        if instance.shift.vacancy:
+            return VacancyInShiftSerializer(instance.shift.vacancy, many=False).data
+        return None
 
     class Meta:
         model = ShiftAppeal
-        exclude = ['created_at', 'updated_at', 'deleted']
+        fields = ['id', 'status', 'shift_active_date', 'time_start', 'time_end', 'created_at', 'shift', 'vacancy']
 
 
 class ShiftsWithAppealsSerializer(CRUDSerializer):
@@ -556,3 +636,61 @@ class UserShiftSerializer(serializers.ModelSerializer):
 
 class QRCodeSerializer(serializers.Serializer):
     qr_data = serializers.JSONField()
+
+
+class ShiftConditionsSerializer(serializers.Serializer):
+    shift_id = serializers.SerializerMethodField()
+    date = serializers.SerializerMethodField()
+    time_start = serializers.SerializerMethodField()
+    time_end = serializers.SerializerMethodField()
+    full_price = serializers.SerializerMethodField()
+    tax = serializers.SerializerMethodField()
+    insurance = serializers.SerializerMethodField()
+    clean_price = serializers.SerializerMethodField()
+    text = serializers.SerializerMethodField()
+    vacancy = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
+
+    def get_shift_id(self, instance):
+        return instance.id
+
+    def get_date(self, instance):
+        return instance.date
+
+    def get_time_start(self, instance):
+        return instance.time_start
+
+    def get_time_end(self, instance):
+        return instance.time_end
+
+    def get_full_price(self, instance):
+        return instance.full_price
+
+    def get_tax(self, instance):
+        return instance.tax
+
+    def get_insurance(self, instance):
+        return instance.insurance
+
+    def get_clean_price(self, instance):
+        return instance.clean_price
+
+    def get_text(self, instance):
+        return instance.text
+
+    def get_vacancy(self, instance):
+        return VacancyInShiftForDocumentsSerializer(instance.vacancy, many=False).data
+
+    def get_documents(self, instance):
+        return ShiftDocumentsSerializer(instance.documents, many=True).data
+
+
+class ShiftDocumentsSerializer(serializers.Serializer):
+    document = serializers.SerializerMethodField()
+    is_confirmed = serializers.SerializerMethodField()
+
+    def get_document(self, instance):
+        return MediaSerializer(instance, many=False).data
+
+    def get_is_confirmed(self, instance):
+        return instance.is_confirmed

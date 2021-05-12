@@ -2,227 +2,55 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from loguru import logger
 
-from app_chats.versions.v1_0.repositories import AsyncChatsRepository, AsyncMessagesRepository
-from app_sockets.enums import SocketEventType, AvailableRoom
+from app_sockets.enums import AvailableRoom
 from app_sockets.mappers import RoutingMapper
-from app_sockets.versions.v1_0.repositories import AsyncSocketsRepository, SocketsRepository
 from app_users.enums import NotificationAction, NotificationType
 from app_users.models import UserProfile
-from app_users.versions.v1_0.repositories import AsyncProfileRepository
-from backend.controllers import AsyncPushController
-from backend.errors.enums import SocketErrors
-from backend.errors.exceptions import EntityDoesNotExistException
-from backend.errors.ws_exceptions import WebSocketError
+from backend.controllers import PushController
 from backend.utils import chained_get
 
 
-class AsyncSocketController:
-    def __init__(self, consumer=None) -> None:
-        super().__init__()
-        self.consumer = consumer
-
-    async def store_single_connection(self):
-        try:
-            me = self.consumer.scope['user']  # Прользователь текущего соединения
-
-            await AsyncSocketsRepository(me).add_socket(
-                self.consumer.channel_name  # ид соединения
-            )
-        except Exception as e:
-            logger.error(e)
-
-    async def store_group_connection(self, **kwargs):
-        try:
-            me = self.consumer.scope['user']  # Прользователь текущего соединения
-
-            await AsyncSocketsRepository(me).add_socket(
-                self.consumer.channel_name,  # ид соединения,
-                chained_get(kwargs, 'room_name', default=self.consumer.room_name),  # имя комнаты
-                chained_get(kwargs, 'room_id', default=self.consumer.room_id)  # ид комнаты
-            )
-
-        except Exception as e:
-            logger.error(e)
-
-    async def remove_connection(self):
-        me = self.consumer.scope['user']  # Пользователь текущего соединения
-        await AsyncSocketsRepository(me).remove_socket(self.consumer.channel_name)
-
-    async def send_error(self, code, details):
-        await self.consumer.channel_layer.send(self.consumer.channel_name, {
-            'type': 'error_handler',
-            'code': code,
-            'details': details,
-        })
-
-    async def leave_topic(self, content):
-        group_name = content.get('topic')
-
-        # Удаляем соединение из группы
-        await self.consumer.channel_layer.group_discard(group_name, self.consumer.channel_name)
-        await self.topic_leaved(group_name)
-
-    async def join_topic(self, content):
-        room_name = None
-        room_id = None
-        group_name = content.get('topic')
-        if group_name:
-            room_name, room_id = RoutingMapper.get_room_and_id(self.consumer.version, group_name)
-
-        if await self.check_permission_for_group_connection(**{
-            'room_name': room_name,
-            'room_id': room_id,
-        }):
-            # Добавляем соединение в группу
-            await self.consumer.channel_layer.group_add(group_name, self.consumer.channel_name)
-            await self.topic_joined(group_name)
-        else:
-            await self.send_error(
-                code=SocketErrors.FORBIDDEN.value, details='Действие запрещено'
-            )
-
-    async def topic_joined(self, topic):
-        await self.consumer.channel_layer.send(self.consumer.channel_name, {
-            'type': 'server_message_handler',
-            'event_type': SocketEventType.TOPIC_JOINED.value,
-            'prepared_data': {
-                'topic': topic
-            },
-        })
-
-    async def topic_leaved(self, topic):
-        await self.consumer.channel_layer.send(self.consumer.channel_name, {
-            'type': 'server_message_handler',
-            'event_type': SocketEventType.TOPIC_LEAVED.value,
-            'prepared_data': {
-                'topic': topic
-            },
-        })
-
-    async def check_permission_for_group_connection(self, **kwargs):
-        try:
-            # Проверка возможности присоединиться к определенному каналу в чате
-            version = self.consumer.version
-            room_name = chained_get(kwargs, 'room_name', default=self.consumer.room_name)
-            room_id = chained_get(kwargs, 'room_id', default=self.consumer.room_id)
-            me = self.consumer.scope['user']  # Пользователь текущего соединения
-            # TODO версионность для маппера и контроллеров
-            if not RoutingMapper.check_room_version(room_name, version):
-                logger.info(f'Такой точки соединения не существует для версии {version}')
-
-                if self.consumer.is_group_consumer:
-                    # Закрываем соединение, если это GroupConsumer
-                    await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
-
-                return False
-
-            repository_class = RoutingMapper.room_repository(version, room_name)
-
-            if not await repository_class(me).check_connection_to_group(room_id):
-                logger.info(f'Действие запрещено')
-                if self.consumer.is_group_consumer:
-                    # Закрываем соединение, если это GroupConsumer
-                    await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
-                return False
-            return True
-
-        except EntityDoesNotExistException:
-            logger.info(f'Объект не найден')
-            if self.consumer.is_group_consumer:
-                # Закрываем соединение, если это GroupConsumer
-                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
-            else:
-                raise WebSocketError(code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name)
-        except Exception as e:
-            logger.error(e)
-            if self.consumer.is_group_consumer:
-                # Закрываем соединение, если это GroupConsumer
-                await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
-            else:
-                raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=e)
-
-    async def update_location(self, event):
-        user = await AsyncProfileRepository(me=self.consumer.scope['user']).update_location(event)
-        return user
-
-    async def client_message_to_chat(self, content):
-        try:
-            room_id = self.consumer.room_id
-            group_name = self.consumer.group_name
-            if not room_id:
-                room_id = chained_get(content, 'chatId')
-                group_name = f'{AvailableRoom.CHATS.value}{room_id}'
-
-            if await self.check_permission_for_group_connection(**{
-                'room_name': AvailableRoom.CHATS.value,
-                'room_id': room_id
-            }):
-                # Обрабатываем полученное от клиента сообщение
-                processed_serialized_message = await AsyncMessagesRepository(
-                    me=self.consumer.scope['user']
-                ).save_client_message(
-                    chat_id=room_id,
-                    content=content,
-                )
-                processed_serialized_chat, chat_users = await AsyncChatsRepository(
-                    me=self.consumer.scope['user']
-                ).get_client_chat(
-                    chat_id=room_id,
-                )
-
-                # Отправялем сообщение обратно в канал по сокетам
-                await self.consumer.channel_layer.group_send(group_name, {
-                    'type': 'chat_message',
-                    'chat_id': room_id,
-                    'prepared_data': processed_serialized_message,
-                })
-
-                chat_users_connections = await AsyncSocketsRepository.get_connections_for_users(chat_users)
-
-                # Отправляем обновленные данные о чате всем участникам чата по сокетам
-                for connection_name in chat_users_connections:
-                    await self.consumer.channel_layer.send(connection_name, {
-                        'type': 'chat_info',
-                        'prepared_data': processed_serialized_chat,
-                    })
-
-                # Отправляем сообщение по пушам всем участникам чата
-                await AsyncPushController().send_message(
-                    users_to_send=chat_users,
-                    title='',
-                    message=chained_get(content, 'text', default=''),
-                    action=NotificationAction.CHAT.value,
-                    subject_id=room_id,
-                    notification_type=NotificationType.CHAT.value,
-                    icon_type=''
-                )
-            else:
-                await self.send_error(
-                    code=SocketErrors.FORBIDDEN.value, details='Действие запрещено'
-                )
-
-        except Exception as e:
-            logger.error(e)
-
-
 class SocketController:
-    def __init__(self, me: UserProfile = None) -> None:
+    def __init__(self, me: UserProfile = None, version=None, room_name=None) -> None:
         super().__init__()
         self.me = me
+        self.version = version
+        self.room_name = room_name
+        self.own_repository_class = RoutingMapper.room_repository(version)
+        self.repository_class = RoutingMapper.room_repository(version, room_name)
 
-    def send_notification_to_one_connection(self, prepared_data):
+    def send_notification_to_one_connection(self, socket_id, prepared_data):
         # Отправка уведомления в одиночный канал подключенного пользователя
-        connections = SocketsRepository(self.me).get_user_connections(**{
-            'room_id': None,
-            'room_name': None,
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.send)(socket_id, {
+            'type': 'notification_handler',
+            'prepared_data': prepared_data
         })
 
-        for connection in connections:
-            channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.send)(connection.socket_id, {
+    def send_notification_to_many_connections(self, sockets, prepared_data):
+        channel_layer = get_channel_layer()
+        for socket in sockets:
+            async_to_sync(channel_layer.send)(socket, {
                 'type': 'notification_handler',
                 'prepared_data': prepared_data
             })
+
+    def send_notification_to_my_connection(self, prepared_data):
+        # Отправка уведомления в одиночный канал подключенного пользователя
+        try:
+            connections = self.own_repository_class(self.me).get_user_connections(**{
+                'room_id': None,
+                'room_name': None,
+            })
+
+            for connection in connections:
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.send)(connection.socket_id, {
+                    'type': 'notification_handler',
+                    'prepared_data': prepared_data
+                })
+        except Exception as e:
+            logger.error(e)
 
     @staticmethod
     def send_notification_to_connections_group(group_name, prepared_data):
@@ -232,3 +60,87 @@ class SocketController:
             'type': 'notification_handler',
             'prepared_data': prepared_data
         })
+
+    @staticmethod
+    def send_message_to_connections_group(group_name, data):
+        # Отправка сообщения в групповой канал
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(group_name, data)
+
+    def send_message_to_my_connections(self, data):
+        # Отправка сообщения в себе по сокетам, если есть подключения
+        try:
+            connections = self.own_repository_class(self.me).get_user_connections(**{
+                'room_id': None,
+                'room_name': None,
+            })
+
+            for connection in connections:
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.send)(connection.socket_id, data)
+        except Exception as e:
+            logger.error(e)
+
+    def send_message_to_one_connection(self, socket_id, data):
+        # Отправка уведомления в одиночный канал подключенного пользователя
+        try:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.send)(socket_id, data)
+        except Exception as e:
+            logger.error(e)
+
+    def send_message_to_many_connections(self, sockets, data):
+        channel_layer = get_channel_layer()
+        for socket in sockets:
+            async_to_sync(channel_layer.send)(socket, data)
+
+    def send_chat_message(self, prepared_message=None, chat_id=None):
+        try:
+
+            group_name = f'{AvailableRoom.CHATS.value}{chat_id}'
+            # Отправялем сообщение в канал по сокетам
+            self.send_message_to_connections_group(group_name, {
+                'type': 'chat_message',
+                'chat_id': chat_id,
+                'prepared_data': prepared_message,
+            })
+
+            personalized_chat_variants_with_sockets, chat_users, push_title = self.repository_class(
+                me=self.me
+            ).get_chat_for_all_participants(chat_id)
+
+            # Отправляем обновленные данные о чате всем участникам чата по сокетам
+            for data in personalized_chat_variants_with_sockets:
+                for connection_name in data['sockets']:
+                    self.send_message_to_one_connection(
+                        connection_name,
+                        {
+                            'type': 'chat_last_msg_updated',
+                            'prepared_data': {
+                                'id': chat_id,
+                                'unreadCount': chained_get(data, 'chat', 'unreadCount'),
+                                'state': chained_get(data, 'chat', 'state'),
+                                'firstUnreadMessage': chained_get(data, 'chat', 'firstUnreadMessage'),
+                                'lastMessage': prepared_message,
+                                'blockedAt': chained_get(data, 'chat', 'blockedAt'),
+                            },
+                            'indicators': {
+                                'chatsUnreadMessages': chained_get(data, 'chats_unread_messages'),
+                            }
+                        }
+                    )
+
+            # Отправляем сообщение по пушам всем участникам чата
+            PushController().send_message(
+                users_to_send=chat_users,
+                title=push_title,
+                message=chained_get(prepared_message, 'text', default=''),
+                uuid=chained_get(prepared_message, 'uuid', default=''),
+                action=NotificationAction.CHAT.value,
+                subject_id=chat_id,
+                notification_type=NotificationType.CHAT.value,
+                icon_type=''
+            )
+
+        except Exception as e:
+            logger.error(e)

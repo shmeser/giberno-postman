@@ -435,7 +435,7 @@ def nonefy(value, condition=True):
 
 def chained_get(obj, *args, default=None):
     def get_value(o, attr):
-        if isinstance(o, dict) and isinstance(attr, str):
+        if isinstance(o, dict) and (isinstance(attr, str) or attr is None):
             return o.get(attr, default)
         if isinstance(o, (list, tuple)) and isinstance(attr, int):
             return o[attr]
@@ -555,5 +555,3 @@ def read_csv(file_name):
             return result
     except Exception:
         print('ERROR')
-
-

@@ -47,7 +47,15 @@ class ShiftStatus(IntEnumM):
 class ShiftAppealStatus(IntEnumM):
     INITIAL = 0
     CONFIRMED = 1
+    CANCELED = 2
     REJECTED = 3
+    COMPLETED = 4
+
+
+class AppealCancelReason(IntEnumM):
+    CUSTOM = 0  # Причина будет указана самостоятельно текстом
+    MISTAKE = 1  # Заявка отменена, так как создана по ошибке
+    ACCIDENT = 2  # Отмена из-за непредвиденных ситуаций
 
 
 class ShiftWorkTime(IntEnumM):

@@ -42,7 +42,18 @@ class MediaRepository(MasterRepository):
             return x.type == media_type
 
     @classmethod
-    def get_related_media(cls, model_instance, prefetched_data, m_type, m_format=None, mime_type=None, multiple=False):
+    def get_related_media(cls, model_instance, prefetched_data, m_type, m_format=None, mime_type=None, multiple=False, only_prefetched=False):
+        """
+
+        :param model_instance:
+        :param prefetched_data: Данные модели с предзагруженными связями
+        :param m_type:  Тип медиа файла
+        :param m_format: Формат (Изображение, документ, видео и т.д.)
+        :param mime_type: MimeType
+        :param multiple: Выдать несколько файлов
+        :param only_prefetched:  Использовать только из предзагруженных данных
+        :return:
+        """
         # Берем файлы из предзагруженного через prefetch_related поля medias
         medias_list = chained_get(prefetched_data, 'medias', default=list())
         iterated = filter(  # Отфильтровываем по mime_type и берем один элемент
@@ -57,7 +68,8 @@ class MediaRepository(MasterRepository):
             return files
 
         # для many=False - узнаем из сериалайзера через model_instance
-        if not files:  # Если нет предзагруженных данных, делаем запрос в бд
+        # Если нет предзагруженных данных и нет флага "использовать из prefetch", делаем запрос в бд
+        if not files and not only_prefetched:
             files = MediaModel.objects.filter(
                 owner_id=prefetched_data.id, type=m_type,
                 owner_ct_id=ContentType.objects.get_for_model(prefetched_data).id,

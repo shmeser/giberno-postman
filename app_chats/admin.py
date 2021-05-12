@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from app_chats.models import Chat, ChatUser, Message
+from app_chats.models import Chat, ChatUser, Message, MessageStat
 from backend.mixins import FormattedAdmin
 
 
@@ -21,5 +21,12 @@ class ChatUserAdmin(FormattedAdmin):
 @admin.register(Message)
 class MessageAdmin(FormattedAdmin):
     list_display = [
-        'chat_id', 'title', 'text', 'message_type', 'user_id', 'form_status', 'read_at'
+        'chat_id', 'title', 'text', 'message_type', 'user_id', 'read_at'
+    ]
+
+
+@admin.register(MessageStat)
+class MessageStatAdmin(FormattedAdmin):
+    list_display = [
+        'message_id', 'user_id', 'is_read'
     ]

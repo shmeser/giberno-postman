@@ -124,7 +124,7 @@ input, button {
     border: 1px solid #9a9a9a;
     border-radius: 5px;
     padding: 10px 10px;
-    font-size: 14px;
+    font-size: 13px;
     color: #54c3ce;
     height: 45px;
 }
@@ -271,14 +271,14 @@ input, button {
 .event-options {
     display: flex;
     flex-flow: wrap;
-    height: 215px;
+    height: 162px;
     justify-content: space-around;
     align-items: center;
 }
 
 .message-type-button {
-    width: 100px;
-    margin-bottom: 10px;
+    width: 110px;
+    margin-bottom: 5px;
 }
 
 .outcomming {
@@ -328,7 +328,7 @@ input, button {
     box-sizing: border-box;
     border-radius: 5px;
     padding: 10px;
-    height: 320px;
+    height: 273px;
     color: #085664;
     background: #D5FCE0;
 }

@@ -1,10 +1,12 @@
 import re
 
+from app_bot.versions.v1_0 import repositories as bot_1_0
 from app_chats.versions.v1_0 import repositories as chats_1_0
-
 from app_market.versions.v1_0 import repositories as market_1_0
 from app_sockets.enums import AvailableRoom, AvailableVersion
+from app_sockets.versions.v1_0 import repositories as socket_1_0
 from app_users.versions.v1_0 import repositories as user_1_0
+from backend.utils import chained_get
 
 
 class SocketEventRM:
@@ -25,19 +27,41 @@ class SocketEventRM:
 
 class RoutingMapper:
     @staticmethod
-    def room_repository(version, room_name):
-        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.CHATS.value:
-            return chats_1_0.AsyncChatsRepository
-        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.USERS.value:
-            return user_1_0.AsyncProfileRepository
-        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.SHOPS.value:
-            return market_1_0.AsyncShopsRepository
-        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.VACANCIES.value:
-            return market_1_0.AsyncVacanciesRepository
-        if version == AvailableVersion.V1_0.value and room_name == AvailableRoom.DISTRIBUTORS.value:
-            return market_1_0.AsyncDistributorsRepository
+    def room_async_repository(version, room_name=None):
 
-        return None
+        repos = {
+            AvailableVersion.V1_0.value: {
+                None: socket_1_0.AsyncSocketsRepository,
+                AvailableRoom.CHATS.value: chats_1_0.AsyncChatsRepository,
+                AvailableRoom.MESSAGES.value: chats_1_0.AsyncMessagesRepository,
+                AvailableRoom.BOT.value: bot_1_0.AsyncChatterBotRepository,
+                AvailableRoom.USERS.value: user_1_0.AsyncProfileRepository,
+                AvailableRoom.SHOPS.value: market_1_0.AsyncShopsRepository,
+                AvailableRoom.VACANCIES.value: market_1_0.AsyncVacanciesRepository,
+                AvailableRoom.APPEALS.value: market_1_0.AsyncShiftAppealsRepository,
+                AvailableRoom.DISTRIBUTORS.value: market_1_0.AsyncDistributorsRepository,
+                AvailableRoom.NOTIFICATIONS.value: user_1_0.AsyncNotificationsRepository,
+            }
+        }
+        return chained_get(repos, version, room_name)
+
+    @staticmethod
+    def room_repository(version, room_name=None):
+        repos = {
+            AvailableVersion.V1_0.value: {
+                None: socket_1_0.SocketsRepository,
+                AvailableRoom.CHATS.value: chats_1_0.ChatsRepository,
+                AvailableRoom.MESSAGES.value: chats_1_0.MessagesRepository,
+                AvailableRoom.BOT.value: bot_1_0.ChatterBotRepository,
+                AvailableRoom.USERS.value: user_1_0.ProfileRepository,
+                AvailableRoom.SHOPS.value: market_1_0.ShopsRepository,
+                AvailableRoom.VACANCIES.value: market_1_0.VacanciesRepository,
+                AvailableRoom.APPEALS.value: market_1_0.ShiftAppealsRepository,
+                AvailableRoom.DISTRIBUTORS.value: market_1_0.DistributorsRepository,
+                AvailableRoom.NOTIFICATIONS.value: user_1_0.NotificationsRepository,
+            }
+        }
+        return chained_get(repos, version, room_name)
 
     @staticmethod
     def check_room_version(room_name, version):
@@ -47,7 +71,8 @@ class RoutingMapper:
             AvailableRoom.USERS.value,
             AvailableRoom.SHOPS.value,
             AvailableRoom.VACANCIES.value,
-            AvailableRoom.DISTRIBUTORS.value
+            AvailableRoom.DISTRIBUTORS.value,
+            AvailableRoom.NOTIFICATIONS.value,
         ]:
             return True
 
@@ -68,7 +93,8 @@ class RoutingMapper:
                 AvailableRoom.USERS.value,
                 AvailableRoom.SHOPS.value,
                 AvailableRoom.VACANCIES.value,
-                AvailableRoom.DISTRIBUTORS.value
+                AvailableRoom.DISTRIBUTORS.value,
+                AvailableRoom.NOTIFICATIONS.value,
             ]
 
         # v1.1 TODO для тестов пока
