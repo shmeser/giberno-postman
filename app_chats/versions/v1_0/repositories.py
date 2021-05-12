@@ -314,9 +314,9 @@ class ChatsRepository(MasterRepository):
         if record:
             chats_unread_messages_count = self.get_all_chats_unread_count()
             first_unread_message = record.first_unread_messages[0] if record.first_unread_messages else None
-            return record.unread_count, first_unread_message, chats_unread_messages_count
+            return record.unread_count, first_unread_message, chats_unread_messages_count, record.blocked_at
         else:
-            return None, None, None
+            return None, None, None, None
 
     @staticmethod
     def get_chat_unread_data_for_all_participants(chat, users):
@@ -381,7 +381,9 @@ class ChatsRepository(MasterRepository):
         """ Возвращает массив сериализованных чатов и сокеты для каждого участника, и самих участников """
         records = self.model.objects.filter(id=record_id)
         records = self.fast_related_loading(records)
-        record = records.first()
+        record = records.annotate(
+            blocked_at=self.blocked_at_expression
+        ).first()
 
         if not record:
             raise EntityDoesNotExistException
@@ -495,11 +497,11 @@ class ChatsRepository(MasterRepository):
         if not chat.users.filter(pk=self.me.id).exists():
             # TODO расширенная логика проверки присоединения к группе
             # Если не участник чата, но является релевантным менеджером
-            if chat.target_ct == ContentType.objects.get_for_model(Vacancy) and record.target.shop.staff.filter(
+            if chat.target_ct == ContentType.objects.get_for_model(Vacancy) and chat.target.shop.staff.filter(
                     pk=self.me.id).exists():
                 # Если цель вакансия и являюсь менеджером магазина, в котором размещена вакансия
                 return True
-            if chat.target_ct == ContentType.objects.get_for_model(Shop) and record.target.staff.filter(
+            if chat.target_ct == ContentType.objects.get_for_model(Shop) and chat.target.staff.filter(
                     pk=self.me.id).exists():
                 # Если цель магазин и являюсь менеджером магазина
                 return True
@@ -568,7 +570,9 @@ class ChatsRepository(MasterRepository):
     def get_managers(self, chat_id):
         shop_ct = ContentType.objects.get_for_model(Shop)
         vacancy_ct = ContentType.objects.get_for_model(Vacancy)
-        record = self.model.objects.filter(pk=chat_id, deleted=False).first()
+        record = self.model.objects.filter(pk=chat_id, deleted=False).annotate(
+            blocked_at=self.blocked_at_expression
+        ).first()
         managers = []
         if record:
             # TODO учитывать настройки отпуска у менеджеров
@@ -577,15 +581,15 @@ class ChatsRepository(MasterRepository):
             if record.target_ct == vacancy_ct:
                 managers = record.target.shop.staff.filter(account_type=AccountType.MANAGER.value)
 
-        return managers
+        return managers, record.blocked_at
 
     def get_managers_sockets(self, chat_id):
-        managers = self.get_managers(chat_id)
+        managers, blocked_at = self.get_managers(chat_id)
         sockets = managers.aggregate(
             sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
         )['sockets']
 
-        return sockets
+        return sockets, blocked_at
 
     def block_chat(self, record_id):
         # Блокировка чата для смз
@@ -992,7 +996,7 @@ class AsyncMessagesRepository(MessagesRepository):
         last_msg = super().get_last_message()  # TODO проверить инициализацию
 
         # Количество непрочитанных сообщений в чате для себя
-        my_unread_count, my_first_unread_message, my_chats_unread_count = ChatsRepository(
+        my_unread_count, my_first_unread_message, my_chats_unread_count, blocked_at = ChatsRepository(
             me=self.me).get_chat_unread_count_and_first_unread(self.chat_id)
 
         serialized_message = camelize(MessagesSerializer(message, many=False).data)
@@ -1005,7 +1009,7 @@ class AsyncMessagesRepository(MessagesRepository):
             # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
             # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
             # по unread_count
-            owner_unread_count, owner_first_unread, owner_chats_unread_count = ChatsRepository(
+            owner_unread_count, owner_first_unread, owner_chats_unread_count, blocked_at = ChatsRepository(
                 me=msg_owner
             ).get_chat_unread_count_and_first_unread(self.chat_id)
 
@@ -1020,7 +1024,8 @@ class AsyncMessagesRepository(MessagesRepository):
             owner_chats_unread_count,
             my_unread_count,
             my_first_unread_message_serialized,
-            my_chats_unread_count
+            my_chats_unread_count,
+            blocked_at
         )
 
     @database_sync_to_async

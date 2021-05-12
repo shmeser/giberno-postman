@@ -120,7 +120,8 @@ class SocketController:
                                 'id': chat_id,
                                 'unreadCount': chained_get(data, 'chat', 'unreadCount'),
                                 'firstUnreadMessage': chained_get(data, 'chat', 'firstUnreadMessage'),
-                                'lastMessage': prepared_message
+                                'lastMessage': prepared_message,
+                                'blockedAt': chained_get(data, 'chat', 'blockedAt'),
                             },
                             'indicators': {
                                 'chatsUnreadMessages': chained_get(data, 'chats_unread_messages'),

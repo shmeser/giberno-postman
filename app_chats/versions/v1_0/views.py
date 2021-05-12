@@ -14,7 +14,7 @@ from backend.errors.exceptions import EntityDoesNotExistException, ForbiddenExce
 from backend.errors.http_exceptions import HttpException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_headers, get_request_body, chained_get
+from backend.utils import get_request_headers, get_request_body, chained_get, datetime_to_timestamp
 
 
 class Chats(CRUDAPIView):
@@ -217,7 +217,7 @@ class ReadMessages(CRUDAPIView):
             raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=RESTErrors.NOT_FOUND.name)
 
         # Количество непрочитанных сообщений в чате для себя
-        my_unread_count, my_first_unread_message, my_chats_unread_messages_count = ChatsRepository(
+        my_unread_count, my_first_unread_message, my_chats_unread_messages_count, blocked_at = ChatsRepository(
             me=request.user
         ).get_chat_unread_count_and_first_unread(chat_id)  # 2
 
@@ -233,7 +233,7 @@ class ReadMessages(CRUDAPIView):
             # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
             # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
             # по unread_count
-            owner_unread_count, owner_first_unread, owner_chats_unread_messages_count = ChatsRepository(
+            owner_unread_count, owner_first_unread, owner_chats_unread_messages_count, blocked_at = ChatsRepository(
                 me=msg_owner
             ).get_chat_unread_count_and_first_unread(chat_id)  # 2
 
@@ -244,6 +244,7 @@ class ReadMessages(CRUDAPIView):
                     'id': chat_id,
                     'unreadCount': my_unread_count,
                     'firstUnreadMessage': serialized_first_unread_message,
+                    'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
                 },
                 'message': {
                     'uuid': chained_get(body, 'uuid'),
@@ -271,7 +272,8 @@ class ReadMessages(CRUDAPIView):
                             'id': chat_id,
                             'firstUnreadMessage': owner_first_unread,
                             'unreadCount': owner_unread_count,
-                            'lastMessage': serialized_message
+                            'lastMessage': serialized_message,
+                            'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
                         },
                         'indicators': {
                             'chatsUnreadMessages': owner_chats_unread_messages_count

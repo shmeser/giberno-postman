@@ -9,6 +9,7 @@ from app_sockets.enums import AvailableRoom, AvailableVersion
 from app_sockets.mappers import RoutingMapper
 from app_users.enums import AccountType, NotificationAction, NotificationType, NotificationIcon
 from backend.controllers import PushController
+from backend.utils import datetime_to_timestamp
 from giberno.celery import app
 
 
@@ -42,7 +43,7 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
             # переводим чат в состояние NEED_MANAGER
             chat.state = ChatManagerState.NEED_MANAGER.value
             # Добавляем всех релевантных менеджеров в чат
-            managers = chat_repository().get_managers(chat_id)
+            managers, blocked_at = chat_repository().get_managers(chat_id)
             chat.users.add(*managers)  # добавляем в m2m несколько менеджеров с десериализацией через *
 
             chat.save()
@@ -56,7 +57,8 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
                     'prepared_data': {
                         'id': chat_id,
                         'state': ChatManagerState.NEED_MANAGER.value,
-                        'activeManagerId': None
+                        'activeManagersIds': [],
+                        'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
                     },
                 })
 

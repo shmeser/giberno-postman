@@ -134,6 +134,7 @@ class SocketChatSerializer(ChatsSerializer):
         fields = [
             'id',
             'unread_count',
+            'blocked_at',
             'first_unread_message',
             'last_message',
         ]

@@ -9,7 +9,7 @@ from backend.controllers import AsyncPushController
 from backend.errors.enums import SocketErrors
 from backend.errors.exceptions import EntityDoesNotExistException
 from backend.errors.ws_exceptions import WebSocketError
-from backend.utils import chained_get
+from backend.utils import chained_get, datetime_to_timestamp
 
 
 class AsyncSocketController:
@@ -151,18 +151,19 @@ class AsyncSocketController:
             version=self.consumer.version, room_name=AvailableRoom.CHATS.value
         )
 
-        relevant_managers_sockets = await chat_repository().get_managers_sockets(chat_id=chat_id)
+        relevant_managers_sockets, blocked_at = await chat_repository().get_managers_sockets(chat_id=chat_id)
         for socket in relevant_managers_sockets:
             await self.consumer.channel_layer.send(socket, {
                 'type': 'chat_state_updated',
                 'prepared_data': {
                     'id': chat_id,
                     'state': state,
-                    'activeManagersIds': active_managers_ids
+                    'activeManagersIds': active_managers_ids,
+                    'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
                 },
             })
 
-    async def send_chat_message(self, room_id, group_name, prepared_message, exclude_users_ids=[]):
+    async def send_chat_message(self, room_id, group_name, prepared_message):
         personalized_chat_variants_with_sockets, chat_users, push_title = await self.repository_class(
             me=self.consumer.user
         ).get_chat_for_all_participants(  # 10
@@ -186,6 +187,7 @@ class AsyncSocketController:
                     first_unread=chained_get(data, 'chat', 'firstUnreadMessage'),
                     last_msg=prepared_message,
                     chats_unread_messages_count=chained_get(data, 'chats_unread_messages'),
+                    blocked_at=chained_get(data, 'chat', 'blockedAt')
                 )
 
         # Отправляем сообщение по пушам всем участникам чата, кроме самого себя
@@ -285,7 +287,7 @@ class AsyncSocketController:
             )
 
             if message:
-                msg, owner_unread_cnt, owner_first_unread, owner_chats_unread_count, my_unread_cnt, my_first_unread, my_chats_unread_cnt = await message_repository(
+                msg, owner_unread_cnt, owner_first_unread, owner_chats_unread_count, my_unread_cnt, my_first_unread, my_chats_unread_cnt, blocked_at = await message_repository(
                     me=self.consumer.user,
                     chat_id=room_id,
                 ).get_unread_data(message=message, msg_owner=owner, should_response_owner=should_response_owner)
@@ -296,7 +298,8 @@ class AsyncSocketController:
                     room_id=room_id,
                     first_unread=my_first_unread,
                     uuid=chained_get(content, 'uuid'),
-                    chats_unread_messages_count=my_chats_unread_cnt
+                    chats_unread_messages_count=my_chats_unread_cnt,
+                    blocked_at=blocked_at
                 )
 
                 # Отправляем автору сообщения событие о прочтении, если сообщение последнее в чате
@@ -308,7 +311,8 @@ class AsyncSocketController:
                     unread_cnt=owner_unread_cnt,
                     last_msg=msg,
                     first_unread=owner_first_unread,
-                    chats_unread_count=owner_chats_unread_count
+                    chats_unread_count=owner_chats_unread_count,
+                    blocked_at=blocked_at
                 )
 
         except Exception as e:
@@ -316,7 +320,7 @@ class AsyncSocketController:
             raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
 
     async def send_last_msg_updated_to_one_connection(
-            self, socket_id, room_id, unread_cnt, first_unread, last_msg, chats_unread_messages_count
+            self, socket_id, room_id, unread_cnt, first_unread, last_msg, chats_unread_messages_count, blocked_at
     ):
         await self.consumer.channel_layer.send(socket_id, {
             'type': 'chat_last_msg_updated',
@@ -324,14 +328,17 @@ class AsyncSocketController:
                 'id': room_id,
                 'unreadCount': unread_cnt,
                 'firstUnreadMessage': first_unread,
-                'lastMessage': last_msg
+                'lastMessage': last_msg,
+                'blockedAt': blocked_at
             },
             'indicators': {
                 'chatsUnreadMessages': chats_unread_messages_count
             }
         })
 
-    async def send_message_was_read(self, unread_cnt, room_id, first_unread, uuid, chats_unread_messages_count):
+    async def send_message_was_read(
+            self, unread_cnt, room_id, first_unread, uuid, chats_unread_messages_count, blocked_at
+    ):
         if unread_cnt is not None:
             await self.consumer.channel_layer.send(self.consumer.channel_name, {
                 'type': 'chat_message_was_read',
@@ -339,6 +346,8 @@ class AsyncSocketController:
                     'id': room_id,
                     'unreadCount': unread_cnt,
                     'firstUnreadMessage': first_unread,
+                    'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
+
                 },
                 'message': {
                     'uuid': uuid,
@@ -349,7 +358,8 @@ class AsyncSocketController:
             })
 
     async def respond_to_msg_owner_when_read(
-            self, owner, sockets, should_response, room_id, unread_cnt, last_msg, first_unread, chats_unread_count
+            self, owner, sockets, should_response, room_id, unread_cnt, last_msg, first_unread, chats_unread_count,
+            blocked_at
     ):
         if owner and owner.id != self.consumer.user.id and should_response:
             # Если автор прочитаного сообщения не тот, кто его читает, и сообщение ранее не читали
@@ -369,7 +379,8 @@ class AsyncSocketController:
                         unread_cnt=unread_cnt,
                         first_unread=first_unread,
                         last_msg=last_msg,
-                        chats_unread_messages_count=chats_unread_count
+                        chats_unread_messages_count=chats_unread_count,
+                        blocked_at=datetime_to_timestamp(blocked_at) if blocked_at is not None else None
                     )
 
     async def send_counters(self):
@@ -478,8 +489,7 @@ class AsyncSocketController:
                 await self.send_chat_message(
                     room_id=room_id,
                     group_name=AvailableRoom.CHATS.value,
-                    prepared_message=bot_message_serialized,
-                    exclude_users_ids=[self.consumer.user.id]
+                    prepared_message=bot_message_serialized
                 )
 
                 # Отправляем событие о смене состояния чата всем релевантным менеджерам
