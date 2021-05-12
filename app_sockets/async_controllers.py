@@ -187,7 +187,8 @@ class AsyncSocketController:
                     first_unread=chained_get(data, 'chat', 'firstUnreadMessage'),
                     last_msg=prepared_message,
                     chats_unread_messages_count=chained_get(data, 'chats_unread_messages'),
-                    blocked_at=chained_get(data, 'chat', 'blockedAt')
+                    blocked_at=chained_get(data, 'chat', 'blockedAt'),
+                    state=chained_get(data, 'chat', 'state'),
                 )
 
         # Отправляем сообщение по пушам всем участникам чата, кроме самого себя
@@ -287,7 +288,7 @@ class AsyncSocketController:
             )
 
             if message:
-                msg, owner_unread_cnt, owner_first_unread, owner_chats_unread_count, my_unread_cnt, my_first_unread, my_chats_unread_cnt, blocked_at = await message_repository(
+                msg, owner_unread_cnt, owner_first_unread, owner_chats_unread_count, my_unread_cnt, my_first_unread, my_chats_unread_cnt, blocked_at, state = await message_repository(
                     me=self.consumer.user,
                     chat_id=room_id,
                 ).get_unread_data(message=message, msg_owner=owner, should_response_owner=should_response_owner)
@@ -299,7 +300,8 @@ class AsyncSocketController:
                     first_unread=my_first_unread,
                     uuid=chained_get(content, 'uuid'),
                     chats_unread_messages_count=my_chats_unread_cnt,
-                    blocked_at=blocked_at
+                    blocked_at=blocked_at,
+                    state=state
                 )
 
                 # Отправляем автору сообщения событие о прочтении, если сообщение последнее в чате
@@ -312,7 +314,8 @@ class AsyncSocketController:
                     last_msg=msg,
                     first_unread=owner_first_unread,
                     chats_unread_count=owner_chats_unread_count,
-                    blocked_at=blocked_at
+                    blocked_at=blocked_at,
+                    state=state
                 )
 
         except Exception as e:
@@ -320,13 +323,14 @@ class AsyncSocketController:
             raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
 
     async def send_last_msg_updated_to_one_connection(
-            self, socket_id, room_id, unread_cnt, first_unread, last_msg, chats_unread_messages_count, blocked_at
+            self, socket_id, room_id, unread_cnt, first_unread, last_msg, chats_unread_messages_count, blocked_at, state
     ):
         await self.consumer.channel_layer.send(socket_id, {
             'type': 'chat_last_msg_updated',
             'prepared_data': {
                 'id': room_id,
                 'unreadCount': unread_cnt,
+                'state': state,
                 'firstUnreadMessage': first_unread,
                 'lastMessage': last_msg,
                 'blockedAt': blocked_at
@@ -337,7 +341,7 @@ class AsyncSocketController:
         })
 
     async def send_message_was_read(
-            self, unread_cnt, room_id, first_unread, uuid, chats_unread_messages_count, blocked_at
+            self, unread_cnt, room_id, first_unread, uuid, chats_unread_messages_count, blocked_at, state
     ):
         if unread_cnt is not None:
             await self.consumer.channel_layer.send(self.consumer.channel_name, {
@@ -345,6 +349,7 @@ class AsyncSocketController:
                 'chat': {
                     'id': room_id,
                     'unreadCount': unread_cnt,
+                    'state': state,
                     'firstUnreadMessage': first_unread,
                     'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
 
@@ -359,7 +364,7 @@ class AsyncSocketController:
 
     async def respond_to_msg_owner_when_read(
             self, owner, sockets, should_response, room_id, unread_cnt, last_msg, first_unread, chats_unread_count,
-            blocked_at
+            blocked_at, state
     ):
         if owner and owner.id != self.consumer.user.id and should_response:
             # Если автор прочитаного сообщения не тот, кто его читает, и сообщение ранее не читали
@@ -380,7 +385,8 @@ class AsyncSocketController:
                         first_unread=first_unread,
                         last_msg=last_msg,
                         chats_unread_messages_count=chats_unread_count,
-                        blocked_at=datetime_to_timestamp(blocked_at) if blocked_at is not None else None
+                        blocked_at=datetime_to_timestamp(blocked_at) if blocked_at is not None else None,
+                        state=state
                     )
 
     async def send_counters(self):

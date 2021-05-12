@@ -217,7 +217,7 @@ class ReadMessages(CRUDAPIView):
             raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=RESTErrors.NOT_FOUND.name)
 
         # Количество непрочитанных сообщений в чате для себя
-        my_unread_count, my_first_unread_message, my_chats_unread_messages_count, blocked_at = ChatsRepository(
+        my_unread_count, my_first_unread_message, my_chats_unread_messages_count, blocked_at, state = ChatsRepository(
             me=request.user
         ).get_chat_unread_count_and_first_unread(chat_id)  # 2
 
@@ -233,7 +233,7 @@ class ReadMessages(CRUDAPIView):
             # Если последнее сообщение в чате и не было прочитано ранее, то запрашиваем число непрочитанных для чата
             # Т.к. отправляем данные о прочитанном сообщении в событии SERVER_CHAT_LAST_MSG_UPDATED, то нужны данные
             # по unread_count
-            owner_unread_count, owner_first_unread, owner_chats_unread_messages_count, blocked_at = ChatsRepository(
+            owner_unread_count, owner_first_unread, owner_chats_unread_messages_count, blocked_at, state = ChatsRepository(
                 me=msg_owner
             ).get_chat_unread_count_and_first_unread(chat_id)  # 2
 
@@ -243,6 +243,7 @@ class ReadMessages(CRUDAPIView):
                 'chat': {
                     'id': chat_id,
                     'unreadCount': my_unread_count,
+                    'state': state,
                     'firstUnreadMessage': serialized_first_unread_message,
                     'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
                 },
@@ -272,6 +273,7 @@ class ReadMessages(CRUDAPIView):
                             'id': chat_id,
                             'firstUnreadMessage': owner_first_unread,
                             'unreadCount': owner_unread_count,
+                            'state': state,
                             'lastMessage': serialized_message,
                             'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
                         },
