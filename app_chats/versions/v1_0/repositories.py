@@ -84,7 +84,7 @@ class ChatsRepository(MasterRepository):
         )
 
         self.active_managers_ids_expression = ArrayRemove(
-            ArrayAgg('active_managers__id'), None
+            ArrayAgg('active_managers__id', distinct=True), None
         )
 
         # Основная часть запроса, содержащая вычисляемые поля

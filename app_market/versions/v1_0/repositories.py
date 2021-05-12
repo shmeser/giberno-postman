@@ -1237,11 +1237,15 @@ class MarketDocumentsRepository(MasterRepository):
             # TODO поставить price из смены
             insurance=ExpressionWrapper(Value(self._SERVICE_INSURANCE_AMOUNT), output_field=IntegerField()),
             # TODO поставить размер страховки
-            tax=ExpressionWrapper(Round(F('rounded_hours') * F('vacancy__price') * Value(self._SERVICE_TAX_RATE)),
-                                  output_field=IntegerField())
+            tax=ExpressionWrapper(
+                Round(F('rounded_hours') * F('vacancy__price') * Value(self._SERVICE_TAX_RATE)),
+                output_field=IntegerField()
+            )
         ).annotate(
             clean_price=ExpressionWrapper(
-                Round(F('full_price') - F('insurance') - F('tax')), output_field=IntegerField())
+                Round(F('full_price') - F('insurance') - F('tax')),
+                output_field=IntegerField()
+            )
         ).first()
 
         conditions.shift_id = shift.id  # Для облегчения внутренней логики на ios
@@ -1273,100 +1277,112 @@ class MarketDocumentsRepository(MasterRepository):
 
         return conditions
 
+    def accept_global_docs(self):
+        global_documents = MediaModel.objects.filter(owner_id=None, type=MediaType.RULES_AND_ARTICLES.value)
+
+        for global_document in global_documents:
+            GlobalDocument.objects.get_or_create(
+                user=self.me,
+                document=global_document
+            )
+
+    def accept_distributor_docs(self, distributor_id):
+        distributor = Distributor.objects.filter(pk=distributor_id).prefetch_related(
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(type=MediaType.RULES_AND_ARTICLES.value),
+                to_attr='documents'
+            )
+        ).first()
+        if not distributor:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {Distributor._meta.verbose_name} с ID={distributor_id} не найден')
+
+        for distributor_document in distributor.documents:
+            DistributorDocument.objects.get_or_create(
+                user=self.me,
+                distributor=distributor,
+                document=distributor_document
+            )
+
+    def accept_vacancy_docs(self, vacancy_id):
+        vacancy = Vacancy.objects.filter(pk=vacancy_id).prefetch_related(
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(type=MediaType.RULES_AND_ARTICLES.value),
+                to_attr='documents'
+            )
+        ).first()
+        if not vacancy:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {Vacancy._meta.verbose_name} с ID={vacancy_id} не найден')
+
+        for vacancy_document in vacancy.documents:
+            VacancyDocument.objects.get_or_create(
+                user=self.me,
+                vacancy=vacancy,
+                document=vacancy_document
+            )
+
+    def accept_document(self, document_uuid):
+        try:
+            # Ищем документ с типом RULES_AND_ARTICLES
+            document = MediaModel.objects.filter(
+                uuid=document_uuid, type=MediaType.RULES_AND_ARTICLES.value
+            ).first()
+            if not document:
+                raise HttpException(
+                    status_code=RESTErrors.NOT_FOUND.value,
+                    detail=f'Объект {MediaModel._meta.verbose_name} с UUID={document_uuid} и типом RULES_AND_ARTICLES не найден')
+
+            # Если документ никому не принадлежит, то он глобальный для сервиса
+            if document.owner is None:
+                # Подтверждаем документ для пользователя
+                GlobalDocument.objects.get_or_create(
+                    user=self.me,
+                    document=document
+                )
+
+            # Если документ принадлежит торговой сети
+            if isinstance(document.owner, Distributor):
+                # Подтверждаем документ для пользователя
+                DistributorDocument.objects.get_or_create(
+                    user=self.me,
+                    distributor_id=document.owner_id,
+                    document=document
+                )
+
+            # Если документ принадлежит вакансии
+            if isinstance(document.owner, Vacancy):
+                # Подтверждаем документ для пользователя
+                VacancyDocument.objects.get_or_create(
+                    user=self.me,
+                    vacancy_id=document.owner_id,
+                    document=document
+                )
+
+        except Exception as e:
+            raise HttpException(
+                status_code=RESTErrors.BAD_REQUEST.value,
+                detail=e
+            )
+
     def accept_market_documents(self, global_docs=None, distributor_id=None, vacancy_id=None, document_uuid=None):
         # Подтверждение всех глобальных документов
         if global_docs is True:
-            # TODO получение документов Гиберно (документы без владельца - документы компании)
-            global_documents = MediaModel.objects.filter(owner_id=None, type=MediaType.RULES_AND_ARTICLES.value)
-
-            for global_document in global_documents:
-                GlobalDocument.objects.get_or_create(
-                    user=self.me,
-                    document=global_document
-                )
+            # TODO получение документов Гиберно (документы без владельца == документы компании)
+            self.accept_global_docs()
 
         # Подтверждение всех документов торговой сети
         if distributor_id:
-            distributor = Distributor.objects.filter(pk=distributor_id).prefetch_related(
-                Prefetch(
-                    'media',
-                    queryset=MediaModel.objects.filter(type=MediaType.RULES_AND_ARTICLES.value),
-                    to_attr='documents'
-                )
-            ).first()
-            if not distributor:
-                raise HttpException(
-                    status_code=RESTErrors.NOT_FOUND.value,
-                    detail=f'Объект {Distributor._meta.verbose_name} с ID={distributor_id} не найден')
-
-            for distributor_document in distributor.documents:
-                DistributorDocument.objects.get_or_create(
-                    user=self.me,
-                    distributor=distributor,
-                    document=distributor_document
-                )
+            self.accept_distributor_docs(distributor_id)
 
         # Подтверждение всех документов вакансии
         if vacancy_id:
-            vacancy = Vacancy.objects.filter(pk=vacancy_id).prefetch_related(
-                Prefetch(
-                    'media',
-                    queryset=MediaModel.objects.filter(type=MediaType.RULES_AND_ARTICLES.value),
-                    to_attr='documents'
-                )
-            ).first()
-            if not vacancy:
-                raise HttpException(
-                    status_code=RESTErrors.NOT_FOUND.value,
-                    detail=f'Объект {Vacancy._meta.verbose_name} с ID={vacancy_id} не найден')
-
-            for vacancy_document in vacancy.documents:
-                VacancyDocument.objects.get_or_create(
-                    user=self.me,
-                    vacancy=vacancy,
-                    document=vacancy_document
-                )
+            self.accept_vacancy_docs(vacancy_id)
 
         # Подтверждение конкретного документа
         if document_uuid:
-            try:
-                # Ищем документ с типом RULES_AND_ARTICLES
-                document = MediaModel.objects.filter(
-                    uuid=document_uuid, type=MediaType.RULES_AND_ARTICLES.value
-                ).first()
-                if not document:
-                    raise HttpException(
-                        status_code=RESTErrors.NOT_FOUND.value,
-                        detail=f'Объект {MediaModel._meta.verbose_name} с UUID={document_uuid} и типом RULES_AND_ARTICLES не найден')
-
-                # Если документ никому не принадлежит, то он глобальный для сервиса
-                if document.owner is None:
-                    # Подтверждаем документ для пользователя
-                    GlobalDocument.objects.get_or_create(
-                        user=self.me,
-                        document=document
-                    )
-
-                # Если документ принадлежит торговой сети
-                if isinstance(document.owner, Distributor):
-                    # Подтверждаем документ для пользователя
-                    DistributorDocument.objects.get_or_create(
-                        user=self.me,
-                        distributor_id=document.owner_id,
-                        document=document
-                    )
-
-                # Если документ принадлежит вакансии
-                if isinstance(document.owner, Vacancy):
-                    # Подтверждаем документ для пользователя
-                    VacancyDocument.objects.get_or_create(
-                        user=self.me,
-                        vacancy_id=document.owner_id,
-                        document=document
-                    )
-
-            except Exception as e:
-                raise HttpException(
-                    status_code=RESTErrors.BAD_REQUEST.value,
-                    detail=e
-                )
+            self.accept_document(document_uuid)
