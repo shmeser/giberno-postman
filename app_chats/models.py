@@ -82,7 +82,7 @@ class Message(BaseModel):
     attachments = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником моего сообщения')
-    uuid = models.UUIDField(default=uuid.uuid4)
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     icon_type = models.PositiveIntegerField(choices=choices(ChatMessageIconType), null=True, blank=True)
 
     def __str__(self):
