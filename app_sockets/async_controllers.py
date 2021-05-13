@@ -153,7 +153,10 @@ class AsyncSocketController:
             version=self.consumer.version, room_name=AvailableRoom.CHATS.value
         )
 
-        relevant_managers_sockets, blocked_at = await chat_repository().get_managers_sockets(chat_id=chat_id)
+        managers, relevant_managers_sockets, blocked_at = await chat_repository().get_managers_and_sockets(
+            chat_id=chat_id
+        )
+
         for socket in relevant_managers_sockets:
             await self.consumer.channel_layer.send(socket, {
                 'type': 'chat_state_updated',
@@ -425,6 +428,7 @@ class AsyncSocketController:
 
     async def manager_join_chat(self, content):
         room_id = content.get('chatId')
+        group_name = f'{AvailableRoom.CHATS.value}{room_id}'
         _MANAGER_CONNECTED_TEXT = 'Менеджер присоединился к беседе'
 
         # Если смз
@@ -468,7 +472,7 @@ class AsyncSocketController:
                 # Отправляем сообщение в чат с персонализацией данных для всех участников
                 await self.send_chat_message(
                     room_id=room_id,
-                    group_name=AvailableRoom.CHATS.value,
+                    group_name=group_name,
                     prepared_message=bot_message_serialized
                 )
 
@@ -479,6 +483,8 @@ class AsyncSocketController:
 
     async def manager_leave_chat(self, content):
         room_id = content.get('chatId')
+        group_name = f'{AvailableRoom.CHATS.value}{room_id}'
+
         _MANAGER_DISCONNECTED_TEXT = 'Менеджер завершил консультацию'
 
         # Если смз
@@ -515,7 +521,7 @@ class AsyncSocketController:
                 # Отправляем сообщение в чат с персонализацией данных для всех участников
                 await self.send_chat_message(
                     room_id=room_id,
-                    group_name=AvailableRoom.CHATS.value,
+                    group_name=group_name,
                     prepared_message=bot_message_serialized
                 )
 

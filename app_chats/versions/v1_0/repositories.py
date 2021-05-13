@@ -545,7 +545,6 @@ class ChatsRepository(MasterRepository):
 
     def remove_active_manager(self, chat_id):
         should_send_info = False
-        state = ChatManagerState.BOT_IS_USED.value
 
         chat = Chat.objects.filter(pk=chat_id, deleted=False).prefetch_related('active_managers').first()
 
@@ -562,9 +561,8 @@ class ChatsRepository(MasterRepository):
 
             chat.active_managers.remove(self.me)
             active_managers_ids.remove(self.me.id)
-            state = chat.state
 
-        return should_send_info, active_managers_ids, state
+        return should_send_info, active_managers_ids, chat.state
 
     def get_managers(self, chat_id):
         shop_ct = ContentType.objects.get_for_model(Shop)
@@ -582,7 +580,7 @@ class ChatsRepository(MasterRepository):
 
         return managers, record.blocked_at
 
-    def get_managers_sockets(self, chat_id):
+    def get_managers_and_sockets(self, chat_id):
         managers, blocked_at = self.get_managers(chat_id)
         sockets = []
         if managers:
@@ -590,7 +588,7 @@ class ChatsRepository(MasterRepository):
                 sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
             )['sockets']
 
-        return sockets, blocked_at
+        return managers, sockets, blocked_at
 
     def block_chat(self, record_id):
         # Блокировка чата для смз
@@ -656,8 +654,8 @@ class AsyncChatsRepository(ChatsRepository):
         return super().remove_active_manager(chat_id)
 
     @database_sync_to_async
-    def get_managers_sockets(self, chat_id):
-        return super().get_managers_sockets(chat_id)
+    def get_managers_and_sockets(self, chat_id):
+        return super().get_managers_and_sockets(chat_id)
 
 
 class CustomLookupBase(Lookup):
