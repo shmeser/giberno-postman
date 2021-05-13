@@ -1,5 +1,4 @@
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
-from django.contrib.auth.models import AnonymousUser
 from loguru import logger
 
 from app_sockets.async_controllers import AsyncSocketController
@@ -58,7 +57,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
             elif content.get('eventType') == SocketEventType.LOCATION.value:
                 await self.socket_controller.update_location(content)
             elif content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
-                await self.socket_controller.client_message_to_chat(content)
+                await self.socket_controller.client_message_to_chat_async(content)
             elif content.get('eventType') == SocketEventType.READ_MESSAGE_IN_CHAT.value:
                 await self.socket_controller.client_read_message_in_chat(content)
             elif content.get('eventType') == SocketEventType.MANAGER_LEAVE_CHAT.value:

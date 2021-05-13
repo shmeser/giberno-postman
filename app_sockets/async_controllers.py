@@ -1,3 +1,5 @@
+import asyncio
+
 from loguru import logger
 
 from app_bot.tasks import delayed_checking_for_bot_reply
@@ -204,6 +206,10 @@ class AsyncSocketController:
             icon_type=''
         )
 
+    async def client_message_to_chat_async(self, content):
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.client_message_to_chat(content))
+
     async def client_message_to_chat(self, content):
         try:
             room_id = self.consumer.room_id
@@ -284,7 +290,7 @@ class AsyncSocketController:
                 me=self.consumer.user,
                 chat_id=room_id,
             ).client_read_message(
-                content=content,
+                content=content
             )
 
             if message:

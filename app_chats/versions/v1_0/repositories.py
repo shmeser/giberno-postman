@@ -996,7 +996,7 @@ class AsyncMessagesRepository(MessagesRepository):
         last_msg = super().get_last_message()  # TODO проверить инициализацию
 
         # Количество непрочитанных сообщений в чате для себя
-        my_unread_count, my_first_unread_message, my_chats_unread_count, blocked_at = ChatsRepository(
+        my_unread_count, my_first_unread_message, my_chats_unread_count, blocked_at, state = ChatsRepository(
             me=self.me).get_chat_unread_count_and_first_unread(self.chat_id)
 
         serialized_message = camelize(MessagesSerializer(message, many=False).data)
