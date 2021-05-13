@@ -207,60 +207,60 @@ class AsyncSocketController:
         )
 
     async def client_message_to_chat_async(self, content):
-        loop = asyncio.get_event_loop()
-        loop.create_task(self.client_message_to_chat(content))
-
-    async def client_message_to_chat(self, content):
         try:
-            room_id = self.consumer.room_id
-            group_name = self.consumer.group_name
-            if not room_id:
-                room_id = chained_get(content, 'chatId')
-                group_name = f'{AvailableRoom.CHATS.value}{room_id}'
-
-            if await self.check_permission_for_group_connection(**{
-                'room_name': AvailableRoom.CHATS.value,
-                'room_id': room_id
-            }):
-                # self.repository_class = RoutingMapper.room_async_repository(
-                #     self.consumer.version, AvailableRoom.CHATS.value
-                # )
-
-                message_repository = RoutingMapper.room_async_repository(
-                    self.consumer.version, AvailableRoom.MESSAGES.value
-                )
-
-                # Обрабатываем полученное от клиента сообщение
-                processed_serialized_message = await message_repository(
-                    me=self.consumer.user,
-                    chat_id=room_id,
-                ).save_client_message(
-                    content=content
-                )
-
-                # Отправляем сообщение в чат с персонализацией для всех участников
-                await self.send_chat_message(
-                    room_id=room_id,
-                    group_name=group_name,
-                    prepared_message=processed_serialized_message
-                )
-
-                # Ответ бота через Celery с задержкой
-                delayed_checking_for_bot_reply.s(
-                    version=self.consumer.version,
-                    chat_id=room_id,
-                    user_id=self.consumer.user.id,
-                    message_text=chained_get(processed_serialized_message, 'text')
-                ).apply_async(countdown=2)  # Отвечаем через 2 сек
-
-            else:
-                await self.send_error(
-                    code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
-                )
-
+            loop = asyncio.get_event_loop()
+            task = loop.create_task(self.client_message_to_chat(content))
+            await asyncio.gather(task, return_exceptions=False)  # Необходимо для отлова исключений
         except Exception as e:
             logger.error(e)
             raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=str(e))
+
+    async def client_message_to_chat(self, content):
+        room_id = self.consumer.room_id
+        group_name = self.consumer.group_name
+        if not room_id:
+            room_id = chained_get(content, 'chatId')
+            group_name = f'{AvailableRoom.CHATS.value}{room_id}'
+
+        if await self.check_permission_for_group_connection(**{
+            'room_name': AvailableRoom.CHATS.value,
+            'room_id': room_id
+        }):
+            # self.repository_class = RoutingMapper.room_async_repository(
+            #     self.consumer.version, AvailableRoom.CHATS.value
+            # )
+
+            message_repository = RoutingMapper.room_async_repository(
+                self.consumer.version, AvailableRoom.MESSAGES.value
+            )
+
+            # Обрабатываем полученное от клиента сообщение
+            processed_serialized_message = await message_repository(
+                me=self.consumer.user,
+                chat_id=room_id,
+            ).save_client_message(
+                content=content
+            )
+
+            # Отправляем сообщение в чат с персонализацией для всех участников
+            await self.send_chat_message(
+                room_id=room_id,
+                group_name=group_name,
+                prepared_message=processed_serialized_message
+            )
+
+            # Ответ бота через Celery с задержкой
+            delayed_checking_for_bot_reply.s(
+                version=self.consumer.version,
+                chat_id=room_id,
+                user_id=self.consumer.user.id,
+                message_text=chained_get(processed_serialized_message, 'text')
+            ).apply_async(countdown=2)  # Отвечаем через 2 сек
+
+        else:
+            await self.send_error(
+                code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
+            )
 
     async def client_read_message_in_chat(self, content):
         try:
