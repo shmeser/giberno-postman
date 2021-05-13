@@ -153,7 +153,10 @@ class AsyncSocketController:
             version=self.consumer.version, room_name=AvailableRoom.CHATS.value
         )
 
-        relevant_managers_sockets, blocked_at = await chat_repository().get_managers_sockets(chat_id=chat_id)
+        managers, relevant_managers_sockets, blocked_at = await chat_repository().get_managers_and_sockets(
+            chat_id=chat_id
+        )
+
         for socket in relevant_managers_sockets:
             await self.consumer.channel_layer.send(socket, {
                 'type': 'chat_state_updated',
@@ -425,7 +428,15 @@ class AsyncSocketController:
 
     async def manager_join_chat(self, content):
         room_id = content.get('chatId')
+        group_name = f'{AvailableRoom.CHATS.value}{room_id}'
         _MANAGER_CONNECTED_TEXT = 'Менеджер присоединился к беседе'
+
+        # Если смз
+        if self.consumer.user and self.consumer.user.account_type == AccountType.SELF_EMPLOYED.value:
+            await self.send_error(
+                code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
+            )
+            return
 
         if await self.check_permission_for_group_connection(**{
             'room_name': AvailableRoom.CHATS.value,
@@ -461,7 +472,7 @@ class AsyncSocketController:
                 # Отправляем сообщение в чат с персонализацией данных для всех участников
                 await self.send_chat_message(
                     room_id=room_id,
-                    group_name=AvailableRoom.CHATS.value,
+                    group_name=group_name,
                     prepared_message=bot_message_serialized
                 )
 
@@ -472,7 +483,16 @@ class AsyncSocketController:
 
     async def manager_leave_chat(self, content):
         room_id = content.get('chatId')
+        group_name = f'{AvailableRoom.CHATS.value}{room_id}'
+
         _MANAGER_DISCONNECTED_TEXT = 'Менеджер завершил консультацию'
+
+        # Если смз
+        if self.consumer.user and self.consumer.user.account_type == AccountType.SELF_EMPLOYED.value:
+            await self.send_error(
+                code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
+            )
+            return
 
         if await self.check_permission_for_group_connection(**{
             'room_name': 'chats',
@@ -480,7 +500,8 @@ class AsyncSocketController:
         }):
             # Обновляем состояние чата - убираем менеджера и отправляем инфо сообщение
             chat_repository = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.CHATS.value)
-            should_send_info, active_managers_ids = await chat_repository(me=self.consumer.user).remove_active_manager(
+            should_send_info, active_managers_ids, state = await chat_repository(
+                me=self.consumer.user).remove_active_manager(
                 chat_id=room_id
             )
 
@@ -500,20 +521,20 @@ class AsyncSocketController:
                 # Отправляем сообщение в чат с персонализацией данных для всех участников
                 await self.send_chat_message(
                     room_id=room_id,
-                    group_name=AvailableRoom.CHATS.value,
+                    group_name=group_name,
                     prepared_message=bot_message_serialized
                 )
 
                 # Отправляем событие о смене состояния чата всем релевантным менеджерам
                 await self.send_chat_state_to_managers(
                     chat_id=room_id,
-                    state=ChatManagerState.BOT_IS_USED.value
+                    state=state
                 )
             else:
                 # Отправляем событие о смене активных менеджеров всем релевантным менеджерам
                 await self.send_chat_state_to_managers(
                     chat_id=room_id,
-                    state=ChatManagerState.MANAGER_CONNECTED.value,
+                    state=state,
                     active_managers_ids=active_managers_ids
                 )
 

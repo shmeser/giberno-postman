@@ -545,27 +545,24 @@ class ChatsRepository(MasterRepository):
 
     def remove_active_manager(self, chat_id):
         should_send_info = False
-        active_managers_ids = []
 
-        if self.me and self.me.account_type == AccountType.MANAGER.value:
-            # Если менеджер
-            chat = Chat.objects.filter(pk=chat_id, deleted=False).prefetch_related('active_managers').first()
+        chat = Chat.objects.filter(pk=chat_id, deleted=False).prefetch_related('active_managers').first()
 
-            # TODO проверить prefetched на еще один запрос
-            active_managers = chat.active_managers.all()
-            active_managers_count = chat.active_managers.count()
-            active_managers_ids = [am.id for am in active_managers]
-            if active_managers and self.me.id in active_managers_ids:
-                # Если есть активный менеджер и это я
-                if active_managers_count == 1:  # Если был активный менеджер только я
-                    should_send_info = True
-                    chat.state = ChatManagerState.BOT_IS_USED.value  # Переводим в состояние разгровара с ботом
-                    chat.save()
+        # TODO проверить prefetched на еще один запрос
+        active_managers = chat.active_managers.all()
+        active_managers_count = chat.active_managers.count()
+        active_managers_ids = [am.id for am in active_managers]
+        if active_managers and self.me.id in active_managers_ids:
+            # Если есть активный менеджер и это я
+            if active_managers_count == 1:  # Если был активный менеджер только я
+                should_send_info = True
+                chat.state = ChatManagerState.BOT_IS_USED.value  # Переводим в состояние разгровара с ботом
+                chat.save()
 
-                chat.active_managers.remove(self.me)
-                active_managers_ids.remove(self.me.id)
+            chat.active_managers.remove(self.me)
+            active_managers_ids.remove(self.me.id)
 
-        return should_send_info, active_managers_ids
+        return should_send_info, active_managers_ids, chat.state
 
     def get_managers(self, chat_id):
         shop_ct = ContentType.objects.get_for_model(Shop)
@@ -573,7 +570,7 @@ class ChatsRepository(MasterRepository):
         record = self.model.objects.filter(pk=chat_id, deleted=False).annotate(
             blocked_at=self.blocked_at_expression
         ).first()
-        managers = []
+        managers = None
         if record:
             # TODO учитывать настройки отпуска у менеджеров
             if record.target_ct == shop_ct:
@@ -583,13 +580,15 @@ class ChatsRepository(MasterRepository):
 
         return managers, record.blocked_at
 
-    def get_managers_sockets(self, chat_id):
+    def get_managers_and_sockets(self, chat_id):
         managers, blocked_at = self.get_managers(chat_id)
-        sockets = managers.aggregate(
-            sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-        )['sockets']
+        sockets = []
+        if managers:
+            sockets = managers.aggregate(
+                sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+            )['sockets']
 
-        return sockets, blocked_at
+        return managers, sockets, blocked_at
 
     def block_chat(self, record_id):
         # Блокировка чата для смз
@@ -655,8 +654,8 @@ class AsyncChatsRepository(ChatsRepository):
         return super().remove_active_manager(chat_id)
 
     @database_sync_to_async
-    def get_managers_sockets(self, chat_id):
-        return super().get_managers_sockets(chat_id)
+    def get_managers_and_sockets(self, chat_id):
+        return super().get_managers_and_sockets(chat_id)
 
 
 class CustomLookupBase(Lookup):
