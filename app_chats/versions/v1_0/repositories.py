@@ -355,7 +355,13 @@ class ChatsRepository(MasterRepository):
             chats_unread_messages_count=Coalesce(
                 Subquery(  # Проблемно через ORM посчитать для всех чатов т.к. Count() и .count() несовместим с Subquery
                     Message.objects
-                        .filter(chat__users=OuterRef('id'))
+                        .filter(
+                        Q(chat__users=OuterRef('id'), chat__users__account_type=AccountType.SELF_EMPLOYED.value) |
+                        Q(
+                            chat__users=OuterRef('id'),
+                            chat__users__account_type=AccountType.MANAGER.value,
+                            chat__state=ChatManagerState.NEED_MANAGER.value
+                        ) | Q(chat__active_managers=OuterRef('id')))
                         .exclude(user=OuterRef('id'))
                         .exclude(stats__user=OuterRef('id'), stats__is_read=True)
                         .annotate(count=Window(expression=Count('id')))  # Используем оконные функции OVER с Count()
@@ -527,7 +533,7 @@ class ChatsRepository(MasterRepository):
             )
 
         return chats.annotate(unread_count=self.unread_count_expression).aggregate(
-            total_unread_count=Sum('unread_count')
+            total_unread_count=Coalesce(Sum('unread_count'), 0)
         )['total_unread_count']
 
     def set_me_as_active_manager(self, chat_id):
