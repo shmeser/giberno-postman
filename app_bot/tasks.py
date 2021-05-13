@@ -40,12 +40,13 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
 
         # Если запрошен менеджер в чат
         if intent_code == ChatterBotIntentCode.DISABLE.value:
-            # переводим чат в состояние NEED_MANAGER
-            chat.state = ChatManagerState.NEED_MANAGER.value
             # Добавляем всех релевантных менеджеров в чат
             managers, blocked_at = chat_repository().get_managers(chat_id)
-            chat.users.add(*managers)  # добавляем в m2m несколько менеджеров с десериализацией через *
+            if managers:
+                chat.users.add(*managers)  # добавляем в m2m несколько менеджеров с десериализацией через *
 
+            # переводим чат в состояние NEED_MANAGER
+            chat.state = ChatManagerState.NEED_MANAGER.value
             chat.save()
 
             # Отправляем всем релевантным менеджерам по сокетам смену состояния чата
