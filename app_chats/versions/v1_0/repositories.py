@@ -516,7 +516,17 @@ class ChatsRepository(MasterRepository):
         return self.check_if_staff(record)
 
     def get_all_chats_unread_count(self):
-        return self.model.objects.filter(users=self.me).annotate(unread_count=self.unread_count_expression).aggregate(
+        chats = self.model.objects.filter(users=self.me)
+
+        if self.me.account_type == AccountType.MANAGER.value:  # Если менеджер
+            chats = chats.filter(
+                # Либо где активный менеджер - я
+                Q(state=ChatManagerState.MANAGER_CONNECTED.value, active_managers=self.me) |
+                # Либо где нужен менеджер
+                Q(state=ChatManagerState.NEED_MANAGER.value)
+            )
+
+        return chats.annotate(unread_count=self.unread_count_expression).aggregate(
             total_unread_count=Sum('unread_count')
         )['total_unread_count']
 
