@@ -44,7 +44,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
             logger.error(e)
 
     async def receive_json(self, content, **kwargs):
-        logger.debug(content)
+        logger.info(content)
 
         handler_type = 'server_message_handler'
         data = content
@@ -78,6 +78,10 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     # Общий обработчик серверных сообщений
     async def server_message_handler(self, data):
+        logger.info({
+            'eventType': data.get('event_type', SocketEventType.SERVER_SYSTEM_MESSAGE.value),
+            **data.get('prepared_data')
+        })
         await self.send_json(
             {
                 'eventType': data.get('event_type', SocketEventType.SERVER_SYSTEM_MESSAGE.value),
@@ -87,6 +91,10 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     # Уведомление
     async def notification_handler(self, data):
+        logger.info({
+            'eventType': SocketEventType.NOTIFICATION.value,
+            'notification': data.get('prepared_data'),
+        })
         await self.send_json(
             {
                 'eventType': SocketEventType.NOTIFICATION.value,
@@ -96,6 +104,13 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     # Сообщение об ошибке с кодом и деталями
     async def error_handler(self, data):
+        logger.info({
+            'eventType': SocketEventType.ERROR.value,
+            'error': {
+                'code': data.get('code'),
+                'details': data.get('details')
+            }
+        })
         await self.send_json(
             {
                 'eventType': SocketEventType.ERROR.value,
@@ -110,6 +125,13 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     # Сообщения в чате
     async def chat_message(self, data):
+        logger.info({
+            'eventType': SocketEventType.SERVER_NEW_MESSAGE_IN_CHAT.value,
+            'chat': {
+                'id': data.get('chat_id')
+            },
+            'message': data.get('prepared_data')
+        })
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_NEW_MESSAGE_IN_CHAT.value,
@@ -122,6 +144,13 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     # Сообщение в чате обновлено
     async def chat_message_updated(self, data):
+        logger.info({
+            'eventType': SocketEventType.SERVER_CHAT_MESSAGE_UPDATED.value,
+            'chat': {
+                'id': data.get('chat_id')
+            },
+            'message': data.get('prepared_data')
+        })
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_CHAT_MESSAGE_UPDATED.value,
@@ -134,6 +163,11 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     # Последнее сообщение в чате обновлено
     async def chat_last_msg_updated(self, data):
+        logger.info({
+            'eventType': SocketEventType.SERVER_CHAT_LAST_MESSAGE_UPDATED.value,
+            'chat': data.get('prepared_data'),
+            'indicators': data.get('indicators')
+        })
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_CHAT_LAST_MESSAGE_UPDATED.value,
@@ -144,6 +178,14 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     # Сообщение чата прочитано
     async def chat_message_was_read(self, data):
+        logger.info(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_MESSAGE_WAS_READ.value,
+                'chat': data.get('chat'),
+                'message': data.get('message'),
+                'indicators': data.get('indicators')
+            }
+        )
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_CHAT_MESSAGE_WAS_READ.value,
@@ -155,6 +197,12 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     # Информация о чате
     async def chat_info(self, data):
+        logger.info(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_UPDATED.value,
+                'chat': data.get('prepared_data')
+            }
+        )
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_CHAT_UPDATED.value,
@@ -164,6 +212,10 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     # Счетчики
     async def counters_for_indicators(self, data):
+        logger.info({
+            'eventType': SocketEventType.SERVER_COUNTERS_UPDATE.value,
+            'indicators': data.get('prepared_data')
+        })
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_COUNTERS_UPDATE.value,
@@ -173,6 +225,10 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     # Состояние чата изменилось - менеджер подсоединился или завершил консультацию
     async def chat_state_updated(self, data):
+        logger.info({
+            'eventType': SocketEventType.SERVER_CHAT_STATE_UPDATED.value,
+            'chat': data.get('prepared_data')
+        })
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_CHAT_STATE_UPDATED.value,
@@ -182,6 +238,10 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     # Состояние чата изменилось - менеджер подсоединился или завершил консультацию
     async def appeal_status_updated(self, data):
+        logger.info({
+            'eventType': SocketEventType.SERVER_APPEAL_STATUS_UPDATED.value,
+            'appeal': data.get('prepared_data')
+        })
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_APPEAL_STATUS_UPDATED.value,
