@@ -365,3 +365,13 @@ input, button {
     padding: 5px;
     color: #8ccab0;
 }
+
+.select-users {
+    background: #545454;
+    border: 1px solid #9a9a9a;
+    border-radius: 5px;
+    padding: 10px 10px;
+    font-size: 13px;
+    color: #54c3ce;
+    height: 45px;
+}
