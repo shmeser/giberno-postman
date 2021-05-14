@@ -21,7 +21,7 @@
                         id="saved-jwt"
                         onchange="changeJwt()"
                 >
-                    <option disabled selected>Saved JWT</option>
+                    <option disabled="true" selected="true">Saved JWT</option>
                 </select>
                 <button class="clear-jwt" id="clear-jwt" onclick="clearJWT()">✖</button>
             </div>
@@ -107,30 +107,32 @@
                 jwt: currentJwt
             });
 
-            rebuildSavedJwtOptions(savedJwtArray, currentJwt);
-
             let savedJwtArrayString = JSON.stringify(savedJwtArray);
             localStorage.setItem('saved-jwt', savedJwtArrayString);
+
+            rebuildSavedJwtOptions(savedJwtArray, currentJwt);
+
         };
 
-        const rebuildSavedJwtOptions = (savedJwtArray = [], currentJwt = null) => {
+        const rebuildSavedJwtOptions = (savedJwt = [], curJwt = null) => {
             let selectObject = document.getElementById('saved-jwt');
 
             let options = selectObject.options;
-            for (let i = 0; i < options.length; i++) {
-                if (!options[i].disabled) {
-                    selectObject[i].remove()
-                } else {
-                    selectObject[i].removeAttribute('selected');
-                    selectObject[i].setAttribute('selected', 'true');
-                }
-            }
+            options.length = 0;
 
-            for (let obj of savedJwtArray) {
+            let baseOpt = document.createElement('option');
+            baseOpt.innerHTML = 'Saved JWT';
+            baseOpt.setAttribute('disabled', 'true');
+            if (!savedJwt.length) {
+                baseOpt.setAttribute('selected', 'true');
+            }
+            selectObject.appendChild(baseOpt);
+
+            for (let obj of savedJwt) {
                 let opt = document.createElement('option');
                 opt.value = obj.jwt;
                 opt.innerHTML = 'User ID' + obj.userId;
-                if (obj.jwt === currentJwt) {
+                if (obj.jwt === curJwt) {
                     opt.setAttribute('selected', 'true');
                 }
                 selectObject.appendChild(opt);
@@ -146,7 +148,8 @@
 
         const changeJwt = () => {
             let selectObject = document.getElementById('saved-jwt');
-            document.getElementById('jwt-token').value = selectObject.value
+            document.getElementById('jwt-token').value = selectObject.value;
+            localStorage.setItem('socket-jwt', selectObject.value);
 
         };
 
