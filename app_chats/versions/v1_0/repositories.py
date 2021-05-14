@@ -364,9 +364,9 @@ class ChatsRepository(MasterRepository):
                         ) | Q(chat__active_managers=OuterRef('id')))
                         .exclude(user=OuterRef('id'))
                         .exclude(stats__user=OuterRef('id'), stats__is_read=True)
-                        .annotate(count=Window(expression=Count('id')))  # Используем оконные функции OVER с Count()
+                        .annotate(count=Window(expression=Count('id'), partition_by=[F('chat__users__id')]))
                         .values('count')[:1]  # В каждой строчке результата будет число всех строк, берем только его
-                ),
+                ),  # Используем оконные функции OVER с Count()
                 0),
         )
 
