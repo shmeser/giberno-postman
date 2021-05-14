@@ -15,6 +15,14 @@
                         placeholder="JWT Token (сохраняется в LocalStorage при успешном соединении)"
                         id="jwt-token" type="text"
                 />
+                <select
+                        class="select-users"
+                        aria-label=""
+                        id="saved-jwt"
+                        onchange="changeJwt()"
+                >
+                    <option disabled="true" selected="true">Saved JWT</option>
+                </select>
                 <button class="clear-jwt" id="clear-jwt" onclick="clearJWT()">✖</button>
             </div>
             <label for="sockets-route">
@@ -80,12 +88,73 @@
                 var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
                 return v.toString(16);
             });
-        }
+        };
 
         const clearJWT = () => {
             document.getElementById('jwt-token').value = '';
             document.getElementById('clear-jwt').blur();
             localStorage.removeItem('socket-jwt');
+            localStorage.removeItem('saved-jwt');
+            rebuildSavedJwtOptions();
+        };
+
+        const updateJwtForUser = (userId) => {
+            let currentJwt = localStorage.getItem('socket-jwt');
+            let savedJwtArray = JSON.parse(localStorage.getItem('saved-jwt') || '[]');
+            savedJwtArray = savedJwtArray.filter(e => e.userId !== userId);
+            savedJwtArray.push({
+                userId,
+                jwt: currentJwt
+            });
+
+            let savedJwtArrayString = JSON.stringify(savedJwtArray);
+            localStorage.setItem('saved-jwt', savedJwtArrayString);
+
+            rebuildSavedJwtOptions(savedJwtArray, currentJwt);
+
+        };
+
+        const updateConnectionForUser = (connectionId, userId) => {
+            document.getElementById('userFor' + connectionId).innerText = 'User ID:' + userId;
+        };
+
+        const rebuildSavedJwtOptions = (savedJwt = [], curJwt = null) => {
+            let selectObject = document.getElementById('saved-jwt');
+
+            let options = selectObject.options;
+            options.length = 0;
+
+            let baseOpt = document.createElement('option');
+            baseOpt.innerHTML = 'Saved JWT';
+            baseOpt.setAttribute('disabled', 'true');
+            if (!savedJwt.length) {
+                baseOpt.setAttribute('selected', 'true');
+            }
+            selectObject.appendChild(baseOpt);
+
+            for (let obj of savedJwt) {
+                let opt = document.createElement('option');
+                opt.value = obj.jwt;
+                opt.innerHTML = 'User ID' + obj.userId;
+                if (obj.jwt === curJwt) {
+                    opt.setAttribute('selected', 'true');
+                }
+                selectObject.appendChild(opt);
+            }
+
+        };
+
+        const getUsers = () => {
+            let currentJwt = localStorage.getItem('socket-jwt');
+            let savedJwtArray = JSON.parse(localStorage.getItem('saved-jwt') || '[]');
+            rebuildSavedJwtOptions(savedJwtArray, currentJwt);
+        };
+
+        const changeJwt = () => {
+            let selectObject = document.getElementById('saved-jwt');
+            document.getElementById('jwt-token').value = selectObject.value;
+            localStorage.setItem('socket-jwt', selectObject.value);
+
         };
 
         const getJWT = () => {
@@ -257,7 +326,7 @@
                 `<div class="connection mb-10 mr-10" id="${connectionId}">
                     <div class="dashboard">
                         <div class="flex jc-center">
-                            <label class="connection-route" for="disconnect-button">${route}</label>
+                            <label class="connection-route" for="disconnect-button"><span class="jwt-user" id="userFor${connectionId}"></span> ${route}</label>
                         </div>
                         <div class="flex h-fit flex-row">
                             <div class="flex-1 h-auto flex-column">
@@ -332,6 +401,11 @@
                     console.log(data.error);
                 }
 
+                if (data.eventType === _EVENT_TYPES.SERVER_COUNTERS_UPDATE) {
+                    updateJwtForUser(data.userId);
+                    updateConnectionForUser(id, data.userId);
+                }
+
                 data = JSON.stringify(data, undefined, 4);
 
                 addMessageToHistory(id, data, 'incomming');
@@ -354,6 +428,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             getJWT();
+            getUsers();
             getRoute();
         });
     </script>
