@@ -271,7 +271,7 @@ input, button {
 .event-options {
     display: flex;
     flex-flow: wrap;
-    height: 162px;
+    height: 201px;
     justify-content: space-around;
     align-items: center;
 }
@@ -279,6 +279,9 @@ input, button {
 .message-type-button {
     width: 110px;
     margin-bottom: 5px;
+    padding: 5px;
+    font-size: 13px;
+    height: 40px;
 }
 
 .outcomming {
@@ -361,7 +364,7 @@ input, button {
 
 .jwt {
     word-break: break-all;
-    font-size: 12px;
+    font-size: 9px;
     padding: 5px;
     color: #8ccab0;
 }
