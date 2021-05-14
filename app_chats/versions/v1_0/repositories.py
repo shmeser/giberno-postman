@@ -355,12 +355,18 @@ class ChatsRepository(MasterRepository):
             chats_unread_messages_count=Coalesce(
                 Subquery(  # Проблемно через ORM посчитать для всех чатов т.к. Count() и .count() несовместим с Subquery
                     Message.objects
-                        .filter(chat__users=OuterRef('id'))
+                        .filter(
+                        Q(chat__users=OuterRef('id'), chat__users__account_type=AccountType.SELF_EMPLOYED.value) |
+                        Q(
+                            chat__users=OuterRef('id'),
+                            chat__users__account_type=AccountType.MANAGER.value,
+                            chat__state=ChatManagerState.NEED_MANAGER.value
+                        ) | Q(chat__active_managers=OuterRef('id')))
                         .exclude(user=OuterRef('id'))
                         .exclude(stats__user=OuterRef('id'), stats__is_read=True)
-                        .annotate(count=Window(expression=Count('id')))  # Используем оконные функции OVER с Count()
+                        .annotate(count=Window(expression=Count('id'), partition_by=[F('chat__users__id')]))
                         .values('count')[:1]  # В каждой строчке результата будет число всех строк, берем только его
-                ),
+                ),  # Используем оконные функции OVER с Count()
                 0),
         )
 
@@ -516,8 +522,18 @@ class ChatsRepository(MasterRepository):
         return self.check_if_staff(record)
 
     def get_all_chats_unread_count(self):
-        return self.model.objects.filter(users=self.me).annotate(unread_count=self.unread_count_expression).aggregate(
-            total_unread_count=Sum('unread_count')
+        chats = self.model.objects.filter(users=self.me)
+
+        if self.me.account_type == AccountType.MANAGER.value:  # Если менеджер
+            chats = chats.filter(
+                # Либо где активный менеджер - я
+                Q(state=ChatManagerState.MANAGER_CONNECTED.value, active_managers=self.me) |
+                # Либо где нужен менеджер
+                Q(state=ChatManagerState.NEED_MANAGER.value)
+            )
+
+        return chats.annotate(unread_count=self.unread_count_expression).aggregate(
+            total_unread_count=Coalesce(Sum('unread_count'), 0)
         )['total_unread_count']
 
     def set_me_as_active_manager(self, chat_id):
