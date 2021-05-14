@@ -114,6 +114,10 @@
 
         };
 
+        const updateConnectionForUser = (connectionId, userId) => {
+            document.getElementById('userFor' + connectionId).innerText = 'User ID:' + userId;
+        };
+
         const rebuildSavedJwtOptions = (savedJwt = [], curJwt = null) => {
             let selectObject = document.getElementById('saved-jwt');
 
@@ -322,7 +326,7 @@
                 `<div class="connection mb-10 mr-10" id="${connectionId}">
                     <div class="dashboard">
                         <div class="flex jc-center">
-                            <label class="connection-route" for="disconnect-button">${route}</label>
+                            <label class="connection-route" for="disconnect-button"><span class="jwt-user" id="userFor${connectionId}"></span> ${route}</label>
                         </div>
                         <div class="flex h-fit flex-row">
                             <div class="flex-1 h-auto flex-column">
@@ -398,7 +402,8 @@
                 }
 
                 if (data.eventType === _EVENT_TYPES.SERVER_COUNTERS_UPDATE) {
-                    updateJwtForUser(data.userId)
+                    updateJwtForUser(data.userId);
+                    updateConnectionForUser(id, data.userId);
                 }
 
                 data = JSON.stringify(data, undefined, 4);

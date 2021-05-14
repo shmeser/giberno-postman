@@ -366,6 +366,11 @@ input, button {
     color: #8ccab0;
 }
 
+.jwt-user{
+    font-weight: 600;
+    color: #00ffca;
+}
+
 .select-users {
     background: #545454;
     border: 1px solid #9a9a9a;
