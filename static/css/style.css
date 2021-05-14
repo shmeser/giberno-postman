@@ -159,6 +159,10 @@ input, button {
     align-items: center;
 }
 
+.routes-block button, .clear-jwt, .select-users{
+    background-color: #2e4a4e;
+}
+
 .routes-block input, .routes-block button {
     width: 40%;
     font-weight: 600;
@@ -375,7 +379,7 @@ input, button {
 }
 
 .select-users {
-    background: #545454;
+    cursor: pointer;
     border: 1px solid #9a9a9a;
     border-radius: 5px;
     padding: 10px 10px;
