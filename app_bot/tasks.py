@@ -4,6 +4,7 @@ from loguru import logger
 
 from app_bot.enums import ChatterBotIntentCode
 from app_chats.enums import ChatMessageType, ChatManagerState
+from app_market.models import Vacancy, Shop
 from app_sockets.controllers import SocketController
 from app_sockets.enums import AvailableRoom, AvailableVersion
 from app_sockets.mappers import RoutingMapper
@@ -22,14 +23,18 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
             version=version, room_name=AvailableRoom.USERS.value)
         user = user_repository().get_by_id(user_id)
         # Проверяем необходимость отправки сообщения в чат от имени бота
+
+        # Обрабатываем сообщения только от СМЗ
         if user is None or user.account_type != AccountType.SELF_EMPLOYED.value:
             return
 
         chat_repository = RoutingMapper.room_repository(
             version=version, room_name=AvailableRoom.CHATS.value)
         chat = chat_repository().get_by_id(chat_id)
+
+        # НЕ обрабатываем сообщения в удаленных чатах и в состоянии НЕ в BOT_IS_USED
         if chat.deleted is True or chat.state != ChatManagerState.BOT_IS_USED.value:
-            return  # НЕ обрабатываем сообщения в удаленных чатах и в состоянии НЕ в BOT_IS_USED
+            return
 
         bot_repository = RoutingMapper.room_repository(
             version=version, room_name=AvailableRoom.BOT.value)
@@ -42,60 +47,28 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
 
         # Если запрошен менеджер в чат
         if intent_code == ChatterBotIntentCode.DISABLE.value:
-            # Добавляем всех релевантных менеджеров в чат
-            # переводим чат в состояние NEED_MANAGER
-            chat.state = ChatManagerState.NEED_MANAGER.value
-            chat.save()
+            # TODO не сразу переводить, добавить несколько попыток с вариантами кнопок
+            add_managers_to_chat(version, chat, __NOTIFICATION_TITLE)
 
-            managers, managers_sockets, blocked_at = chat_repository().get_managers_and_sockets(chat_id)
-            if managers:
-                chat.users.add(*managers)  # добавляем в m2m несколько менеджеров с десериализацией через *
-
-                # Отправляем всем релевантным менеджерам по сокетам смену состояния чата
-                for socket_id in managers_sockets:
-                    # Отправялем сообщение автору сообщения о том, что оно прочитано
-                    SocketController(version=AvailableVersion.V1_0.value).send_message_to_one_connection(socket_id, {
-                        'type': 'chat_state_updated',
-                        'prepared_data': {
-                            'id': chat_id,
-                            'state': ChatManagerState.NEED_MANAGER.value,
-                            'activeManagersIds': [],
-                            'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
-                        },
-                    })
-
-                # Отправляем всем релевантным менеджерам пуш о том что нужна помощь человека
-                # uuid для массовой рассылки оповещений,
-                # у пользователей в бд будут созданы оповещения с одинаковым uuid
-                # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
-                common_uuid = uuid.uuid4()
-                title = __NOTIFICATION_TITLE
-                message = f'Пользователь {chat.subject_user.first_name} {chat.subject_user.last_name}'
-                notification_type = NotificationType.SYSTEM.value
-                action = NotificationAction.CHAT.value
-                icon_type = NotificationIcon.DEFAULT.value
-                PushController().send_notification(
-                    users_to_send=managers,
-                    title=title,
-                    message=message,
-                    common_uuid=common_uuid,
-                    action=action,
-                    subject_id=chat_id,
-                    notification_type=notification_type,
-                    icon_type=icon_type,
-                )
-
-                # После отправки пушей (записи в бд создаются перед пушами) дублируем по сокетам уведомления
-                # TODO тут пока не учитываются настройки оповещений (notification_type)
-                SocketController().send_notification_to_many_connections(managers_sockets, {
-                    'title': title,
-                    'message': message,
-                    'uuid': str(common_uuid),
-                    'action': action,
-                    'subjectId': chat_id,
-                    'notificationType': notification_type,
-                    'iconType': icon_type,
-                })
+        # Vacs Shops
+        if intent_code == ChatterBotIntentCode.SHOP_ADDRESS.value:
+            text_reply = get_shop_address(chat.target, chat.target_id)
+        # Vacs
+        if intent_code == ChatterBotIntentCode.VACANCY_REQUIREMENTS.value:
+            text_reply = get_vacancy_requirements(chat.target_id, message_text)
+        if intent_code == ChatterBotIntentCode.APPEAL_CONFIRMATION.value:
+            pass  # не меняем ответ бота
+        if intent_code == ChatterBotIntentCode.SHIFT_TIME.value:
+            text_reply = get_shift_time(chat.target_id, chat.subject_user)
+        if intent_code == ChatterBotIntentCode.WHAT_TO_TAKE_WITH.value:
+            text_reply = get_necessary_docs_to_take(chat.target, chat.target_id)
+        if intent_code == ChatterBotIntentCode.CANCEL_APPEAL.value:
+            text_reply, buttons = get_appeal_cancellation_response(chat.target_id, chat.subject_user)
+        # Shops
+        if intent_code == ChatterBotIntentCode.VACANCIES_VARIETY.value:
+            text_reply, buttons = get_shop_vacancies_response(chat.target_id)
+        if intent_code == ChatterBotIntentCode.VACANCY_RATES.value:
+            text_reply, buttons = get_shop_vacancy_rates_response(chat.target_id)
 
         bot_message_serialized = message_repository(chat_id=chat_id).save_bot_message(
             {
@@ -108,6 +81,100 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
             version=AvailableVersion.V1_0.value,
             room_name=AvailableRoom.CHATS.value
         ).send_chat_message(chat_id=chat_id, prepared_message=bot_message_serialized)
-
     except Exception as e:
         logger.error(e)
+
+
+def add_managers_to_chat(version, chat, notification_title):
+    # Добавляем всех релевантных менеджеров в чат
+    # переводим чат в состояние NEED_MANAGER
+    chat.state = ChatManagerState.NEED_MANAGER.value
+    chat.save()
+
+    chat_repository = RoutingMapper.room_repository(
+        version=version, room_name=AvailableRoom.CHATS.value)
+
+    managers, managers_sockets, blocked_at = chat_repository().get_managers_and_sockets(chat.id)
+    if managers:
+        chat.users.add(*managers)  # добавляем в m2m несколько менеджеров с десериализацией через *
+
+        # Отправляем всем релевантным менеджерам по сокетам смену состояния чата
+        for socket_id in managers_sockets:
+            # Отправялем сообщение автору сообщения о том, что оно прочитано
+            SocketController(version=AvailableVersion.V1_0.value).send_message_to_one_connection(socket_id, {
+                'type': 'chat_state_updated',
+                'prepared_data': {
+                    'id': chat.id,
+                    'state': ChatManagerState.NEED_MANAGER.value,
+                    'activeManagersIds': [],
+                    'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
+                },
+            })
+
+        # Отправляем всем релевантным менеджерам пуш о том что нужна помощь человека
+        # uuid для массовой рассылки оповещений,
+        # у пользователей в бд будут созданы оповещения с одинаковым uuid
+        # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+        common_uuid = uuid.uuid4()
+        message = f'Пользователь {chat.subject_user.first_name} {chat.subject_user.last_name}'
+        notification_type = NotificationType.SYSTEM.value
+        action = NotificationAction.CHAT.value
+        icon_type = NotificationIcon.DEFAULT.value
+        PushController().send_notification(
+            users_to_send=managers,
+            title=notification_title,
+            message=message,
+            common_uuid=common_uuid,
+            action=action,
+            subject_id=chat.id,
+            notification_type=notification_type,
+            icon_type=icon_type,
+        )
+
+        # После отправки пушей (записи в бд создаются перед пушами) дублируем по сокетам уведомления
+        # TODO тут пока не учитываются настройки оповещений (notification_type)
+        SocketController().send_notification_to_many_connections(managers_sockets, {
+            'title': notification_title,
+            'message': message,
+            'uuid': str(common_uuid),
+            'action': action,
+            'subjectId': chat.id,
+            'notificationType': notification_type,
+            'iconType': icon_type,
+        })
+
+
+def get_shop_address(target, target_id):
+    if isinstance(target, Vacancy):
+        return vacancy_repository().get_shop_address(target_id)
+    if isinstance(target, Shop):
+        return shop_repository().get_shop_address(target_id)
+    return ''
+
+
+def get_vacancy_requirements(vacancy_id, message_text):
+    return vacancy_repository().get_requirements(vacancy_id, message_text)
+
+
+def get_shift_time(vacancy_id, subject_user):
+    return vacancy_repository(subject_user).get_shift_start_time(vacancy_id)
+
+
+def get_necessary_docs_to_take(target, target_id):
+    if isinstance(target, Vacancy):
+        return vacancy_repository().get_necessary_docs(target_id)
+    return 'Паспорт'
+
+
+def get_appeal_cancellation_response(vacancy_id, subject_user):
+    return vacancy_repository(subject_user).get_appeal_cancellation_response(vacancy_id)
+
+
+def get_shop_vacancies_response(shop_id):
+    # Shop
+    return '', []
+
+
+def get_shop_vacancy_rates_response(shop_id):
+    # Shop
+    return 'Таковы условия этого магазина! Хотите поискать в других магазинах?', []
