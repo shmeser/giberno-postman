@@ -975,22 +975,21 @@ class ShiftAppealsRepository(MasterRepository):
 
     @staticmethod
     def get_start_end_time_range(**data):
+
         shift = data.get('shift')
-        shift_active_date = data.get('shift_active_date')
-
-        if shift_active_date <= now():
-            raise CustomException(errors=[
-                dict(Error(ErrorsCodes.SHIFT_OVERDUE))
-            ])
-
-        utc_offset = pytz.timezone(shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
         if not shift.time_start or not shift.time_end:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.SHIFT_WITHOUT_TIME))
             ])
 
+        shift_active_date = data.get('shift_active_date')
+        utc_offset = pytz.timezone(shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
         time_start = handle_date_for_appeals(shift_active_date=shift_active_date, time_object=shift.time_start,
                                              utc_offset=utc_offset)
+        if time_start <= datetime.now():
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.SHIFT_OVERDUE))
+            ])
 
         if shift.time_start > shift.time_end:
             time_end = handle_date_for_appeals(shift_active_date=shift_active_date + timedelta(days=1),
