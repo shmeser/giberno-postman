@@ -38,6 +38,8 @@ class ErrorsCodes(EnumM):
     SHIFT_WITHOUT_TIME = 'У cмены нет времени начала и окончания'
     SHIFT_OVERDUE = 'Просроченная смена'
 
+    VACANCY_OR_SHOP_CHAT_IS_BLOCKED = 'Вы были заблокированы и не можете подать заявку на эту вакансию'
+
 
 class SocketErrors(IntEnumM):
     # Диапазон 3000-4999

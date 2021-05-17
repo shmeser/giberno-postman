@@ -515,11 +515,18 @@ class ChatsRepository(MasterRepository):
         return True
 
     def check_permission_for_action(self, record_id):
+        record = self.model.objects.filter(id=record_id).annotate(
+            blocked_at=self.blocked_at_expression
+        ).first()
+        if not record:
+            raise EntityDoesNotExistException
+        if record.blocked_at is not None or self.check_if_staff(record) is False:
+            raise ForbiddenException
+
+    def check_if_exists(self, record_id):
         record = self.model.objects.filter(id=record_id).first()
         if not record:
             raise EntityDoesNotExistException
-
-        return self.check_if_staff(record)
 
     def get_all_chats_unread_count(self):
         chats = self.model.objects.filter(users=self.me)
@@ -656,6 +663,10 @@ class AsyncChatsRepository(ChatsRepository):
     @database_sync_to_async
     def check_permission_for_action(self, record_id):
         return super().check_permission_for_action(record_id)
+
+    @database_sync_to_async
+    def check_if_exists(self, record_id):
+        return super().check_if_exists(record_id)
 
     @database_sync_to_async
     def get_all_chats_unread_count(self):

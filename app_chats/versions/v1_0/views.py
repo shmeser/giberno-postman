@@ -152,7 +152,9 @@ class Messages(CRUDAPIView):
 
         self.many = False
 
-        if not ChatsRepository(request.user).check_permission_for_action(chat_id):
+        try:
+            ChatsRepository(request.user).check_permission_for_action(chat_id)
+        except (EntityDoesNotExistException, ForbiddenException):
             # Если нет доступа к чату
             raise HttpException(status_code=RESTErrors.FORBIDDEN.value, detail=RESTErrors.FORBIDDEN.name)
 
@@ -198,7 +200,9 @@ class ReadMessages(CRUDAPIView):
 
         self.many = False
 
-        if not ChatsRepository(request.user).check_permission_for_action(chat_id):
+        try:
+            ChatsRepository(request.user).check_permission_for_action(chat_id)
+        except (EntityDoesNotExistException, ForbiddenException):
             # Если нет доступа к чату
             raise HttpException(status_code=RESTErrors.FORBIDDEN.value, detail=RESTErrors.FORBIDDEN.name)
 
