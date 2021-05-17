@@ -90,8 +90,9 @@ services:
       DB_NAME: ${POSTGRES_DB}
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
-      SUPERUSER_PASS: ${SUPERUSER_PASS}
       ENVIRONMENT: ${ENVIRONMENT}
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       - db
       - redis

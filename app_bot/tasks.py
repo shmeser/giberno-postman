@@ -15,6 +15,8 @@ from giberno.celery import app
 
 @app.task
 def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
+    __NOTIFICATION_TITLE = 'Необходима поддержка от менеджера'
+
     try:
         user_repository = RoutingMapper.room_repository(
             version=version, room_name=AvailableRoom.USERS.value)
@@ -67,7 +69,7 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
                 # у пользователей в бд будут созданы оповещения с одинаковым uuid
                 # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
                 common_uuid = uuid.uuid4()
-                title = 'Необходима поддержка от менеджера'
+                title = __NOTIFICATION_TITLE
                 message = f'Пользователь {chat.subject_user.first_name} {chat.subject_user.last_name}'
                 notification_type = NotificationType.SYSTEM.value
                 action = NotificationAction.CHAT.value

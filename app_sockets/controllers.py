@@ -2,12 +2,12 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from loguru import logger
 
-from app_sockets.enums import AvailableRoom
+from app_sockets.enums import AvailableRoom, AvailableVersion
 from app_sockets.mappers import RoutingMapper
 from app_users.enums import NotificationAction, NotificationType
 from app_users.models import UserProfile
 from backend.controllers import PushController
-from backend.utils import chained_get
+from backend.utils import chained_get, datetime_to_timestamp
 
 
 class SocketController:
@@ -141,6 +141,31 @@ class SocketController:
                 notification_type=NotificationType.CHAT.value,
                 icon_type=''
             )
+
+        except Exception as e:
+            logger.error(e)
+
+    def send_chat_state(self, state=None, chat_id=None, active_managers_ids=[]):
+        try:
+            chat_repository = RoutingMapper.room_repository(
+                version=AvailableVersion.V1_0.value, room_name=AvailableRoom.CHATS.value
+            )
+            managers, relevant_managers_sockets, blocked_at = chat_repository().get_managers_and_sockets(
+                chat_id=chat_id
+            )
+            for socket in relevant_managers_sockets:
+                self.send_message_to_one_connection(
+                    socket,
+                    {
+                        'type': 'chat_state_updated',
+                        'prepared_data': {
+                            'id': chat_id,
+                            'state': state,
+                            'activeManagersIds': active_managers_ids,
+                            'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
+                        }
+                    }
+                )
 
         except Exception as e:
             logger.error(e)

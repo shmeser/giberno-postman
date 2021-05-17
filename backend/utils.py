@@ -16,6 +16,7 @@ from PIL import Image, ExifTags
 from django.conf import settings
 from django.core.files.uploadedfile import TemporaryUploadedFile
 from django.db.models.expressions import Func, Expression, F, Value as V
+from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 from ffmpy import FFmpeg
@@ -509,6 +510,13 @@ class ArrayRemove(SimpleFunc):
         Реализация Postgres функции array_remove, которой нет в Django
     """
     function = 'ARRAY_REMOVE'
+
+
+class TruncMilliecond(TruncBase):
+    """
+        Отсутствующий в Django класс для миллисекунд
+    """
+    kind = 'millisecond'
 
 
 class RruleListOccurences(Func):

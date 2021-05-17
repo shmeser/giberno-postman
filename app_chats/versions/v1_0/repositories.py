@@ -6,7 +6,6 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef, Case, When, F, IntegerField, \
     Exists, Sum, Window, Value
 from django.db.models.functions import Coalesce
-from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize, underscoreize
 
@@ -26,14 +25,7 @@ from backend.errors.enums import RESTErrors
 from backend.errors.exceptions import EntityDoesNotExistException, ForbiddenException
 from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
-from backend.utils import chained_get, ArrayRemove, datetime_to_timestamp
-
-
-class TruncMilliecond(TruncBase):
-    """
-        Отсутствующий в Django класс для миллисекунд
-    """
-    kind = 'millisecond'
+from backend.utils import chained_get, ArrayRemove, datetime_to_timestamp, TruncMilliecond
 
 
 class ChatsRepository(MasterRepository):
@@ -560,7 +552,8 @@ class ChatsRepository(MasterRepository):
 
             # Добавляем себя в активные менеджеры
             chat.active_managers.add(self.me)
-            active_managers_ids.append(self.me.id)
+            if self.me.id not in active_managers_ids:
+                active_managers_ids.append(self.me.id)
             chat.state = ChatManagerState.MANAGER_CONNECTED.value  # Переводим в состояние подключенного менеджера
             chat.save()
 

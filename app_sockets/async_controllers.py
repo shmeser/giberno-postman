@@ -464,6 +464,9 @@ class AsyncSocketController:
             return
 
         try:
+            self.repository_class = RoutingMapper.room_async_repository(
+                self.consumer.version, AvailableRoom.CHATS.value
+            )
             await self.repository_class(self.consumer.user).check_permission_for_action(room_id)
 
             # Обновляем состояние чата - текущий менеджер активный и отправляем инфо сообщение
@@ -499,6 +502,12 @@ class AsyncSocketController:
                     group_name=group_name,
                     prepared_message=bot_message_serialized
                 )
+            else:
+                await self.send_chat_state_to_managers(
+                    chat_id=room_id,
+                    state=ChatManagerState.MANAGER_CONNECTED.value,
+                    active_managers_ids=active_managers_ids
+                )
 
         except ForbiddenException:
             logger.info(f'Действие запрещено')
@@ -531,6 +540,9 @@ class AsyncSocketController:
             return
 
         try:
+            self.repository_class = RoutingMapper.room_async_repository(
+                self.consumer.version, AvailableRoom.CHATS.value
+            )
             await self.repository_class(self.consumer.user).check_permission_for_action(room_id)
 
             # Обновляем состояние чата - убираем менеджера и отправляем инфо сообщение
