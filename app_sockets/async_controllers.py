@@ -9,7 +9,7 @@ from app_sockets.mappers import RoutingMapper
 from app_users.enums import NotificationAction, NotificationType, AccountType
 from backend.controllers import AsyncPushController
 from backend.errors.enums import SocketErrors
-from backend.errors.exceptions import EntityDoesNotExistException
+from backend.errors.exceptions import EntityDoesNotExistException, ForbiddenException
 from backend.errors.ws_exceptions import WebSocketError
 from backend.utils import chained_get, datetime_to_timestamp
 
@@ -120,12 +120,7 @@ class AsyncSocketController:
 
             self.repository_class = RoutingMapper.room_async_repository(version, room_name)
 
-            if not await self.repository_class(me).check_permission_for_action(room_id):
-                logger.info(f'Действие запрещено')
-                if self.consumer.is_group_consumer:
-                    # Закрываем соединение, если это GroupConsumer
-                    await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
-                return False
+            await self.repository_class(me).check_if_exists(room_id)
             return True
 
         except EntityDoesNotExistException:
@@ -133,15 +128,22 @@ class AsyncSocketController:
             if self.consumer.is_group_consumer:
                 # Закрываем соединение, если это GroupConsumer
                 await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
-            else:
-                raise WebSocketError(code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name)
+                return False
+            raise WebSocketError(code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name)
+        except ForbiddenException:
+            logger.info(f'Действие запрещено')
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
+                return False
+            raise WebSocketError(code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name)
         except Exception as e:
             logger.error(e)
             if self.consumer.is_group_consumer:
                 # Закрываем соединение, если это GroupConsumer
                 await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
-            else:
-                raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=e)
+                return False
+            raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=e)
 
     async def update_location(self, event):
         self.repository_class = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.USERS.value)
@@ -225,13 +227,10 @@ class AsyncSocketController:
             room_id = chained_get(content, 'chatId')
             group_name = f'{AvailableRoom.CHATS.value}{room_id}'
 
-        if await self.check_permission_for_group_connection(**{
-            'room_name': AvailableRoom.CHATS.value,
-            'room_id': room_id
-        }):
-            # self.repository_class = RoutingMapper.room_async_repository(
-            #     self.consumer.version, AvailableRoom.CHATS.value
-            # )
+        self.repository_class = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.CHATS.value)
+
+        try:
+            await self.repository_class(self.consumer.user).check_permission_for_action(room_id)
 
             message_repository = RoutingMapper.room_async_repository(
                 self.consumer.version, AvailableRoom.MESSAGES.value
@@ -260,10 +259,28 @@ class AsyncSocketController:
                 message_text=chained_get(processed_serialized_message, 'text')
             ).apply_async(countdown=2)  # Отвечаем через 2 сек
 
-        else:
+        except ForbiddenException:
+            logger.info(f'Действие запрещено')
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
             await self.send_error(
                 code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
             )
+        except EntityDoesNotExistException:
+            logger.info(f'Не найдено')
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+            await self.send_error(
+                code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name
+            )
+
+        except Exception as e:
+            logger.error(e)
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
 
     async def client_read_message_in_chat(self, content):
         try:
@@ -271,18 +288,10 @@ class AsyncSocketController:
             if not room_id:
                 room_id = chained_get(content, 'chatId')
 
-            if await self.check_permission_for_group_connection(**{
-                'room_name': AvailableRoom.CHATS.value,
-                'room_id': room_id
-            }) is False:
-                await self.send_error(
-                    code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
-                )
-                return
-
             self.repository_class = RoutingMapper.room_async_repository(
                 self.consumer.version, AvailableRoom.CHATS.value
             )
+            await self.repository_class(self.consumer.user).check_permission_for_action(room_id)
 
             message_repository = RoutingMapper.room_async_repository(
                 self.consumer.version, AvailableRoom.MESSAGES.value
@@ -327,6 +336,22 @@ class AsyncSocketController:
                     state=state
                 )
 
+        except ForbiddenException:
+            logger.info(f'Действие запрещено')
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
+            await self.send_error(
+                code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
+            )
+        except EntityDoesNotExistException:
+            logger.info(f'Не найдено')
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+            await self.send_error(
+                code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name
+            )
         except Exception as e:
             logger.error(e)
             raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
@@ -438,10 +463,9 @@ class AsyncSocketController:
             )
             return
 
-        if await self.check_permission_for_group_connection(**{
-            'room_name': AvailableRoom.CHATS.value,
-            'room_id': room_id,
-        }):
+        try:
+            await self.repository_class(self.consumer.user).check_permission_for_action(room_id)
+
             # Обновляем состояние чата - текущий менеджер активный и отправляем инфо сообщение
             # Если уже активен другой, то ставим его, но не отправляем инфо сообщение
             chat_repository = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.CHATS.value)
@@ -476,9 +500,21 @@ class AsyncSocketController:
                     prepared_message=bot_message_serialized
                 )
 
-        else:
+        except ForbiddenException:
+            logger.info(f'Действие запрещено')
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
             await self.send_error(
                 code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
+            )
+        except EntityDoesNotExistException:
+            logger.info(f'Не найдено')
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+            await self.send_error(
+                code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name
             )
 
     async def manager_leave_chat(self, content):
@@ -494,10 +530,9 @@ class AsyncSocketController:
             )
             return
 
-        if await self.check_permission_for_group_connection(**{
-            'room_name': 'chats',
-            'room_id': room_id,
-        }):
+        try:
+            await self.repository_class(self.consumer.user).check_permission_for_action(room_id)
+
             # Обновляем состояние чата - убираем менеджера и отправляем инфо сообщение
             chat_repository = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.CHATS.value)
             should_send_info, active_managers_ids, state = await chat_repository(
@@ -538,7 +573,20 @@ class AsyncSocketController:
                     active_managers_ids=active_managers_ids
                 )
 
-        else:
+        except ForbiddenException:
+            logger.info(f'Действие запрещено')
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
             await self.send_error(
                 code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
+            )
+
+        except EntityDoesNotExistException:
+            logger.info(f'Не найдено')
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+            await self.send_error(
+                code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name
             )
