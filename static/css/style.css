@@ -159,6 +159,10 @@ input, button {
     align-items: center;
 }
 
+.routes-block button, .clear-jwt, .select-users{
+    background-color: #2e4a4e;
+}
+
 .routes-block input, .routes-block button {
     width: 40%;
     font-weight: 600;
@@ -271,7 +275,7 @@ input, button {
 .event-options {
     display: flex;
     flex-flow: wrap;
-    height: 162px;
+    height: 201px;
     justify-content: space-around;
     align-items: center;
 }
@@ -279,6 +283,9 @@ input, button {
 .message-type-button {
     width: 110px;
     margin-bottom: 5px;
+    padding: 5px;
+    font-size: 13px;
+    height: 40px;
 }
 
 .outcomming {
@@ -361,7 +368,22 @@ input, button {
 
 .jwt {
     word-break: break-all;
-    font-size: 12px;
+    font-size: 9px;
     padding: 5px;
     color: #8ccab0;
+}
+
+.jwt-user{
+    font-weight: 600;
+    color: #00ffca;
+}
+
+.select-users {
+    cursor: pointer;
+    border: 1px solid #9a9a9a;
+    border-radius: 5px;
+    padding: 10px 10px;
+    font-size: 13px;
+    color: #54c3ce;
+    height: 45px;
 }

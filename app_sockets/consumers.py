@@ -219,7 +219,8 @@ class Consumer(AsyncJsonWebsocketConsumer):
         await self.send_json(
             {
                 'eventType': SocketEventType.SERVER_COUNTERS_UPDATE.value,
-                'indicators': data.get('prepared_data')
+                'indicators': data.get('prepared_data'),
+                'userId': self.user.id
             },
         )
 
