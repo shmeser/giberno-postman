@@ -238,10 +238,16 @@ class ShiftAppeals(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        serializer = ShiftAppealCreateSerializer(data=get_request_body(request))
-        if serializer.is_valid(raise_exception=True):
-            instance = self.repository_class(me=request.user).get_or_create(**serializer.validated_data)
-            return Response(camelize(ShiftAppealsSerializer(instance=instance, many=False).data))
+        data = get_request_body(request)
+        if self.repository_class(me=request.user).check_permission_for_appeal(data.get('shift')):
+            serializer = ShiftAppealCreateSerializer(data=data)
+            if serializer.is_valid(raise_exception=True):
+                instance = self.repository_class(me=request.user).get_or_create(**serializer.validated_data)
+                return Response(camelize(ShiftAppealsSerializer(instance=instance, many=False).data))
+        else:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.VACANCY_OR_SHOP_CHAT_IS_BLOCKED)),
+            ])
 
     def put(self, request, *args, **kwargs):
         serializer = ShiftAppealCreateSerializer(data=get_request_body(request))

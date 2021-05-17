@@ -16,6 +16,7 @@ from django.utils.timezone import now, localtime
 from pytz import timezone
 from rest_framework.exceptions import PermissionDenied
 
+from app_chats.models import ChatUser
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus
@@ -1177,6 +1178,24 @@ class ShiftAppealsRepository(MasterRepository):
 
     def get_new_appeals_count(self):
         return 0
+
+    def check_permission_for_appeal(self, shift_id):
+        #  Проверяем не заблокирован ли чат с магазином, в которой есть вакансия, или чат с самой вакансией
+        s = Shift.objects.filter(id=shift_id).select_related('vacancy').first()
+        vacancy_ct = ContentType.objects.get_for_model(Vacancy)
+        shop_ct = ContentType.objects.get_for_model(Shop)
+        if ChatUser.objects.filter(
+                # Ищем чаты где я - subject_user, и мою запись ChatUser где blocked_at не пусто
+                Q(chat__subject_user=self.me, user=self.me, blocked_at__isnull=False) &
+                (
+                        # Чат должен быть либо по вакансии
+                        Q(chat__target_ct=vacancy_ct, chat__target_id=s.vacancy_id) |
+                        # Либо по магазину
+                        Q(chat__target_ct=shop_ct, chat__target_id=s.vacancy.shop_id)
+                )
+        ).exists():
+            return False
+        return True
 
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
