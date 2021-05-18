@@ -40,7 +40,7 @@ def check_abandoned_chats():
 @app.task
 def auto_update_abandoned_chat_state(chat_id):
     version = AvailableVersion.V1_0.value
-    _AUTO_SWITCH_TEXT = 'Чат перевён на бота'
+    _AUTO_SWITCH_TEXT = 'Чат переведён на бота'
 
     chat_repository = RoutingMapper.room_repository(
         version=version, room_name=AvailableRoom.CHATS.value)
