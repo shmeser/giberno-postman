@@ -19,7 +19,7 @@ from rest_framework.exceptions import PermissionDenied
 from app_chats.models import ChatUser
 from app_feedback.models import Review, Like
 from app_geo.models import Region
-from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus
+from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus, WorkExperience, VacancyEmployment
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument
 from app_market.utils import handle_date_for_appeals
@@ -906,6 +906,44 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             return result
 
         return []
+
+    def get_requirements(self, vacancy_id, message_text):
+        vacancy = Vacancy.objects.get(pk=vacancy_id)
+        required_experience = ''
+        for exp in vacancy.required_experience:
+            if exp == WorkExperience.NO.value:
+                required_experience += 'Без опыта'
+                required_experience += '\n'
+            if exp == WorkExperience.INVALID.value:
+                required_experience += 'С ограниченными возможностями'
+                required_experience += '\n'
+            if exp == WorkExperience.UNDERAGE.value:
+                required_experience += 'До 18 лет'
+                required_experience += '\n'
+            if exp == WorkExperience.MIDDLE.value:
+                required_experience += '1-3 года опыта'
+                required_experience += '\n'
+            if exp == WorkExperience.STRONG.value:
+                required_experience += 'более 3 лет опыта'
+                required_experience += '\n'
+
+        employment = ''
+        if vacancy.employment == VacancyEmployment.PARTIAL.value:
+            employment = 'Частичная занятость'
+        if vacancy.employment == VacancyEmployment.FULL.value:
+            employment = 'Полная занятость'
+
+        text = ''
+        if vacancy.requirements:
+            text += f'Требования: {vacancy.requirements}\n'
+        if required_experience:
+            text += f'Требуемый опыт: {required_experience}\n'
+        if vacancy.features:
+            text += f'Бонусы: {vacancy.features}\n'
+        if employment:
+            text += f'Тип занятости: {employment}'
+
+        return text
 
 
 class AsyncVacanciesRepository(VacanciesRepository):
