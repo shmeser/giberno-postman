@@ -126,6 +126,10 @@ CELERY_BEAT_SCHEDULE = {
     'cancel_overdue_appeals': {
         'task': 'app_market.tasks.cancel_overdue_appeals',
         'schedule': crontab(minute='*')
+    },
+    'auto_switch_to_bot': {
+        'task': 'app_chats.tasks.check_abandoned_chats',
+        'schedule': crontab(minute='*')
     }
 }
 
@@ -287,6 +291,8 @@ LOGGING = {
         },
     },
 }
+
+AUTO_SWITCH_TO_BOT_MIN = 15
 
 # POSTGIS ###
 SRID = 4326  # WGS 84 -- WGS84 - World Geodetic System 1984, used in GPS

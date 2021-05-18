@@ -89,6 +89,8 @@ services:
       DB_PASSWORD: ${ST_POSTGRES_PASSWORD}
       SUPERUSER_PASS: ${ST_SUPERUSER_PASS}
       ENVIRONMENT: ${ST_ENVIRONMENT}
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+      SECRET_KEY: ${ST_SECRET_KEY}
     depends_on:
       - db
       - redis

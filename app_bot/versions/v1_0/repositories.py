@@ -139,7 +139,7 @@ class ChatterBotRepository:
         intent = cls.process_human_language(text)
 
         if intent:
-            return random.choice(intent['response']), intent['code']
+            return random.choice(intent['response']) if intent['response'] else cls._DEFAULT_BOT_ANSWER, intent['code']
 
         return cls._DEFAULT_BOT_ANSWER, None
 
