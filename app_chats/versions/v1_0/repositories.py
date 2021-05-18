@@ -970,6 +970,7 @@ class MessagesRepository(MasterRepository):
             icon_type=content.get('icon_type'),
             title=content.get('title'),
             text=content.get('text'),
+            buttons=content.get('buttons')
         )
 
         # TODO общие файлы для сообщений сделать

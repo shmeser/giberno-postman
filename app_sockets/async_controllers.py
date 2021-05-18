@@ -261,23 +261,26 @@ class AsyncSocketController:
 
         except ForbiddenException:
             logger.info(f'Действие запрещено')
-            if self.consumer.is_group_consumer:
-                # Закрываем соединение, если это GroupConsumer
-                await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
             await self.send_error(
                 code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
             )
-        except EntityDoesNotExistException:
-            logger.info(f'Не найдено')
             if self.consumer.is_group_consumer:
                 # Закрываем соединение, если это GroupConsumer
-                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+                await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
+        except EntityDoesNotExistException:
+            logger.info(f'Не найдено')
             await self.send_error(
                 code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name
             )
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
 
         except Exception as e:
             logger.error(e)
+            await self.send_error(
+                code=SocketErrors.BAD_REQUEST.value, details=str(e)
+            )
             if self.consumer.is_group_consumer:
                 # Закрываем соединение, если это GroupConsumer
                 await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)

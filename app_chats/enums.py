@@ -18,3 +18,12 @@ class ChatManagerState(IntEnumM):
     BOT_IS_USED = 0  # Общение с ботом
     NEED_MANAGER = 1  # Необходим менеджер для ответа
     MANAGER_CONNECTED = 2  # Менеджер подключен
+
+
+class ChatMessageActionType(IntEnumM):
+    CANCEL = 0  # Отмена
+    DISTRIBUTOR = 1  # Торговая сеть
+    SHOP = 2  # Магазин
+    VACANCY = 3  # Вакансия
+    SHIFT = 4  # Смена
+    APPEAL = 5  # Заявка

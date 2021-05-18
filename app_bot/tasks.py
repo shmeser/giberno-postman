@@ -3,7 +3,7 @@ import uuid
 from loguru import logger
 
 from app_bot.enums import ChatterBotIntentCode
-from app_chats.enums import ChatMessageType, ChatManagerState
+from app_chats.enums import ChatMessageType, ChatManagerState, ChatMessageActionType
 from app_market.models import Vacancy, Shop
 from app_sockets.controllers import SocketController
 from app_sockets.enums import AvailableRoom, AvailableVersion
@@ -44,6 +44,7 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
         # TODO Определить тип ответа - список документов, форма, обычное сообщение и т.д.
 
         text_reply, intent_code = bot_repository.get_response(message_text)
+        buttons = None
 
         # Если запрошен менеджер в чат
         if intent_code == ChatterBotIntentCode.DISABLE.value:
@@ -61,7 +62,7 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
         if intent_code == ChatterBotIntentCode.SHIFT_TIME.value:
             text_reply = get_shift_time(version, chat.target_id, chat.subject_user)
         if intent_code == ChatterBotIntentCode.WHAT_TO_TAKE_WITH.value:
-            text_reply = get_necessary_docs_to_take(version, chat.target, chat.target_id)
+            text_reply = get_necessary_docs_to_take(version, chat.target, chat.target_id)  #
         if intent_code == ChatterBotIntentCode.CANCEL_APPEAL.value:
             text_reply, buttons = get_appeal_cancellation_response(version, chat.target_id, chat.subject_user)
         # Shops
@@ -73,7 +74,8 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
         bot_message_serialized = message_repository(chat_id=chat_id).save_bot_message(
             {
                 'message_type': ChatMessageType.SIMPLE.value,
-                'text': text_reply
+                'text': text_reply,
+                'buttons': buttons
             }
         )
 
@@ -178,7 +180,17 @@ def get_necessary_docs_to_take(version, target, target_id):
 
 def get_appeal_cancellation_response(version, vacancy_id, subject_user):
     vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
-    return vacancy_repository(subject_user).get_appeal_cancellation_response(vacancy_id)
+    buttons = [
+        {
+            'action': ChatMessageActionType.VACANCY.value,
+            'text': 'Отказаться'
+        },
+        {
+            'action': ChatMessageActionType.CANCEL.value,
+            'text': 'Отмена'
+        },
+    ]
+    return vacancy_repository(subject_user).get_appeal_cancellation_response(vacancy_id), buttons
 
 
 def get_shop_vacancies_response(version, shop_id):
@@ -186,7 +198,8 @@ def get_shop_vacancies_response(version, shop_id):
     # Shop
     shop = shop_repository().get_by_id(shop_id)
     return '', [{
-        'shopId': shop_id
+        'action': ChatMessageActionType.SHOP.value,
+        'text': 'Показать вакансии'
     }]
 
 
@@ -195,5 +208,6 @@ def get_shop_vacancy_rates_response(version, shop_id):
     # Shop
     shop = shop_repository().get_by_id(shop_id)
     return 'Таковы условия этого магазина! Хотите поискать в других магазинах?', [{
-        'distributorId': shop.distributor_id
+        'action': ChatMessageActionType.DISTRIBUTOR.value,
+        'text': 'Показать другие магазины'
     }]

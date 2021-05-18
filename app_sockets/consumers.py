@@ -38,7 +38,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
 
     async def disconnect(self, code):
         try:
-            if self.user.is_authenticated:
+            if self.user and self.user.is_authenticated:
                 await self.socket_controller.remove_connection()
         except Exception as e:
             logger.error(e)
