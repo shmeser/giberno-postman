@@ -52,10 +52,10 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
 
         # Vacs Shops
         if intent_code == ChatterBotIntentCode.SHOP_ADDRESS.value:
-            text_reply = get_shop_address(version, chat.target, chat.target_id)
+            text_reply = get_shop_address(version, chat.target, chat.target_id)  #
         # Vacs
         if intent_code == ChatterBotIntentCode.VACANCY_REQUIREMENTS.value:
-            text_reply = get_vacancy_requirements(version, chat.target_id, message_text)
+            text_reply = get_vacancy_requirements(version, chat.target_id, message_text)  #
         if intent_code == ChatterBotIntentCode.APPEAL_CONFIRMATION.value:
             pass  # не меняем ответ бота
         if intent_code == ChatterBotIntentCode.SHIFT_TIME.value:
@@ -68,7 +68,7 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
         if intent_code == ChatterBotIntentCode.VACANCIES_VARIETY.value:
             text_reply, buttons = get_shop_vacancies_response(version, chat.target_id)
         if intent_code == ChatterBotIntentCode.VACANCY_RATES.value:
-            text_reply, buttons = get_shop_vacancy_rates_response(version, chat.target_id)
+            text_reply, buttons = get_shop_vacancy_rates_response(version, chat.target_id)  #
 
         bot_message_serialized = message_repository(chat_id=chat_id).save_bot_message(
             {
@@ -148,7 +148,7 @@ def get_shop_address(version, target, target_id):
     if isinstance(target, Vacancy):
         vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
         shop_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.SHOPS.value)
-        vacancy = vacancy_repository().get_shop_address(target_id)
+        vacancy = vacancy_repository().get_by_id(target_id)
         shop = shop_repository().get_by_id(vacancy.shop_id)
         return shop.address
     if isinstance(target, Shop):
@@ -159,6 +159,7 @@ def get_shop_address(version, target, target_id):
 
 
 def get_vacancy_requirements(version, vacancy_id, message_text):
+    # TODO добавить файлы документов и разбивку по точным запросам (бонусы, опыт и т.д)
     vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
     return vacancy_repository().get_requirements(vacancy_id, message_text)
 
