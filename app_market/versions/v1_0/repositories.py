@@ -26,7 +26,7 @@ from app_market.utils import handle_date_for_appeals
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
-from app_users.enums import AccountType
+from app_users.enums import AccountType, DocumentType
 from app_users.models import UserProfile
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -910,22 +910,23 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
     def get_requirements(self, vacancy_id, message_text):
         vacancy = Vacancy.objects.get(pk=vacancy_id)
         required_experience = ''
-        for exp in vacancy.required_experience:
-            if exp == WorkExperience.NO.value:
-                required_experience += 'Без опыта'
-                required_experience += '\n'
-            if exp == WorkExperience.INVALID.value:
-                required_experience += 'С ограниченными возможностями'
-                required_experience += '\n'
-            if exp == WorkExperience.UNDERAGE.value:
-                required_experience += 'До 18 лет'
-                required_experience += '\n'
-            if exp == WorkExperience.MIDDLE.value:
-                required_experience += '1-3 года опыта'
-                required_experience += '\n'
-            if exp == WorkExperience.STRONG.value:
-                required_experience += 'более 3 лет опыта'
-                required_experience += '\n'
+        if vacancy.required_experience:
+            for exp in vacancy.required_experience:
+                if exp == WorkExperience.NO.value:
+                    required_experience += 'Без опыта'
+                    required_experience += '\n'
+                if exp == WorkExperience.INVALID.value:
+                    required_experience += 'С ограниченными возможностями'
+                    required_experience += '\n'
+                if exp == WorkExperience.UNDERAGE.value:
+                    required_experience += 'До 18 лет'
+                    required_experience += '\n'
+                if exp == WorkExperience.MIDDLE.value:
+                    required_experience += '1-3 года опыта'
+                    required_experience += '\n'
+                if exp == WorkExperience.STRONG.value:
+                    required_experience += 'Более 3 лет опыта'
+                    required_experience += '\n'
 
         employment = ''
         if vacancy.employment == VacancyEmployment.PARTIAL.value:
@@ -944,6 +945,32 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             text += f'Тип занятости: {employment}'
 
         return text
+
+    def get_necessary_docs(self, vacancy_id):
+        vacancy = Vacancy.objects.get(pk=vacancy_id)
+        required_docs = ''
+        if vacancy.required_docs:
+            for doc in vacancy.required_docs:
+                if doc == DocumentType.OTHER.value:
+                    required_docs += 'Другие документы'
+                    required_docs += '\n'
+                if doc == DocumentType.PASSPORT.value:
+                    required_docs += 'Паспорт'
+                    required_docs += '\n'
+                if doc == DocumentType.INN.value:
+                    required_docs += 'ИНН'
+                    required_docs += '\n'
+                if doc == DocumentType.SNILS.value:
+                    required_docs += 'СНИЛС'
+                    required_docs += '\n'
+                if doc == DocumentType.DRIVER_LICENCE.value:
+                    required_docs += 'Водительское удостоверение'
+                    required_docs += '\n'
+                if doc == DocumentType.MEDICAL_BOOK.value:
+                    required_docs += 'Медицинская книжка'
+                    required_docs += '\n'
+
+        return required_docs
 
 
 class AsyncVacanciesRepository(VacanciesRepository):

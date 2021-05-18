@@ -190,6 +190,7 @@ class ChatProfileSerializer(CRUDSerializer):
         model = UserProfile
         fields = [
             "id",
+            "account_type",
             "username",
             "first_name",
             "middle_name",
@@ -238,4 +239,5 @@ class MessagesSerializer(serializers.ModelSerializer):
             'created_at',
             'read_at',
             'attachments',
+            'buttons'
         ]

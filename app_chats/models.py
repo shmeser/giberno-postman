@@ -84,7 +84,7 @@ class Message(BaseModel):
     read_at = models.DateTimeField(blank=True, null=True, verbose_name='Дата прочтения собеседником моего сообщения')
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     icon_type = models.PositiveIntegerField(choices=choices(ChatMessageIconType), null=True, blank=True)
-    json = models.JSONField(null=True, blank=True)
+    buttons = models.JSONField(null=True, blank=True)
 
     def __str__(self):
         return f'{self.id} - {self.user.username}'

@@ -28,6 +28,7 @@ def check_abandoned_chats():
             TruncMilliecond('messages__created_at')
         )
     ).filter(
+        state__in=[ChatManagerState.NEED_MANAGER.value, ChatManagerState.MANAGER_CONNECTED.value],
         last_message_created_at__lt=now() - timedelta(minutes=AUTO_SWITCH_TO_BOT_MIN)
     )
 
