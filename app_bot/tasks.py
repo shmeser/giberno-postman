@@ -52,23 +52,23 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
 
         # Vacs Shops
         if intent_code == ChatterBotIntentCode.SHOP_ADDRESS.value:
-            text_reply = get_shop_address(chat.target, chat.target_id)
+            text_reply = get_shop_address(version, chat.target, chat.target_id)
         # Vacs
         if intent_code == ChatterBotIntentCode.VACANCY_REQUIREMENTS.value:
-            text_reply = get_vacancy_requirements(chat.target_id, message_text)
+            text_reply = get_vacancy_requirements(version, chat.target_id, message_text)
         if intent_code == ChatterBotIntentCode.APPEAL_CONFIRMATION.value:
             pass  # не меняем ответ бота
         if intent_code == ChatterBotIntentCode.SHIFT_TIME.value:
-            text_reply = get_shift_time(chat.target_id, chat.subject_user)
+            text_reply = get_shift_time(version, chat.target_id, chat.subject_user)
         if intent_code == ChatterBotIntentCode.WHAT_TO_TAKE_WITH.value:
-            text_reply = get_necessary_docs_to_take(chat.target, chat.target_id)
+            text_reply = get_necessary_docs_to_take(version, chat.target, chat.target_id)
         if intent_code == ChatterBotIntentCode.CANCEL_APPEAL.value:
-            text_reply, buttons = get_appeal_cancellation_response(chat.target_id, chat.subject_user)
+            text_reply, buttons = get_appeal_cancellation_response(version, chat.target_id, chat.subject_user)
         # Shops
         if intent_code == ChatterBotIntentCode.VACANCIES_VARIETY.value:
-            text_reply, buttons = get_shop_vacancies_response(chat.target_id)
+            text_reply, buttons = get_shop_vacancies_response(version, chat.target_id)
         if intent_code == ChatterBotIntentCode.VACANCY_RATES.value:
-            text_reply, buttons = get_shop_vacancy_rates_response(chat.target_id)
+            text_reply, buttons = get_shop_vacancy_rates_response(version, chat.target_id)
 
         bot_message_serialized = message_repository(chat_id=chat_id).save_bot_message(
             {
@@ -144,37 +144,55 @@ def add_managers_to_chat(version, chat, notification_title):
         })
 
 
-def get_shop_address(target, target_id):
+def get_shop_address(version, target, target_id):
     if isinstance(target, Vacancy):
-        return vacancy_repository().get_shop_address(target_id)
+        vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
+        shop_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.SHOPS.value)
+        vacancy = vacancy_repository().get_shop_address(target_id)
+        shop = shop_repository().get_by_id(vacancy.shop_id)
+        return shop.address
     if isinstance(target, Shop):
-        return shop_repository().get_shop_address(target_id)
+        shop_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.SHOPS.value)
+        shop = shop_repository().get_by_id(target_id)
+        return shop.address
     return ''
 
 
-def get_vacancy_requirements(vacancy_id, message_text):
+def get_vacancy_requirements(version, vacancy_id, message_text):
+    vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
     return vacancy_repository().get_requirements(vacancy_id, message_text)
 
 
-def get_shift_time(vacancy_id, subject_user):
+def get_shift_time(version, vacancy_id, subject_user):
+    vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
     return vacancy_repository(subject_user).get_shift_start_time(vacancy_id)
 
 
-def get_necessary_docs_to_take(target, target_id):
+def get_necessary_docs_to_take(version, target, target_id):
     if isinstance(target, Vacancy):
+        vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
         return vacancy_repository().get_necessary_docs(target_id)
     return 'Паспорт'
 
 
-def get_appeal_cancellation_response(vacancy_id, subject_user):
+def get_appeal_cancellation_response(version, vacancy_id, subject_user):
+    vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
     return vacancy_repository(subject_user).get_appeal_cancellation_response(vacancy_id)
 
 
-def get_shop_vacancies_response(shop_id):
+def get_shop_vacancies_response(version, shop_id):
+    shop_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.SHOPS.value)
     # Shop
-    return '', []
+    shop = shop_repository().get_by_id(shop_id)
+    return '', [{
+        'shopId': shop_id
+    }]
 
 
-def get_shop_vacancy_rates_response(shop_id):
+def get_shop_vacancy_rates_response(version, shop_id):
+    shop_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.SHOPS.value)
     # Shop
-    return 'Таковы условия этого магазина! Хотите поискать в других магазинах?', []
+    shop = shop_repository().get_by_id(shop_id)
+    return 'Таковы условия этого магазина! Хотите поискать в других магазинах?', [{
+        'distributorId': shop.distributor_id
+    }]

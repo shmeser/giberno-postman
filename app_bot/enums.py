@@ -39,7 +39,7 @@ class ChatterBotIntentCode(IntEnum):
     APPEAL_CONFIRMATION = 8  # Когда мне подтвердят работу
     SHIFT_TIME = 9  # Когда начинается моя смена
     WHAT_TO_TAKE_WITH = 10  # Что мне нужно иметь при себе
-    CANCEL_APPEAL = 11  # отказаться от вакансии
+    CANCEL_APPEAL = 11  # Отказаться от вакансии
     VACANCIES_VARIETY = 12  # Какие у вас есть вакансии
     VACANCY_RATES = 13  # Почему такие ставки
 
