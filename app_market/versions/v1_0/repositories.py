@@ -1022,20 +1022,13 @@ class ShiftAppealsRepository(MasterRepository):
             ])
 
         shift_active_date = data.get('shift_active_date')
-        utc_offset = pytz.timezone(shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
-        time_start = handle_date_for_appeals(shift_active_date=shift_active_date, time_object=shift.time_start,
-                                             utc_offset=utc_offset)
+        time_start = handle_date_for_appeals(shift=shift, shift_active_date=shift_active_date)
         if time_start <= datetime.now():
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.SHIFT_OVERDUE))
             ])
 
-        if shift.time_start > shift.time_end:
-            time_end = handle_date_for_appeals(shift_active_date=shift_active_date + timedelta(days=1),
-                                               time_object=shift.time_end, utc_offset=utc_offset)
-        else:
-            time_end = handle_date_for_appeals(shift_active_date=shift_active_date, time_object=shift.time_end,
-                                               utc_offset=utc_offset)
+        time_end = handle_date_for_appeals(shift=shift, shift_active_date=shift_active_date, by_end=True)
 
         return time_start, time_end
 
