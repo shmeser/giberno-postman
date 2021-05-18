@@ -972,6 +972,51 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         return required_docs
 
+    def get_shift_remaining_time_to_start(self, subject_user, vacancy_id):
+        # Только подтвержденные заявки
+        earlier_confirmed_appeal = ShiftAppeal.objects.filter(
+            applier=subject_user,
+            shift__vacancy_id=vacancy_id,
+            status=ShiftAppealStatus.CONFIRMED.value,
+            time_start__gt=now()
+        ).order_by('-time_start').first()
+
+        if earlier_confirmed_appeal:
+            # TODO учитывать часовые пояса
+            timedelta()
+            delta = earlier_confirmed_appeal.time_start - now()
+            seconds = delta.total_seconds()
+
+            week = 3600 * 24 * 7
+            day = 3600 * 24
+            hour = 3600
+            minute = 60
+
+            weeks = seconds // week
+            seconds -= weeks * week
+            days = seconds // day
+            seconds -= days * day
+            hours = seconds // hour
+            seconds -= hours * hour
+            minutes = seconds // minute
+            seconds -= minutes * minute
+
+            time_str = 'Ваша смена начнется через '
+
+            if weeks:
+                time_str += f'{int(weeks)} нед. '
+            if days:
+                time_str += f'{int(days)} д. '
+            if hours:
+                time_str += f'{int(hours)} ч. '
+            if minutes:
+                time_str += f'{int(minutes)} м. '
+
+            time_str += f'{int(seconds)} c. '
+
+            return time_str
+        return None
+
 
 class AsyncVacanciesRepository(VacanciesRepository):
     def __init__(self, me=None) -> None:
