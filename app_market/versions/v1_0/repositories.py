@@ -1001,7 +1001,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             minutes = seconds // minute
             seconds -= minutes * minute
 
-            time_str = 'Ваша смена начнется через '
+            time_str = 'Ваша смена начнётся через '
 
             if weeks:
                 time_str += f'{int(weeks)} нед. '
