@@ -205,13 +205,9 @@ def get_appeal_cancellation_response(version, target, vacancy_id, subject_user):
     # text = vacancy_repository(subject_user).get_appeal_cancellation_response(vacancy_id)
     buttons = [
         {
-            'action': ChatMessageActionType.VACANCY.value,
+            'action': ChatMessageActionType.APPEAL.value,
             'text': 'Отказаться'
-        },
-        {
-            'action': ChatMessageActionType.CANCEL.value,
-            'text': 'Отмена'
-        },
+        }
     ]
     return None, buttons
 
