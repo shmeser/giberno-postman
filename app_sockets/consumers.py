@@ -57,7 +57,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
             elif content.get('eventType') == SocketEventType.LOCATION.value:
                 await self.socket_controller.update_location(content)
             elif content.get('eventType') == SocketEventType.NEW_MESSAGE_TO_CHAT.value:
-                await self.socket_controller.client_message_to_chat_async(content)
+                await self.socket_controller.client_message_to_chat(content)
             elif content.get('eventType') == SocketEventType.READ_MESSAGE_IN_CHAT.value:
                 await self.socket_controller.client_read_message_in_chat(content)
             elif content.get('eventType') == SocketEventType.MANAGER_LEAVE_CHAT.value:
