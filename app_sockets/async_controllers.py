@@ -184,6 +184,7 @@ class AsyncSocketController:
             'prepared_data': prepared_message,
         })
 
+        await asyncio.sleep(2)
         # Отправляем обновленные данные о чате всем участникам чата по одиночным сокетам
         for data in personalized_chat_variants_with_sockets:
             for connection_name in data['sockets']:
@@ -211,11 +212,12 @@ class AsyncSocketController:
             icon_type=''
         )
 
-    async def client_message_to_chat_async(self, content):
+    async def send_chat_message_async(self, room_id, group_name, prepared_message):
         try:
             loop = asyncio.get_event_loop()
-            task = loop.create_task(self.client_message_to_chat(content))
-            await asyncio.gather(task, return_exceptions=False)  # Необходимо для отлова исключений
+            task = loop.create_task(self.send_chat_message(room_id, group_name, prepared_message))
+            # Необходимо для отлова исключений, но блокирует выполнение
+            # await asyncio.gather(task, return_exceptions=False)
         except Exception as e:
             logger.error(e)
             raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=str(e))
@@ -245,7 +247,7 @@ class AsyncSocketController:
             )
 
             # Отправляем сообщение в чат с персонализацией для всех участников
-            await self.send_chat_message(
+            await self.send_chat_message_async(
                 room_id=room_id,
                 group_name=group_name,
                 prepared_message=processed_serialized_message
