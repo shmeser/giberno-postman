@@ -972,6 +972,14 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         return required_docs
 
+    def check_if_has_confirmed_appeals(self, subject_user, vacancy_id):
+        return ShiftAppeal.objects.filter(
+            applier=subject_user,
+            shift__vacancy_id=vacancy_id,
+            status=ShiftAppealStatus.CONFIRMED.value,
+            time_start__gt=now()
+        ).exists()
+
     def get_shift_remaining_time_to_start(self, subject_user, vacancy_id):
         # Только подтвержденные заявки
         earlier_confirmed_appeal = ShiftAppeal.objects.filter(
