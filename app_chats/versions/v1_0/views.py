@@ -98,6 +98,18 @@ def unblock_chat(request, **kwargs):
         raise HttpException(status_code=RESTErrors.FORBIDDEN.value, detail=RESTErrors.FORBIDDEN.name)
 
 
+@api_view(['GET'])
+def market_data(request, **kwargs):
+    try:
+        data = ChatsRepository(me=request.user).market_data(kwargs.get('record_id'))
+        return Response(camelize(data), status=status.HTTP_200_OK)
+    except EntityDoesNotExistException:
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=RESTErrors.NOT_FOUND.name)
+
+    except ForbiddenException:
+        raise HttpException(status_code=RESTErrors.FORBIDDEN.value, detail=RESTErrors.FORBIDDEN.name)
+
+
 class Messages(CRUDAPIView):
     serializer_class = MessagesSerializer
     repository_class = MessagesRepository

@@ -83,7 +83,7 @@
 
         let socketConnections = []; // Массив подключенных сокетов
 
-        const uuidv4 = () => {
+        const uuidV4 = () => {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
                 var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
                 return v.toString(16);
@@ -206,6 +206,17 @@
 
             sendEvent(connectionId, data); // Отправляем
 
+            let messageBody = document.getElementById(`message-${connectionId}`);
+
+            // Меняем uuid на новый в блоке сообщения, если он есть
+            let messageData = JSON.parse( // Парсим полученную JSON-строку из поля ввода тела сообщения
+                messageBody.value
+            );
+
+            if (messageData.uuid) {
+                messageData.uuid = uuidV4()
+            }
+            messageBody.value = JSON.stringify(messageData, undefined, 4);
         };
 
         const disableConnectionBlock = (connectionId) => {
@@ -248,7 +259,6 @@
             connection.socket.send(data) // Отправляем данные
         };
 
-
         const formatMessage = (connectionId, eventType) => {
             let messageBody = document.getElementById(`message-${connectionId}`);
 
@@ -279,7 +289,7 @@
                     "eventType": eventType,
                     "messageType": 1,
                     "chatId": 1,
-                    "uuid": uuidv4(),
+                    "uuid": uuidV4(),
                     "text": "тестовое сообщение",
                     "attachments": [
                         '73f39c0e-9e5f-4f26-a15f-5eb7f6547b36',
@@ -300,7 +310,7 @@
                 messageBody.value = JSON.stringify({
                     "eventType": eventType,
                     "chatId": 1,
-                    "uuid": uuidv4()
+                    "uuid": uuidV4()
                 }, undefined, 4);
             }
 
@@ -319,7 +329,6 @@
             }
 
         };
-
 
         const addConnectionBlock = (connectionId, jwt, route) => {
             $('#connections').prepend(
@@ -354,7 +363,6 @@
                 </div>`
             )
         };
-
 
         document.getElementById('connect-button').onclick = () => {
             let id = Date.now();

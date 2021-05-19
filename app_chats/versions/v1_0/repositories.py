@@ -491,7 +491,13 @@ class ChatsRepository(MasterRepository):
             )
         )
 
-    def check_if_staff(self, chat):
+    def check_if_staff_or_participant(self, chat):
+        """
+        Проверка на свой чат или на релевантных менеджеров, которые имеют доступ к чатам,
+        относящихся к магазину, где они сотрудники
+        :param chat:
+        :return:
+        """
         if not chat.users.filter(pk=self.me.id).exists():
             # TODO расширенная логика проверки присоединения к группе
             # Если не участник чата, но является релевантным менеджером
@@ -512,7 +518,7 @@ class ChatsRepository(MasterRepository):
         ).first()
         if not record:
             raise EntityDoesNotExistException
-        if record.blocked_at is not None or self.check_if_staff(record) is False:
+        if record.blocked_at is not None or self.check_if_staff_or_participant(record) is False:
             raise ForbiddenException
 
     def check_if_exists(self, record_id):
@@ -612,7 +618,7 @@ class ChatsRepository(MasterRepository):
         if not chat:
             raise EntityDoesNotExistException
 
-        if self.check_if_staff(chat):
+        if self.check_if_staff_or_participant(chat):
             ChatUser.objects.filter(user=chat.subject_user, chat=chat).update(
                 updated_at=now(),
                 blocked_at=now()
@@ -626,12 +632,40 @@ class ChatsRepository(MasterRepository):
         if not chat:
             raise EntityDoesNotExistException
 
-        if self.check_if_staff(chat):
+        if self.check_if_staff_or_participant(chat):
             ChatUser.objects.filter(user=chat.subject_user, chat=chat).update(
                 updated_at=now(),
                 blocked_at=None
             )
             return self.get_chat(record_id)  # Используем для вычисляемых полей
+        else:
+            raise ForbiddenException
+
+    def market_data(self, record_id):
+        chat = self.model.objects.filter(id=record_id).first()
+        if not chat:
+            raise EntityDoesNotExistException
+
+        if self.check_if_staff_or_participant(chat):
+            # Если предмет чата - магазин
+            if chat.target and isinstance(chat.target, Shop):
+                return {
+                    'vacancy_id': None,
+                    'shop_id': chat.target_id,
+                    'distributor_id': chat.target.distributor_id
+                }
+            # Если предмет чата - ва
+            if chat.target and isinstance(chat.target, Vacancy):
+                return {
+                    'vacancy_id': chat.target_id,
+                    'shop_id': chat.target.shop_id,
+                    'distributor_id': chat.target.shop.distributor_id
+                }
+            return {
+                'vacancy_id': None,
+                'shop_id': None,
+                'distributor_id': None
+            }
         else:
             raise ForbiddenException
 
