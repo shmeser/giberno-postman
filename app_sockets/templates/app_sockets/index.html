@@ -206,6 +206,17 @@
 
             sendEvent(connectionId, data); // Отправляем
 
+            let messageBody = document.getElementById(`message-${connectionId}`);
+
+            // Меняем uuid на новый в блоке сообщения, если он есть
+            let messageData = JSON.parse( // Парсим полученную JSON-строку из поля ввода тела сообщения
+                messageBody.value
+            );
+
+            if (messageData.uuid) {
+                messageData.uuid = uuidv4()
+            }
+            messageBody.value = JSON.stringify(messageData, undefined, 4);
         };
 
         const disableConnectionBlock = (connectionId) => {
