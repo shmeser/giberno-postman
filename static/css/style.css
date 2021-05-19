@@ -350,6 +350,7 @@ input, button {
 
 .messages {
     height: 352px;
+    min-width: 49%;
     flex: 1;
     overflow-y: auto;
     border-radius: 5px;
