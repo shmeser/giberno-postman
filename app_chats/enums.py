@@ -21,9 +21,7 @@ class ChatManagerState(IntEnumM):
 
 
 class ChatMessageActionType(IntEnumM):
-    CANCEL = 0  # Отмена
     DISTRIBUTOR = 1  # Торговая сеть
     SHOP = 2  # Магазин
     VACANCY = 3  # Вакансия
-    SHIFT = 4  # Смена
-    APPEAL = 5  # Заявка
+    APPEAL = 4  # Заявка
