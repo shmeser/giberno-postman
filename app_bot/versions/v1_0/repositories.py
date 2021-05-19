@@ -116,7 +116,7 @@ class ChatterBotRepository:
         #  то добавить надстройку над INTENTS что пользователь матерится
 
         found_intent = None  # Бот пока не нашел подходящей темы
-        _MIN_INTENT_RELEVANCY = 0.3  # Минимальная релевантность темы для данного текста
+        _MIN_INTENT_RELEVANCY = 0.66  # Минимальная релевантность темы для данного текста
 
         processed_intents = []
 
