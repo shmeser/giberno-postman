@@ -116,6 +116,7 @@
 
         const updateConnectionForUser = (connectionId, userId) => {
             document.getElementById('userFor' + connectionId).innerText = 'User ID:' + userId;
+            document.getElementById(connectionId).dataset.user = userId;
         };
 
         const rebuildSavedJwtOptions = (savedJwt = [], curJwt = null) => {
@@ -359,10 +360,54 @@
                             </div>
                         </div>
                     </div>
-                    <div class="messages" id="messages-history-${connectionId}"></div>
+                    <div class="events">
+                        <div class="messages" id="messages-history-${connectionId}"></div>
+                        <div class="chat d-none" id="chat-history-${connectionId}"></div>
+                    </div
                 </div>`
             )
         };
+
+        const addChat = (connectionId) => {
+            let chatBlock = document.getElementById(`chat-history-${connectionId}`);
+            chatBlock.classList.remove('d-none');
+            chatBlock.innerHTML = '';
+        };
+
+        const removeChat = (connectionId) => {
+            let chatBlock = document.getElementById(`chat-history-${connectionId}`);
+            chatBlock.classList.add('d-none');
+            chatBlock.innerHTML = '';
+        };
+
+        const addMessageToChat = (id, message) => {
+            let chatMessagesHistoryEl = document.getElementById(`chat-history-${id}`); // Блок истории сообщений
+
+            // Создаем элемент с данными сообщения
+            let messageHTML = document.createElement('pre');
+
+            let userInConnection = document.getElementById(id).dataset.user;
+
+
+            messageHTML.className = message.userId === +userInConnection ? 'outcomming' : 'incomming';
+            messageHTML.innerHTML = message.text;
+            // Создаем элемент для времени и даты
+            let messageDateTime = document.createElement('p');
+            messageDateTime.appendChild(document.createTextNode((new Date(message.createdAt)).toISOString()));
+            messageDateTime.className = 'message-datetime';
+            // Создаем блок-контейнер для сообщения
+            let messageBlock = document.createElement('div');
+            messageBlock.className = 'message-block';
+
+            messageBlock.appendChild(messageDateTime);
+            messageBlock.appendChild(messageHTML);
+
+            chatMessagesHistoryEl.append(messageBlock); // Добавляем блок в историю
+
+            chatMessagesHistoryEl.scrollTop = chatMessagesHistoryEl.scrollHeight - chatMessagesHistoryEl.clientHeight;
+
+        };
+
 
         document.getElementById('connect-button').onclick = () => {
             let id = Date.now();
@@ -412,6 +457,17 @@
                 if (data.eventType === _EVENT_TYPES.SERVER_COUNTERS_UPDATE) {
                     updateJwtForUser(data.userId);
                     updateConnectionForUser(id, data.userId);
+                }
+
+                if (data.eventType === _EVENT_TYPES.TOPIC_JOINED && data.topic.includes('chats')) {
+                    addChat(id, data.userId);
+                }
+                if (data.eventType === _EVENT_TYPES.TOPIC_LEAVED && data.topic.includes('chats')) {
+                    removeChat(id, data.userId);
+                }
+
+                if (data.eventType === _EVENT_TYPES.SERVER_NEW_MESSAGE_IN_CHAT) {
+                    addMessageToChat(id, data.message);
                 }
 
                 data = JSON.stringify(data, undefined, 4);

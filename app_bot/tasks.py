@@ -92,6 +92,8 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
 
 
 __ASK_EXACT_VACANCY_CHAT = 'Обратитесь в чат по конкретной вакансии'
+__ASK_EXACT_SHOP_CHAT = 'Обратитесь в чат c конкретным магазином'
+__NO_CONFIRMED_APPEALS_FOR_VACANCY = 'У вас нет одобренных заявок на эту вакансию'
 
 
 def add_managers_to_chat(version, chat, notification_title):
@@ -187,7 +189,7 @@ def get_shift_time(version, target, vacancy_id, subject_user):
     vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
     text = vacancy_repository().get_shift_remaining_time_to_start(subject_user, vacancy_id)
     if not text:
-        text = 'У вас нет одобренных заявок на эту вакансию'
+        text = __NO_CONFIRMED_APPEALS_FOR_VACANCY
     return text
 
 
@@ -199,25 +201,28 @@ def get_necessary_docs_to_take(version, target, target_id):
 
 
 def get_appeal_cancellation_response(version, target, vacancy_id, subject_user):
-    if isinstance(target, Shop):
+    if not isinstance(target, Vacancy):
         return __ASK_EXACT_VACANCY_CHAT, None
-    # vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
-    # text = vacancy_repository(subject_user).get_appeal_cancellation_response(vacancy_id)
+    vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
+    has_active_shifts = vacancy_repository().check_if_has_confirmed_appeals(subject_user, vacancy_id)
+    text = None
+    if not has_active_shifts:
+        text = __NO_CONFIRMED_APPEALS_FOR_VACANCY
     buttons = [
         {
             'action': ChatMessageActionType.APPEAL.value,
             'text': 'Отказаться'
         }
     ]
-    return None, buttons
+    return text, buttons
 
 
 def get_shop_vacancies_response(version, target, shop_id):
-    if isinstance(target, Shop):
-        return __ASK_EXACT_VACANCY_CHAT, None
-    shop_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.SHOPS.value)
+    if not isinstance(target, Shop):
+        return __ASK_EXACT_SHOP_CHAT, None
+    # shop_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.SHOPS.value)
     # Shop
-    shop = shop_repository().get_by_id(shop_id)
+    # shop = shop_repository().get_by_id(shop_id)
     return '', [{
         'action': ChatMessageActionType.SHOP.value,
         'text': 'Показать вакансии'
@@ -225,8 +230,8 @@ def get_shop_vacancies_response(version, target, shop_id):
 
 
 def get_shop_vacancy_rates_response(version, target, shop_id):
-    if isinstance(target, Shop):
-        return __ASK_EXACT_VACANCY_CHAT, None
+    if not isinstance(target, Shop):
+        return __ASK_EXACT_SHOP_CHAT, None
     shop_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.SHOPS.value)
     # Shop
     shop = shop_repository().get_by_id(shop_id)
