@@ -52,3 +52,10 @@ def unblock_chat(request, **kwargs):
     if request.version in ['chats_1_0']:
         return v1_0.unblock_chat(request._request, **kwargs)
     raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+@api_view(['GET'])
+def market_data(request, **kwargs):
+    if request.version in ['chats_1_0']:
+        return v1_0.market_data(request._request, **kwargs)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

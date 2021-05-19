@@ -18,7 +18,6 @@ from backend.errors.http_exceptions import HttpException
 
 class Distributors(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', DistributorsSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Distributors().get(request, **kwargs)
@@ -28,7 +27,6 @@ class Distributors(APIView):
 
 class Shops(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', ShopSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Shops().get(request, **kwargs)
@@ -38,7 +36,6 @@ class Shops(APIView):
 
 class Vacancies(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Vacancies().get(request, **kwargs)
