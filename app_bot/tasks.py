@@ -194,10 +194,14 @@ def get_shift_time(version, target, vacancy_id, subject_user):
 
 
 def get_necessary_docs_to_take(version, target, target_id):
+    required_docs = 'Паспорт'
     if isinstance(target, Vacancy):
         vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
-        return vacancy_repository().get_necessary_docs(target_id)
-    return 'Паспорт'
+        vacancy_required_docs = vacancy_repository().get_necessary_docs(target_id)
+        if vacancy_required_docs:
+            return vacancy_required_docs
+
+    return required_docs
 
 
 def get_appeal_cancellation_response(version, target, vacancy_id, subject_user):
