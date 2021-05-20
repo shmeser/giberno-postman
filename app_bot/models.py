@@ -62,12 +62,19 @@ class CommonIntentsManager(models.Manager):
         return super().get_queryset().all().prefetch_related('requests', 'responses')
 
 
+class IntentResponsesManager(models.Manager):
+    def get_queryset(self):
+        # TODO
+        return super().get_queryset().all().prefetch_related('responses')
+
+
 class Intent(BaseModel):
     code = models.IntegerField(choices=choices(ChatterBotIntentCode), null=True, blank=True)
     topic = models.CharField(max_length=255, null=True, blank=True)
 
     support = SupportIntentsManager()  # Темы для поддержки
     common = CommonIntentsManager()  # Темы для общих разговоров
+    with_responses = IntentResponsesManager()  # Ответы для тем
 
     def __str__(self):
         return f'{self.topic}'
