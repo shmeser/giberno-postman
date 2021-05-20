@@ -214,7 +214,7 @@ def get_appeal_cancellation_response(version, target, vacancy_id, subject_user):
         text = __NO_CONFIRMED_APPEALS_FOR_VACANCY
     buttons = [
         {
-            'action': ChatMessageActionType.APPEAL.value,
+            'action': ChatMessageActionType.APPEALS.value,
             'text': 'Отказаться'
         }
     ]
@@ -228,7 +228,7 @@ def get_shop_vacancies_response(version, target, shop_id):
     # Shop
     # shop = shop_repository().get_by_id(shop_id)
     return '', [{
-        'action': ChatMessageActionType.SHOP.value,
+        'action': ChatMessageActionType.SHOP_VACANCIES.value,
         'text': 'Показать вакансии'
     }]
 
@@ -240,6 +240,6 @@ def get_shop_vacancy_rates_response(version, target, shop_id):
     # Shop
     shop = shop_repository().get_by_id(shop_id)
     return 'Таковы условия этого магазина! Хотите поискать в других магазинах?', [{
-        'action': ChatMessageActionType.DISTRIBUTOR.value,
+        'action': ChatMessageActionType.DISTRIBUTOR_SHOPS.value,
         'text': 'Показать другие магазины'
     }]

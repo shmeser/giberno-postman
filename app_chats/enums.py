@@ -21,7 +21,9 @@ class ChatManagerState(IntEnumM):
 
 
 class ChatMessageActionType(IntEnumM):
-    DISTRIBUTOR = 1  # Торговая сеть
-    SHOP = 2  # Магазин
+    BOT_INTENT = 0  # Бот просит выбрать тему
+    DISTRIBUTOR_SHOPS = 1  # Магазины в торговой сети
+    SHOP_VACANCIES = 2  # Вакансии магазина
     VACANCY = 3  # Вакансия
-    APPEAL = 4  # Заявка
+    APPEALS = 4  # Заявки
+    SUPPORT = 5  # Поддержка
