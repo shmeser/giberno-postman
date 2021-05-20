@@ -64,6 +64,8 @@ class Consumer(AsyncJsonWebsocketConsumer):
                 await self.socket_controller.manager_leave_chat(content)
             elif content.get('eventType') == SocketEventType.MANAGER_JOIN_CHAT.value:
                 await self.socket_controller.manager_join_chat(content)
+            elif content.get('eventType') == SocketEventType.SELECT_CHAT_BOT_INTENT.value:
+                await self.socket_controller.select_bot_intent(content)
             else:
                 await self.channel_layer.send(self.channel_name, {
                     'type': handler_type,
@@ -247,6 +249,21 @@ class Consumer(AsyncJsonWebsocketConsumer):
             {
                 'eventType': SocketEventType.SERVER_APPEAL_STATUS_UPDATED.value,
                 'appeal': data.get('prepared_data')
+            },
+        )
+
+    # Состояние чата изменилось - менеджер подсоединился или завершил консультацию
+    async def chat_bot_intent_accepted(self, data):
+        logger.info({
+            'eventType': SocketEventType.SERVER_CHAT_BOT_INTENT_ACCEPTED.value,
+            'chatId': data.get('chat_id'),
+            'intent': data.get('intent'),
+        })
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_CHAT_BOT_INTENT_ACCEPTED.value,
+                'chat': data.get('chat'),
+                'intent': data.get('intent'),
             },
         )
 

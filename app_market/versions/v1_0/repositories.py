@@ -907,7 +907,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         return []
 
-    def get_requirements(self, vacancy_id, message_text):
+    def get_requirements(self, vacancy_id):
         vacancy = Vacancy.objects.get(pk=vacancy_id)
         required_experience = ''
         if vacancy.required_experience:
