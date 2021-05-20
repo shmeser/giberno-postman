@@ -2,7 +2,7 @@ import asyncio
 
 from loguru import logger
 
-from app_bot.tasks import delayed_checking_for_bot_reply
+from app_bot.tasks import delayed_checking_for_bot_reply, delayed_select_bot_intent
 from app_chats.enums import ChatMessageType, ChatMessageIconType, ChatManagerState
 from app_sockets.enums import SocketEventType, AvailableRoom
 from app_sockets.mappers import RoutingMapper
@@ -589,6 +589,49 @@ class AsyncSocketController:
                     state=state,
                     active_managers_ids=active_managers_ids
                 )
+
+        except ForbiddenException:
+            logger.info(f'Действие запрещено')
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.FORBIDDEN.value)
+            await self.send_error(
+                code=SocketErrors.FORBIDDEN.value, details=SocketErrors.FORBIDDEN.name
+            )
+
+        except EntityDoesNotExistException:
+            logger.info(f'Не найдено')
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.NOT_FOUND.value)
+            await self.send_error(
+                code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name
+            )
+
+    async def select_bot_intent(self, content):
+        room_id = content.get('chatId')
+
+        try:
+            self.repository_class = RoutingMapper.room_async_repository(
+                self.consumer.version, AvailableRoom.CHATS.value
+            )
+            await self.repository_class(self.consumer.user).check_permission_for_action(room_id)
+
+            await self.consumer.channel_layer.send(self.consumer.channel_name, {
+                'type': 'chat_bot_intent_accepted',
+                'chat': {
+                    'id': room_id
+                },
+                'intent': content.get('intent')
+            })
+
+            # Ответ бота через Celery с задержкой
+            delayed_select_bot_intent.s(
+                version=self.consumer.version,
+                chat_id=room_id,
+                user_id=self.consumer.user.id,
+                intent=content.get('intent')
+            ).apply_async(countdown=2)  # Отвечаем через 2 сек
 
         except ForbiddenException:
             logger.info(f'Действие запрещено')

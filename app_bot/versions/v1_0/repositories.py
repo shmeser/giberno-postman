@@ -48,7 +48,7 @@ class ChatterBotRepository:
         # Темы, на которые бот может отвечать
         prepared_intents = []
 
-        for intent in Intent.support.all():
+        for intent in Intent.common.all():
             prepared_intents.append({
                 'code': intent.code,
                 'topic': intent.topic,
@@ -116,7 +116,7 @@ class ChatterBotRepository:
         #  то добавить надстройку над INTENTS что пользователь матерится
 
         found_intent = None  # Бот пока не нашел подходящей темы
-        _MIN_INTENT_RELEVANCY = 0.66  # Минимальная релевантность темы для данного текста
+        _MIN_INTENT_RELEVANCY = 0.49  # Минимальная релевантность темы для данного текста
 
         processed_intents = []
 
@@ -142,6 +142,12 @@ class ChatterBotRepository:
             return random.choice(intent['response']) if intent['response'] else cls._DEFAULT_BOT_ANSWER, intent['code']
 
         return cls._DEFAULT_BOT_ANSWER, None
+
+    @classmethod
+    def get_response_by_intent_code(cls, code):
+        intent = Intent.with_responses.get(code=code)
+        responses = intent.responses.all()
+        return random.choice(responses) if responses else cls._DEFAULT_BOT_ANSWER
 
 
 class AsyncChatterBotRepository(ChatterBotRepository):
