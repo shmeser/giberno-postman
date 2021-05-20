@@ -142,8 +142,7 @@ class AsyncSocketController:
             if self.consumer.is_group_consumer:
                 # Закрываем соединение, если это GroupConsumer
                 await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
-                return False
-            raise WebSocketError(code=SocketErrors.BAD_REQUEST.value, details=e)
+            raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
 
     async def update_location(self, event):
         self.repository_class = RoutingMapper.room_async_repository(self.consumer.version, AvailableRoom.USERS.value)
@@ -280,12 +279,10 @@ class AsyncSocketController:
 
         except Exception as e:
             logger.error(e)
-            await self.send_error(
-                code=SocketErrors.BAD_REQUEST.value, details=str(e)
-            )
             if self.consumer.is_group_consumer:
                 # Закрываем соединение, если это GroupConsumer
                 await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
+            raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
 
     async def client_read_message_in_chat(self, content):
         try:
@@ -359,6 +356,9 @@ class AsyncSocketController:
             )
         except Exception as e:
             logger.error(e)
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
             raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
 
     async def send_last_msg_updated_to_one_connection(
@@ -530,6 +530,12 @@ class AsyncSocketController:
             await self.send_error(
                 code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name
             )
+        except Exception as e:
+            logger.error(e)
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
+            raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
 
     async def manager_leave_chat(self, content):
         room_id = content.get('chatId')
@@ -607,6 +613,12 @@ class AsyncSocketController:
             await self.send_error(
                 code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name
             )
+        except Exception as e:
+            logger.error(e)
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
+            raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
 
     async def select_bot_intent(self, content):
         room_id = content.get('chatId')
@@ -630,7 +642,7 @@ class AsyncSocketController:
                 version=self.consumer.version,
                 chat_id=room_id,
                 user_id=self.consumer.user.id,
-                intent=content.get('intent')
+                intent_code=content.get('intent')
             ).apply_async(countdown=2)  # Отвечаем через 2 сек
 
         except ForbiddenException:
@@ -650,3 +662,10 @@ class AsyncSocketController:
             await self.send_error(
                 code=SocketErrors.NOT_FOUND.value, details=SocketErrors.NOT_FOUND.name
             )
+
+        except Exception as e:
+            logger.error(e)
+            if self.consumer.is_group_consumer:
+                # Закрываем соединение, если это GroupConsumer
+                await self.consumer.close(code=SocketErrors.BAD_REQUEST.value)
+            raise WebSocketError(code=SocketErrors.CUSTOM_DETAILED_ERROR.value, details=str(e))
