@@ -23,9 +23,12 @@ def delayed_checking_for_bot_reply(version, chat_id, user_id, message_text):
 
         # TODO Определить тип ответа - список документов, форма, обычное сообщение и т.д.
 
-        text_reply, intent_code = bot_repository.get_response(message_text)
+        many_intents, intent_code, text_reply = bot_repository.get_response(message_text)
 
-        text_reply, buttons = get_reply_and_buttons(text_reply, intent_code, version, chat)
+        if many_intents:
+            text_reply, buttons = get_text_and_buttons_for_many_intents(many_intents)
+        else:
+            text_reply, buttons = get_reply_and_buttons(text_reply, intent_code, version, chat)
 
         # Сохраняем ответ бота и отправляем
         save_bot_reply_and_send(version, chat_id, text_reply, buttons)
@@ -58,6 +61,21 @@ def delayed_select_bot_intent(version, chat_id, user_id, intent_code):
         logger.error(e)
 
 
+def get_text_and_buttons_for_many_intents(many_intents):
+    __MANY_INTENTS_FOUND_MESSAGE = 'Пожалуйста, уточните, что Вы имели в виду'
+    text = __MANY_INTENTS_FOUND_MESSAGE
+    buttons = []
+    limited_intents = many_intents[:3]  # Ограничиваем до 3х тем
+
+    for intent in limited_intents:
+        buttons.append({
+            'action': ChatMessageActionType.BOT_INTENT.value,
+            'text': intent['topic'],
+            'intent': intent['code']
+        })
+    return text, buttons
+
+
 def get_chat_and_bot_repo(version, user_id, chat_id):
     user_repository = RoutingMapper.room_repository(
         version=version, room_name=AvailableRoom.USERS.value)
@@ -87,29 +105,48 @@ def get_reply_and_buttons(text_reply, intent_code, version, chat):
     # Если запрошен менеджер в чат
     if intent_code == ChatterBotIntentCode.DISABLE.value:
         buttons = BotIntentsHandler.get_disable_bot_buttons()
-    # Vacs Shops
+
     if intent_code == ChatterBotIntentCode.SHOP_ADDRESS.value:
         text_reply = BotIntentsHandler.get_shop_address(version, chat.target, chat.target_id)
-    # Vacs
+
     if intent_code == ChatterBotIntentCode.VACANCY_REQUIREMENTS.value:
-        text_reply = BotIntentsHandler.get_vacancy_requirements(version, chat.target, chat.target_id)
-    if intent_code == ChatterBotIntentCode.APPEAL_CONFIRMATION.value:
-        pass  # не меняем ответ бота
-    if intent_code == ChatterBotIntentCode.SHIFT_TIME.value:
-        text_reply = BotIntentsHandler.get_shift_time(version, chat.target, chat.target_id, chat.subject_user)
-    if intent_code == ChatterBotIntentCode.WHAT_TO_TAKE_WITH.value:
-        text_reply = BotIntentsHandler.get_necessary_docs_to_take(version, chat.target, chat.target_id)
-    if intent_code == ChatterBotIntentCode.CANCEL_APPEAL.value:
+        text_reply, buttons = BotIntentsHandler.get_vacancy_requirements(version, chat.target, chat.target_id)
+
+    if intent_code in [ChatterBotIntentCode.APPEAL_CONFIRMATION.value, ChatterBotIntentCode.CANCEL_APPEAL.value]:
         # Текст дает бот
-        text, buttons = BotIntentsHandler.get_appeal_cancellation_response(
+        text, buttons = BotIntentsHandler.get_appeal_cancel_or_confirm_response(
             version, chat.target, chat.target_id, chat.subject_user)
         if text:
             text_reply = text
-    # Shops
+
+    if intent_code == ChatterBotIntentCode.SHIFT_TIME.value:
+        text_reply, buttons = BotIntentsHandler.get_shift_time(version, chat.target, chat.target_id, chat.subject_user)
+
+    if intent_code == ChatterBotIntentCode.WHAT_TO_TAKE_WITH.value:
+        text_reply = BotIntentsHandler.get_necessary_docs_to_take(version, chat.target, chat.target_id)
+
     if intent_code == ChatterBotIntentCode.VACANCIES_VARIETY.value:
-        text_reply, buttons = BotIntentsHandler.get_shop_vacancies_response(version, chat.target, chat.target_id)
+        buttons = BotIntentsHandler.get_shop_vacancies_response(version, chat.target, chat.target_id)
+
     if intent_code == ChatterBotIntentCode.VACANCY_RATES.value:
         text_reply, buttons = BotIntentsHandler.get_shop_vacancy_rates_response(version, chat.target, chat.target_id)
+
+    if intent_code == ChatterBotIntentCode.VACANCY_DETAILS.value:
+        buttons = BotIntentsHandler.get_shop_vacancy_details_response(version, chat.target, chat.target_id)
+
+    if intent_code == ChatterBotIntentCode.HOW_TO_EMPLOY.value:
+        text, buttons = BotIntentsHandler.get_how_to_employ_response(version, chat.target, chat.target_id)
+        if text:
+            text_reply += text
+
+    if intent_code == ChatterBotIntentCode.WHAT_YOU_CAN.value:
+        text, buttons = BotIntentsHandler.get_what_you_can_response(
+            version, chat.target, chat.target_id, chat.subject_user)
+        if text:
+            text_reply = text
+
+    if intent_code == ChatterBotIntentCode.COMPLY.value:
+        buttons = BotIntentsHandler.get_comply_response(version, chat.target, chat.target_id)
 
     return text_reply, buttons
 
@@ -200,7 +237,6 @@ def add_managers_to_chat(version, chat):
 
 class BotIntentsHandler:
     __ASK_EXACT_VACANCY_CHAT = 'Обратитесь в чат по конкретной вакансии'
-    __ASK_EXACT_SHOP_CHAT = 'Обратитесь в чат c конкретным магазином'
     __NO_CONFIRMED_APPEALS_FOR_VACANCY = 'У вас нет одобренных заявок на эту вакансию'
 
     @staticmethod
@@ -239,21 +275,39 @@ class BotIntentsHandler:
 
     @classmethod
     def get_vacancy_requirements(cls, version, target, vacancy_id):
+        text = cls.__ASK_EXACT_VACANCY_CHAT
+        buttons = None
         if isinstance(target, Shop):
-            return cls.__ASK_EXACT_VACANCY_CHAT
-        # TODO добавить файлы документов и разбивку по точным запросам (бонусы, опыт и т.д)
-        vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
-        return vacancy_repository().get_requirements(vacancy_id)
+            buttons = [
+                {
+                    "action": ChatMessageActionType.APPEALS.value,
+                    "text": 'Отклики'
+                }
+            ]
+        if isinstance(target, Vacancy):
+            vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
+            text = vacancy_repository().get_requirements(vacancy_id)
+        return text, buttons
 
     @classmethod
     def get_shift_time(cls, version, target, vacancy_id, subject_user):
+        buttons = None
+        text = None
         if isinstance(target, Shop):
-            return cls.__ASK_EXACT_VACANCY_CHAT
-        vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
-        text = vacancy_repository().get_shift_remaining_time_to_start(subject_user, vacancy_id)
-        if not text:
-            text = cls.__NO_CONFIRMED_APPEALS_FOR_VACANCY
-        return text
+            text = cls.__ASK_EXACT_VACANCY_CHAT
+            buttons = [
+                {
+                    "action": ChatMessageActionType.APPEALS.value,
+                    "text": 'Отклики'
+                }
+            ]
+        if isinstance(target, Vacancy):
+            vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
+            text = vacancy_repository().get_shift_remaining_time_to_start(subject_user, vacancy_id)
+            if not text:
+                text = cls.__NO_CONFIRMED_APPEALS_FOR_VACANCY
+
+        return text, buttons
 
     @staticmethod
     def get_necessary_docs_to_take(version, target, target_id):
@@ -262,47 +316,112 @@ class BotIntentsHandler:
             vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
             vacancy_required_docs = vacancy_repository().get_necessary_docs(target_id)
             if vacancy_required_docs:
-                return vacancy_required_docs
+                required_docs = vacancy_required_docs
+        if isinstance(target, Shop):
+            # TODO перенести в intent responses с добавлением типов целей чата
+            required_docs = 'Обязательно при себе имейте паспорт, ' \
+                            'остальные документы будут зависеть от конкретной вакансии'
 
         return required_docs
 
     @classmethod
-    def get_appeal_cancellation_response(cls, version, target, vacancy_id, subject_user):
-        if not isinstance(target, Vacancy):
-            return cls.__ASK_EXACT_VACANCY_CHAT, None
-        vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
-        has_active_shifts = vacancy_repository().check_if_has_confirmed_appeals(subject_user, vacancy_id)
-        text = None
-        if not has_active_shifts:
-            text = cls.__NO_CONFIRMED_APPEALS_FOR_VACANCY
-        buttons = [
-            {
-                'action': ChatMessageActionType.APPEALS.value,
-                'text': 'Отказаться'
-            }
-        ]
+    def get_appeal_cancel_or_confirm_response(cls, version, target, vacancy_id, subject_user):
+        text = cls.__ASK_EXACT_VACANCY_CHAT
+        buttons = None
+        if isinstance(target, Shop):
+            buttons = [
+                {
+                    'action': ChatMessageActionType.APPEALS.value,
+                    'text': 'Отказаться'
+                }
+            ]
+        if isinstance(target, Vacancy):
+            vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
+            has_active_shifts = vacancy_repository().check_if_has_confirmed_appeals(subject_user, vacancy_id)
+            text = None
+            if not has_active_shifts:
+                text = cls.__NO_CONFIRMED_APPEALS_FOR_VACANCY
+
         return text, buttons
 
     @classmethod
     def get_shop_vacancies_response(cls, version, target, shop_id):
-        if not isinstance(target, Shop):
-            return cls.__ASK_EXACT_SHOP_CHAT, None
-        # shop_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.SHOPS.value)
-        # Shop
-        # shop = shop_repository().get_by_id(shop_id)
-        return '', [{
+        buttons = [{
             'action': ChatMessageActionType.SHOP_VACANCIES.value,
-            'text': 'Показать вакансии'
+            'text': 'Вакансии магазина'
         }]
+        return buttons
 
     @classmethod
     def get_shop_vacancy_rates_response(cls, version, target, shop_id):
-        if not isinstance(target, Shop):
-            return cls.__ASK_EXACT_SHOP_CHAT, None
-        shop_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.SHOPS.value)
-        # Shop
-        shop = shop_repository().get_by_id(shop_id)
-        return 'Таковы условия этого магазина! Хотите поискать в других магазинах?', [{
-            'action': ChatMessageActionType.DISTRIBUTOR_SHOPS.value,
-            'text': 'Показать другие магазины'
+        buttons = None
+        text = None
+        if isinstance(target, Shop):
+            # TODO перенести в intent responses
+            text = 'Таковы условия этого магазина! Хотите поискать в других магазинах?'
+            buttons = [{
+                'action': ChatMessageActionType.DISTRIBUTOR_SHOPS.value,
+                'text': 'Показать другие магазины'
+            }]
+        if isinstance(target, Vacancy):
+            # TODO перенести в intent responses
+            text = 'Таковы условия этого магазина'
+
+        return text, buttons
+
+    @classmethod
+    def get_shop_vacancy_details_response(cls, version, target, shop_id):
+        buttons = [{
+            'action': ChatMessageActionType.SHOP_VACANCIES.value,
+            'text': 'Вакансии'
         }]
+
+        return buttons
+
+    @classmethod
+    def get_how_to_employ_response(cls, version, target, shop_id):
+        text = None
+        buttons = [{
+            'action': ChatMessageActionType.SHOP_VACANCIES.value,
+            'text': 'Вакансии'
+        }]
+        if isinstance(target, Shop):
+            # TODO перенести в intent responses
+            text = ', соответствующий выбранной вакансии'
+
+        return text, buttons
+
+    @staticmethod
+    def get_what_you_can_response(version, target, target_id, subject_user):
+        buttons = [{
+            'action': ChatMessageActionType.SHOP_VACANCIES.value,
+            'text': 'Вакансии'
+        }]
+        text = None
+        if isinstance(target, Vacancy):
+            vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
+            text = vacancy_repository().get_shift_remaining_time_to_start(subject_user, target_id)
+            if text:
+                text = 'Я могу подсказать вам как найти работу или подсказать статус по Откликам. Начнем?'
+                buttons = [
+                    {
+                        'action': ChatMessageActionType.SHOP_VACANCIES.value,
+                        'text': 'Вакансии'
+                    }, {
+                        'action': ChatMessageActionType.APPEALS.value,
+                        'text': 'Отклики'
+                    }
+                ]
+            else:
+                text = None
+
+        return text, buttons
+
+    @classmethod
+    def get_comply_response(cls, version, target, shop_id):
+        buttons = [{
+            'action': ChatMessageActionType.SUPPORT.value,
+            'text': 'Поддержка'
+        }]
+
+        return buttons

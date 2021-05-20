@@ -129,24 +129,34 @@ class ChatterBotRepository:
             reverse=True
         )
 
-        if found_intents:
-            found_intent = found_intents[0]
+        # if found_intents:
+        #     found_intent = found_intents[0]  # Берем первую тему
 
-        return found_intent
+        return found_intents
 
     @classmethod
     def get_response(cls, text):
-        intent = cls.process_human_language(text)
+        intents = cls.process_human_language(text)
 
-        if intent:
-            return random.choice(intent['response']) if intent['response'] else cls._DEFAULT_BOT_ANSWER, intent['code']
+        intent_response = cls._DEFAULT_BOT_ANSWER
+        intent_code = None
+        many_intents = None
+        if intents and len(intents) == 1:
+            intent_code = intents[0]['code']
+            intent_response = random.choice(
+                intents[0]['response']
+            ) if intents[0]['response'] else cls._DEFAULT_BOT_ANSWER
 
-        return cls._DEFAULT_BOT_ANSWER, None
+        if intents and len(intents) > 1:
+            many_intents = intents
+            # Если совпало больше 1 темы
+
+        return many_intents, intent_code, intent_response
 
     @classmethod
     def get_response_by_intent_code(cls, code):
         intent = Intent.with_responses.get(code=code)
-        responses = intent.responses.all()
+        responses = [resp.text for resp in intent.responses.all()]
         return random.choice(responses) if responses else cls._DEFAULT_BOT_ANSWER
 
 
