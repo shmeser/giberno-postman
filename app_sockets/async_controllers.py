@@ -183,7 +183,6 @@ class AsyncSocketController:
             'prepared_data': prepared_message,
         })
 
-        await asyncio.sleep(2)
         # Отправляем обновленные данные о чате всем участникам чата по одиночным сокетам
         for data in personalized_chat_variants_with_sockets:
             for connection_name in data['sockets']:
