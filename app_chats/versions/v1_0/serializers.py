@@ -25,6 +25,7 @@ class ChatsSerializer(serializers.ModelSerializer):
     users = serializers.SerializerMethodField()
     vacancy = serializers.SerializerMethodField()
     shop = serializers.SerializerMethodField()
+    distributor_logo = serializers.SerializerMethodField()
     subject_user = serializers.SerializerMethodField()
 
     def get_vacancy(self, data):
@@ -71,6 +72,19 @@ class ChatsSerializer(serializers.ModelSerializer):
             return data.active_managers_ids
         return []
 
+    def get_distributor_logo(self, data):
+        # Данные от prefetch_related
+        if data.target and data.target._meta.model_name == 'vacancy':
+            return MediaController(data.target).get_related_images_urls(
+                data.target.shop.distributor, MediaType.LOGO.value, only_prefetched=False
+            )
+        if data.target and data.target._meta.model_name == 'shop':
+            return MediaController(data.target).get_related_images_urls(
+                data.target.distributor, MediaType.LOGO.value, only_prefetched=False
+            )
+        return None
+
+
     class Meta:
         model = Chat
         fields = [
@@ -80,6 +94,7 @@ class ChatsSerializer(serializers.ModelSerializer):
             'blocked_at',
             'unread_count',
             'state',
+            'distributor_logo',
             'active_managers_ids',
             'first_unread_message',
             'last_message',
@@ -100,6 +115,7 @@ class ChatSerializer(ChatsSerializer):
             'blocked_at',
             'unread_count',
             'state',
+            'distributor_logo',
             'active_managers_ids',
             'first_unread_message',
             'last_message',
