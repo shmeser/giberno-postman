@@ -470,6 +470,7 @@ class ChatsRepository(MasterRepository):
             'target'
         )
 
+        # Префетчим логотипы торговых сетей для target, который Generic Relation
         shop_ct = ContentType.objects.get_for_model(Shop)
         chats_on_shops = [item for item in queryset if item.target_ct_id == shop_ct.id]
         if chats_on_shops:
