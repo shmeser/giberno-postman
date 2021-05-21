@@ -76,11 +76,11 @@ class ChatsSerializer(serializers.ModelSerializer):
         # Данные от prefetch_related
         if data.target and data.target._meta.model_name == 'vacancy':
             return MediaController(data.target).get_related_images_urls(
-                data.target.shop.distributor, MediaType.LOGO.value, only_prefetched=False
+                data.target.shop.distributor, MediaType.LOGO.value, only_prefetched=True
             )
         if data.target and data.target._meta.model_name == 'shop':
             return MediaController(data.target).get_related_images_urls(
-                data.target.distributor, MediaType.LOGO.value, only_prefetched=False
+                data.target.distributor, MediaType.LOGO.value, only_prefetched=True
             )
         return None
 
