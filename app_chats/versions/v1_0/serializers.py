@@ -84,7 +84,6 @@ class ChatsSerializer(serializers.ModelSerializer):
             )
         return None
 
-
     class Meta:
         model = Chat
         fields = [
