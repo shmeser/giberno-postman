@@ -2,11 +2,12 @@ import random
 import re
 
 from channels.db import database_sync_to_async
+from loguru import logger
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 
-from app_bot.enums import TelegramBotNotificationType
+from app_bot.enums import TelegramBotNotificationType, ChatterBotIntentCode
 from app_bot.models import BotChat, BotMessage, Intent
 
 
@@ -42,6 +43,8 @@ class TelegramBotRepository:
 
 class ChatterBotRepository:
     _DEFAULT_BOT_ANSWER = 'Не знаю, что на это ответить...'
+    _MANY_INTENTS_FOUND = 'Найдено несколько подходящих тем'
+    _INTENT_EMPTY_RESPONSE = 'Тема без вариантов ответов'
 
     @staticmethod
     def get_intents():
@@ -65,9 +68,10 @@ class ChatterBotRepository:
         words = word_tokenize(clean)
 
         stop_words = stopwords.words('russian')
-        # Оставляем слова да нет
+        # Оставляем слова да нет есть
         stop_words.remove('да')
         stop_words.remove('нет')
+        stop_words.remove('есть')
 
         snowball = SnowballStemmer(language='russian')
 
@@ -92,13 +96,22 @@ class ChatterBotRepository:
 
         for request_variant in intent['request']:
 
-            request_words_normal = cls.normalize_text(request_variant)  # Нормализуем слова в варианте запроса у темы
+            # Нормализуем слова в варианте запроса у темы
+            request_words_normal = cls.normalize_text(request_variant)
 
-            common_words_count = len(set(request_words_normal).intersection(text_words_normal))  # Количество общих слов
+            # Количество общих слов
+            common_words_count = len(set(request_words_normal).intersection(text_words_normal))
 
+            # Если число общих слов для текущего варианта больше числа общих слов для подходящего варианта
             if common_words_count > suitable_request_common_words_count:
                 suitable_request_common_words_count = common_words_count
                 suitable_request_variant_words_count = len(request_words_normal)
+
+            # Если фраза полностью совпала
+            if common_words_count == len(text_words_normal) and common_words_count > 1:
+                suitable_request_common_words_count = common_words_count
+                suitable_request_variant_words_count = len(request_words_normal)
+                break  # выходим из цикла
 
         if suitable_request_variant_words_count:
             relevancy = suitable_request_common_words_count / suitable_request_variant_words_count
@@ -116,7 +129,7 @@ class ChatterBotRepository:
         #  то добавить надстройку над INTENTS что пользователь матерится
 
         found_intent = None  # Бот пока не нашел подходящей темы
-        _MIN_INTENT_RELEVANCY = 0.49  # Минимальная релевантность темы для данного текста
+        _MIN_INTENT_RELEVANCY = 0.3  # Минимальная релевантность темы для данного текста
 
         processed_intents = []
 
@@ -126,13 +139,19 @@ class ChatterBotRepository:
         found_intents = sorted(
             list(filter(lambda x, min_rlv=_MIN_INTENT_RELEVANCY: x['relevancy'] >= min_rlv, processed_intents)),
             key=lambda x: x['relevancy'],
-            reverse=True
+            reverse=True  # По убыванию
         )
 
         # if found_intents:
         #     found_intent = found_intents[0]  # Берем первую тему
 
         return found_intents
+
+    @classmethod
+    def get_random_response_from_intent(cls, intent):
+        return random.choice(
+            intent['response']
+        ) if intent['response'] else cls._INTENT_EMPTY_RESPONSE
 
     @classmethod
     def get_response(cls, text):
@@ -143,13 +162,24 @@ class ChatterBotRepository:
         many_intents = None
         if intents and len(intents) == 1:
             intent_code = intents[0]['code']
-            intent_response = random.choice(
-                intents[0]['response']
-            ) if intents[0]['response'] else cls._DEFAULT_BOT_ANSWER
+            intent_response = cls.get_random_response_from_intent(intents[0])
 
         if intents and len(intents) > 1:
-            many_intents = intents
             # Если совпало больше 1 темы
+            obscene = next(filter(lambda x: x['code'] == ChatterBotIntentCode.OBSCENE_LANGUAGE.value, intents), None)
+            top_relevancy = list(filter(lambda x: x['relevancy'] == 1, intents))
+
+            # Если среди тем есть с нецензурной лексикой, то выдавать эту тему
+            if obscene:
+                intent_code = obscene['code']
+                intent_response = cls.get_random_response_from_intent(obscene)
+            elif len(top_relevancy) == 1:
+                # Если среди них есть тема с relevancy=1 а остальные ниже, то выдавать только с relevancy=1
+                intent_code = top_relevancy[0]['code']
+                intent_response = cls.get_random_response_from_intent(top_relevancy[0])
+            else:
+                many_intents = intents
+                intent_response = cls._MANY_INTENTS_FOUND
 
         return many_intents, intent_code, intent_response
 
