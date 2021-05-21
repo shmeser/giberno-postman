@@ -6,6 +6,7 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef, Case, When, F, IntegerField, \
     Exists, Sum, Window, Value
 from django.db.models.functions import Coalesce
+from django.db.models.query import prefetch_related_objects
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize, underscoreize
 
@@ -13,7 +14,7 @@ from app_chats.enums import ChatManagerState
 from app_chats.models import Chat, Message, ChatUser, MessageStat
 from app_chats.versions.v1_0.serializers import MessagesSerializer, FirstUnreadMessageSerializer, \
     SocketChatSerializer
-from app_market.models import Shop, Vacancy
+from app_market.models import Shop, Vacancy, Distributor
 from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -468,6 +469,32 @@ class ChatsRepository(MasterRepository):
         ).prefetch_related(
             'target'
         )
+
+        shop_ct = ContentType.objects.get_for_model(Shop)
+        chats_on_shops = [item for item in queryset if item.target_ct_id == shop_ct.id]
+        if chats_on_shops:
+            prefetch_related_objects(chats_on_shops, Prefetch(
+                "target__distributor__media",
+                queryset=MediaModel.objects.filter(
+                    type=MediaType.LOGO.value,
+                    owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
+                    format=MediaFormat.IMAGE.value
+                ).order_by('-created_at'),  # Сортировка по дате обязательно
+                to_attr='medias'
+            ))
+
+        vacancy_ct = ContentType.objects.get_for_model(Vacancy)
+        chats_on_vacancies = [item for item in queryset if item.target_ct_id == vacancy_ct.id]
+        if chats_on_vacancies:
+            prefetch_related_objects(chats_on_vacancies, Prefetch(
+                "target__shop__distributor__media",
+                queryset=MediaModel.objects.filter(
+                    type=MediaType.LOGO.value,
+                    owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
+                    format=MediaFormat.IMAGE.value
+                ).order_by('-created_at'),  # Сортировка по дате обязательно
+                to_attr='medias'
+            ))
 
         return queryset
 

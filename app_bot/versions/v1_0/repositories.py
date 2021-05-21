@@ -2,7 +2,6 @@ import random
 import re
 
 from channels.db import database_sync_to_async
-from loguru import logger
 from nltk import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
@@ -42,7 +41,7 @@ class TelegramBotRepository:
 
 
 class ChatterBotRepository:
-    _DEFAULT_BOT_ANSWER = 'Не знаю, что на это ответить...'
+    _DEFAULT_BOT_ANSWER = 'Попробуйте переформулировать свой запрос'
     _MANY_INTENTS_FOUND = 'Найдено несколько подходящих тем'
     _INTENT_EMPTY_RESPONSE = 'Тема без вариантов ответов'
 
@@ -108,7 +107,7 @@ class ChatterBotRepository:
                 suitable_request_variant_words_count = len(request_words_normal)
 
             # Если фраза полностью совпала
-            if common_words_count == len(text_words_normal) and common_words_count > 1:
+            if common_words_count == len(text_words_normal) and len(text_words_normal) == len(request_words_normal):
                 suitable_request_common_words_count = common_words_count
                 suitable_request_variant_words_count = len(request_words_normal)
                 break  # выходим из цикла
