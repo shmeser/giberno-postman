@@ -949,26 +949,27 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
     def get_necessary_docs(self, vacancy_id):
         vacancy = Vacancy.objects.get(pk=vacancy_id)
         required_docs = ''
-        if vacancy.required_docs:
-            for doc in vacancy.required_docs:
-                if doc == DocumentType.OTHER.value:
-                    required_docs += 'Другие документы'
-                    required_docs += '\n'
-                if doc == DocumentType.PASSPORT.value:
-                    required_docs += 'Паспорт'
-                    required_docs += '\n'
-                if doc == DocumentType.INN.value:
-                    required_docs += 'ИНН'
-                    required_docs += '\n'
-                if doc == DocumentType.SNILS.value:
-                    required_docs += 'СНИЛС'
-                    required_docs += '\n'
-                if doc == DocumentType.DRIVER_LICENCE.value:
-                    required_docs += 'Водительское удостоверение'
-                    required_docs += '\n'
-                if doc == DocumentType.MEDICAL_BOOK.value:
-                    required_docs += 'Медицинская книжка'
-                    required_docs += '\n'
+        if not vacancy.required_docs:
+            return required_docs
+        for doc in vacancy.required_docs:
+            if doc == DocumentType.OTHER.value:
+                required_docs += 'Другие документы'
+                required_docs += '\n'
+            if doc == DocumentType.PASSPORT.value:
+                required_docs += 'Паспорт'
+                required_docs += '\n'
+            if doc == DocumentType.INN.value:
+                required_docs += 'ИНН'
+                required_docs += '\n'
+            if doc == DocumentType.SNILS.value:
+                required_docs += 'СНИЛС'
+                required_docs += '\n'
+            if doc == DocumentType.DRIVER_LICENCE.value:
+                required_docs += 'Водительское удостоверение'
+                required_docs += '\n'
+            if doc == DocumentType.MEDICAL_BOOK.value:
+                required_docs += 'Медицинская книжка'
+                required_docs += '\n'
 
         return required_docs
 

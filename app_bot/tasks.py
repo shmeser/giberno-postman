@@ -239,20 +239,26 @@ class BotIntentsHandler:
     __ASK_EXACT_VACANCY_CHAT = 'Обратитесь в чат по конкретной вакансии'
     __NO_CONFIRMED_APPEALS_FOR_VACANCY = 'У вас нет одобренных заявок на эту вакансию'
 
-    @staticmethod
-    def get_disable_bot_buttons(target):
+    __BUTTON_TEXT_VACANCIES = 'Вакансии'
+    __BUTTON_TEXT_SHOP_VACANCIES = 'Вакансии магазина'
+    __BUTTON_TEXT_APPEALS = 'Отклики'
+    __BUTTON_TEXT_CONNECT_WITH_MANAGER = 'Соединить с менеджером'
+    __BUTTON_TEXT_SUPPORT = 'Поддержка'
+
+    @classmethod
+    def get_disable_bot_buttons(cls, target):
         buttons = [
             {
                 'action': ChatMessageActionType.SHOP_VACANCIES.value,
-                'text': 'Вакансии'
+                'text': cls.__BUTTON_TEXT_VACANCIES
             },
             {
                 'action': ChatMessageActionType.APPEALS.value,
-                'text': 'Отклики'
+                'text': cls.__BUTTON_TEXT_APPEALS
             },
             {
                 'action': ChatMessageActionType.BOT_INTENT.value,
-                'text': 'Соединить с менеджером',
+                'text': cls.__BUTTON_TEXT_CONNECT_WITH_MANAGER,
                 'intent': ChatterBotIntentCode.DISABLE.value
             }
         ]
@@ -279,8 +285,6 @@ class BotIntentsHandler:
     def get_vacancy_requirements(cls, version, target, vacancy_id):
         text = cls.__ASK_EXACT_VACANCY_CHAT
         buttons = None
-        if isinstance(target, Shop):
-            pass
         if isinstance(target, Vacancy):
             vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
             text = vacancy_repository().get_requirements(vacancy_id)
@@ -330,7 +334,7 @@ class BotIntentsHandler:
     def get_shop_vacancies_response(cls, version, target, shop_id):
         buttons = [{
             'action': ChatMessageActionType.SHOP_VACANCIES.value,
-            'text': 'Вакансии магазина'
+            'text': cls.__BUTTON_TEXT_SHOP_VACANCIES
         }]
         return buttons
 
@@ -355,7 +359,7 @@ class BotIntentsHandler:
     def get_shop_vacancy_details_response(cls, version, target, shop_id):
         buttons = [{
             'action': ChatMessageActionType.SHOP_VACANCIES.value,
-            'text': 'Вакансии'
+            'text': cls.__BUTTON_TEXT_VACANCIES
         }]
 
         return buttons
@@ -365,7 +369,7 @@ class BotIntentsHandler:
         text = None
         buttons = [{
             'action': ChatMessageActionType.SHOP_VACANCIES.value,
-            'text': 'Вакансии'
+            'text': cls.__BUTTON_TEXT_VACANCIES
         }]
         if isinstance(target, Shop):
             # TODO перенести в intent responses
@@ -373,11 +377,11 @@ class BotIntentsHandler:
 
         return text, buttons
 
-    @staticmethod
-    def get_what_you_can_response(version, target, target_id, subject_user):
+    @classmethod
+    def get_what_you_can_response(cls, version, target, target_id, subject_user):
         buttons = [{
             'action': ChatMessageActionType.SHOP_VACANCIES.value,
-            'text': 'Вакансии'
+            'text': cls.__BUTTON_TEXT_VACANCIES
         }]
         text = None
         if isinstance(target, Vacancy):
@@ -388,10 +392,10 @@ class BotIntentsHandler:
                 buttons = [
                     {
                         'action': ChatMessageActionType.SHOP_VACANCIES.value,
-                        'text': 'Вакансии'
+                        'text': cls.__BUTTON_TEXT_VACANCIES
                     }, {
                         'action': ChatMessageActionType.APPEALS.value,
-                        'text': 'Отклики'
+                        'text': cls.__BUTTON_TEXT_APPEALS
                     }
                 ]
             else:
@@ -403,7 +407,7 @@ class BotIntentsHandler:
     def get_comply_response(cls, version, target, shop_id):
         buttons = [{
             'action': ChatMessageActionType.SUPPORT.value,
-            'text': 'Поддержка'
+            'text': cls.__BUTTON_TEXT_SUPPORT
         }]
 
         return buttons
