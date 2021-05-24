@@ -25,6 +25,7 @@ class Chats(CRUDAPIView):
     filter_params = {
         'shop': 'shop_id',
         'vacancy': 'vacancy_id',
+        'appeal': 'appeal_id',
         'user': 'user_id',
         'created_at': 'created_at'
     }

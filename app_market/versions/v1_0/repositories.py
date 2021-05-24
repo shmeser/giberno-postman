@@ -1215,7 +1215,7 @@ class ShiftAppealsRepository(MasterRepository):
         return ShiftAppeal.objects.filter(
             applier_id=applier_id,
             shift__vacancy__id=vacancy_id,
-            # status__in=[ShiftAppealStatus.INITIAL.value] # TODO нужно ли учитывать отклоненные заявки
+            # status__in=[ShiftAppealStatus.INITIAL.value] # TODO нужно ли учитывать все заявки при создании чата
         ).exists()
 
     def is_related_manager(self, instance):

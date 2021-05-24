@@ -107,6 +107,7 @@ class ChatsRepository(MasterRepository):
         user_id = kwargs.pop('user_id', None)
         shop_id = kwargs.pop('shop_id', None)
         vacancy_id = kwargs.pop('vacancy_id', None)
+        appeal_id = kwargs.pop('appeal_id', None)
 
         checking_kwargs = {}
 
@@ -135,6 +136,25 @@ class ChatsRepository(MasterRepository):
                 # Проверяем есть ли такой пользователь и есть ли от него отклики на указанную вакансию
                 if not subject_user or not ShiftAppealsRepository.check_if_active_appeal(
                         vacancy_id=vacancy_id, applier_id=user_id):
+                    need_to_create = False
+
+            # Запрашивается чат с пользователем по отклику на вакансию, если тот откликнулся на нее
+            if appeal_id:
+                need_to_create = True
+                # Проверяем есть ли отклик
+                try:
+                    target_ct = ContentType.objects.get_for_model(Vacancy)
+                    appeal = ShiftAppealsRepository(me=self.me).get_by_id_for_manager(appeal_id)
+                    # Цель обсуждения в чате - вакансия
+                    target_id = appeal.shift.vacancy.id
+                    # Основной пользователь в чате - самозанятый
+                    subject_user = appeal.applier
+                    # Участники чата
+                    users = [
+                        self.me,
+                        subject_user
+                    ]
+                except Exception as e:
                     need_to_create = False
 
         elif self.me.account_type == AccountType.SELF_EMPLOYED.value:  # Если роль самозанятого
