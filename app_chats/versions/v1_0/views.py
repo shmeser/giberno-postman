@@ -254,6 +254,8 @@ class ReadMessages(CRUDAPIView):
                 me=msg_owner
             ).get_chat_unread_count_and_first_unread(chat_id)  # 2
 
+        blocked_at_ts = datetime_to_timestamp(blocked_at) if blocked_at is not None else None
+
         if my_unread_count is not None:
             SocketController(me=request.user, version=AvailableVersion.V1_0.value).send_message_to_my_connections({
                 'type': 'chat_message_was_read',
@@ -262,7 +264,7 @@ class ReadMessages(CRUDAPIView):
                     'unreadCount': my_unread_count,
                     'state': state,
                     'firstUnreadMessage': serialized_first_unread_message,
-                    'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
+                    'blockedAt': blocked_at_ts
                 },
                 'message': {
                     'uuid': chained_get(body, 'uuid'),
@@ -274,17 +276,17 @@ class ReadMessages(CRUDAPIView):
 
         if msg_owner and msg_owner.id != request.user.id and should_response_owner:
             # Если автор прочитаного сообщения не тот, кто его читает, и сообщение ранее не читали
-            for socket_id in msg_owner_sockets:
-                # Отправялем сообщение автору сообщения о том, что оно прочитано
-                SocketController(version=AvailableVersion.V1_0.value).send_message_to_one_connection(socket_id, {
-                    'type': 'chat_message_updated',
-                    'chat_id': chat_id,
-                    'prepared_data': serialized_message,
-                })
+            # Отправялем сообщение автору сообщения о том, что оно прочитано
+            SocketController(version=AvailableVersion.V1_0.value).send_message_to_many_connections(msg_owner_sockets, {
+                'type': 'chat_message_updated',
+                'chat_id': chat_id,
+                'prepared_data': serialized_message,
+            })
 
-                # Если прочитанное сообщение последнее в чате, то отправляем автору SERVER_CHAT_LAST_MSG_UPDATED
-                if owner_unread_count is not None:
-                    SocketController(version=AvailableVersion.V1_0.value).send_message_to_one_connection(socket_id, {
+            # Если прочитанное сообщение последнее в чате, то отправляем автору SERVER_CHAT_LAST_MSG_UPDATED
+            if owner_unread_count is not None:
+                SocketController(version=AvailableVersion.V1_0.value).send_message_to_many_connections(
+                    msg_owner_sockets, {
                         'type': 'chat_last_msg_updated',
                         'prepared_data': {
                             'id': chat_id,
@@ -292,7 +294,7 @@ class ReadMessages(CRUDAPIView):
                             'unreadCount': owner_unread_count,
                             'state': state,
                             'lastMessage': serialized_message,
-                            'blockedAt': datetime_to_timestamp(blocked_at) if blocked_at is not None else None
+                            'blockedAt': blocked_at_ts
                         },
                         'indicators': {
                             'chatsUnreadMessages': owner_chats_unread_messages_count

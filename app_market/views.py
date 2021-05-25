@@ -363,7 +363,6 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
     serializer_class = POSTReviewByManagerSerializer
 
     @staticmethod
-    @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
         '''
         Отзывы на самозанятого (оставляют Администраторы\менеджеры)
@@ -374,7 +373,6 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
     def get(request, **kwargs):
         '''
         Получить список отзывов на самозанятого (получают Администраторы\менеджеры))
@@ -447,7 +445,6 @@ def suggest_profession(request):
 
 class Skills(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', SkillSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Skills().get(request, **kwargs)
@@ -460,5 +457,33 @@ class MarketDocuments(APIView):
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.MarketDocuments().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class ShiftForManagers(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        """
+            Смена (получают Администраторы\менеджеры))
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ShiftForManagers().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class ShiftAppealsForManagers(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        """
+            Отклики на смену (получают Администраторы\менеджеры))
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ShiftAppealsForManagers().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

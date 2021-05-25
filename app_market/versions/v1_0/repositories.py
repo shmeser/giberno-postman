@@ -11,7 +11,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists
-from django.db.models.functions import Cast, Concat, Extract, Round
+from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
 from django.utils.timezone import now, localtime
 from pytz import timezone
 from rest_framework.exceptions import PermissionDenied
@@ -32,7 +32,7 @@ from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
-from backend.utils import ArrayRemove, datetime_to_timestamp
+from backend.utils import ArrayRemove, datetime_to_timestamp, timestamp_to_datetime
 from giberno import settings
 
 
@@ -324,7 +324,7 @@ class ShiftsRepository(MasterRepository):
     def __init__(self, me=None, calendar_from=None, calendar_to=None, vacancy_timezone_name='Europe/Moscow') -> None:
         super().__init__()
         # TODO брать из вакансии vacancy_timezone_name
-
+        self.vacancy_timezone_name = vacancy_timezone_name
         self.me = me
         # Получаем дату начала диапазона для расписани
         self.calendar_from = datetime.utcnow().isoformat() if calendar_from is None else localtime(
@@ -412,6 +412,40 @@ class ShiftsRepository(MasterRepository):
                         })
 
         return active_dates
+
+    def get_shift_for_managers(self, record_id, active_date=None):
+        date = timestamp_to_datetime(
+            int(active_date)) if active_date is not None else now()  # По умолчанию текущий день
+
+        shifts = self.base_query.filter(id=record_id, deleted=False).annotate(
+            # Флаг - активна ли смена в указанную дату, для фильтрации (вычислются 10 дат от текущего дня по умолчанию)
+            # для расширения диапазона надо передавать calendar_from calendar_to
+            active_this_date=Case(
+                When(
+                    active_dates__dacontains=Cast(
+                        [localtime(date, timezone=timezone(self.vacancy_timezone_name))],
+                        output_field=ArrayField(DateField())
+                    ),
+                    then=True
+                ),
+                default=False,
+                output_field=BooleanField()
+            )
+        ).filter(active_this_date=True).select_related('vacancy').annotate(
+            all_appeals_count=Coalesce(Count('appeals', filter=Q(
+                appeals__status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value],
+                # дата смены в отклике должна совпадать с переданной датой
+                appeals__shift_active_date__date=localtime(date, timezone=timezone(self.vacancy_timezone_name)).date()
+            )), 0),
+            confirmed_appeals_count=Coalesce(Count('appeals', filter=Q(
+                appeals__status=ShiftAppealStatus.CONFIRMED.value,
+                # дата смены в отклике должна совпадать с переданной датой
+                appeals__shift_active_date__date=localtime(date, timezone=timezone(self.vacancy_timezone_name)).date()
+            )), 0)
+        )
+        if not shifts:
+            raise HttpException(detail='', status_code=RESTErrors.NOT_FOUND.value)
+        return shifts.first()
 
 
 class UserShiftRepository(MasterRepository):
@@ -949,26 +983,27 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
     def get_necessary_docs(self, vacancy_id):
         vacancy = Vacancy.objects.get(pk=vacancy_id)
         required_docs = ''
-        if vacancy.required_docs:
-            for doc in vacancy.required_docs:
-                if doc == DocumentType.OTHER.value:
-                    required_docs += 'Другие документы'
-                    required_docs += '\n'
-                if doc == DocumentType.PASSPORT.value:
-                    required_docs += 'Паспорт'
-                    required_docs += '\n'
-                if doc == DocumentType.INN.value:
-                    required_docs += 'ИНН'
-                    required_docs += '\n'
-                if doc == DocumentType.SNILS.value:
-                    required_docs += 'СНИЛС'
-                    required_docs += '\n'
-                if doc == DocumentType.DRIVER_LICENCE.value:
-                    required_docs += 'Водительское удостоверение'
-                    required_docs += '\n'
-                if doc == DocumentType.MEDICAL_BOOK.value:
-                    required_docs += 'Медицинская книжка'
-                    required_docs += '\n'
+        if not vacancy.required_docs:
+            return required_docs
+        for doc in vacancy.required_docs:
+            if doc == DocumentType.OTHER.value:
+                required_docs += 'Другие документы'
+                required_docs += '\n'
+            if doc == DocumentType.PASSPORT.value:
+                required_docs += 'Паспорт'
+                required_docs += '\n'
+            if doc == DocumentType.INN.value:
+                required_docs += 'ИНН'
+                required_docs += '\n'
+            if doc == DocumentType.SNILS.value:
+                required_docs += 'СНИЛС'
+                required_docs += '\n'
+            if doc == DocumentType.DRIVER_LICENCE.value:
+                required_docs += 'Водительское удостоверение'
+                required_docs += '\n'
+            if doc == DocumentType.MEDICAL_BOOK.value:
+                required_docs += 'Медицинская книжка'
+                required_docs += '\n'
 
         return required_docs
 
@@ -1307,6 +1342,9 @@ class ShiftAppealsRepository(MasterRepository):
         ).exists():
             return False
         return True
+
+    def get_shift_appeals_for_managers(self, appeal_id):
+        pass
 
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
