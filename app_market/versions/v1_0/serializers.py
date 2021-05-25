@@ -565,6 +565,41 @@ class ShiftsWithAppealsSerializer(CRUDSerializer):
         fields = ['id', 'time_start', 'time_end', 'max_employees_count', 'appliers', 'confirmed_appliers']
 
 
+class ApplierSerializer(CRUDSerializer):
+    id = serializers.IntegerField()
+    birth_date = DateTimeField()
+
+    avatar = serializers.SerializerMethodField(read_only=True)
+
+    def get_avatar(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(
+            prefetched_data, MediaType.AVATAR.value, only_prefetched=True
+        )
+
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'first_name', 'middle_name', 'last_name', 'birth_date', 'avatar']
+
+
+class ShiftAppealsForManagersSerializer(CRUDSerializer):
+    applier = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
+    work_experience = serializers.SerializerMethodField()
+
+    def get_applier(self, instance):
+        return ApplierSerializer(instance.applier, many=False).data
+
+    def get_documents(self, instance):
+        return None
+
+    def get_work_experience(self, instance):
+        return None
+
+    class Meta:
+        model = ShiftAppeal
+        fields = ['id', 'status', 'applier', 'documents', 'work_experience']
+
+
 class ShiftsSerializer(CRUDSerializer):
     repository = ShiftsRepository
 

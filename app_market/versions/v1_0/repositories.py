@@ -444,7 +444,7 @@ class ShiftsRepository(MasterRepository):
             )), 0)
         )
         if not shifts:
-            raise HttpException(detail='', status_code=RESTErrors.NOT_FOUND.value)
+            raise HttpException(detail=f'Смена с ID {record_id} не найдена', status_code=RESTErrors.NOT_FOUND.value)
         return shifts.first()
 
 
@@ -1343,8 +1343,17 @@ class ShiftAppealsRepository(MasterRepository):
             return False
         return True
 
-    def get_shift_appeals_for_managers(self, appeal_id):
-        pass
+    def get_shift_appeals_for_managers(self, shift_id, active_date=None):
+        date = timestamp_to_datetime(
+            int(active_date)) if active_date is not None else now()  # По умолчанию текущий день
+
+        appeals = self.model.objects.filter(
+            shift_id=shift_id,
+            shift_active_date__date=date.date(),
+            status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+        )
+
+        return appeals
 
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):

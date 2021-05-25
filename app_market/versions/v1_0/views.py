@@ -13,7 +13,8 @@ from app_market.versions.v1_0.repositories import VacanciesRepository, Professio
     MarketDocumentsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
-    ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer
+    ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
+    ShiftAppealsForManagersSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -878,6 +879,8 @@ class ShiftAppealsForManagers(CRUDAPIView):
 
     def get(self, request, *args, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        shift = self.repository_class(me=request.user).get_shift_appeals_for_managers(record_id)
-        # return Response(camelize(ShiftAppealsForManagersSerializer(shift, many=False).data), status=status.HTTP_200_OK)
-        return Response(None, status=status.HTTP_200_OK)
+        active_date = underscoreize(request.query_params).get('active_date')
+
+        appeals = self.repository_class(me=request.user).get_shift_appeals_for_managers(
+            record_id, active_date=active_date)
+        return Response(camelize(ShiftAppealsForManagersSerializer(appeals, many=True).data), status=status.HTTP_200_OK)
