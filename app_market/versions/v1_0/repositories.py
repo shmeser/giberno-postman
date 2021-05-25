@@ -1364,7 +1364,7 @@ class ShiftAppealsRepository(MasterRepository):
                             type=MediaType.AVATAR.value,
                             format=MediaFormat.IMAGE.value,
                         ).order_by('-created_at'),
-                        to_attr='medias'  # Подгружаем флаги в поле medias
+                        to_attr='medias'  # Подгружаем аватарки в поле medias
                     )
                 )
             )

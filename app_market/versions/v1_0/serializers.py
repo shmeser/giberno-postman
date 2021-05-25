@@ -583,13 +583,13 @@ class ApplierSerializer(CRUDSerializer):
 
 class ShiftAppealsForManagersSerializer(CRUDSerializer):
     applier = serializers.SerializerMethodField()
-    documents = serializers.SerializerMethodField()
+    required_docs = serializers.SerializerMethodField()
     work_experience = serializers.SerializerMethodField()
 
     def get_applier(self, instance):
         return ApplierSerializer(instance.applier, many=False).data
 
-    def get_documents(self, instance):
+    def get_required_docs(self, instance):
         return []
 
     def get_work_experience(self, instance):
@@ -597,7 +597,7 @@ class ShiftAppealsForManagersSerializer(CRUDSerializer):
 
     class Meta:
         model = ShiftAppeal
-        fields = ['id', 'status', 'applier', 'documents', 'work_experience']
+        fields = ['id', 'status', 'applier', 'required_docs', 'work_experience']
 
 
 class ShiftsSerializer(CRUDSerializer):
