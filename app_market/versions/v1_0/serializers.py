@@ -592,6 +592,32 @@ class ShiftsSerializer(CRUDSerializer):
         ]
 
 
+class ShiftForManagersSerializer(serializers.ModelSerializer):
+    all_appeals_count = serializers.SerializerMethodField()
+    confirmed_appeals_count = serializers.SerializerMethodField()
+    vacancy_title = serializers.SerializerMethodField()
+
+    def get_all_appeals_count(self, data):
+        return data.all_appeals_count
+
+    def get_confirmed_appeals_count(self, data):
+        return data.confirmed_appeals_count
+
+    def get_vacancy_title(self, data):
+        return data.vacancy.title
+
+    class Meta:
+        model = Shift
+        fields = [
+            'id',
+            'time_start',
+            'time_end',
+            'all_appeals_count',
+            'confirmed_appeals_count',
+            'vacancy_title'
+        ]
+
+
 class ProfessionSerializer(CRUDSerializer):
     repository = ProfessionsRepository
 
