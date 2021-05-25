@@ -590,10 +590,10 @@ class ShiftAppealsForManagersSerializer(CRUDSerializer):
         return ApplierSerializer(instance.applier, many=False).data
 
     def get_documents(self, instance):
-        return None
+        return []
 
     def get_work_experience(self, instance):
-        return None
+        return []
 
     class Meta:
         model = ShiftAppeal

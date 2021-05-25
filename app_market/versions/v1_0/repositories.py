@@ -1347,10 +1347,27 @@ class ShiftAppealsRepository(MasterRepository):
         date = timestamp_to_datetime(
             int(active_date)) if active_date is not None else now()  # По умолчанию текущий день
 
+        user_ct = ContentType.objects.get_for_model(UserProfile)
+
         appeals = self.model.objects.filter(
             shift_id=shift_id,
             shift_active_date__date=date.date(),
             status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+        ).prefetch_related(  # Префетчим заявителя и его аватарку
+            Prefetch(
+                'applier',
+                queryset=UserProfile.objects.all().prefetch_related(
+                    Prefetch(
+                        'media',
+                        queryset=MediaModel.objects.filter(
+                            owner_ct_id=user_ct.id,
+                            type=MediaType.AVATAR.value,
+                            format=MediaFormat.IMAGE.value,
+                        ).order_by('-created_at'),
+                        to_attr='medias'  # Подгружаем флаги в поле medias
+                    )
+                )
+            )
         )
 
         return appeals
