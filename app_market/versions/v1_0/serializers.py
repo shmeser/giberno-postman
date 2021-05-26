@@ -592,6 +592,8 @@ class ShiftAppealsForManagersSerializer(CRUDSerializer):
 
     def get_required_docs(self, instance):
         documents = []
+        if not instance.shift.vacancy.required_docs:
+            return documents
         for r_d in instance.shift.vacancy.required_docs:
             doc = {
                 'title': REQUIRED_DOCS_DICT[r_d],
