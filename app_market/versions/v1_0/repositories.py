@@ -446,13 +446,6 @@ class ShiftsRepository(MasterRepository):
                     active_date, timezone=timezone(self.vacancy_timezone_name)
                 ).date()
             )), 0),
-            confirmed_appeals_count=Coalesce(Count('appeals', filter=Q(
-                appeals__status=ShiftAppealStatus.CONFIRMED.value,
-                # дата смены в отклике должна совпадать с переданной датой
-                appeals__shift_active_date__datetz=localtime(  # в часовом поясе вакансии
-                    active_date, timezone=timezone(self.vacancy_timezone_name)
-                ).date()
-            )), 0)
         )
         if not shifts:
             raise HttpException(detail=f'Смена с ID {record_id} не найдена', status_code=RESTErrors.NOT_FOUND.value)

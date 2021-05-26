@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pytz
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Avg, Sum
 from rest_framework import serializers
 
@@ -13,11 +14,24 @@ from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
-from app_users.enums import DocumentType, REQUIRED_DOCS_DICT
+from app_users.enums import REQUIRED_DOCS_DICT
 from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
-from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime
+from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime, ArrayRemove
+
+
+def map_status_for_required_docs(required_docs, user_docs):
+    documents = []
+    for r_d in required_docs:
+        doc = {
+            'title': REQUIRED_DOCS_DICT[r_d],
+            'type': r_d,
+            'is_confirmed': r_d in user_docs
+        }
+        documents.append(doc)
+
+    return documents
 
 
 class CategoriesSerializer(serializers.ModelSerializer):
@@ -341,9 +355,22 @@ class VacanciesClusterSerializer(serializers.Serializer):
 class VacancySerializer(VacanciesSerializer):
     created_at = DateTimeField()
     utc_offset = serializers.SerializerMethodField()
+    required_docs = serializers.SerializerMethodField()
 
     def get_shop(self, vacancy):
         return ShopInVacancySerializer(vacancy.shop).data
+
+    def get_required_docs(self, vacancy):
+        if not vacancy.required_docs:
+            return []
+        return map_status_for_required_docs(
+            vacancy.required_docs,
+            self.me.documents.aggregate(
+                docs=ArrayRemove(
+                    ArrayAgg('type', distinct=True), None
+                )
+            )['docs']
+        )
 
     def get_utc_offset(self, vacancy):
         return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
@@ -362,6 +389,32 @@ class VacancySerializer(VacanciesSerializer):
             'price',
             'features',
             'required_docs',
+            'is_favourite',
+            'is_hot',
+            'utc_offset',
+            'required_experience',
+            'employment',
+            'work_time',
+            'banner',
+            'shop',
+            'distributor'
+        ]
+
+
+class VacancyForManagerSerializer(VacancySerializer):
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id',
+            'title',
+            'description',
+            'created_at',
+            'views_count',
+            'rating',
+            'rates_count',
+            'free_count',
+            'price',
+            'features',
             'is_favourite',
             'is_hot',
             'utc_offset',
@@ -591,16 +644,9 @@ class ShiftAppealsForManagersSerializer(CRUDSerializer):
         return ApplierSerializer(instance.applier, many=False).data
 
     def get_required_docs(self, instance):
-        documents = []
         if not instance.shift.vacancy.required_docs:
-            return documents
-        for r_d in instance.shift.vacancy.required_docs:
-            doc = {
-                'title': REQUIRED_DOCS_DICT[r_d],
-                'is_confirmed': r_d in instance.applier.documents_types
-            }
-            documents.append(doc)
-        return documents
+            return []
+        return map_status_for_required_docs(instance.shift.vacancy.required_docs, instance.applier.documents_types)
 
     def get_work_experience(self, instance):
         return []
@@ -639,14 +685,10 @@ class ShiftsSerializer(CRUDSerializer):
 
 class ShiftForManagersSerializer(serializers.ModelSerializer):
     all_appeals_count = serializers.SerializerMethodField()
-    confirmed_appeals_count = serializers.SerializerMethodField()
     vacancy_title = serializers.SerializerMethodField()
 
     def get_all_appeals_count(self, data):
         return data.all_appeals_count
-
-    def get_confirmed_appeals_count(self, data):
-        return data.confirmed_appeals_count
 
     def get_vacancy_title(self, data):
         return data.vacancy.title
@@ -658,7 +700,7 @@ class ShiftForManagersSerializer(serializers.ModelSerializer):
             'time_start',
             'time_end',
             'all_appeals_count',
-            'confirmed_appeals_count',
+            'max_employees_count',
             'vacancy_title'
         ]
 

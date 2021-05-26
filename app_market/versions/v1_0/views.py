@@ -15,7 +15,7 @@ from app_market.versions.v1_0.repositories import VacanciesRepository, Professio
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
-    ShiftAppealsForManagersSerializer
+    ShiftAppealsForManagersSerializer, VacancyForManagerSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -348,7 +348,7 @@ class SingleVacancyActiveDatesForManagerListAPIView(CRUDAPIView):
 
 
 class VacancyByManagerRetrieveAPIView(CRUDAPIView):
-    serializer_class = VacancySerializer
+    serializer_class = VacancyForManagerSerializer
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
 
