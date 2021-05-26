@@ -13,7 +13,7 @@ from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
-from app_users.enums import DocumentType, REQUIRED_DOCS_DICT
+from app_users.enums import REQUIRED_DOCS_DICT
 from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
@@ -374,6 +374,32 @@ class VacancySerializer(VacanciesSerializer):
         ]
 
 
+class VacancyForManagerSerializer(VacancySerializer):
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id',
+            'title',
+            'description',
+            'created_at',
+            'views_count',
+            'rating',
+            'rates_count',
+            'free_count',
+            'price',
+            'features',
+            'is_favourite',
+            'is_hot',
+            'utc_offset',
+            'required_experience',
+            'employment',
+            'work_time',
+            'banner',
+            'shop',
+            'distributor'
+        ]
+
+
 class VacancyInShiftSerializer(VacanciesSerializer):
     utc_offset = serializers.SerializerMethodField()
     shop = serializers.SerializerMethodField()
@@ -597,6 +623,7 @@ class ShiftAppealsForManagersSerializer(CRUDSerializer):
         for r_d in instance.shift.vacancy.required_docs:
             doc = {
                 'title': REQUIRED_DOCS_DICT[r_d],
+                'type': r_d,
                 'is_confirmed': r_d in instance.applier.documents_types
             }
             documents.append(doc)
@@ -639,14 +666,10 @@ class ShiftsSerializer(CRUDSerializer):
 
 class ShiftForManagersSerializer(serializers.ModelSerializer):
     all_appeals_count = serializers.SerializerMethodField()
-    confirmed_appeals_count = serializers.SerializerMethodField()
     vacancy_title = serializers.SerializerMethodField()
 
     def get_all_appeals_count(self, data):
         return data.all_appeals_count
-
-    def get_confirmed_appeals_count(self, data):
-        return data.confirmed_appeals_count
 
     def get_vacancy_title(self, data):
         return data.vacancy.title
@@ -658,7 +681,7 @@ class ShiftForManagersSerializer(serializers.ModelSerializer):
             'time_start',
             'time_end',
             'all_appeals_count',
-            'confirmed_appeals_count',
+            'max_employees_count',
             'vacancy_title'
         ]
 
