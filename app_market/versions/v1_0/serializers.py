@@ -27,7 +27,7 @@ def map_status_for_required_docs(required_docs, user_docs):
         doc = {
             'title': REQUIRED_DOCS_DICT[r_d],
             'type': r_d,
-            'is_confirmed': r_d in user_docs
+            'is_confirmed': r_d in user_docs if user_docs else False
         }
         documents.append(doc)
 
