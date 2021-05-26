@@ -12,19 +12,11 @@ from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
     ShiftStatus, ShiftAppealStatus, AppealCancelReason
 from app_media.models import MediaModel
-from app_users.enums import DocumentType
+from app_users.enums import REQUIRED_DOCS_FOR_CHOICES
 from app_users.models import UserProfile
 from backend.models import BaseModel
 from backend.utils import choices
 from giberno import settings
-
-REQUIRED_DOCS = [
-    (DocumentType.PASSPORT, 'Паспорт'),
-    (DocumentType.INN, 'ИНН'),
-    (DocumentType.SNILS, 'СНИЛС'),
-    (DocumentType.MEDICAL_BOOK, 'Медкнижка'),
-    (DocumentType.DRIVER_LICENCE, 'Водительское удостоверение'),
-]
 
 
 class Category(BaseModel):
@@ -43,7 +35,7 @@ class Category(BaseModel):
 class Distributor(BaseModel):
     title = models.CharField(max_length=128, null=True, blank=True)
     description = models.CharField(max_length=2048, null=True, blank=True)
-    required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS), null=True, blank=True)
+    required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS_FOR_CHOICES), null=True, blank=True)
 
     categories = models.ManyToManyField(Category, through='DistributorCategory', related_name='categories')
 
@@ -125,7 +117,7 @@ class Vacancy(BaseModel):
     )
 
     required_docs = ArrayField(
-        models.PositiveIntegerField(choices=REQUIRED_DOCS), verbose_name='Документы', null=True, blank=True
+        models.PositiveIntegerField(choices=REQUIRED_DOCS_FOR_CHOICES), verbose_name='Документы', null=True, blank=True
     )
 
     features = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Бонусы и привилегии')

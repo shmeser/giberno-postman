@@ -13,6 +13,7 @@ from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
+from app_users.enums import DocumentType, REQUIRED_DOCS_DICT
 from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
@@ -590,7 +591,14 @@ class ShiftAppealsForManagersSerializer(CRUDSerializer):
         return ApplierSerializer(instance.applier, many=False).data
 
     def get_required_docs(self, instance):
-        return []
+        documents = []
+        for r_d in instance.shift.vacancy.required_docs:
+            doc = {
+                'title': REQUIRED_DOCS_DICT[r_d],
+                'is_confirmed': r_d in instance.applier.documents_types
+            }
+            documents.append(doc)
+        return documents
 
     def get_work_experience(self, instance):
         return []
