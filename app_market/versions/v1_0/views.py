@@ -1,3 +1,4 @@
+from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize, underscoreize
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -26,7 +27,7 @@ from backend.errors.enums import ErrorsCodes, RESTErrors
 from backend.errors.http_exceptions import CustomException, HttpException
 from backend.mappers import RequestMapper, DataMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_body, chained_get, get_request_headers
+from backend.utils import get_request_body, chained_get, get_request_headers, timestamp_to_datetime
 
 
 class Distributors(CRUDAPIView):
@@ -868,8 +869,12 @@ class ShiftForManagers(CRUDAPIView):
     def get(self, request, *args, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
         active_date = underscoreize(request.query_params).get('active_date')
+        active_date = timestamp_to_datetime(
+            int(active_date)) if active_date is not None else now()  # По умолчанию текущий день
 
-        shift = self.repository_class(me=request.user).get_shift_for_managers(record_id, active_date=active_date)
+        shift = self.repository_class(me=request.user, calendar_from=active_date).get_shift_for_managers(
+            record_id, active_date=active_date
+        )
         return Response(camelize(ShiftForManagersSerializer(shift, many=False).data), status=status.HTTP_200_OK)
 
 
