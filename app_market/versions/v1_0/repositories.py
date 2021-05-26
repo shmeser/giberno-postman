@@ -316,6 +316,13 @@ class GTTimeTZ(CustomLookupBase):
     parametric_string = "%s > %s AT TIME ZONE timezone"
 
 
+@Field.register_lookup
+class DateTZ(CustomLookupBase):
+    # Кастомный lookup с приведением типов для даты в временной зоне
+    lookup_name = 'datetz'
+    parametric_string = "(%s AT TIME ZONE timezone)::DATE = %s :: DATE"
+
+
 class ShiftsRepository(MasterRepository):
     model = Shift
 
@@ -334,7 +341,8 @@ class ShiftsRepository(MasterRepository):
         ).isoformat()
 
         # Получаем дату окончания диапазона для расписания
-        self.calendar_to = localtime(now() + timedelta(days=self.SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT), timezone=timezone(vacancy_timezone_name)).isoformat() \
+        self.calendar_to = localtime(now() + timedelta(days=self.SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT),
+                                     timezone=timezone(vacancy_timezone_name)).isoformat() \
             if calendar_to is None else localtime(calendar_to, timezone=timezone(vacancy_timezone_name)).isoformat()
 
         # Annotation Expressions
@@ -434,14 +442,14 @@ class ShiftsRepository(MasterRepository):
             all_appeals_count=Coalesce(Count('appeals', filter=Q(
                 appeals__status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value],
                 # дата смены в отклике должна совпадать с переданной датой
-                appeals__shift_active_date__date=localtime(
+                appeals__shift_active_date__datetz=localtime(  # в часовом поясе вакансии
                     active_date, timezone=timezone(self.vacancy_timezone_name)
                 ).date()
             )), 0),
             confirmed_appeals_count=Coalesce(Count('appeals', filter=Q(
                 appeals__status=ShiftAppealStatus.CONFIRMED.value,
                 # дата смены в отклике должна совпадать с переданной датой
-                appeals__shift_active_date__date=localtime(
+                appeals__shift_active_date__datetz=localtime(  # в часовом поясе вакансии
                     active_date, timezone=timezone(self.vacancy_timezone_name)
                 ).date()
             )), 0)
@@ -1352,9 +1360,13 @@ class ShiftAppealsRepository(MasterRepository):
 
         user_ct = ContentType.objects.get_for_model(UserProfile)
 
+        vacancy_timezone_name = 'Europe/Moscow'  # TODO брать из вакансии
+
         appeals = self.model.objects.filter(
             shift_id=shift_id,
-            shift_active_date__date=date.date(),
+            shift_active_date__datetz=localtime(
+                date, timezone=timezone(vacancy_timezone_name)  # Даты высчитываем в часовых поясах вакансий
+            ).date(),
             status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
         ).select_related(
             'shift__vacancy'

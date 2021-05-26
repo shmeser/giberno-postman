@@ -91,3 +91,20 @@ class DocumentType(IntEnumM):
     SNILS = 3
     MEDICAL_BOOK = 4
     DRIVER_LICENCE = 5
+
+
+REQUIRED_DOCS_FOR_CHOICES = [
+    (DocumentType.PASSPORT, 'Паспорт'),
+    (DocumentType.INN, 'ИНН'),
+    (DocumentType.SNILS, 'СНИЛС'),
+    (DocumentType.MEDICAL_BOOK, 'Медкнижка'),
+    (DocumentType.DRIVER_LICENCE, 'Водительское удостоверение'),
+]
+
+REQUIRED_DOCS_DICT = {
+    DocumentType.PASSPORT: 'Паспорт',
+    DocumentType.INN: 'ИНН',
+    DocumentType.SNILS: 'СНИЛС',
+    DocumentType.MEDICAL_BOOK: 'Медкнижка',
+    DocumentType.DRIVER_LICENCE: 'Водительское удостоверение',
+}
