@@ -694,11 +694,12 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             kwargs={'vacancy_id__in': vacancies})
         return ShiftsRepository().active_dates(queryset=shifts)
 
-    def vacancy_shifts_with_appeals_queryset(self, record_id, pagination=None, current_date=None, next_day=None):
+    def vacancy_shifts_with_appeals_queryset(self, record_id, pagination=None, current_date=None, next_day=None,
+                                             filters={}):
         active_shifts = []
         vacancy = self.get_by_id_for_manager_or_security(record_id=record_id)
         shifts = ShiftsRepository(calendar_from=current_date, calendar_to=next_day).filter_by_kwargs(
-            kwargs={'vacancy': vacancy},
+            kwargs={**filters, **{'vacancy': vacancy}},
             paginator=pagination)
 
         for shift in shifts:
@@ -1347,7 +1348,7 @@ class ShiftAppealsRepository(MasterRepository):
             return False
         return True
 
-    def get_shift_appeals_for_managers(self, shift_id, active_date=None):
+    def get_shift_appeals_for_managers(self, shift_id, active_date=None, filters={}):
         date = timestamp_to_datetime(
             int(active_date)) if active_date is not None else now()  # По умолчанию текущий день
 
@@ -1355,12 +1356,11 @@ class ShiftAppealsRepository(MasterRepository):
 
         vacancy_timezone_name = 'Europe/Moscow'  # TODO брать из вакансии
 
-        appeals = self.model.objects.filter(
-            shift_id=shift_id,
+        filtered = self.model.objects.filter(**{**filters, **{'shift_id': shift_id}})
+        appeals = filtered.filter(
             shift_active_date__datetz=localtime(
                 date, timezone=timezone(vacancy_timezone_name)  # Даты высчитываем в часовых поясах вакансий
             ).date(),
-            status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
         ).select_related(
             'shift__vacancy'
         ).prefetch_related(  # Префетчим заявителя

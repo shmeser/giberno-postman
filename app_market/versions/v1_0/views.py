@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer
-from app_market.enums import AppealCancelReason
+from app_market.enums import AppealCancelReason, ShiftAppealStatus
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository, \
     MarketDocumentsRepository
@@ -369,18 +369,25 @@ class VacancyShiftsWithAppealsListForManagerAPIView(CRUDAPIView):
     serializer_class = ShiftsWithAppealsSerializer
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
-    filter_params = {}
+    array_filter_params = {
+        'status': 'vacancy__shift__appeals__status__in'
+    }
+    default_filters = {
+        'vacancy__shift__appeals__status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+    }
     order_params = {}
 
     def get(self, request, **kwargs):
         pagination = RequestMapper.pagination(request)
         current_date, next_day = RequestMapper(self).current_date_range(request)
+        filters = RequestMapper(self).filters(request) or dict()
 
         dataset = self.repository_class(me=request.user).vacancy_shifts_with_appeals_queryset(
             record_id=kwargs.get('record_id'),
             pagination=pagination,
             current_date=current_date,
-            next_day=next_day
+            next_day=next_day,
+            filters=filters
         )
 
         serialized = self.serializer_class(dataset, many=True, context={
@@ -881,11 +888,19 @@ class ShiftForManagers(CRUDAPIView):
 class ShiftAppealsForManagers(CRUDAPIView):
     allowed_http_methods = ['get']
     repository_class = ShiftAppealsRepository
+    array_filter_params = {
+        'status': 'status__in'
+    }
+
+    default_filters = {
+        'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+    }
 
     def get(self, request, *args, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
         active_date = underscoreize(request.query_params).get('active_date')
+        filters = RequestMapper(self).filters(request) or dict()
 
         appeals = self.repository_class(me=request.user).get_shift_appeals_for_managers(
-            record_id, active_date=active_date)
+            record_id, active_date=active_date, filters=filters)
         return Response(camelize(ShiftAppealsForManagersSerializer(appeals, many=True).data), status=status.HTTP_200_OK)
