@@ -24,12 +24,12 @@ urlpatterns = [
 
     # Вакансии
     path('market/vacancies', Vacancies.as_view()),
-    path('market/vacancies/map', VacanciesClusteredMap.as_view()),
     path('market/vacancies/<int:record_id>', Vacancies.as_view()),
     path('market/vacancies/<int:record_id>/similar', similar_vacancies),
     path('market/vacancies/<int:record_id>/reviews', VacancyReviewsAPIView.as_view()),
     path('market/vacancies/<int:record_id>/toggle_like', ToggleLikeVacancy.as_view()),  # TODO переделать на like/dislk
 
+    path('market/vacancies/map', VacanciesClusteredMap.as_view()),
     path('market/vacancies/stats', VacanciesStats.as_view()),
     path('market/vacancies/distributors', VacanciesDistributors.as_view()),
     path('market/vacancies/suggestions', vacancies_suggestions),
@@ -68,11 +68,11 @@ managers_urls = [
     path('market/managers/vacancies/<int:record_id>/appeals',
          VacancyShiftsWithAppealsListForManagerAPIView.as_view()),
 
+    path('market/managers/vacancies/<int:record_id>/active_dates',
+         SingleVacancyActiveDatesForManagerListAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
     path('market/managers/vacancies/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
     path('market/managers/vacancies/active_dates', VacanciesActiveDatesForManagerListAPIView.as_view()),
-    path('market/managers/vacancies/<int:record_id>/active_dates',
-         SingleVacancyActiveDatesForManagerListAPIView.as_view()),
 
     # Проверка смены
     path('market/shifts/check', CheckUserShiftByManagerOrSecurityAPIView.as_view()),

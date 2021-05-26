@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pytz
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Avg, Sum
 from rest_framework import serializers
 
@@ -17,7 +18,20 @@ from app_users.enums import REQUIRED_DOCS_DICT
 from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
-from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime
+from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime, ArrayRemove
+
+
+def map_status_for_required_docs(required_docs, user_docs):
+    documents = []
+    for r_d in required_docs:
+        doc = {
+            'title': REQUIRED_DOCS_DICT[r_d],
+            'type': r_d,
+            'is_confirmed': r_d in user_docs
+        }
+        documents.append(doc)
+
+    return documents
 
 
 class CategoriesSerializer(serializers.ModelSerializer):
@@ -341,9 +355,22 @@ class VacanciesClusterSerializer(serializers.Serializer):
 class VacancySerializer(VacanciesSerializer):
     created_at = DateTimeField()
     utc_offset = serializers.SerializerMethodField()
+    required_docs = serializers.SerializerMethodField()
 
     def get_shop(self, vacancy):
         return ShopInVacancySerializer(vacancy.shop).data
+
+    def get_required_docs(self, vacancy):
+        if not vacancy.required_docs:
+            return []
+        return map_status_for_required_docs(
+            vacancy.required_docs,
+            self.me.documents.aggregate(
+                docs=ArrayRemove(
+                    ArrayAgg('type', distinct=True), None
+                )
+            )['docs']
+        )
 
     def get_utc_offset(self, vacancy):
         return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
@@ -617,17 +644,9 @@ class ShiftAppealsForManagersSerializer(CRUDSerializer):
         return ApplierSerializer(instance.applier, many=False).data
 
     def get_required_docs(self, instance):
-        documents = []
         if not instance.shift.vacancy.required_docs:
-            return documents
-        for r_d in instance.shift.vacancy.required_docs:
-            doc = {
-                'title': REQUIRED_DOCS_DICT[r_d],
-                'type': r_d,
-                'is_confirmed': r_d in instance.applier.documents_types
-            }
-            documents.append(doc)
-        return documents
+            return []
+        return map_status_for_required_docs(instance.shift.vacancy.required_docs, instance.applier.documents_types)
 
     def get_work_experience(self, instance):
         return []
