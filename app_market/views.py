@@ -91,8 +91,6 @@ class ActiveVacanciesWithAppliersByDateForManagerListAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(
-        responses={200: openapi.Response('response description', VacanciesWithAppliersForManagerSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.ActiveVacanciesWithAppliersByDateForManagerListAPIView().get(request)
@@ -107,7 +105,6 @@ class VacancyByManagerRetrieveAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacancySerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacancyByManagerRetrieveAPIView().get(request, **kwargs)
@@ -124,7 +121,6 @@ class VacanciesActiveDatesForManagerListAPIView(BaseAPIView):
     """
 
     @staticmethod
-    @swagger_auto_schema(responses={200: '[timestamp]'})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacanciesActiveDatesForManagerListAPIView().get(request, **kwargs)
@@ -142,7 +138,6 @@ class SingleVacancyActiveDatesForManagerListAPIView(BaseAPIView):
     """
 
     @staticmethod
-    @swagger_auto_schema(responses={200: '[timestamp]'})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.SingleVacancyActiveDatesForManagerListAPIView().get(request, **kwargs)
@@ -157,8 +152,6 @@ class VacancyShiftsWithAppealsListForManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description',
-                                                          ShiftAppealsSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacancyShiftsWithAppealsListForManagerAPIView().get(request, **kwargs)
@@ -173,8 +166,6 @@ class GetSingleAppealForManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description',
-                                                          ShiftAppealsSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.GetSingleAppealForManagerAPIView().get(request, **kwargs)
@@ -183,7 +174,6 @@ class GetSingleAppealForManagerAPIView(BaseAPIView):
 
 class VacanciesClusteredMap(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesClusterSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacanciesClusteredMap().get(request, **kwargs)

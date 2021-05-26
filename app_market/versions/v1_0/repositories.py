@@ -327,12 +327,14 @@ class ShiftsRepository(MasterRepository):
         self.vacancy_timezone_name = vacancy_timezone_name
         self.me = me
         # Получаем дату начала диапазона для расписани
-        self.calendar_from = datetime.utcnow().isoformat() if calendar_from is None else localtime(
+        self.calendar_from = localtime(
+            now(), timezone=timezone(vacancy_timezone_name)
+        ).isoformat() if calendar_from is None else localtime(
             calendar_from, timezone=timezone(vacancy_timezone_name)  # Даты высчитываем в часовых поясах вакансий
         ).isoformat()
 
         # Получаем дату окончания диапазона для расписания
-        self.calendar_to = (datetime.utcnow() + timedelta(days=self.SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT)).isoformat() \
+        self.calendar_to = localtime(now() + timedelta(days=self.SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT), timezone=timezone(vacancy_timezone_name)).isoformat() \
             if calendar_to is None else localtime(calendar_to, timezone=timezone(vacancy_timezone_name)).isoformat()
 
         # Annotation Expressions
@@ -413,17 +415,14 @@ class ShiftsRepository(MasterRepository):
 
         return active_dates
 
-    def get_shift_for_managers(self, record_id, active_date=None):
-        date = timestamp_to_datetime(
-            int(active_date)) if active_date is not None else now()  # По умолчанию текущий день
-
+    def get_shift_for_managers(self, record_id, active_date=now()):
         shifts = self.base_query.filter(id=record_id, deleted=False).annotate(
             # Флаг - активна ли смена в указанную дату, для фильтрации (вычислются 10 дат от текущего дня по умолчанию)
             # для расширения диапазона надо передавать calendar_from calendar_to
             active_this_date=Case(
                 When(
                     active_dates__dacontains=Cast(
-                        [localtime(date, timezone=timezone(self.vacancy_timezone_name))],
+                        [localtime(active_date, timezone=timezone(self.vacancy_timezone_name))],
                         output_field=ArrayField(DateField())
                     ),
                     then=True
@@ -435,12 +434,16 @@ class ShiftsRepository(MasterRepository):
             all_appeals_count=Coalesce(Count('appeals', filter=Q(
                 appeals__status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value],
                 # дата смены в отклике должна совпадать с переданной датой
-                appeals__shift_active_date__date=localtime(date, timezone=timezone(self.vacancy_timezone_name)).date()
+                appeals__shift_active_date__date=localtime(
+                    active_date, timezone=timezone(self.vacancy_timezone_name)
+                ).date()
             )), 0),
             confirmed_appeals_count=Coalesce(Count('appeals', filter=Q(
                 appeals__status=ShiftAppealStatus.CONFIRMED.value,
                 # дата смены в отклике должна совпадать с переданной датой
-                appeals__shift_active_date__date=localtime(date, timezone=timezone(self.vacancy_timezone_name)).date()
+                appeals__shift_active_date__date=localtime(
+                    active_date, timezone=timezone(self.vacancy_timezone_name)
+                ).date()
             )), 0)
         )
         if not shifts:
@@ -1353,10 +1356,14 @@ class ShiftAppealsRepository(MasterRepository):
             shift_id=shift_id,
             shift_active_date__date=date.date(),
             status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
-        ).prefetch_related(  # Префетчим заявителя и его аватарку
+        ).select_related(
+            'shift__vacancy'
+        ).prefetch_related(  # Префетчим заявителя
             Prefetch(
                 'applier',
-                queryset=UserProfile.objects.all().prefetch_related(
+                queryset=UserProfile.objects.filter(
+                    account_type=AccountType.SELF_EMPLOYED.value
+                ).prefetch_related(  # Префетчим аватарку заявителя
                     Prefetch(
                         'media',
                         queryset=MediaModel.objects.filter(
@@ -1366,6 +1373,8 @@ class ShiftAppealsRepository(MasterRepository):
                         ).order_by('-created_at'),
                         to_attr='medias'  # Подгружаем аватарки в поле medias
                     )
+                ).annotate(  # Аггрегируем коды документов, которые есть у пользователя
+                    documents_types=ArrayRemove(ArrayAgg('documents__type', distinct=True), None)
                 )
             )
         )
