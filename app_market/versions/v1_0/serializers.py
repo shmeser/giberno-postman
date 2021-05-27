@@ -4,6 +4,8 @@ import pytz
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Avg, Sum
+from django.utils.timezone import localtime
+from pytz import timezone
 from rest_framework import serializers
 
 from app_market.enums import ShiftAppealStatus
@@ -600,8 +602,16 @@ class ShiftsWithAppealsSerializer(CRUDSerializer):
     appliers = serializers.SerializerMethodField()
 
     def get_appliers(self, instance):
+        # TODO refactor вынести в репозиторий
         appliers = [appeal.applier for appeal in
-                    instance.appeals.filter(shift_active_date=self.context.get('current_date'))]
+                    instance.appeals.filter(
+                        # TODO нужен часовой пояс вакансии в запросе на отклики
+                        shift_active_date__date=localtime(  # в часовом поясе вакансии
+                            self.context.get('current_date'), timezone=timezone(instance.vacancy.timezone)
+                        ).date(),
+                        **self.context.get('filters')
+                    )
+                    ]
         return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
 
     confirmed_appliers = serializers.SerializerMethodField()
@@ -684,11 +694,11 @@ class ShiftsSerializer(CRUDSerializer):
 
 
 class ShiftForManagersSerializer(serializers.ModelSerializer):
-    all_appeals_count = serializers.SerializerMethodField()
+    confirmed_appeals_count = serializers.SerializerMethodField()
     vacancy_title = serializers.SerializerMethodField()
 
-    def get_all_appeals_count(self, data):
-        return data.all_appeals_count
+    def get_confirmed_appeals_count(self, data):
+        return data.confirmed_appeals_count
 
     def get_vacancy_title(self, data):
         return data.vacancy.title
@@ -699,7 +709,7 @@ class ShiftForManagersSerializer(serializers.ModelSerializer):
             'id',
             'time_start',
             'time_end',
-            'all_appeals_count',
+            'confirmed_appeals_count',
             'max_employees_count',
             'vacancy_title'
         ]
