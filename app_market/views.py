@@ -377,12 +377,12 @@ class ConfirmAppealByManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrManager]
 
     @staticmethod
-    def get(request, **kwargs):
+    def post(request, **kwargs):
         '''
         подтвердить отклик на вакансию (подтверждают Администраторы\менеджеры))
         '''
         if request.version in ['market_1_0']:
-            return v1_0.ConfirmAppealByManagerAPIView().get(request, **kwargs)
+            return v1_0.ConfirmAppealByManagerAPIView().post(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
@@ -391,12 +391,12 @@ class RejectAppealByManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrManager]
 
     @staticmethod
-    def get(request, **kwargs):
+    def post(request, **kwargs):
         '''
         отклонить отклик на вакансию (отклоняют Администраторы\менеджеры))
         '''
         if request.version in ['market_1_0']:
-            return v1_0.RejectAppealByManagerAPIView().get(request, **kwargs)
+            return v1_0.RejectAppealByManagerAPIView().post(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
