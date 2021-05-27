@@ -439,8 +439,8 @@ class ShiftsRepository(MasterRepository):
                 output_field=BooleanField()
             )
         ).filter(active_this_date=True).select_related('vacancy').annotate(
-            all_appeals_count=Coalesce(Count('appeals', filter=Q(
-                appeals__status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value],
+            confirmed_appeals_count=Coalesce(Count('appeals', filter=Q(
+                appeals__status=ShiftAppealStatus.CONFIRMED.value,
                 # дата смены в отклике должна совпадать с переданной датой
                 appeals__shift_active_date__datetz=localtime(  # в часовом поясе вакансии
                     active_date, timezone=timezone(self.vacancy_timezone_name)
@@ -450,6 +450,24 @@ class ShiftsRepository(MasterRepository):
         if not shifts:
             raise HttpException(detail=f'Смена с ID {record_id} не найдена', status_code=RESTErrors.NOT_FOUND.value)
         return shifts.first()
+
+    def get_shifts_on_current_date_for_vacancy(self, vacancy, current_date=now()):
+        shifts = self.base_query.filter(vacancy_id=vacancy.id, deleted=False).annotate(
+            # Флаг - активна ли смена в указанную дату, для фильтрации (вычислются 10 дат от текущего дня по умолчанию)
+            # для расширения диапазона надо передавать calendar_from calendar_to
+            active_this_date=Case(
+                When(
+                    active_dates__dacontains=Cast(
+                        [localtime(current_date, timezone=timezone(self.vacancy_timezone_name))],
+                        output_field=ArrayField(DateField())
+                    ),
+                    then=True
+                ),
+                default=False,
+                output_field=BooleanField()
+            )
+        ).filter(active_this_date=True)
+        return shifts
 
 
 class UserShiftRepository(MasterRepository):
@@ -694,21 +712,33 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             kwargs={'vacancy_id__in': vacancies})
         return ShiftsRepository().active_dates(queryset=shifts)
 
-    def vacancy_shifts_with_appeals_queryset(self, record_id, pagination=None, current_date=None, next_day=None,
-                                             filters={}):
-        active_shifts = []
+    def vacancy_shifts_with_appeals_queryset(self, record_id, pagination=None, current_date=None, next_day=None):
+        # active_shifts = []
         vacancy = self.get_by_id_for_manager_or_security(record_id=record_id)
-        shifts = ShiftsRepository(calendar_from=current_date, calendar_to=next_day).filter_by_kwargs(
-            kwargs={**filters, **{'vacancy': vacancy}},
-            paginator=pagination)
+        # shifts = ShiftsRepository(calendar_from=current_date, calendar_to=next_day).filter_by_kwargs(
+        #     kwargs={**filters, **{
+        #         'vacancy_id': vacancy.id
+        #     }},
+        #     paginator=pagination)
 
-        for shift in shifts:
-            if len(shift.active_dates):
-                for active_date in shift.active_dates:
-                    if active_date <= current_date < next_day:
-                        active_shifts.append(shift)
-                        break
-        return list(set(active_shifts))
+        shifts = ShiftsRepository(
+            calendar_from=current_date, calendar_to=next_day
+        ).get_shifts_on_current_date_for_vacancy(
+            vacancy=vacancy,
+            current_date=current_date
+        )
+
+        if pagination:
+            return shifts[pagination.offset:pagination.limit]
+        return shifts
+
+        # for shift in shifts:
+        #     if len(shift.active_dates):
+        #         for active_date in shift.active_dates:
+        #             if active_date <= current_date < next_day:
+        #                 active_shifts.append(shift)
+        #                 break
+        # return list(set(active_shifts))
 
     def get_suggestions(self, search, paginator=None):
         records = self.model.objects.exclude(deleted=True).annotate(
@@ -1378,8 +1408,16 @@ class ShiftAppealsRepository(MasterRepository):
                         ).order_by('-created_at'),
                         to_attr='medias'  # Подгружаем аватарки в поле medias
                     )
+                # ).prefetch_related(
+                #     Prefetch(
+                #         'appeal__shift__vacancy',
+                #         queryset=Vacancy.objects.all().annotate(
+                #             count=Count('shift__appeals')
+                #         )
+                #     )
                 ).annotate(  # Аггрегируем коды документов, которые есть у пользователя
-                    documents_types=ArrayRemove(ArrayAgg('documents__type', distinct=True), None)
+                    documents_types=ArrayRemove(ArrayAgg('documents__type', distinct=True), None),
+
                 )
             )
         )

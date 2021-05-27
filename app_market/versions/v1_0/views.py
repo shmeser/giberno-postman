@@ -370,10 +370,10 @@ class VacancyShiftsWithAppealsListForManagerAPIView(CRUDAPIView):
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
     array_filter_params = {
-        'status': 'vacancy__shift__appeals__status__in'
+        'status': 'status__in'
     }
     default_filters = {
-        'vacancy__shift__appeals__status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+        'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
     }
     order_params = {}
 
@@ -386,13 +386,13 @@ class VacancyShiftsWithAppealsListForManagerAPIView(CRUDAPIView):
             record_id=kwargs.get('record_id'),
             pagination=pagination,
             current_date=current_date,
-            next_day=next_day,
-            filters=filters
+            next_day=next_day
         )
 
         serialized = self.serializer_class(dataset, many=True, context={
             'me': request.user,
             'current_date': current_date,
+            'filters': filters,
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
