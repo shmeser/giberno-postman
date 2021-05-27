@@ -660,7 +660,7 @@ class ShiftAppealsForManagersSerializer(CRUDSerializer):
         return map_status_for_required_docs(instance.shift.vacancy.required_docs, instance.applier.documents_types)
 
     def get_work_experience(self, instance):
-        return []
+        return len(instance.applier.shifts)
 
     class Meta:
         model = ShiftAppeal

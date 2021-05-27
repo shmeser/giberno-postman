@@ -215,7 +215,7 @@ class Shift(BaseModel):
 
 
 class ShiftAppeal(BaseModel):
-    applier = models.ForeignKey(to=UserProfile, on_delete=models.CASCADE)
+    applier = models.ForeignKey(to=UserProfile, on_delete=models.CASCADE, related_name='appeals')
     shift = models.ForeignKey(to=Shift, on_delete=models.CASCADE, related_name='appeals')
     shift_active_date = models.DateTimeField(null=True, blank=True)
     status = models.PositiveIntegerField(choices=choices(ShiftAppealStatus), default=ShiftAppealStatus.INITIAL)
