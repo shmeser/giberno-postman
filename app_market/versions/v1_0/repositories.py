@@ -1293,7 +1293,14 @@ class ShiftAppealsRepository(MasterRepository):
             raise PermissionDenied()
 
     def confirm_by_manager(self, record_id):
-        instance = self.get_by_id(record_id=record_id)
+        instances = self.model.objects.filter(id=record_id)
+
+        if not instances:
+            raise HttpException(detail=f'Отклик с ID={record_id} не найден', status_code=RESTErrors.NOT_FOUND.value)
+        instances = self.prefetch_users(instances)
+
+        instance = instances.first()
+
         status_changed = False
         manager_and_user_sockets = []
 
@@ -1326,15 +1333,24 @@ class ShiftAppealsRepository(MasterRepository):
 
         return status_changed, manager_and_user_sockets, instance
 
-    def reject_by_manager(self, record_id):
+    def reject_by_manager(self, record_id, reason, text=None):
         status_changed = False
-        instance = self.get_by_id(record_id=record_id)
+        instances = self.model.objects.filter(id=record_id)
+
+        if not instances:
+            raise HttpException(detail=f'Отклик с ID={record_id} не найден', status_code=RESTErrors.NOT_FOUND.value)
+        instances = self.prefetch_users(instances)
+
+        instance = instances.first()
+
         manager_and_user_sockets = []
 
         # проверяем доступ менеджера к смене на которую откликнулись
         self.is_related_manager(instance=instance)
         if not instance.status == ShiftAppealStatus.REJECTED:
             instance.status = ShiftAppealStatus.REJECTED
+            instance.manager_reason = reason
+            instance.manager_reason_text = text
             instance.save()
 
             status_changed = True
@@ -1382,8 +1398,6 @@ class ShiftAppealsRepository(MasterRepository):
         date = timestamp_to_datetime(
             int(active_date)) if active_date is not None else now()  # По умолчанию текущий день
 
-        user_ct = ContentType.objects.get_for_model(UserProfile)
-
         vacancy_timezone_name = 'Europe/Moscow'  # TODO брать из вакансии
 
         filtered = self.model.objects.filter(**{**filters, **{'shift_id': shift_id}})
@@ -1393,7 +1407,16 @@ class ShiftAppealsRepository(MasterRepository):
             ).date(),
         ).select_related(
             'shift__vacancy'
-        ).prefetch_related(  # Префетчим заявителя
+        )
+
+        appeals = self.prefetch_users(appeals)
+
+        return appeals
+
+    @staticmethod
+    def prefetch_users(queryset):
+        user_ct = ContentType.objects.get_for_model(UserProfile)
+        return queryset.prefetch_related(  # Префетчим заявителя
             Prefetch(
                 'applier',
                 queryset=UserProfile.objects.filter(
@@ -1408,21 +1431,18 @@ class ShiftAppealsRepository(MasterRepository):
                         ).order_by('-created_at'),
                         to_attr='medias'  # Подгружаем аватарки в поле medias
                     )
-                # ).prefetch_related(
-                #     Prefetch(
-                #         'appeal__shift__vacancy',
-                #         queryset=Vacancy.objects.all().annotate(
-                #             count=Count('shift__appeals')
-                #         )
-                #     )
+                    # ).prefetch_related(
+                    #     Prefetch(
+                    #         'appeal__shift__vacancy',
+                    #         queryset=Vacancy.objects.all().annotate(
+                    #             count=Count('shift__appeals')
+                    #         )
+                    #     )
                 ).annotate(  # Аггрегируем коды документов, которые есть у пользователя
                     documents_types=ArrayRemove(ArrayAgg('documents__type', distinct=True), None),
-
                 )
             )
         )
-
-        return appeals
 
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):

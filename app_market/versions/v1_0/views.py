@@ -698,14 +698,18 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
                 }
             })
 
-        return Response(None, status=status.HTTP_200_OK)
+        return Response(camelize(ShiftAppealsForManagersSerializer(appeal, many=False).data), status=status.HTTP_200_OK)
 
 
 class RejectAppealByManagerAPIView(CRUDAPIView):
     def post(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        status_changed, sockets, appeal = ShiftAppealsRepository(me=request.user).reject_by_manager(record_id=record_id)
-
+        data = get_request_body(request)
+        status_changed, sockets, appeal = ShiftAppealsRepository(me=request.user).reject_by_manager(
+            record_id=record_id,
+            reason=data.get('reason'),
+            text=data.get('text')
+        )
         if status_changed:
             SocketController().send_message_to_many_connections(sockets, {
                 'type': 'appeal_status_updated',
@@ -715,7 +719,7 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
                 }
             })
 
-        return Response(None, status=status.HTTP_200_OK)
+        return Response(camelize(ShiftAppealsForManagersSerializer(appeal, many=False).data), status=status.HTTP_200_OK)
 
 
 class ToggleLikeVacancy(APIView):
