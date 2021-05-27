@@ -556,7 +556,8 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
     def active_appeals(self, instance):
         return ShiftAppeal.objects.filter(
             shift__vacancy=instance,
-            shift_active_date=self.context.get('current_date')
+            shift_active_date=self.context.get('current_date'),
+            **self.context.get('filters')
         )
 
     class Meta:
