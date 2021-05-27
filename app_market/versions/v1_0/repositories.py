@@ -1442,7 +1442,7 @@ class ShiftAppealsRepository(MasterRepository):
                                     target_ct=user_ct,
                                     target_id=OuterRef('user'),
                                     shift_id=OuterRef('shift'),
-                                ).annotate(
+                                ).annotate(  # Если нет оценок то будет null
                                     count=Window(
                                         expression=Count('id'), partition_by=[F('shift_id')])
                                 ).values('count')[:1]
@@ -1452,11 +1452,20 @@ class ShiftAppealsRepository(MasterRepository):
                                     target_ct=user_ct,
                                     target_id=OuterRef('user'),
                                     shift_id=OuterRef('shift'),
-                                ).annotate(
+                                ).annotate(  # Если нет оценок то будет null
                                     rating=Window(
                                         expression=Avg('value'), partition_by=[F('shift_id')])
                                 ).values('rating')[:1]
                             )
+                        ).annotate(
+                            total_rates_count=Coalesce(Window(  # Если null, то ставим 0
+                                expression=Sum('rates_count'), partition_by=[F('shift__vacancy_id')]), 0
+                            ),
+                            total_rating=Coalesce(Window(  # Если null, то ставим 0
+                                expression=Avg('rating'), partition_by=[F('shift__vacancy_id')]), 0
+                            ),
+                            vacancy_title=F('shift__vacancy__title'),
+                            vacancy_id=F('shift__vacancy_id')
                         ),
                         to_attr='shifts'
                     )

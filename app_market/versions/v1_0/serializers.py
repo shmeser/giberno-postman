@@ -660,7 +660,21 @@ class ShiftAppealsForManagersSerializer(CRUDSerializer):
         return map_status_for_required_docs(instance.shift.vacancy.required_docs, instance.applier.documents_types)
 
     def get_work_experience(self, instance):
-        return len(instance.applier.shifts)
+        cleaned_data = [{
+            # Могут попадаться дубли, так как приходит UserShift
+            # С данными по вакансии, а не сама вакансия
+            # В одной вакансии может быть несколько разных смен, в которые работал пользователь
+            'id': s.vacancy_id,
+            'title': s.vacancy_title,
+            'rating': s.total_rating,
+            'rates_count': s.total_rates_count
+        } for s in instance.applier.shifts]
+
+        work_experience = list(  # Делаем список уникальных словарей
+            {v['id']: v for v in cleaned_data}.values()
+        )
+
+        return work_experience
 
     class Meta:
         model = ShiftAppeal
