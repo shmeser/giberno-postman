@@ -279,7 +279,12 @@ class ActiveVacanciesWithAppliersByDateForManagerListAPIView(CRUDAPIView):
     repository_class = VacanciesRepository
     allowed_http_methods = ['get']
 
-    filter_params = {
+    array_filter_params = {
+        'status': 'status__in'
+    }
+
+    default_filters = {
+        'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED]
     }
 
     order_params = {
@@ -291,12 +296,14 @@ class ActiveVacanciesWithAppliersByDateForManagerListAPIView(CRUDAPIView):
     def get(self, request, *args, **kwargs):
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
+        filters = RequestMapper(self).filters(request)
 
         current_date, next_day = RequestMapper(self).current_date_range(request)
 
         if not current_date:
-            dataset = self.repository_class(me=request.user).queryset_by_manager(order_params=order_params,
-                                                                                 pagination=pagination)
+            dataset = self.repository_class(me=request.user).queryset_by_manager(
+                order_params=order_params, pagination=pagination
+            )
         else:
             dataset = self.repository_class(me=request.user).queryset_filtered_by_current_date_range_for_manager(
                 order_params=order_params, pagination=pagination, current_date=current_date, next_day=next_day
@@ -304,6 +311,7 @@ class ActiveVacanciesWithAppliersByDateForManagerListAPIView(CRUDAPIView):
 
         serialized = self.serializer_class(dataset, many=True, context={
             'me': request.user,
+            'filters': filters,
             'current_date': current_date,
             'next_day': next_day,
             'headers': get_request_headers(request),
