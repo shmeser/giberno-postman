@@ -3,14 +3,14 @@ from datetime import timedelta, datetime
 import pytz
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.db.models import GeometryField, CharField
+from django.contrib.gis.db.models import GeometryField, CharField, Window
 from django.contrib.gis.db.models.functions import Distance, Envelope
 from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
-    DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists
+    DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
 from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
 from django.utils.timezone import now, localtime
 from pytz import timezone
@@ -1431,13 +1431,44 @@ class ShiftAppealsRepository(MasterRepository):
                         ).order_by('-created_at'),
                         to_attr='medias'  # Подгружаем аватарки в поле medias
                     )
-                    # ).prefetch_related(
-                    #     Prefetch(
-                    #         'appeal__shift__vacancy',
-                    #         queryset=Vacancy.objects.all().annotate(
-                    #             count=Count('shift__appeals')
-                    #         )
-                    #     )
+                ).prefetch_related(
+                    Prefetch(
+                        'usershift_set',
+                        queryset=UserShift.objects.all().select_related(  # Все смены пользователя
+                            'shift__vacancy'  # Догружаем смены->вакансии
+                        ).annotate(  # Вычисляем рейтинг для каждой смены
+                            rates_count=Subquery(
+                                Review.objects.filter(
+                                    target_ct=user_ct,
+                                    target_id=OuterRef('user'),
+                                    shift_id=OuterRef('shift'),
+                                ).annotate(  # Если нет оценок то будет null
+                                    count=Window(
+                                        expression=Count('id'), partition_by=[F('shift_id')])
+                                ).values('count')[:1]
+                            ),
+                            rating=Subquery(
+                                Review.objects.filter(
+                                    target_ct=user_ct,
+                                    target_id=OuterRef('user'),
+                                    shift_id=OuterRef('shift'),
+                                ).annotate(  # Если нет оценок то будет null
+                                    rating=Window(
+                                        expression=Avg('value'), partition_by=[F('shift_id')])
+                                ).values('rating')[:1]
+                            )
+                        ).annotate(
+                            total_rates_count=Coalesce(Window(  # Если null, то ставим 0
+                                expression=Sum('rates_count'), partition_by=[F('shift__vacancy_id')]), 0
+                            ),
+                            total_rating=Coalesce(Window(  # Если null, то ставим 0
+                                expression=Avg('rating'), partition_by=[F('shift__vacancy_id')]), 0
+                            ),
+                            vacancy_title=F('shift__vacancy__title'),
+                            vacancy_id=F('shift__vacancy_id')
+                        ),
+                        to_attr='shifts'
+                    )
                 ).annotate(  # Аггрегируем коды документов, которые есть у пользователя
                     documents_types=ArrayRemove(ArrayAgg('documents__type', distinct=True), None),
                 )
