@@ -684,7 +684,7 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(ReviewsBaseAPIView):
 
 
 class ConfirmAppealByManagerAPIView(CRUDAPIView):
-    def get(self, request, **kwargs):
+    def post(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
         status_changed, sockets, appeal = ShiftAppealsRepository(me=request.user).confirm_by_manager(
             record_id=record_id)
@@ -702,7 +702,7 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
 
 
 class RejectAppealByManagerAPIView(CRUDAPIView):
-    def get(self, request, **kwargs):
+    def post(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
         status_changed, sockets, appeal = ShiftAppealsRepository(me=request.user).reject_by_manager(record_id=record_id)
 
