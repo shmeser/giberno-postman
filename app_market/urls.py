@@ -9,7 +9,7 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     ConfirmAppealByManagerAPIView, RejectAppealByManagerAPIView, UserShiftsRetrieveAPIView, \
     VacanciesActiveDatesForManagerListAPIView, VacanciesDistributors, SingleVacancyActiveDatesForManagerListAPIView, \
     ShiftAppealCancel, VacancyShiftsWithAppealsListForManagerAPIView, GetDocumentsForShift, MarketDocuments, \
-    ShiftForManagers, ShiftAppealsForManagers
+    ShiftForManagers, ShiftAppealsForManagers, ConfirmedWorkers
 
 urlpatterns = [
     # Торговые сети
@@ -60,6 +60,11 @@ urlpatterns = [
 ]
 
 managers_urls = [
+    # Список подтвержденных работников
+    path('market/managers/self_employed', ConfirmedWorkers.as_view()),
+    path('market/managers/self_employed/<int:record_id>', ConfirmedWorkers.as_view()),
+
+    # Отзывы на самозанятых
     path('market/managers/self_employed/<int:record_id>/reviews',
          SelfEmployedUserReviewsByAdminOrManagerAPIView.as_view()),
 

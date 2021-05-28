@@ -481,7 +481,7 @@ class UserShiftRepository(MasterRepository):
         try:
             return self.model.objects.get(qr_data=qr_data)
         except self.model.DoesNotExist:
-            raise HttpException(detail='User shift not found', status_code=400)
+            raise HttpException(detail='User shift not found', status_code=RESTErrors.NOT_FOUND.value)
 
     def update_status_by_qr_check(self, instance):
         if instance.shift.vacancy.shop not in self.me.shops.all():
@@ -499,6 +499,14 @@ class UserShiftRepository(MasterRepository):
                 instance.save()
             elif instance.status == ShiftStatus.COMPLETED:
                 return
+
+    def get_confirmed_workers_for_manager(self, current_date, pagination=None, order_by: list = None, filters={}):
+        result = self.model.objects.filter(shift__shop__in=self.me.shops.all(), **filters)
+        if order_by:
+            result = result.order_by(*order_by)
+        if pagination:
+            return result[pagination.offset: pagination.limit]
+        return result
 
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
