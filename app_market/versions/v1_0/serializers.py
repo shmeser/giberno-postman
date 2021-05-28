@@ -778,6 +778,23 @@ class VacancyInConfirmedWorkerSerializer(serializers.ModelSerializer):
         fields = ['id', 'title']
 
 
+class ConfirmedWorkerSerializerVacancies(serializers.ModelSerializer):
+    id = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_id(instance):
+        return instance.shift.vacancy_id
+
+    @staticmethod
+    def get_title(instance):
+        return instance.shift.vacancy.title
+
+    class Meta:
+        model = UserShift
+        fields = ['id', 'title']
+
+
 class ConfirmedWorkerSerializer(CRUDSerializer):
     id = serializers.IntegerField()
     birth_date = DateTimeField()
