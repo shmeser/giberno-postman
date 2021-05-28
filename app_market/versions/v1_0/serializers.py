@@ -808,10 +808,14 @@ class ConfirmedWorkerVacanciesSerializer(serializers.ModelSerializer):
 
 class ConfirmedWorkerDatesSerializer(serializers.ModelSerializer):
     real_time_start = DateTimeField()
+    utc_offset = serializers.SerializerMethodField()
+    
+    def get_utc_offset(self, instance):
+        return pytz.timezone(instance.shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
 
     class Meta:
         model = UserShift
-        fields = ['real_time_start']
+        fields = ['real_time_start', 'utc_offset']
 
 
 class ConfirmedWorkerSerializer(CRUDSerializer):
