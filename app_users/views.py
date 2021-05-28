@@ -190,28 +190,24 @@ class MyProfileSocials(APIView):
 
 class MyProfileDocuments(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, DocumentSerializer)})
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileDocuments().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, DocumentSerializer)})
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileDocuments().post(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, DocumentSerializer)})
     def patch(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileDocuments().patch(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response(SWAGGER_RESPONSE_DESCRIPTION, DocumentSerializer)})
     def delete(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileDocuments().delete(request, **kwargs)

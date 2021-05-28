@@ -2,7 +2,11 @@ from datetime import datetime
 
 import pytz
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Avg, Sum
+from django.contrib.postgres.aggregates import ArrayAgg
+from django.db.models import Avg, Sum, Count, Q
+from django.db.models.functions import Coalesce
+from django.utils.timezone import localtime
+from pytz import timezone
 from rest_framework import serializers
 
 from app_market.enums import ShiftAppealStatus
@@ -13,10 +17,24 @@ from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
+from app_users.enums import REQUIRED_DOCS_DICT
 from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
-from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime
+from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime, ArrayRemove
+
+
+def map_status_for_required_docs(required_docs, user_docs):
+    documents = []
+    for r_d in required_docs:
+        doc = {
+            'title': REQUIRED_DOCS_DICT[r_d],
+            'type': r_d,
+            'is_confirmed': r_d in user_docs if user_docs else False
+        }
+        documents.append(doc)
+
+    return documents
 
 
 class CategoriesSerializer(serializers.ModelSerializer):
@@ -340,9 +358,22 @@ class VacanciesClusterSerializer(serializers.Serializer):
 class VacancySerializer(VacanciesSerializer):
     created_at = DateTimeField()
     utc_offset = serializers.SerializerMethodField()
+    required_docs = serializers.SerializerMethodField()
 
     def get_shop(self, vacancy):
         return ShopInVacancySerializer(vacancy.shop).data
+
+    def get_required_docs(self, vacancy):
+        if not vacancy.required_docs:
+            return []
+        return map_status_for_required_docs(
+            vacancy.required_docs,
+            self.me.documents.aggregate(
+                docs=ArrayRemove(
+                    ArrayAgg('type', distinct=True), None
+                )
+            )['docs']
+        )
 
     def get_utc_offset(self, vacancy):
         return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
@@ -361,6 +392,32 @@ class VacancySerializer(VacanciesSerializer):
             'price',
             'features',
             'required_docs',
+            'is_favourite',
+            'is_hot',
+            'utc_offset',
+            'required_experience',
+            'employment',
+            'work_time',
+            'banner',
+            'shop',
+            'distributor'
+        ]
+
+
+class VacancyForManagerSerializer(VacancySerializer):
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id',
+            'title',
+            'description',
+            'created_at',
+            'views_count',
+            'rating',
+            'rates_count',
+            'free_count',
+            'price',
+            'features',
             'is_favourite',
             'is_hot',
             'utc_offset',
@@ -482,7 +539,17 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
     def get_employees_count(self, instance):
         queryset = self.active_shifts(instance=instance)
         if queryset.count():
-            return queryset.aggregate(Sum('employees_count')).get('employees_count__sum', 0)
+            # TODO удалить поле employees_count т.к. в разные дни на одной смене разное к-во людей
+            return queryset.aggregate(
+                count=Coalesce(
+                    Count(
+                        'usershift',
+                        filter=Q(  # TODO нужно перепроверить, тут сравнение с datetime а не date
+                            usershift__real_time_start__date=self.context.get('current_date')
+                        )
+                    ), 0
+                )
+            ).get('count', 0)
         return 0
 
     def active_shifts(self, instance):
@@ -500,7 +567,8 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
     def active_appeals(self, instance):
         return ShiftAppeal.objects.filter(
             shift__vacancy=instance,
-            shift_active_date=self.context.get('current_date')
+            shift_active_date=self.context.get('current_date'),
+            **self.context.get('filters')
         )
 
     class Meta:
@@ -546,8 +614,16 @@ class ShiftsWithAppealsSerializer(CRUDSerializer):
     appliers = serializers.SerializerMethodField()
 
     def get_appliers(self, instance):
+        # TODO refactor вынести в репозиторий
         appliers = [appeal.applier for appeal in
-                    instance.appeals.filter(shift_active_date=self.context.get('current_date'))]
+                    instance.appeals.filter(
+                        # TODO нужен часовой пояс вакансии в запросе на отклики
+                        shift_active_date__date=localtime(  # в часовом поясе вакансии
+                            self.context.get('current_date'), timezone=timezone(instance.vacancy.timezone)
+                        ).date(),
+                        **self.context.get('filters')
+                    )
+                    ]
         return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
 
     confirmed_appliers = serializers.SerializerMethodField()
@@ -563,6 +639,57 @@ class ShiftsWithAppealsSerializer(CRUDSerializer):
     class Meta:
         model = Shift
         fields = ['id', 'time_start', 'time_end', 'max_employees_count', 'appliers', 'confirmed_appliers']
+
+
+class ApplierSerializer(CRUDSerializer):
+    id = serializers.IntegerField()
+    birth_date = DateTimeField()
+
+    avatar = serializers.SerializerMethodField(read_only=True)
+
+    def get_avatar(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(
+            prefetched_data, MediaType.AVATAR.value, only_prefetched=True
+        )
+
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'first_name', 'middle_name', 'last_name', 'birth_date', 'avatar']
+
+
+class ShiftAppealsForManagersSerializer(CRUDSerializer):
+    applier = serializers.SerializerMethodField()
+    required_docs = serializers.SerializerMethodField()
+    work_experience = serializers.SerializerMethodField()
+
+    def get_applier(self, instance):
+        return ApplierSerializer(instance.applier, many=False).data
+
+    def get_required_docs(self, instance):
+        if not instance.shift.vacancy.required_docs:
+            return []
+        return map_status_for_required_docs(instance.shift.vacancy.required_docs, instance.applier.documents_types)
+
+    def get_work_experience(self, instance):
+        cleaned_data = [{
+            # Могут попадаться дубли, так как приходит UserShift
+            # С данными по вакансии, а не сама вакансия
+            # В одной вакансии может быть несколько разных смен, в которые работал пользователь
+            'id': s.vacancy_id,
+            'title': s.vacancy_title,
+            'rating': s.total_rating,
+            'rates_count': s.total_rates_count
+        } for s in instance.applier.shifts]
+
+        work_experience = list(  # Делаем список уникальных словарей
+            {v['id']: v for v in cleaned_data}.values()
+        )
+
+        return work_experience
+
+    class Meta:
+        model = ShiftAppeal
+        fields = ['id', 'status', 'applier', 'required_docs', 'work_experience']
 
 
 class ShiftsSerializer(CRUDSerializer):
@@ -592,6 +719,28 @@ class ShiftsSerializer(CRUDSerializer):
         ]
 
 
+class ShiftForManagersSerializer(serializers.ModelSerializer):
+    confirmed_appeals_count = serializers.SerializerMethodField()
+    vacancy_title = serializers.SerializerMethodField()
+
+    def get_confirmed_appeals_count(self, data):
+        return data.confirmed_appeals_count
+
+    def get_vacancy_title(self, data):
+        return data.vacancy.title
+
+    class Meta:
+        model = Shift
+        fields = [
+            'id',
+            'time_start',
+            'time_end',
+            'confirmed_appeals_count',
+            'max_employees_count',
+            'vacancy_title'
+        ]
+
+
 class ProfessionSerializer(CRUDSerializer):
     repository = ProfessionsRepository
 
@@ -616,10 +765,10 @@ class SkillSerializer(CRUDSerializer):
         ]
 
 
-class VacancyIsUserShiftSerializer(serializers.ModelSerializer):
+class VacancyInUserShiftSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vacancy
-        fields = ['title', 'timezone', 'available_from']
+        fields = ['id', 'title', 'timezone']
 
 
 class UserShiftSerializer(serializers.ModelSerializer):
@@ -627,11 +776,96 @@ class UserShiftSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_vacancy(instance):
-        return VacancyIsUserShiftSerializer(instance=instance.shift.vacancy).data
+        return VacancyInUserShiftSerializer(instance=instance.shift.vacancy).data
 
     class Meta:
         model = UserShift
         exclude = ['created_at', 'updated_at', 'deleted']
+
+
+class VacancyInConfirmedWorkerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vacancy
+        fields = ['id', 'title']
+
+
+class ConfirmedWorkerVacanciesSerializer(serializers.ModelSerializer):
+    id = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_id(instance):
+        return instance.shift.vacancy_id
+
+    @staticmethod
+    def get_title(instance):
+        return instance.shift.vacancy.title
+
+    class Meta:
+        model = UserShift
+        fields = ['id', 'title']
+
+
+class ConfirmedWorkerDatesSerializer(serializers.ModelSerializer):
+    real_time_start = DateTimeField()
+
+    class Meta:
+        model = UserShift
+        fields = ['real_time_start']
+
+
+class ConfirmedWorkerSerializer(CRUDSerializer):
+    id = serializers.IntegerField()
+    birth_date = DateTimeField()
+
+    avatar = serializers.SerializerMethodField(read_only=True)
+
+    def get_avatar(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(
+            prefetched_data, MediaType.AVATAR.value, only_prefetched=False  # TODO поставить false
+        )
+
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'first_name', 'middle_name', 'last_name', 'birth_date', 'avatar']
+
+
+class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
+    vacancy = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
+    time_start = serializers.SerializerMethodField()
+    time_end = serializers.SerializerMethodField()
+    real_time_start = DateTimeField()
+    real_time_end = DateTimeField()
+
+    @staticmethod
+    def get_vacancy(instance):
+        return VacancyInConfirmedWorkerSerializer(instance=instance.shift.vacancy).data
+
+    @staticmethod
+    def get_user(instance):
+        return ConfirmedWorkerSerializer(instance=instance.user).data
+
+    @staticmethod
+    def get_time_start(instance):
+        return instance.shift.time_start
+
+    @staticmethod
+    def get_time_end(instance):
+        return instance.shift.time_end
+
+    class Meta:
+        model = UserShift
+        fields = [
+            'id',
+            'status',
+            'time_start',
+            'time_end',
+            'real_time_start',
+            'real_time_end',
+            'user',
+            'vacancy',
+        ]
 
 
 class QRCodeSerializer(serializers.Serializer):

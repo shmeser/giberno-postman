@@ -97,7 +97,8 @@ class RequestMapper:
             **self.filter_params, **self.date_filter_params, **self.bool_filter_params, **self.array_filter_params
         }
         kwargs = {all_params[param]: filter_values.get(param) for param in all_params if filter_values.get(param)}
-        return {**kwargs, **self.default_filters}
+
+        return {**self.default_filters, **kwargs}
 
     def order(self, request):
         if not self.order_params:

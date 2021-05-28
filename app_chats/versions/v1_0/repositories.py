@@ -101,12 +101,107 @@ class ChatsRepository(MasterRepository):
                 'last_message_created_at__gte': created_at
             })
 
+    def check_conditions_for_manager(self, user_id, vacancy_id, appeal_id):
+        need_to_create = False
+        users = []
+        target_id = None
+        target_ct = None
+
+        # Запрашивается чат с пользователем по вакансии, если тот откликнулся на нее
+        if user_id and vacancy_id:
+            need_to_create = True
+            # Цель обсуждения в чате - вакансия
+            target_ct = ContentType.objects.get_for_model(Vacancy)
+            target_id = vacancy_id
+            # Основной пользователь в чате - самозанятый
+            subject_user = ProfileRepository().get_by_id_and_type(user_id, AccountType.SELF_EMPLOYED.value)
+            # Участники чата
+            users = [
+                self.me,
+                subject_user
+            ]
+            # Проверяем есть ли такой пользователь и есть ли от него отклики на указанную вакансию
+            if not subject_user or not ShiftAppealsRepository.check_if_active_appeal(
+                    vacancy_id=vacancy_id, applier_id=user_id):
+                need_to_create = False
+
+        # Запрашивается чат с пользователем по отклику на вакансию, если тот откликнулся на нее
+        if appeal_id:
+            need_to_create = True
+            # Проверяем есть ли отклик
+            try:
+                target_ct = ContentType.objects.get_for_model(Vacancy)
+                appeal = ShiftAppealsRepository(me=self.me).get_by_id_for_manager(appeal_id)
+                # Цель обсуждения в чате - вакансия
+                target_id = appeal.shift.vacancy.id
+                # Основной пользователь в чате - самозанятый
+                subject_user = appeal.applier
+                # Участники чата
+                users = [
+                    self.me,
+                    subject_user
+                ]
+            except Exception:
+                need_to_create = False
+
+        return need_to_create, users, target_ct, target_id
+
+    def check_conditions_for_self_employed(self, user_id, vacancy_id, shop_id, kwargs, checking_kwargs):
+        need_to_create = False
+        users = []
+        target_id = None
+        target_ct = None
+        subject_user = None
+
+        if user_id:  # user-user
+            # Цели обсуждения в чате нет по умолчанию для такого чата
+            # Участники чата
+            # TODO чат с самим собой?
+            users = [
+                self.me,
+                ProfileRepository().get_by_id(user_id)
+            ]
+
+            upd = {
+                'users__in': users,
+            }
+            kwargs.update(upd)
+            checking_kwargs.update(upd)
+
+        elif shop_id:  # user-shop
+            need_to_create = True
+            # Цель обсуждения в чате - магазин
+            target_ct = ContentType.objects.get_for_model(Shop)
+            target_id = shop_id
+            # Основной пользователь в чате - самозанятый
+            subject_user = self.me
+            # Участники чата
+            # Все менеджеры магазина
+            # shop_managers = ShopsRepository().get_managers(shop_id)
+            # TODO менеджеры добавляются после просьбы пользователя о разговоре с человеком
+            users = [subject_user]
+        elif vacancy_id:  # user-vacancy
+            need_to_create = True
+            # Цель обсуждения в чате - вакансия
+            target_ct = ContentType.objects.get_for_model(Vacancy)
+            target_id = vacancy_id
+            # Основной пользователь в чате - самозанятый
+            subject_user = self.me
+            # Участники чата
+            # Все менеджеры магазина, в котором размещена вакансия
+            # TODO менеджеры добавляются после просьбы пользователя о разговоре с человеком
+            # vacancy_managers = VacanciesRepository().get_vacancy_managers(vacancy_id)
+            users = [subject_user]
+
+        return need_to_create, users, target_ct, target_id, subject_user
+
     def check_conditions_for_chat_creation(self, kwargs):
         need_to_create = False
 
         user_id = kwargs.pop('user_id', None)
         shop_id = kwargs.pop('shop_id', None)
         vacancy_id = kwargs.pop('vacancy_id', None)
+        appeal_id = kwargs.pop('appeal_id', None)
 
         checking_kwargs = {}
 
@@ -119,64 +214,12 @@ class ChatsRepository(MasterRepository):
         # ##
 
         if self.me.account_type == AccountType.MANAGER.value:  # Если роль менеджера
-            # Запрашивается чат с пользователем по вакансии, если тот откликнулся на нее
-            if user_id and vacancy_id:
-                need_to_create = True
-                # Цель обсуждения в чате - вакансия
-                target_ct = ContentType.objects.get_for_model(Vacancy)
-                target_id = vacancy_id
-                # Основной пользователь в чате - самозанятый
-                subject_user = ProfileRepository().get_by_id_and_type(user_id, AccountType.SELF_EMPLOYED.value)
-                # Участники чата
-                users = [
-                    self.me,
-                    subject_user
-                ]
-                # Проверяем есть ли такой пользователь и есть ли от него отклики на указанную вакансию
-                if not subject_user or not ShiftAppealsRepository.check_if_active_appeal(
-                        vacancy_id=vacancy_id, applier_id=user_id):
-                    need_to_create = False
+            need_to_create, users, target_ct, target_id = self.check_conditions_for_manager(
+                user_id, vacancy_id, appeal_id)
 
         elif self.me.account_type == AccountType.SELF_EMPLOYED.value:  # Если роль самозанятого
-            if user_id:  # user-user
-                # Цели обсуждения в чате нет по умолчанию для такого чата
-                # Участники чата
-                # TODO чат с самим собой?
-                users = [
-                    self.me,
-                    ProfileRepository().get_by_id(user_id)
-                ]
-
-                upd = {
-                    'users__in': users,
-                }
-                kwargs.update(upd)
-                checking_kwargs.update(upd)
-
-            elif shop_id:  # user-shop
-                need_to_create = True
-                # Цель обсуждения в чате - магазин
-                target_ct = ContentType.objects.get_for_model(Shop)
-                target_id = shop_id
-                # Основной пользователь в чате - самозанятый
-                subject_user = self.me
-                # Участники чата
-                # Все менеджеры магазина
-                # shop_managers = ShopsRepository().get_managers(shop_id)
-                # TODO менеджеры добавляются после просьбы пользователя о разговоре с человеком
-                users = [subject_user]
-            elif vacancy_id:  # user-vacancy
-                need_to_create = True
-                # Цель обсуждения в чате - вакансия
-                target_ct = ContentType.objects.get_for_model(Vacancy)
-                target_id = vacancy_id
-                # Основной пользователь в чате - самозанятый
-                subject_user = self.me
-                # Участники чата
-                # Все менеджеры магазина, в котором размещена вакансия
-                # TODO менеджеры добавляются после просьбы пользователя о разговоре с человеком
-                # vacancy_managers = VacanciesRepository().get_vacancy_managers(vacancy_id)
-                users = [subject_user]
+            need_to_create, users, target_ct, target_id, subject_user = self.check_conditions_for_self_employed(
+                user_id, vacancy_id, shop_id, kwargs, checking_kwargs)
 
         target_ct_id = None
         target_ct_name = None

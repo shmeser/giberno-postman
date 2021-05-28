@@ -257,7 +257,7 @@ class UserCareer(BaseModel):
 
 
 class Document(BaseModel):
-    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='documents')
     type = models.IntegerField(choices=choices(DocumentType), default=DocumentType.OTHER)
     series = models.CharField(max_length=128, blank=True, null=True, verbose_name='Серия')
     number = models.CharField(max_length=128, blank=True, null=True, verbose_name='Номер')

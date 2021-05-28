@@ -58,6 +58,18 @@ class AppealCancelReason(IntEnumM):
     ACCIDENT = 2  # Отмена из-за непредвиденных ситуаций
 
 
+class ManagerAppealCancelReason(IntEnumM):
+    CUSTOM = 0  # Причина будет указана самостоятельно текстом
+    MISTAKE = 1  # Заявка принята была по ошибке
+    ACCIDENT = 2  # Отмена из-за непредвиденных ситуаций
+    NO_PASSPORT = 3  # Нет паспорта
+    WRONG_PASSPORT = 4  # Паспортные данные не верны
+    NO_INN = 5  # Нет ИНН
+    NO_SNILS = 6  # Нет СНИЛС
+    NO_MEDICAL_BOOK = 7  # Нет медкнижки
+    NO_DRIVER_LICENCE = 8  # Нет водительского удостоверения
+
+
 class ShiftWorkTime(IntEnumM):
     # Тип времени смены (время начала)
     MORNING = 0  # Утренняя

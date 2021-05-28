@@ -7,9 +7,8 @@ from rest_framework.views import APIView
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer
 from app_market.versions.v1_0 import views as v1_0
-from app_market.versions.v1_0.serializers import DistributorsSerializer, ProfessionSerializer, ShiftsSerializer, \
-    ShopSerializer, SkillSerializer, VacanciesSerializer, QRCodeSerializer, UserShiftSerializer, \
-    VacanciesClusterSerializer, ShiftAppealsSerializer, VacancySerializer, VacanciesWithAppliersForManagerSerializer
+from app_market.versions.v1_0.serializers import ProfessionSerializer, ShiftsSerializer, \
+    QRCodeSerializer, UserShiftSerializer
 from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager, IsManagerOrSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -22,7 +21,7 @@ class Distributors(APIView):
         if request.version in ['market_1_0']:
             return v1_0.Distributors().get(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class Shops(APIView):
@@ -31,7 +30,7 @@ class Shops(APIView):
         if request.version in ['market_1_0']:
             return v1_0.Shops().get(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class Vacancies(APIView):
@@ -39,7 +38,7 @@ class Vacancies(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Vacancies().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class ShiftAppeals(BaseAPIView):
@@ -50,21 +49,21 @@ class ShiftAppeals(BaseAPIView):
         """ Список своих откликов на рабочие смены """
         if request.version in ['market_1_0']:
             return v1_0.ShiftAppeals().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         """ Откликнуться на рабочую смену """
         if request.version in ['market_1_0']:
             return v1_0.ShiftAppeals().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         """ Редактирование отклика """
         if request.version in ['market_1_0']:
             return v1_0.ShiftAppeals().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class ShiftAppealCancel(BaseAPIView):
@@ -72,17 +71,17 @@ class ShiftAppealCancel(BaseAPIView):
 
     @staticmethod
     def post(request, **kwargs):
-        '''
+        """
         Отменить отклик на рабочую смену
-        '''
+        """
         if request.version in ['market_1_0']:
             return v1_0.ShiftAppealCancel().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class ActiveVacanciesWithAppliersByDateForManagerListAPIView(BaseAPIView):
     """
-    Получение списка вакансий, которые закреплены за  магазином\магазинами менеджера
+    Получение списка вакансий, которые закреплены за  магазином / магазинами менеджера
     возможные query параметры :
     offset : int
     limit : int
@@ -91,12 +90,10 @@ class ActiveVacanciesWithAppliersByDateForManagerListAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(
-        responses={200: openapi.Response('response description', VacanciesWithAppliersForManagerSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.ActiveVacanciesWithAppliersByDateForManagerListAPIView().get(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class VacancyByManagerRetrieveAPIView(BaseAPIView):
@@ -107,11 +104,10 @@ class VacancyByManagerRetrieveAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacancySerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacancyByManagerRetrieveAPIView().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class VacanciesActiveDatesForManagerListAPIView(BaseAPIView):
@@ -124,11 +120,10 @@ class VacanciesActiveDatesForManagerListAPIView(BaseAPIView):
     """
 
     @staticmethod
-    @swagger_auto_schema(responses={200: '[timestamp]'})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacanciesActiveDatesForManagerListAPIView().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class SingleVacancyActiveDatesForManagerListAPIView(BaseAPIView):
@@ -142,11 +137,10 @@ class SingleVacancyActiveDatesForManagerListAPIView(BaseAPIView):
     """
 
     @staticmethod
-    @swagger_auto_schema(responses={200: '[timestamp]'})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.SingleVacancyActiveDatesForManagerListAPIView().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class VacancyShiftsWithAppealsListForManagerAPIView(BaseAPIView):
@@ -157,12 +151,10 @@ class VacancyShiftsWithAppealsListForManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description',
-                                                          ShiftAppealsSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacancyShiftsWithAppealsListForManagerAPIView().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class GetSingleAppealForManagerAPIView(BaseAPIView):
@@ -173,30 +165,26 @@ class GetSingleAppealForManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description',
-                                                          ShiftAppealsSerializer)})
     def get(request, *args, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.GetSingleAppealForManagerAPIView().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class VacanciesClusteredMap(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', VacanciesClusterSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacanciesClusteredMap().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class Shifts(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', ShiftsSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Shifts().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class UserShiftsListAPIView(BaseAPIView):
@@ -207,11 +195,10 @@ class UserShiftsListAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsSelfEmployed]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', UserShiftSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.UserShiftsListAPIView().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class UserShiftsRetrieveAPIView(BaseAPIView):
@@ -224,7 +211,7 @@ class UserShiftsRetrieveAPIView(BaseAPIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.UserShiftsRetrieveAPIView().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
@@ -239,7 +226,7 @@ class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.CheckUserShiftByManagerOrSecurityAPIView().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class GetDocumentsForShift(APIView):
@@ -247,7 +234,7 @@ class GetDocumentsForShift(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.GetDocumentsForShift().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class VacanciesStats(APIView):
@@ -255,7 +242,7 @@ class VacanciesStats(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacanciesStats().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class VacanciesDistributors(APIView):
@@ -263,21 +250,21 @@ class VacanciesDistributors(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.VacanciesDistributors().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 @api_view(['GET'])
 def similar_vacancies(request, **kwargs):
     if request.version in ['market_1_0']:
         return v1_0.similar_vacancies(request._request, **kwargs)
-    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 @api_view(['GET'])
 def vacancies_suggestions(request):
     if request.version in ['market_1_0']:
         return v1_0.vacancies_suggestions(request._request)
-    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class VacancyReviewsAPIView(BaseAPIView):
@@ -286,24 +273,24 @@ class VacancyReviewsAPIView(BaseAPIView):
     @staticmethod
     @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
-        '''
+        """
         Оставить отзыв о вакансии
-        '''
+        """
         if request.version in ['market_1_0']:
             return v1_0.VacancyReviewsAPIView().post(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
     def get(request, **kwargs):
-        '''
+        """
         Получить список отзывов о вакансии
-        '''
+        """
         if request.version in ['market_1_0']:
             return v1_0.VacancyReviewsAPIView().get(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class ShopReviewsAPIView(BaseAPIView):
@@ -312,24 +299,24 @@ class ShopReviewsAPIView(BaseAPIView):
     @staticmethod
     @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
-        '''
+        """
         Oставить отзыв о магазине
-        '''
+        """
         if request.version in ['market_1_0']:
             return v1_0.ShopReviewsAPIView().post(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
     def get(request, **kwargs):
-        '''
+        """
         Получить список отзывов о магазине
-        '''
+        """
         if request.version in ['market_1_0']:
             return v1_0.ShopReviewsAPIView().get(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class DistributorReviewsAPIView(BaseAPIView):
@@ -338,24 +325,24 @@ class DistributorReviewsAPIView(BaseAPIView):
     @staticmethod
     @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
-        '''
+        """
         Оставить отзыв к торговой сети
-        '''
+        """
         if request.version in ['market_1_0']:
             return v1_0.DistributorReviewsAPIView().post(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
     def get(request, **kwargs):
-        '''
+        """
         Получить список отзывов торговой сети
-        '''
+        """
         if request.version in ['market_1_0']:
             return v1_0.DistributorReviewsAPIView().get(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
@@ -363,59 +350,57 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
     serializer_class = POSTReviewByManagerSerializer
 
     @staticmethod
-    @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
-        '''
-        Отзывы на самозанятого (оставляют Администраторы\менеджеры)
-        '''
+        """
+        Отзывы на самозанятого (оставляют Администраторы / менеджеры)
+        """
         if request.version in ['market_1_0']:
             return v1_0.SelfEmployedUserReviewsByAdminOrManagerAPIView().post(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
     def get(request, **kwargs):
-        '''
-        Получить список отзывов на самозанятого (получают Администраторы\менеджеры))
-        '''
+        """
+            Получить список отзывов на самозанятого (получают Администраторы / менеджеры))
+        """
         if request.version in ['market_1_0']:
             return v1_0.SelfEmployedUserReviewsByAdminOrManagerAPIView().get(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class ConfirmAppealByManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrManager]
 
     @staticmethod
-    def get(request, **kwargs):
-        '''
-        подтвердить отклик на вакансию (подтверждают Администраторы\менеджеры))
-        '''
+    def post(request, **kwargs):
+        """
+            подтвердить отклик на вакансию (подтверждают Администраторы / менеджеры))
+        """
         if request.version in ['market_1_0']:
-            return v1_0.ConfirmAppealByManagerAPIView().get(request, **kwargs)
+            return v1_0.ConfirmAppealByManagerAPIView().post(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class RejectAppealByManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrManager]
 
     @staticmethod
-    def get(request, **kwargs):
-        '''
-        отклонить отклик на вакансию (отклоняют Администраторы\менеджеры))
-        '''
+    def post(request, **kwargs):
+        """
+            Отклонить отклик на вакансию (отклоняют Администраторы / менеджеры))
+        """
         if request.version in ['market_1_0']:
-            return v1_0.RejectAppealByManagerAPIView().get(request, **kwargs)
+            return v1_0.RejectAppealByManagerAPIView().post(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class ToggleLikeVacancy(APIView):
     """
-    Лайкнуть/отлайкнуть. работает один и тот же метод. Если нет лайка - добавит. Если есть - удалит
+        Лайкнуть/отлайкнуть. работает один и тот же метод. Если нет лайка - добавит. Если есть - удалит
     """
 
     @staticmethod
@@ -424,7 +409,7 @@ class ToggleLikeVacancy(APIView):
         if request.version in ['market_1_0']:
             return v1_0.ToggleLikeVacancy().post(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class Professions(APIView):
@@ -434,7 +419,7 @@ class Professions(APIView):
         if request.version in ['market_1_0']:
             return v1_0.Professions().get(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 @api_view(['POST'])
@@ -442,17 +427,16 @@ def suggest_profession(request):
     if request.version in ['market_1_0']:
         return v1_0.suggest_profession(request._request)
 
-    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class Skills(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', SkillSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Skills().get(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class MarketDocuments(APIView):
@@ -461,4 +445,74 @@ class MarketDocuments(APIView):
         if request.version in ['market_1_0']:
             return v1_0.MarketDocuments().post(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class ShiftForManagers(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        """
+            Смена (получают Администраторы / менеджеры))
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ShiftForManagers().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class ShiftAppealsForManagers(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        """
+            Отклики на смену (получают Администраторы / менеджеры))
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ShiftAppealsForManagers().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class ConfirmedWorkers(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        """
+            Список одобренных работников (получают Администраторы / менеджеры ) )
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ConfirmedWorkers().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class ConfirmedWorkersVacancies(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        """
+            Список вакансий одобренных работников (получают Администраторы / менеджеры ) )
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ConfirmedWorkersVacancies().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class ConfirmedWorkersDates(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        """
+            Список дат для смен одобренных работников (получают Администраторы / менеджеры ) )
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ConfirmedWorkersDates().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
