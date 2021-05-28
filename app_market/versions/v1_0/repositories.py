@@ -521,6 +521,16 @@ class UserShiftRepository(MasterRepository):
             return result[pagination.offset: pagination.limit]
         return result
 
+    def get_confirmed_workers_dates_for_manager(self, calendar_from, calendar_to):
+        result = self.model.objects.filter(
+            shift__shop__in=self.me.shops.all(),
+            real_time_start__gte=calendar_from,
+            real_time_start__lte=calendar_to,
+        ).select_related(
+            'shift__vacancy'
+        ).distinct('real_time_start').order_by('real_time_start')
+        return result
+
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
     model = Vacancy
