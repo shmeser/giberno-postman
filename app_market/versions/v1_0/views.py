@@ -1005,6 +1005,11 @@ class ConfirmedWorkersDates(CRUDAPIView):
             'headers': get_request_headers(request),
         })
 
-        only_dates = [d['real_time_start'] for d in serialized.data]
+        only_dates = {
+            'active_dates': [{
+                'timestamp': d['real_time_start'],
+                'utc_offset': d['utc_offset'],
+            } for d in serialized.data]
+        }
 
         return Response(camelize(only_dates), status=status.HTTP_200_OK)
