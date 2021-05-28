@@ -778,7 +778,7 @@ class VacancyInConfirmedWorkerSerializer(serializers.ModelSerializer):
         fields = ['id', 'title']
 
 
-class ConfirmedWorkerSerializerVacancies(serializers.ModelSerializer):
+class ConfirmedWorkerVacanciesSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
     title = serializers.SerializerMethodField()
 
@@ -793,6 +793,14 @@ class ConfirmedWorkerSerializerVacancies(serializers.ModelSerializer):
     class Meta:
         model = UserShift
         fields = ['id', 'title']
+
+
+class ConfirmedWorkerDatesSerializer(serializers.ModelSerializer):
+    real_time_start = DateTimeField()
+
+    class Meta:
+        model = UserShift
+        fields = ['real_time_start']
 
 
 class ConfirmedWorkerSerializer(CRUDSerializer):

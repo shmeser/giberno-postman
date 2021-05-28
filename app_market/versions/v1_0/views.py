@@ -16,7 +16,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSeri
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
     ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer, \
-    VacancyInConfirmedWorkerSerializer, ConfirmedWorkerSerializerVacancies
+    ConfirmedWorkerVacanciesSerializer, ConfirmedWorkerDatesSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -927,6 +927,7 @@ class ConfirmedWorkers(CRUDAPIView):
         'time_start': 'shift__time_start'
     }
     array_filter_params = {
+        'vacancy': 'shift__vacancy_id__in'
     }
 
     default_filters = {
@@ -959,7 +960,7 @@ class ConfirmedWorkers(CRUDAPIView):
 class ConfirmedWorkersVacancies(CRUDAPIView):
     allowed_http_methods = ['get']
     repository_class = UserShiftRepository
-    serializer_class = ConfirmedWorkerSerializerVacancies
+    serializer_class = ConfirmedWorkerVacanciesSerializer
     order_params = {
         'id': 'shift__vacancy_id',
         'title': 'shift__vacancy__title'
@@ -983,3 +984,27 @@ class ConfirmedWorkersVacancies(CRUDAPIView):
         })
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class ConfirmedWorkersDates(CRUDAPIView):
+    allowed_http_methods = ['get']
+    repository_class = UserShiftRepository
+    serializer_class = ConfirmedWorkerDatesSerializer
+
+    def get(self, request, *args, **kwargs):
+        calendar_from, calendar_to = RequestMapper().calendar_range(request)
+
+        dataset = self.repository_class(me=request.user).get_confirmed_workers_dates_for_manager(
+            calendar_from=calendar_from, calendar_to=calendar_to
+        )
+
+        self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        only_dates = [d['real_time_start'] for d in serialized.data]
+
+        return Response(camelize(only_dates), status=status.HTTP_200_OK)

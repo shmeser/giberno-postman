@@ -181,7 +181,6 @@ class VacanciesClusteredMap(APIView):
 
 class Shifts(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', ShiftsSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Shifts().get(request, **kwargs)
@@ -196,7 +195,6 @@ class UserShiftsListAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsSelfEmployed]
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', UserShiftSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.UserShiftsListAPIView().get(request, **kwargs)
@@ -498,9 +496,23 @@ class ConfirmedWorkersVacancies(APIView):
     @staticmethod
     def get(request, **kwargs):
         """
-            Список одобренных работников (получают Администраторы / менеджеры ) )
+            Список вакансий одобренных работников (получают Администраторы / менеджеры ) )
         """
         if request.version in ['market_1_0']:
             return v1_0.ConfirmedWorkersVacancies().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class ConfirmedWorkersDates(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        """
+            Список дат для смен одобренных работников (получают Администраторы / менеджеры ) )
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ConfirmedWorkersDates().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
