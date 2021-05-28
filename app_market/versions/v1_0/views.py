@@ -927,6 +927,7 @@ class ConfirmedWorkers(CRUDAPIView):
         'time_start': 'shift__time_start'
     }
     array_filter_params = {
+        'vacancy': 'shift__vacancy_id__in'
     }
 
     default_filters = {
