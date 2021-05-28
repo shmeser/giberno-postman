@@ -81,7 +81,7 @@ class ShiftAppealCancel(BaseAPIView):
 
 class ActiveVacanciesWithAppliersByDateForManagerListAPIView(BaseAPIView):
     """
-    Получение списка вакансий, которые закреплены за  магазином\магазинами менеджера
+    Получение списка вакансий, которые закреплены за  магазином / магазинами менеджера
     возможные query параметры :
     offset : int
     limit : int

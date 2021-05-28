@@ -3,7 +3,8 @@ from datetime import datetime
 import pytz
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Avg, Sum
+from django.db.models import Avg, Sum, Count, Q
+from django.db.models.functions import Coalesce
 from django.utils.timezone import localtime
 from pytz import timezone
 from rest_framework import serializers
@@ -538,7 +539,17 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
     def get_employees_count(self, instance):
         queryset = self.active_shifts(instance=instance)
         if queryset.count():
-            return queryset.aggregate(Sum('employees_count')).get('employees_count__sum', 0)
+            # TODO удалить поле employees_count т.к. в разные дни на одной смене разное к-во людей
+            return queryset.aggregate(
+                count=Coalesce(
+                    Count(
+                        'usershift',
+                        filter=Q(  # TODO нужно перепроверить, тут сравнение с datetime а не date
+                            usershift__real_time_start__date=self.context.get('current_date')
+                        )
+                    ), 0
+                )
+            ).get('count', 0)
         return 0
 
     def active_shifts(self, instance):
