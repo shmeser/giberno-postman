@@ -15,7 +15,7 @@ from app_market.versions.v1_0.repositories import VacanciesRepository, Professio
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
-    ShiftAppealsForManagersSerializer, VacancyForManagerSerializer
+    ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -916,3 +916,40 @@ class ShiftAppealsForManagers(CRUDAPIView):
         appeals = self.repository_class(me=request.user).get_shift_appeals_for_managers(
             record_id, active_date=active_date, filters=filters)
         return Response(camelize(ShiftAppealsForManagersSerializer(appeals, many=True).data), status=status.HTTP_200_OK)
+
+
+class ConfirmedWorkers(CRUDAPIView):
+    allowed_http_methods = ['get']
+    repository_class = UserShiftRepository
+    serializer_class = ConfirmedWorkersShiftsSerializer
+    order_params = {
+        'time_start': 'shift__time_start'
+    }
+    array_filter_params = {
+    }
+
+    default_filters = {
+    }
+
+    def get(self, request, *args, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        current_date = underscoreize(request.query_params).get('current_date')
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            dataset = self.repository_class(me=request.user).get_confirmed_workers_for_manager(
+                current_date=current_date, pagination=pagination, order_by=order_params, filters=filters
+            )
+
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)

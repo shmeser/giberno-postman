@@ -754,10 +754,10 @@ class SkillSerializer(CRUDSerializer):
         ]
 
 
-class VacancyIsUserShiftSerializer(serializers.ModelSerializer):
+class VacancyInUserShiftSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vacancy
-        fields = ['title', 'timezone', 'available_from']
+        fields = ['id', 'title', 'timezone']
 
 
 class UserShiftSerializer(serializers.ModelSerializer):
@@ -765,11 +765,71 @@ class UserShiftSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_vacancy(instance):
-        return VacancyIsUserShiftSerializer(instance=instance.shift.vacancy).data
+        return VacancyInUserShiftSerializer(instance=instance.shift.vacancy).data
 
     class Meta:
         model = UserShift
         exclude = ['created_at', 'updated_at', 'deleted']
+
+
+class VacancyInConfirmedWorkerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vacancy
+        fields = ['id', 'title']
+
+
+class ConfirmedWorkerSerializer(CRUDSerializer):
+    id = serializers.IntegerField()
+    birth_date = DateTimeField()
+
+    avatar = serializers.SerializerMethodField(read_only=True)
+
+    def get_avatar(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(
+            prefetched_data, MediaType.AVATAR.value, only_prefetched=False  # TODO поставить false
+        )
+
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'first_name', 'middle_name', 'last_name', 'birth_date', 'avatar']
+
+
+class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
+    vacancy = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
+    time_start = serializers.SerializerMethodField()
+    time_end = serializers.SerializerMethodField()
+    real_time_start = DateTimeField()
+    real_time_end = DateTimeField()
+
+    @staticmethod
+    def get_vacancy(instance):
+        return VacancyInConfirmedWorkerSerializer(instance=instance.shift.vacancy).data
+
+    @staticmethod
+    def get_user(instance):
+        return ConfirmedWorkerSerializer(instance=instance.user).data
+
+    @staticmethod
+    def get_time_start(instance):
+        return instance.shift.time_start
+
+    @staticmethod
+    def get_time_end(instance):
+        return instance.shift.time_end
+
+    class Meta:
+        model = UserShift
+        fields = [
+            'id',
+            'status',
+            'time_start',
+            'time_end',
+            'real_time_start',
+            'real_time_end',
+            'user',
+            'vacancy',
+        ]
 
 
 class QRCodeSerializer(serializers.Serializer):
