@@ -45,6 +45,8 @@ class ChatsSerializer(serializers.ModelSerializer):
             }
 
     def get_subject_user(self, data):
+        if not data.subject_user:
+            return None
         return ChatSubjectUserSerializer(data.subject_user, many=False, context={'me': self.me}).data
 
     def get_users(self, data):

@@ -106,6 +106,7 @@ class ChatsRepository(MasterRepository):
         users = []
         target_id = None
         target_ct = None
+        subject_user = None
 
         # Запрашивается чат с пользователем по вакансии, если тот откликнулся на нее
         if user_id and vacancy_id:
@@ -144,7 +145,7 @@ class ChatsRepository(MasterRepository):
             except Exception:
                 need_to_create = False
 
-        return need_to_create, users, target_ct, target_id
+        return need_to_create, users, target_ct, target_id, subject_user
 
     def check_conditions_for_self_employed(self, user_id, vacancy_id, shop_id, kwargs, checking_kwargs):
         need_to_create = False
@@ -214,7 +215,7 @@ class ChatsRepository(MasterRepository):
         # ##
 
         if self.me.account_type == AccountType.MANAGER.value:  # Если роль менеджера
-            need_to_create, users, target_ct, target_id = self.check_conditions_for_manager(
+            need_to_create, users, target_ct, target_id, subject_user = self.check_conditions_for_manager(
                 user_id, vacancy_id, appeal_id)
 
         elif self.me.account_type == AccountType.SELF_EMPLOYED.value:  # Если роль самозанятого
