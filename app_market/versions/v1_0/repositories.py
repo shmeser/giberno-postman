@@ -501,7 +501,20 @@ class UserShiftRepository(MasterRepository):
                 return
 
     def get_confirmed_workers_for_manager(self, current_date, pagination=None, order_by: list = None, filters={}):
-        result = self.model.objects.filter(shift__shop__in=self.me.shops.all(), **filters)
+        result = self.model.objects.filter(shift__shop__in=self.me.shops.all(), **filters).select_related(
+            'shift__vacancy'
+        )
+        if order_by:
+            result = result.order_by(*order_by)
+        if pagination:
+            return result[pagination.offset: pagination.limit]
+        return result
+
+    def get_confirmed_workers_vacancies_for_manager(self, current_date, pagination=None, order_by: list = None,
+                                                    filters={}):
+        result = self.model.objects.filter(shift__shop__in=self.me.shops.all(), **filters).select_related(
+            'shift__vacancy'
+        ).distinct('shift__vacancy')
         if order_by:
             result = result.order_by(*order_by)
         if pagination:

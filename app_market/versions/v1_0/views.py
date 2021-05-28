@@ -15,7 +15,8 @@ from app_market.versions.v1_0.repositories import VacanciesRepository, Professio
 from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
-    ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer
+    ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer, \
+    VacancyInConfirmedWorkerSerializer, ConfirmedWorkerSerializerVacancies
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -946,6 +947,35 @@ class ConfirmedWorkers(CRUDAPIView):
             )
 
             self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class ConfirmedWorkersVacancies(CRUDAPIView):
+    allowed_http_methods = ['get']
+    repository_class = UserShiftRepository
+    serializer_class = ConfirmedWorkerSerializerVacancies
+    order_params = {
+        'id': 'shift__vacancy_id',
+        'title': 'shift__vacancy__title'
+    }
+
+    def get(self, request, *args, **kwargs):
+        current_date = underscoreize(request.query_params).get('current_date')
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        dataset = self.repository_class(me=request.user).get_confirmed_workers_vacancies_for_manager(
+            current_date=current_date, pagination=pagination, order_by=order_params, filters=filters
+        )
+
+        self.many = True
 
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,

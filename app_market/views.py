@@ -490,3 +490,17 @@ class ConfirmedWorkers(APIView):
             return v1_0.ConfirmedWorkers().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class ConfirmedWorkersVacancies(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        """
+            Список одобренных работников (получают Администраторы / менеджеры ) )
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ConfirmedWorkersVacancies().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
