@@ -500,11 +500,24 @@ class UserShiftRepository(MasterRepository):
             elif instance.status == ShiftStatus.COMPLETED:
                 return
 
+    @staticmethod
+    def modify_order_for_confirmed_workers(order_by):
+        if 'shift__time_start' in order_by:
+            order_by.append('shift__time_end')
+        if '-shift__time_start' in order_by:
+            order_by.append('-shift__time_end')
+
     def get_confirmed_workers_for_manager(self, current_date, pagination=None, order_by: list = None, filters={}):
-        result = self.model.objects.filter(shift__shop__in=self.me.shops.all(), **filters).select_related(
+        result = self.model.objects.filter(
+            shift__shop__in=self.me.shops.all(),
+            real_time_start__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
+            **filters
+        ).select_related(
             'shift__vacancy'
         )
         if order_by:
+            # Добавляем двойную сортировку, так как у смены есть time_start и time_end
+            self.modify_order_for_confirmed_workers(order_by)
             result = result.order_by(*order_by)
         if pagination:
             return result[pagination.offset: pagination.limit]
@@ -512,7 +525,11 @@ class UserShiftRepository(MasterRepository):
 
     def get_confirmed_workers_vacancies_for_manager(self, current_date, pagination=None, order_by: list = None,
                                                     filters={}):
-        result = self.model.objects.filter(shift__shop__in=self.me.shops.all(), **filters).select_related(
+        result = self.model.objects.filter(
+            shift__shop__in=self.me.shops.all(),
+            real_time_start__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
+            **filters
+        ).select_related(
             'shift__vacancy'
         ).distinct('shift__vacancy')
         if order_by:
@@ -522,13 +539,14 @@ class UserShiftRepository(MasterRepository):
         return result
 
     def get_confirmed_workers_dates_for_manager(self, calendar_from, calendar_to):
+        # TODO проверить часовые пояса
         result = self.model.objects.filter(
             shift__shop__in=self.me.shops.all(),
             real_time_start__gte=calendar_from,
             real_time_start__lte=calendar_to,
         ).select_related(
             'shift__vacancy'
-        ).distinct('real_time_start').order_by('real_time_start')
+        ).distinct('real_time_start', 'shift__vacancy__timezone').order_by('real_time_start')
         return result
 
 

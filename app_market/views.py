@@ -7,8 +7,7 @@ from rest_framework.views import APIView
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer
 from app_market.versions.v1_0 import views as v1_0
-from app_market.versions.v1_0.serializers import ProfessionSerializer, ShiftsSerializer, \
-    QRCodeSerializer, UserShiftSerializer
+from app_market.versions.v1_0.serializers import ProfessionSerializer, QRCodeSerializer
 from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager, IsManagerOrSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
