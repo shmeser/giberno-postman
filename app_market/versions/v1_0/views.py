@@ -297,7 +297,7 @@ class ShiftAppealCancel(CRUDAPIView):
             common_uuid = uuid.uuid4()
 
             PushController().send_notification(
-                users_to_send=[managers],
+                users_to_send=managers,
                 title=title,
                 message=message,
                 common_uuid=common_uuid,
@@ -744,6 +744,8 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
         status_changed, sockets, appeal = ShiftAppealsRepository(me=request.user).confirm_by_manager(
             record_id=record_id)
 
+        _MANAGER_ACCEPTED_APPEAL_TITLE = 'Отклик одобрен'
+
         if status_changed:
             SocketController().send_message_to_many_connections(sockets, {
                 'type': 'appeal_status_updated',
@@ -751,6 +753,40 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
                     'id': appeal.id,
                     'status': appeal.status,
                 }
+            })
+
+            title = _MANAGER_ACCEPTED_APPEAL_TITLE
+            message = f'Ваш отклик на вакансию {appeal.shift.vacancy.title} одобрен'
+            action = NotificationAction.VACANCY.value
+            subject_id = appeal.shift.vacancy_id
+            notification_type = NotificationType.SYSTEM.value
+            icon_type = NotificationIcon.VACANCY_APPROVED.value
+
+            # uuid для массовой рассылки оповещений,
+            # у пользователей в бд будут созданы оповещения с одинаковым uuid
+            # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+            common_uuid = uuid.uuid4()
+
+            PushController().send_notification(
+                users_to_send=[appeal.user],
+                title=title,
+                message=message,
+                common_uuid=common_uuid,
+                action=action,
+                subject_id=subject_id,
+                notification_type=notification_type,
+                icon_type=icon_type
+            )
+
+            # Отправка уведомления по сокетам
+            SocketController(request.user, version='1.0').send_notification_to_many_connections(appeal.user.sockets, {
+                'title': title,
+                'message': message,
+                'uuid': str(common_uuid),
+                'action': action,
+                'subjectId': subject_id,
+                'notificationType': notification_type,
+                'iconType': icon_type,
             })
 
         return Response(camelize(ShiftAppealsForManagersSerializer(appeal, many=False).data), status=status.HTTP_200_OK)
@@ -765,6 +801,9 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
             reason=data.get('reason'),
             text=data.get('text')
         )
+
+        _MANAGER_REJECTED_APPEAL_TITLE = 'Отклик отклонён'
+
         if status_changed:
             SocketController().send_message_to_many_connections(sockets, {
                 'type': 'appeal_status_updated',
@@ -772,6 +811,40 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
                     'id': appeal.id,
                     'status': appeal.status,
                 }
+            })
+
+            title = _MANAGER_REJECTED_APPEAL_TITLE
+            message = f'Ваш отклик на вакансию {appeal.shift.vacancy.title} отклонён'
+            action = NotificationAction.VACANCY.value
+            subject_id = appeal.shift.vacancy_id
+            notification_type = NotificationType.SYSTEM.value
+            icon_type = NotificationIcon.VACANCY_DECLINED.value
+
+            # uuid для массовой рассылки оповещений,
+            # у пользователей в бд будут созданы оповещения с одинаковым uuid
+            # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+            common_uuid = uuid.uuid4()
+
+            PushController().send_notification(
+                users_to_send=[appeal.user],
+                title=title,
+                message=message,
+                common_uuid=common_uuid,
+                action=action,
+                subject_id=subject_id,
+                notification_type=notification_type,
+                icon_type=icon_type
+            )
+
+            # Отправка уведомления по сокетам
+            SocketController(request.user, version='1.0').send_notification_to_many_connections(appeal.user.sockets, {
+                'title': title,
+                'message': message,
+                'uuid': str(common_uuid),
+                'action': action,
+                'subjectId': subject_id,
+                'notificationType': notification_type,
+                'iconType': icon_type,
             })
 
         return Response(camelize(ShiftAppealsForManagersSerializer(appeal, many=False).data), status=status.HTTP_200_OK)
