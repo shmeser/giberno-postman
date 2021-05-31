@@ -780,7 +780,7 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
 
             # Отправка уведомления по сокетам
             SocketController(request.user, version='1.0').send_notification_to_many_connections(
-                [s.socket_id for s in appeal.applier.sockets],
+                [s.socket_id for s in appeal.applier.sockets.all()],
                 {
                     'title': title,
                     'message': message,
@@ -840,7 +840,7 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
 
             # Отправка уведомления по сокетам
             SocketController(request.user, version='1.0').send_notification_to_many_connections(
-                [s.socket_id for s in appeal.applier.sockets],
+                [s.socket_id for s in appeal.applier.sockets.all()],
                 {
                     'title': title,
                     'message': message,
