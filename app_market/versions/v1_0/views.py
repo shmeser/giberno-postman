@@ -768,7 +768,7 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
             common_uuid = uuid.uuid4()
 
             PushController().send_notification(
-                users_to_send=[appeal.user],
+                users_to_send=[appeal.applier],
                 title=title,
                 message=message,
                 common_uuid=common_uuid,
@@ -779,7 +779,7 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
             )
 
             # Отправка уведомления по сокетам
-            SocketController(request.user, version='1.0').send_notification_to_many_connections(appeal.user.sockets, {
+            SocketController(request.user, version='1.0').send_notification_to_many_connections(appeal.applier.sockets, {
                 'title': title,
                 'message': message,
                 'uuid': str(common_uuid),
