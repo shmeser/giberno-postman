@@ -1,3 +1,5 @@
+import uuid
+
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize, underscoreize
 from rest_framework import status
@@ -20,9 +22,11 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSeri
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
+from app_users.enums import NotificationAction, NotificationType, NotificationIcon
 from app_users.permissions import IsManagerOrSecurity
 from app_users.versions.v1_0.repositories import ProfileRepository
 from backend.api_views import BaseAPIView
+from backend.controllers import PushController
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes, RESTErrors
 from backend.errors.http_exceptions import CustomException, HttpException
@@ -271,7 +275,49 @@ class ShiftAppealCancel(CRUDAPIView):
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.VALIDATION_ERROR)),
             ])
-        self.repository_class(me=request.user).cancel(record_id=record_id, reason=reason, text=data.get('text'))
+
+        appeal, is_confirmed_appeal_canceled = self.repository_class(me=request.user).cancel(
+            record_id=record_id, reason=reason, text=data.get('text')
+        )
+        managers, sockets = VacanciesRepository().get_managers_and_sockets_for_vacancy(appeal.shift.vacancy)
+
+        _WORKER_CANCELED_APPEAL_TITLE = 'Самозанятый отказался от вакансии'
+
+        if is_confirmed_appeal_canceled and managers:
+            title = _WORKER_CANCELED_APPEAL_TITLE
+            message = f'К сожалению, работник {request.user.first_name} {request.user.last_name} отказался от вакансии {appeal.shift.vacancy.title}'
+            action = NotificationAction.VACANCY.value
+            subject_id = appeal.shift.vacancy_id
+            notification_type = NotificationType.SYSTEM.value
+            icon_type = NotificationIcon.WORKER_CANCELED_VACANCY.value
+
+            # uuid для массовой рассылки оповещений,
+            # у пользователей в бд будут созданы оповещения с одинаковым uuid
+            # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+            common_uuid = uuid.uuid4()
+
+            PushController().send_notification(
+                users_to_send=[managers],
+                title=title,
+                message=message,
+                common_uuid=common_uuid,
+                action=action,
+                subject_id=subject_id,
+                notification_type=notification_type,
+                icon_type=icon_type
+            )
+
+            # Отправка уведомления по сокетам
+            SocketController(request.user, version='1.0').send_notification_to_many_connections(sockets, {
+                'title': title,
+                'message': message,
+                'uuid': str(common_uuid),
+                'action': action,
+                'subjectId': subject_id,
+                'notificationType': notification_type,
+                'iconType': icon_type,
+            })
+
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 

@@ -1144,6 +1144,18 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             return time_str
         return None
 
+    def get_managers_and_sockets_for_vacancy(self, vacancy: Vacancy):
+        sockets = []
+        managers = vacancy.shop.staff.filter(account_type=AccountType.MANAGER.value)
+
+        if managers:
+            # TODO учитывать настройки отпуска для менеджера
+            sockets = managers.aggregate(
+                sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+            )['sockets']
+
+        return managers, sockets
+
 
 class AsyncVacanciesRepository(VacanciesRepository):
     def __init__(self, me=None) -> None:
@@ -1320,14 +1332,22 @@ class ShiftAppealsRepository(MasterRepository):
         instance.save()
 
     def cancel(self, record_id, reason=None, text=None):
+        is_confirmed_appeal_canceled = False
         instance = self.get_by_id(record_id=record_id)
         if instance.applier != self.me:
             raise PermissionDenied()
+
+        if instance.status == ShiftAppealStatus.CONFIRMED.value:
+            # Если подтвержденный отклик
+            is_confirmed_appeal_canceled = True
+
         instance.status = ShiftAppealStatus.CANCELED.value
         if reason is not None and instance.cancel_reason is None:
             instance.cancel_reason = reason
             instance.reason_text = text
         instance.save()
+
+        return instance, is_confirmed_appeal_canceled
 
     @staticmethod
     def check_if_active_appeal(vacancy_id, applier_id):
