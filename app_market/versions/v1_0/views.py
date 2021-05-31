@@ -779,15 +779,17 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
             )
 
             # Отправка уведомления по сокетам
-            SocketController(request.user, version='1.0').send_notification_to_many_connections(appeal.applier.sockets, {
-                'title': title,
-                'message': message,
-                'uuid': str(common_uuid),
-                'action': action,
-                'subjectId': subject_id,
-                'notificationType': notification_type,
-                'iconType': icon_type,
-            })
+            SocketController(request.user, version='1.0').send_notification_to_many_connections(
+                [s.socket_id for s in appeal.applier.sockets],
+                {
+                    'title': title,
+                    'message': message,
+                    'uuid': str(common_uuid),
+                    'action': action,
+                    'subjectId': subject_id,
+                    'notificationType': notification_type,
+                    'iconType': icon_type,
+                })
 
         return Response(camelize(ShiftAppealsForManagersSerializer(appeal, many=False).data), status=status.HTTP_200_OK)
 
@@ -837,15 +839,18 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
             )
 
             # Отправка уведомления по сокетам
-            SocketController(request.user, version='1.0').send_notification_to_many_connections(appeal.applier.sockets, {
-                'title': title,
-                'message': message,
-                'uuid': str(common_uuid),
-                'action': action,
-                'subjectId': subject_id,
-                'notificationType': notification_type,
-                'iconType': icon_type,
-            })
+            SocketController(request.user, version='1.0').send_notification_to_many_connections(
+                [s.socket_id for s in appeal.applier.sockets],
+                {
+                    'title': title,
+                    'message': message,
+                    'uuid': str(
+                        common_uuid),
+                    'action': action,
+                    'subjectId': subject_id,
+                    'notificationType': notification_type,
+                    'iconType': icon_type,
+                })
 
         return Response(camelize(ShiftAppealsForManagersSerializer(appeal, many=False).data), status=status.HTTP_200_OK)
 
