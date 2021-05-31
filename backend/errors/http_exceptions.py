@@ -1,4 +1,5 @@
 from django.utils.encoding import force_text
+from loguru import logger
 from rest_framework.exceptions import APIException
 
 from .enums import RESTErrors
@@ -28,4 +29,5 @@ class CustomException(APIException):
             detail = force_text(self.default_detail)
         if status_code is None:
             status_code = self.default_code
+        logger.error(detail)
         super(CustomException, self).__init__(detail, status_code)
