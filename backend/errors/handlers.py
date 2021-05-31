@@ -1,3 +1,4 @@
+from loguru import logger
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
@@ -9,6 +10,7 @@ def custom_exception_handler(exc, context):
         data = {
             'errors': exc.errors
         }
+        logger.info(data)
         return Response(data=data, status=exc.status_code)
 
     return exception_handler(exc, context)
