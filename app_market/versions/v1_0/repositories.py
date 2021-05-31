@@ -1340,7 +1340,6 @@ class ShiftAppealsRepository(MasterRepository):
         if instance.status == ShiftAppealStatus.CONFIRMED.value:
             # Если подтвержденный отклик
             is_confirmed_appeal_canceled = True
-            pass
 
         instance.status = ShiftAppealStatus.CANCELED.value
         if reason is not None and instance.cancel_reason is None:
