@@ -1137,3 +1137,9 @@ class ConfirmedWorkersDates(CRUDAPIView):
         }
 
         return Response(camelize(only_dates), status=status.HTTP_200_OK)
+
+
+class QRView(APIView):
+    def get(self, request, *args, **kwargs):
+        data = ShiftAppealsRepository(me=request.user).handle_qr_related_data()
+        return Response(camelize(data))

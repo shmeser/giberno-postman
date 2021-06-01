@@ -75,3 +75,20 @@ class ShiftWorkTime(IntEnumM):
     MORNING = 0  # Утренняя
     DAY = 1  # Дневная
     EVENING = 2  # Вечерняя
+
+
+class JobStatusForClient(IntEnumM):
+    NO_JOB = 0  # Работы нет
+    JOB_NOT_SOON = 1  # Работа нескоро
+    JOB_SOON = 2  # Работа скоро
+    JOB_IN_PROCESS = 3  # Работа в процессе
+    WAITING_FOR_COMPLETION = 4  # Ждет завершения
+    COMPLETED = 5  # Завершена
+
+
+class JobStatus(IntEnumM):
+    JOB_SOON = 2  # Работа скоро
+    JOB_IN_PROCESS = 3  # Работа в процессе
+    WAITING_FOR_COMPLETION = 4  # Ждет завершения
+    COMPLETED = 5  # Завершена
+
