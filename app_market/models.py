@@ -10,7 +10,7 @@ from django.contrib.postgres.indexes import GinIndex
 from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
-    ShiftStatus, ShiftAppealStatus, AppealCancelReason, ManagerAppealCancelReason
+    ShiftStatus, ShiftAppealStatus, AppealCancelReason, ManagerAppealCancelReason, JobStatus
 from app_media.models import MediaModel
 from app_users.enums import REQUIRED_DOCS_FOR_CHOICES
 from app_users.models import UserProfile
@@ -232,6 +232,10 @@ class ShiftAppeal(BaseModel):
     # диапазона, когда рабочая смена начинается в один день, а заканчивается в другой
     time_start = models.DateTimeField(null=True, blank=True, verbose_name='Время начала смены')
     time_end = models.DateTimeField(null=True, blank=True, verbose_name='Время окончания смены')
+    time_completed = models.DateTimeField(null=True, blank=True, verbose_name='Фактическое время окончания смены')
+
+    job_status = models.PositiveIntegerField(choices=choices(JobStatus), null=True, blank=True, default=None,
+                                             verbose_name='Статус работы')
 
     class Meta:
         db_table = 'app_market__shifts_appeals'

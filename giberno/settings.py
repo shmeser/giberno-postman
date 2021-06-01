@@ -119,8 +119,8 @@ CELERY_BEAT_SCHEDULE = {
     #     'task': 'subscriptions.tasks.check_subscription',
     #     'schedule': crontab(hour='*', minute='0', day_of_week='*')
     # },
-    'set_qr_code_to_user_shifts': {
-        'task': 'app_market.tasks.set_qr_code_to_user_shifts',
+    'notify_user_about_job_status': {
+        'task': 'app_market.tasks.notify_user_about_job_status',
         'schedule': crontab(minute='*')
     },
     'cancel_overdue_appeals': {
