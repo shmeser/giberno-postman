@@ -9,7 +9,8 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     ConfirmAppealByManagerAPIView, RejectAppealByManagerAPIView, UserShiftsRetrieveAPIView, \
     VacanciesActiveDatesForManagerListAPIView, VacanciesDistributors, SingleVacancyActiveDatesForManagerListAPIView, \
     ShiftAppealCancel, VacancyShiftsWithAppealsListForManagerAPIView, GetDocumentsForShift, MarketDocuments, \
-    ShiftForManagers, ShiftAppealsForManagers, ConfirmedWorkers, ConfirmedWorkersVacancies, ConfirmedWorkersDates
+    ShiftForManagers, ShiftAppealsForManagers, ConfirmedWorkers, ConfirmedWorkersVacancies, ConfirmedWorkersDates, \
+    QRView, ShiftAppealComplete, PassView, AllowPassByManagerAPIVIew, work_location
 
 urlpatterns = [
     # Торговые сети
@@ -39,6 +40,9 @@ urlpatterns = [
     path('market/appeals/<int:record_id>', ShiftAppeals.as_view()),
     path('market/appeals/<int:record_id>/cancel', ShiftAppealCancel.as_view()),
 
+    # Прервать смену
+    path('market/appeals/<int:record_id>/complete', ShiftAppealComplete.as_view()),
+
     # Смены
     path('market/shifts', Shifts.as_view()),
     path('market/shifts/<int:record_id>', Shifts.as_view()),
@@ -47,6 +51,12 @@ urlpatterns = [
     # Смены пользователя
     path('market/user_shifts', UserShiftsListAPIView.as_view()),
     path('market/user_shifts/<int:record_id>', UserShiftsRetrieveAPIView.as_view()),
+
+    # QR
+    path('market/qr', QRView.as_view()),
+
+    # Geolocation
+    path('market/location', work_location),
 
     # Профессии
     path('market/professions', Professions.as_view()),
@@ -81,8 +91,10 @@ managers_urls = [
     path('market/managers/vacancies/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
     path('market/managers/vacancies/active_dates', VacanciesActiveDatesForManagerListAPIView.as_view()),
 
-    # Проверка смены
+    # Проверки смен и пропусков
     path('market/shifts/check', CheckUserShiftByManagerOrSecurityAPIView.as_view()),
+    path('market/appeals/<int:record_id>/pass/allow', AllowPassByManagerAPIVIew.as_view()),
+    path('market/appeals/pass', PassView.as_view()),
 
     # Отклики на смену
     path('market/managers/shifts/<int:record_id>', ShiftForManagers.as_view()),

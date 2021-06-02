@@ -16,10 +16,11 @@ from django.utils.timezone import now, localtime
 from pytz import timezone
 from rest_framework.exceptions import PermissionDenied
 
-from app_chats.models import ChatUser
+from app_chats.models import ChatUser, Chat
 from app_feedback.models import Review, Like
 from app_geo.models import Region
-from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus, WorkExperience, VacancyEmployment
+from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
+    JobStatus, JobStatusForClient
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument
 from app_market.utils import handle_date_for_appeals
@@ -27,7 +28,7 @@ from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_users.enums import AccountType, DocumentType
-from app_users.models import UserProfile
+from app_users.models import UserProfile, Document
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exceptions import HttpException, CustomException
@@ -304,21 +305,21 @@ class DatesArrayContains(CustomLookupBase):
 
 @Field.register_lookup
 class LTETimeTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом часовых поясов
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
     lookup_name = 'ltetimetz'
     parametric_string = "%s <= %s AT TIME ZONE timezone"
 
 
 @Field.register_lookup
 class GTTimeTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом часовых поясов
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
     lookup_name = 'gttimetz'
     parametric_string = "%s > %s AT TIME ZONE timezone"
 
 
 @Field.register_lookup
 class DateTZ(CustomLookupBase):
-    # Кастомный lookup с приведением типов для даты в временной зоне
+    # Кастомный lookup с приведением типов для даты во временной зоне из поля timezone
     lookup_name = 'datetz'
     parametric_string = "(%s AT TIME ZONE timezone)::DATE = %s :: DATE"
 
@@ -469,6 +470,72 @@ class ShiftsRepository(MasterRepository):
         ).filter(active_this_date=True)
         return shifts
 
+    @staticmethod
+    def get_appeals_with_appliers(instance: Shift, current_date, filters):
+        appeals = [
+            appeal.applier for appeal in
+            instance.appeals.annotate(  # Добавляем поле timezone для работы с кастомным лукапом datetz
+                timezone=F('shift__vacancy__timezone')
+            ).filter(
+                # TODO Нужно префетчить
+                shift_active_date__datetz=localtime(  # в часовом поясе вакансии
+                    current_date, timezone=timezone(instance.vacancy.timezone)
+                ).date(),
+                **filters
+            )
+        ]
+
+        return appeals
+
+    def work_location_update(self, point, shift_id=None):
+        self.me.location = point
+        self.me.save()
+
+        should_notify_managers = False
+        managers = None
+        managers_sockets = None
+        chat_id = None
+
+        shift = Shift.objects.filter(
+            id=shift_id
+        ).select_related('vacancy').first()
+
+        vacancy_timezone_name = shift.vacancy.timezone if shift.vacancy.timezone else 'Europe/Moscow'
+
+        is_appeal_confirmed_for_today = ShiftAppeal.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            applier=self.me,
+            status=ShiftAppealStatus.CONFIRMED.value,
+            shift_id=shift_id,
+            shift_active_date__datetz=localtime(now(), timezone=timezone(vacancy_timezone_name)),
+            time_start__ltetimetz=localtime(now(), timezone=timezone(vacancy_timezone_name)),
+            time_end__gttimetz=localtime(now(), timezone=timezone(vacancy_timezone_name))
+        ).exists()
+
+        is_within_radius = Vacancy.objects.annotate(
+            distance=Distance('shop__location', point)
+        ).filter(
+            id=shift.vacancy_id,
+            distance__lte=F('radius')
+        ).exists()
+
+        if is_appeal_confirmed_for_today and not is_within_radius:
+            should_notify_managers = True
+
+            managers, managers_sockets = VacanciesRepository().get_managers_and_sockets_for_vacancy(
+                shift.vacancy
+            )
+
+            chat = Chat.objects.filter(
+                subject_user=self.me,
+                target_ct=ContentType.objects.get_for_model(Vacancy),
+                target_id=shift.vacancy_id
+            ).first()
+            chat_id = chat.id
+
+        return should_notify_managers, managers, managers_sockets, chat_id
+
 
 class UserShiftRepository(MasterRepository):
     model = UserShift
@@ -476,12 +543,6 @@ class UserShiftRepository(MasterRepository):
     def __init__(self, me=None):
         super().__init__()
         self.me = me
-
-    def get_by_qr_data(self, qr_data):
-        try:
-            return self.model.objects.get(qr_data=qr_data)
-        except self.model.DoesNotExist:
-            raise HttpException(detail='User shift not found', status_code=RESTErrors.NOT_FOUND.value)
 
     def update_status_by_qr_check(self, instance):
         if instance.shift.vacancy.shop not in self.me.shops.all():
@@ -1223,6 +1284,12 @@ class ShiftAppealsRepository(MasterRepository):
 
         return queryset
 
+    def get_by_qr_text(self, qr_text):
+        try:
+            return self.model.objects.get(qr_text=qr_text)
+        except self.model.DoesNotExist:
+            raise HttpException(detail='Appeal not found', status_code=RESTErrors.NOT_FOUND.value)
+
     @staticmethod
     def get_start_end_time_range(**data):
 
@@ -1253,7 +1320,9 @@ class ShiftAppealsRepository(MasterRepository):
 
     def check_time_range(self, queryset, time_start, time_end):
         if queryset.filter(
-                Q(time_start__range=(time_start, time_end)) | Q(time_end__range=(time_start, time_end))
+                status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+        ).filter(
+            Q(time_start__range=(time_start, time_end)) | Q(time_end__range=(time_start, time_end))
         ).count() >= self.limit:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.APPEALS_LIMIT_REACHED))
@@ -1275,12 +1344,26 @@ class ShiftAppealsRepository(MasterRepository):
         queryset = self.base_query
 
         # проверяем наличие отклика в бд
-        self.check_if_exists(queryset=queryset, data=data)
+        self.check_if_exists(queryset=queryset, data={
+            **data,
+            **{
+                # Проверяем только отклики новые или подтвержденные
+                'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+            }
+        })
 
         # проверяем количество откликов на разные смены в одинаковое время
         self.check_time_range(queryset=queryset, time_start=time_start, time_end=time_end)
 
-        instance, created = self.model.objects.get_or_create(**data)
+        instance, created = self.model.objects.get_or_create(defaults={
+            'status': ShiftAppealStatus.INITIAL.value
+        }, **{
+            **data,
+            **{
+                # Проверяем только отклики новые или подтвержденные
+                'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+            }
+        })
         return instance
 
     def get_by_id(self, record_id):
@@ -1379,7 +1462,8 @@ class ShiftAppealsRepository(MasterRepository):
         if not instance.status == ShiftAppealStatus.CONFIRMED:
             instance.status = ShiftAppealStatus.CONFIRMED
             instance.save()
-            self.model.objects.filter(
+            # удаляем остальные отклики пользователя
+            self.model.objects.filter(applier=instance.applier).filter(
                 Q(time_start__range=(instance.time_start, instance.time_end)) |
                 Q(time_end__range=(instance.time_start, instance.time_end))
             ).exclude(id=instance.id).delete()
@@ -1439,6 +1523,20 @@ class ShiftAppealsRepository(MasterRepository):
         self.is_related_manager(instance=instance)
         return instance
 
+    def get_by_qr_text_for_manager(self, qr_text):
+        instance = self.get_by_qr_text(qr_text=qr_text)
+
+        # проверяем доступ менеджера
+        self.is_related_manager(instance=instance)
+
+        # меняем статус
+        if instance.job_status == JobStatus.JOB_SOON.value:
+            instance.job_status = JobStatus.JOB_IN_PROCESS.value
+            instance.save()
+
+    def let_pass_by_manager(self, record_id):
+        pass
+
     def get_new_confirmed_count(self):
         return 0
 
@@ -1467,7 +1565,8 @@ class ShiftAppealsRepository(MasterRepository):
         date = timestamp_to_datetime(
             int(active_date)) if active_date is not None else now()  # По умолчанию текущий день
 
-        vacancy_timezone_name = 'Europe/Moscow'  # TODO брать из вакансии
+        shift = Shift.objects.filter(id=shift_id).select_related('vacancy')
+        vacancy_timezone_name = shift.vacancy.timezone if shift.vacancy.timezone else 'Europe/Moscow'
 
         filtered = self.model.objects.filter(**{**filters, **{'shift_id': shift_id}})
         appeals = filtered.filter(
@@ -1481,6 +1580,89 @@ class ShiftAppealsRepository(MasterRepository):
         appeals = self.prefetch_users(appeals)
 
         return appeals
+
+    @staticmethod
+    def handle_pass_data(appeal):
+        series = None
+        document = Document.objects.filter(user=appeal.applier, type=DocumentType.PASSPORT.value).first()
+        if document:
+            series = document.series
+
+        data = {
+            'appeal_id': appeal.id,
+            'passport': series,
+            'position': appeal.shift.vacancy.title,
+            'address': appeal.shift.vacancy.shop.address
+        }
+        return data
+
+    def handle_pass_data_for_self_employed(self, appeal):
+        if appeal.applier != self.me:
+            raise PermissionDenied()
+
+        return self.handle_pass_data(appeal=appeal)
+
+    def handle_pass_data_for_manager_or_security(self, qr_text):
+        appeal = self.get_by_qr_text(qr_text=qr_text)
+        self.is_related_manager(instance=appeal)
+
+        return self.handle_pass_data(appeal=appeal)
+
+    def allow_pass_by_manager(self, record_id):
+        appeal = self.get_by_id(record_id=record_id)
+        self.is_related_manager(instance=appeal)
+        if appeal.job_status == JobStatus.JOB_SOON.value:
+            appeal.job_status = JobStatus.JOB_IN_PROCESS.value
+            appeal.qr_text = None
+            appeal.save()
+        else:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
+            ])
+
+    def handle_qr_related_data(self):
+        job_status = JobStatusForClient.NO_JOB.value
+        qr_text = None
+        qr_pass = None
+        leave_time = None
+        appeal = None
+        confirmed_appeals = self.model.objects.filter(
+            applier=self.me,
+            status=ShiftAppealStatus.CONFIRMED.value
+        )
+
+        if confirmed_appeals.exists():
+            appeal_having_job_status = confirmed_appeals.filter(job_status__isnull=False).first()
+            if appeal_having_job_status:
+                job_status = appeal_having_job_status.job_status
+                appeal = appeal_having_job_status
+                if appeal.job_status == JobStatus.JOB_IN_PROCESS.value:
+                    qr_pass = self.handle_pass_data_for_self_employed(appeal=appeal_having_job_status)
+                elif job_status == JobStatus.COMPLETED.value:
+                    leave_time = appeal_having_job_status.time_completed + timedelta(minutes=15)
+                    leave_time = datetime_to_timestamp(leave_time)
+                else:
+                    qr_text = appeal_having_job_status.qr_text
+            else:
+                job_status = JobStatusForClient.JOB_NOT_SOON.value
+                appeal = confirmed_appeals.earliest('time_start')
+
+        return job_status, qr_text, qr_pass, leave_time, appeal
+
+    def complete_appeal(self, record_id):
+        appeal = self.get_by_id(record_id=record_id)
+        if self.me != appeal.applier:
+            raise PermissionDenied()
+
+        if appeal.job_status == JobStatus.COMPLETED.value:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEAL_ALREADY_COMPLETED))
+            ])
+
+        appeal.job_status = JobStatus.COMPLETED.value
+        appeal.status = ShiftAppealStatus.COMPLETED.value
+        appeal.time_completed = now()
+        appeal.save()
 
     @staticmethod
     def prefetch_users(queryset):

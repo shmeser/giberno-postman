@@ -4,15 +4,11 @@ import pytz
 
 
 class QRHandler:
-    def __init__(self, user_shift_model_instance):
-        self.user = user_shift_model_instance.user
-        self.shift = user_shift_model_instance.shift
+    def __init__(self, appeal):
+        self.appeal = appeal
 
     def create_qr_data(self):
-        return {
-            'user': self.user.id,
-            'shift': self.shift.id
-        }
+        return f'''userId={self.appeal.applier.id}&appealId={self.appeal.id}'''
 
 
 def handle_date_for_appeals(shift, shift_active_date, by_end: bool = None):
