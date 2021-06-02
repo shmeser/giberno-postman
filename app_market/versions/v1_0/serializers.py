@@ -869,7 +869,7 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
 
 
 class QRCodeSerializer(serializers.Serializer):
-    qr_data = serializers.JSONField()
+    qr_text = serializers.CharField()
 
 
 class ShiftConditionsSerializer(serializers.Serializer):

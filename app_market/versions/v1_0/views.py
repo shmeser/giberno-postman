@@ -18,7 +18,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSeri
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
     ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer, \
-    ConfirmedWorkerVacanciesSerializer, ConfirmedWorkerDatesSerializer
+    ConfirmedWorkerVacanciesSerializer, ConfirmedWorkerDatesSerializer, ConfirmedWorkerSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -319,6 +319,15 @@ class ShiftAppealCancel(CRUDAPIView):
             })
 
         return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class ShiftAppealComplete(CRUDAPIView):
+    repository_class = ShiftAppealsRepository
+
+    def post(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        self.repository_class(me=request.user).complete_appeal(record_id=record_id)
+        return Response(None, status=status.HTTP_200_OK)
 
 
 class ActiveVacanciesWithAppliersByDateForManagerListAPIView(CRUDAPIView):
@@ -1141,5 +1150,38 @@ class ConfirmedWorkersDates(CRUDAPIView):
 
 class QRView(APIView):
     def get(self, request, *args, **kwargs):
-        data = ShiftAppealsRepository(me=request.user).handle_qr_related_data()
+        job_status, qr_text, qr_pass, leave_time, appeal = ShiftAppealsRepository(
+            me=request.user).handle_qr_related_data()
+        if qr_pass is not None:
+            qr_pass.update(ConfirmedWorkerSerializer(instance=request.user).data)
+        data = {
+            "job_status": job_status,
+            "qr_text": qr_text,
+            "pass": qr_pass,
+            "leave_time": leave_time,
+            "appeal": ShiftAppealsSerializer(instance=appeal).data
+        }
         return Response(camelize(data))
+
+
+class PassView(APIView):
+    repository_class = ShiftAppealsRepository
+    serializer_class = QRCodeSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            appeal = self.repository_class().get_by_qr_text(qr_text=serializer.validated_data.get('qr_text'))
+            data = self.repository_class(me=request.user).handle_pass_data_for_manager_or_security(
+                qr_text=serializer.validated_data.get('qr_text')
+            )
+            data.update(ConfirmedWorkerSerializer(instance=appeal.applier).data)
+            return Response(data)
+
+
+class AllowPassByManagerAPIVIew(APIView):
+    repository_class = ShiftAppealsRepository
+
+    def post(self, request, *args, **kwargs):
+        self.repository_class(me=request.user).allow_pass_by_manager(record_id=kwargs.get('record_id'))
+        return Response(None, status=status.HTTP_200_OK)

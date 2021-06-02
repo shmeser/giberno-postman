@@ -4,6 +4,8 @@ from datetime import timedelta, datetime
 
 from celery.schedules import crontab
 
+from giberno.settings_vars.celery_beat_schedule import celery_beat_schedule
+
 SECRET_KEY = os.getenv('SECRET_KEY', 'TeStSeCrEtKeY')
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -114,24 +116,7 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'backend.errors.handlers.custom_exception_handler'
 }
 
-CELERY_BEAT_SCHEDULE = {
-    # 'check_subscription': {
-    #     'task': 'subscriptions.tasks.check_subscription',
-    #     'schedule': crontab(hour='*', minute='0', day_of_week='*')
-    # },
-    'notify_user_about_job_status': {
-        'task': 'app_market.tasks.notify_user_about_job_status',
-        'schedule': crontab(minute='*')
-    },
-    'cancel_overdue_appeals': {
-        'task': 'app_market.tasks.cancel_overdue_appeals',
-        'schedule': crontab(minute='*')
-    },
-    'auto_switch_to_bot': {
-        'task': 'app_chats.tasks.check_abandoned_chats',
-        'schedule': crontab(minute='*')
-    }
-}
+CELERY_BEAT_SCHEDULE = celery_beat_schedule
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=7),

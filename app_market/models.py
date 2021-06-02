@@ -237,6 +237,8 @@ class ShiftAppeal(BaseModel):
     job_status = models.PositiveIntegerField(choices=choices(JobStatus), null=True, blank=True, default=None,
                                              verbose_name='Статус работы')
 
+    qr_text = models.CharField(max_length=150, null=True, blank=True)
+
     class Meta:
         db_table = 'app_market__shifts_appeals'
         verbose_name = 'Отклик на рабочую смену'
