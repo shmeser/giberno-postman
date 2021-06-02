@@ -16,7 +16,7 @@ from django.utils.timezone import now, localtime
 from pytz import timezone
 from rest_framework.exceptions import PermissionDenied
 
-from app_chats.models import ChatUser
+from app_chats.models import ChatUser, Chat
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
@@ -487,6 +487,55 @@ class ShiftsRepository(MasterRepository):
         ]
 
         return appeals
+
+    def work_location_update(self, point, shift_id=None):
+        self.me.location = point
+        self.me.save()
+
+        should_notify_managers = False
+        managers = None
+        managers_sockets = None
+        chat_id = None
+
+        shift = Shift.objects.filter(
+            id=shift_id
+        ).select_related('vacancy').first()
+
+        vacancy_timezone_name = shift.vacancy.timezone if shift.vacancy.timezone else 'Europe/Moscow'
+
+        is_appeal_confirmed_for_today = ShiftAppeal.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            applier=self.me,
+            status=ShiftAppealStatus.CONFIRMED.value,
+            shift_id=shift_id,
+            shift_active_date__datetz=localtime(now(), timezone=timezone(vacancy_timezone_name)),
+            time_start__ltetimetz=localtime(now(), timezone=timezone(vacancy_timezone_name)),
+            time_end__gttimetz=localtime(now(), timezone=timezone(vacancy_timezone_name))
+        ).exists()
+
+        is_within_radius = Vacancy.objects.annotate(
+            distance=Distance('shop__location', point)
+        ).filter(
+            id=shift.vacancy_id,
+            distance__lte=F('radius')
+        ).exists()
+
+        if is_appeal_confirmed_for_today and not is_within_radius:
+            should_notify_managers = True
+
+            managers, managers_sockets = VacanciesRepository().get_managers_and_sockets_for_vacancy(
+                shift.vacancy
+            )
+
+            chat = Chat.objects.filter(
+                subject_user=self.me,
+                target_ct=ContentType.objects.get_for_model(Vacancy),
+                target_id=shift.vacancy_id
+            ).first()
+            chat_id = chat.id
+
+        return should_notify_managers, managers, managers_sockets, chat_id
 
 
 class UserShiftRepository(MasterRepository):
@@ -1503,7 +1552,8 @@ class ShiftAppealsRepository(MasterRepository):
         date = timestamp_to_datetime(
             int(active_date)) if active_date is not None else now()  # По умолчанию текущий день
 
-        vacancy_timezone_name = 'Europe/Moscow'  # TODO брать из вакансии
+        shift = Shift.objects.filter(id=shift_id).select_related('vacancy')
+        vacancy_timezone_name = shift.vacancy.timezone if shift.vacancy.timezone else 'Europe/Moscow'
 
         filtered = self.model.objects.filter(**{**filters, **{'shift_id': shift_id}})
         appeals = filtered.filter(

@@ -529,3 +529,10 @@ class QRView(APIView):
             return v1_0.QRView().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+@api_view(['POST'])
+def work_location(request, **kwargs):
+    if request.version in ['market_1_0']:
+        return v1_0.work_location(request._request, **kwargs)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)

@@ -1143,3 +1143,57 @@ class QRView(APIView):
     def get(self, request, *args, **kwargs):
         data = ShiftAppealsRepository(me=request.user).handle_qr_related_data()
         return Response(camelize(data))
+
+
+@api_view(['POST'])
+def work_location(request, **kwargs):
+    body = get_request_body(request)
+    point, screen_diagonal_points, radius = RequestMapper().geo(request)
+
+    if not body.get('shift'):
+        raise HttpException(status_code=RESTErrors.BAD_REQUEST.value, detail='Необходимо передать номер смены')
+
+    should_notify_managers, managers, sockets, chat_id = ShiftsRepository(
+        me=request.user
+    ).work_location_update(
+        point=point,
+        shift_id=body.get('shift')
+    )
+
+    _WORKER_LEFT_SHOP_AREA_TITLE = 'Покидание территории магазина во время смены'
+    if should_notify_managers:
+        title = _WORKER_LEFT_SHOP_AREA_TITLE
+        message = f'Работник {request.user.first_name} {request.user.last_name} удалился на большое расстояние'
+        action = NotificationAction.CHAT.value
+        subject_id = chat_id
+        notification_type = NotificationType.SYSTEM.value
+        icon_type = NotificationIcon.LEFT_SHOP_AREA.value
+
+        # uuid для массовой рассылки оповещений,
+        # у пользователей в бд будут созданы оповещения с одинаковым uuid
+        # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+        common_uuid = uuid.uuid4()
+
+        PushController().send_notification(
+            users_to_send=managers,
+            title=title,
+            message=message,
+            common_uuid=common_uuid,
+            action=action,
+            subject_id=subject_id,
+            notification_type=notification_type,
+            icon_type=icon_type
+        )
+
+        # Отправка уведомления по сокетам
+        SocketController(version='1.0').send_notification_to_many_connections(sockets, {
+            'title': title,
+            'message': message,
+            'uuid': str(common_uuid),
+            'action': action,
+            'subjectId': subject_id,
+            'notificationType': notification_type,
+            'iconType': icon_type,
+        })
+
+    return Response(None, status=status.HTTP_204_NO_CONTENT)
