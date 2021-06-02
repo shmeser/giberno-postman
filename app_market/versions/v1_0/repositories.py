@@ -306,21 +306,21 @@ class DatesArrayContains(CustomLookupBase):
 
 @Field.register_lookup
 class LTETimeTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом часовых поясов
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
     lookup_name = 'ltetimetz'
     parametric_string = "%s <= %s AT TIME ZONE timezone"
 
 
 @Field.register_lookup
 class GTTimeTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом часовых поясов
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
     lookup_name = 'gttimetz'
     parametric_string = "%s > %s AT TIME ZONE timezone"
 
 
 @Field.register_lookup
 class DateTZ(CustomLookupBase):
-    # Кастомный lookup с приведением типов для даты в временной зоне
+    # Кастомный lookup с приведением типов для даты во временной зоне из поля timezone
     lookup_name = 'datetz'
     parametric_string = "(%s AT TIME ZONE timezone)::DATE = %s :: DATE"
 
@@ -470,6 +470,23 @@ class ShiftsRepository(MasterRepository):
             )
         ).filter(active_this_date=True)
         return shifts
+
+    @staticmethod
+    def get_appeals_with_appliers(instance: Shift, current_date, filters):
+        appeals = [
+            appeal.applier for appeal in
+            instance.appeals.annotate(  # Добавляем поле timezone для работы с кастомным лукапом datetz
+                timezone=F('shift__vacancy__timezone')
+            ).filter(
+                # TODO Нужно префетчить
+                shift_active_date__datetz=localtime(  # в часовом поясе вакансии
+                    current_date, timezone=timezone(instance.vacancy.timezone)
+                ).date(),
+                **filters
+            )
+        ]
+
+        return appeals
 
 
 class UserShiftRepository(MasterRepository):
@@ -1255,7 +1272,9 @@ class ShiftAppealsRepository(MasterRepository):
 
     def check_time_range(self, queryset, time_start, time_end):
         if queryset.filter(
-                Q(time_start__range=(time_start, time_end)) | Q(time_end__range=(time_start, time_end))
+                status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+        ).filter(
+            Q(time_start__range=(time_start, time_end)) | Q(time_end__range=(time_start, time_end))
         ).count() >= self.limit:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.APPEALS_LIMIT_REACHED))
@@ -1277,12 +1296,26 @@ class ShiftAppealsRepository(MasterRepository):
         queryset = self.base_query
 
         # проверяем наличие отклика в бд
-        self.check_if_exists(queryset=queryset, data=data)
+        self.check_if_exists(queryset=queryset, data={
+            **data,
+            **{
+                # Проверяем только отклики новые или подтвержденные
+                'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+            }
+        })
 
         # проверяем количество откликов на разные смены в одинаковое время
         self.check_time_range(queryset=queryset, time_start=time_start, time_end=time_end)
 
-        instance, created = self.model.objects.get_or_create(**data)
+        instance, created = self.model.objects.get_or_create(defaults={
+            'status': ShiftAppealStatus.INITIAL.value
+        }, **{
+            **data,
+            **{
+                # Проверяем только отклики новые или подтвержденные
+                'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+            }
+        })
         return instance
 
     def get_by_id(self, record_id):
