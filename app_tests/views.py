@@ -162,12 +162,6 @@ class SeedDataForMarketAppAPIView(APIView):
 
             print('UserShifts seed complete')
 
-            # SET QR DATA TO USER SHIFTS
-            user_shifts = UserShift.objects.all()
-            for user_shift in user_shifts:
-                user_shift.qr_data = QRHandler(user_shift).create_qr_data()
-                user_shift.save()
-
         return Response('seed complete')
 
 
