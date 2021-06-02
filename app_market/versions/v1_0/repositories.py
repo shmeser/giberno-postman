@@ -1307,7 +1307,15 @@ class ShiftAppealsRepository(MasterRepository):
         # проверяем количество откликов на разные смены в одинаковое время
         self.check_time_range(queryset=queryset, time_start=time_start, time_end=time_end)
 
-        instance, created = self.model.objects.get_or_create(**data)
+        instance, created = self.model.objects.get_or_create(defaults={
+            'status': ShiftAppealStatus.INITIAL.value
+        }, **{
+            **data,
+            **{
+                # Проверяем только отклики новые или подтвержденные
+                'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+            }
+        })
         return instance
 
     def get_by_id(self, record_id):
