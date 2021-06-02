@@ -10,7 +10,7 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     VacanciesActiveDatesForManagerListAPIView, VacanciesDistributors, SingleVacancyActiveDatesForManagerListAPIView, \
     ShiftAppealCancel, VacancyShiftsWithAppealsListForManagerAPIView, GetDocumentsForShift, MarketDocuments, \
     ShiftForManagers, ShiftAppealsForManagers, ConfirmedWorkers, ConfirmedWorkersVacancies, ConfirmedWorkersDates, \
-    QRView, ShiftAppealComplete, PassView, AllowPassByManagerAPIVIew
+    QRView, ShiftAppealComplete, PassView, AllowPassByManagerAPIVIew, work_location
 
 urlpatterns = [
     # Торговые сети
@@ -54,6 +54,9 @@ urlpatterns = [
 
     # QR
     path('market/qr', QRView.as_view()),
+
+    # Geolocation
+    path('market/location', work_location),
 
     # Профессии
     path('market/professions', Professions.as_view()),
