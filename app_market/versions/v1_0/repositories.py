@@ -1272,7 +1272,9 @@ class ShiftAppealsRepository(MasterRepository):
 
     def check_time_range(self, queryset, time_start, time_end):
         if queryset.filter(
-                Q(time_start__range=(time_start, time_end)) | Q(time_end__range=(time_start, time_end))
+                status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+        ).filter(
+            Q(time_start__range=(time_start, time_end)) | Q(time_end__range=(time_start, time_end))
         ).count() >= self.limit:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.APPEALS_LIMIT_REACHED))
@@ -1294,7 +1296,13 @@ class ShiftAppealsRepository(MasterRepository):
         queryset = self.base_query
 
         # проверяем наличие отклика в бд
-        self.check_if_exists(queryset=queryset, data=data)
+        self.check_if_exists(queryset=queryset, data={
+            **data,
+            **{
+                # Проверяем только отклики новые или подтвержденные
+                'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+            }
+        })
 
         # проверяем количество откликов на разные смены в одинаковое время
         self.check_time_range(queryset=queryset, time_start=time_start, time_end=time_end)
