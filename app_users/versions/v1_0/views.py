@@ -15,11 +15,15 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from social_core.exceptions import AuthTokenRevoked
 from social_django.utils import load_backend, load_strategy
 
+from app_chats.versions.v1_0.repositories import ChatsRepository
+from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
+from app_sockets.controllers import SocketController
+from app_sockets.enums import AvailableVersion
 from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
-from app_users.enums import NotificationType
+from app_users.enums import NotificationType, AccountType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
@@ -540,6 +544,23 @@ def read_notification(request, **kwargs):
         read_at=now(),
         updated_at=now(),
     )
+
+    indicators_dict = {
+        'newNotifications': NotificationsRepository(me=request.user).get_unread_notifications_count(),
+        'chatsUnreadMessages': ChatsRepository(me=request.user).get_all_chats_unread_count()
+    }
+    if request.user.account_type == AccountType.SELF_EMPLOYED.value:
+        indicators_dict['newConfirmedAppeals'] = ShiftAppealsRepository(
+            me=request.user).get_new_confirmed_count()
+
+    if request.user.account_type == AccountType.MANAGER.value:
+        indicators_dict['newAppeals'] = ShiftAppealsRepository(
+            me=request.user).get_new_appeals_count()
+
+    SocketController(me=request.user, version=AvailableVersion.V1_0.value).send_message_to_my_connections({
+        'type': 'counters_for_indicators',
+        'prepared_data': indicators_dict,
+    })
 
     return Response(None, status=status.HTTP_204_NO_CONTENT)
 
