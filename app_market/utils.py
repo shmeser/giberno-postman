@@ -8,7 +8,7 @@ class QRHandler:
         self.appeal = appeal
 
     def create_qr_data(self):
-        return f'''UserId={self.appeal.applier.id}&appealId={self.appeal.id}'''
+        return f'''userId={self.appeal.applier.id}&appealId={self.appeal.id}'''
 
 
 def handle_date_for_appeals(shift, shift_active_date, by_end: bool = None):

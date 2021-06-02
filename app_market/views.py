@@ -78,6 +78,19 @@ class ShiftAppealCancel(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
+class ShiftAppealComplete(BaseAPIView):
+    permission_classes = [IsAuthenticated, IsSelfEmployed]
+
+    @staticmethod
+    def post(request, **kwargs):
+        """
+        Завершить рабочую смену
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ShiftAppealComplete().post(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
 class ActiveVacanciesWithAppliersByDateForManagerListAPIView(BaseAPIView):
     """
     Получение списка вакансий, которые закреплены за  магазином / магазинами менеджера
@@ -530,6 +543,48 @@ class QRView(APIView):
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
+
+class QRView(APIView):
+    permission_classes = [IsAuthenticated, IsSelfEmployed]
+
+    @staticmethod
+    def get(request, **kwargs):
+        """
+            Информация по ближайшим/текущим сменам
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.QRView().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class PassView(APIView):
+    permission_classes = [IsAuthenticated, IsManagerOrSecurity]
+
+    @staticmethod
+    def post(request, **kwargs):
+        """
+            Получить объект пропуска
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.PassView().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class AllowPassByManagerAPIVIew(APIView):
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    def post(request, **kwargs):
+        """
+            Одобрить пропуск со стороны менеджера
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.AllowPassByManagerAPIVIew().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+       
 
 @api_view(['POST'])
 def work_location(request, **kwargs):

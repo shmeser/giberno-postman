@@ -23,8 +23,7 @@ from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus, Work
     JobStatus, JobStatusForClient
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument
-from app_market.utils import handle_date_for_appeals, QRHandler
-from app_market.versions import v1_0
+from app_market.utils import handle_date_for_appeals
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -544,12 +543,6 @@ class UserShiftRepository(MasterRepository):
     def __init__(self, me=None):
         super().__init__()
         self.me = me
-
-    def get_by_qr_data(self, qr_data):
-        try:
-            return self.model.objects.get(qr_data=qr_data)
-        except self.model.DoesNotExist:
-            raise HttpException(detail='User shift not found', status_code=RESTErrors.NOT_FOUND.value)
 
     def update_status_by_qr_check(self, instance):
         if instance.shift.vacancy.shop not in self.me.shops.all():
@@ -1291,6 +1284,12 @@ class ShiftAppealsRepository(MasterRepository):
 
         return queryset
 
+    def get_by_qr_text(self, qr_text):
+        try:
+            return self.model.objects.get(qr_text=qr_text)
+        except self.model.DoesNotExist:
+            raise HttpException(detail='Appeal not found', status_code=RESTErrors.NOT_FOUND.value)
+
     @staticmethod
     def get_start_end_time_range(**data):
 
@@ -1524,6 +1523,20 @@ class ShiftAppealsRepository(MasterRepository):
         self.is_related_manager(instance=instance)
         return instance
 
+    def get_by_qr_text_for_manager(self, qr_text):
+        instance = self.get_by_qr_text(qr_text=qr_text)
+
+        # проверяем доступ менеджера
+        self.is_related_manager(instance=instance)
+
+        # меняем статус
+        if instance.job_status == JobStatus.JOB_SOON.value:
+            instance.job_status = JobStatus.JOB_IN_PROCESS.value
+            instance.save()
+
+    def let_pass_by_manager(self, record_id):
+        pass
+
     def get_new_confirmed_count(self):
         return 0
 
@@ -1568,15 +1581,52 @@ class ShiftAppealsRepository(MasterRepository):
 
         return appeals
 
-    def handle_qr_related_data(self):
+    @staticmethod
+    def handle_pass_data(appeal):
+        series = None
+        document = Document.objects.filter(user=appeal.applier, type=DocumentType.PASSPORT.value).first()
+        if document:
+            series = document.series
+
         data = {
-            'job_status': JobStatusForClient.NO_JOB.value,
-            'qr_text': None,
-            'pass': None,
-            'leave_time': None,
-            'appeal': None
+            'appeal_id': appeal.id,
+            'passport': series,
+            'position': appeal.shift.vacancy.title,
+            'address': appeal.shift.vacancy.shop.address
         }
-        confirmed_appeals = ShiftAppeal.objects.filter(
+        return data
+
+    def handle_pass_data_for_self_employed(self, appeal):
+        if appeal.applier != self.me:
+            raise PermissionDenied()
+
+        return self.handle_pass_data(appeal=appeal)
+
+    def handle_pass_data_for_manager_or_security(self, qr_text):
+        appeal = self.get_by_qr_text(qr_text=qr_text)
+        self.is_related_manager(instance=appeal)
+
+        return self.handle_pass_data(appeal=appeal)
+
+    def allow_pass_by_manager(self, record_id):
+        appeal = self.get_by_id(record_id=record_id)
+        self.is_related_manager(instance=appeal)
+        if appeal.job_status == JobStatus.JOB_SOON.value:
+            appeal.job_status = JobStatus.JOB_IN_PROCESS.value
+            appeal.qr_text = None
+            appeal.save()
+        else:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
+            ])
+
+    def handle_qr_related_data(self):
+        job_status = JobStatusForClient.NO_JOB.value
+        qr_text = None
+        qr_pass = None
+        leave_time = None
+        appeal = None
+        confirmed_appeals = self.model.objects.filter(
             applier=self.me,
             status=ShiftAppealStatus.CONFIRMED.value
         )
@@ -1585,38 +1635,34 @@ class ShiftAppealsRepository(MasterRepository):
             appeal_having_job_status = confirmed_appeals.filter(job_status__isnull=False).first()
             if appeal_having_job_status:
                 job_status = appeal_having_job_status.job_status
-                data['job_status'] = job_status
-                # из-за циркулярного импорта
-                data['appeal'] = v1_0.serializers.ShiftAppealsSerializer(instance=appeal_having_job_status).data
-                if job_status == JobStatus.JOB_IN_PROCESS.value:
-                    series = None
-                    document = Document.objects.filter(user=self.me, type=DocumentType.PASSPORT.value).first()
-                    if document:
-                        series = document.series
-                    data['pass'] = {
-                        'first_name': self.me.first_name,
-                        'middle_name': self.me.middle_name,
-                        'last_name': self.me.last_name,
-                        'passport': series,
-                        'position': appeal_having_job_status.shift.vacancy.title,
-                        'address': appeal_having_job_status.shift.vacancy.shop.address
-                    }
+                appeal = appeal_having_job_status
+                if appeal.job_status == JobStatus.JOB_IN_PROCESS.value:
+                    qr_pass = self.handle_pass_data_for_self_employed(appeal=appeal_having_job_status)
                 elif job_status == JobStatus.COMPLETED.value:
-                    utc_offset = pytz.timezone(appeal_having_job_status.shift.vacancy.timezone).utcoffset(
-                        datetime.utcnow()).total_seconds() / 3600
-                    leave_time = appeal_having_job_status.time_completed
-                    leave_time -= timedelta(hours=utc_offset)
-                    leave_time += timedelta(minutes=15)
+                    leave_time = appeal_having_job_status.time_completed + timedelta(minutes=15)
                     leave_time = datetime_to_timestamp(leave_time)
-                    data['leave_time'] = leave_time
                 else:
-                    data['qr_text'] = QRHandler(appeal=appeal_having_job_status).create_qr_data()
+                    qr_text = appeal_having_job_status.qr_text
             else:
-                data['job_status'] = JobStatusForClient.JOB_NOT_SOON.value
-                data['appeal'] = v1_0.serializers.ShiftAppealsSerializer(
-                    instance=confirmed_appeals.earliest('time_start')).data
+                job_status = JobStatusForClient.JOB_NOT_SOON.value
+                appeal = confirmed_appeals.earliest('time_start')
 
-        return data
+        return job_status, qr_text, qr_pass, leave_time, appeal
+
+    def complete_appeal(self, record_id):
+        appeal = self.get_by_id(record_id=record_id)
+        if self.me != appeal.applier:
+            raise PermissionDenied()
+
+        if appeal.job_status == JobStatus.COMPLETED.value:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEAL_ALREADY_COMPLETED))
+            ])
+
+        appeal.job_status = JobStatus.COMPLETED.value
+        appeal.status = ShiftAppealStatus.COMPLETED.value
+        appeal.time_completed = now()
+        appeal.save()
 
     @staticmethod
     def prefetch_users(queryset):

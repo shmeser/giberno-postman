@@ -10,7 +10,7 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     VacanciesActiveDatesForManagerListAPIView, VacanciesDistributors, SingleVacancyActiveDatesForManagerListAPIView, \
     ShiftAppealCancel, VacancyShiftsWithAppealsListForManagerAPIView, GetDocumentsForShift, MarketDocuments, \
     ShiftForManagers, ShiftAppealsForManagers, ConfirmedWorkers, ConfirmedWorkersVacancies, ConfirmedWorkersDates, \
-    QRView, work_location
+    QRView, ShiftAppealComplete, PassView, AllowPassByManagerAPIVIew, work_location
 
 urlpatterns = [
     # Торговые сети
@@ -39,6 +39,9 @@ urlpatterns = [
     path('market/appeals', ShiftAppeals.as_view()),
     path('market/appeals/<int:record_id>', ShiftAppeals.as_view()),
     path('market/appeals/<int:record_id>/cancel', ShiftAppealCancel.as_view()),
+
+    # Прервать смену
+    path('market/appeals/<int:record_id>/complete', ShiftAppealComplete.as_view()),
 
     # Смены
     path('market/shifts', Shifts.as_view()),
@@ -88,8 +91,10 @@ managers_urls = [
     path('market/managers/vacancies/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
     path('market/managers/vacancies/active_dates', VacanciesActiveDatesForManagerListAPIView.as_view()),
 
-    # Проверка смены
+    # Проверки смен и пропусков
     path('market/shifts/check', CheckUserShiftByManagerOrSecurityAPIView.as_view()),
+    path('market/appeals/<int:record_id>/pass/allow', AllowPassByManagerAPIVIew.as_view()),
+    path('market/appeals/pass', PassView.as_view()),
 
     # Отклики на смену
     path('market/managers/shifts/<int:record_id>', ShiftForManagers.as_view()),
