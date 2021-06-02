@@ -306,21 +306,21 @@ class DatesArrayContains(CustomLookupBase):
 
 @Field.register_lookup
 class LTETimeTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом часовых поясов
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
     lookup_name = 'ltetimetz'
     parametric_string = "%s <= %s AT TIME ZONE timezone"
 
 
 @Field.register_lookup
 class GTTimeTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом часовых поясов
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
     lookup_name = 'gttimetz'
     parametric_string = "%s > %s AT TIME ZONE timezone"
 
 
 @Field.register_lookup
 class DateTZ(CustomLookupBase):
-    # Кастомный lookup с приведением типов для даты в временной зоне
+    # Кастомный lookup с приведением типов для даты во временной зоне из поля timezone
     lookup_name = 'datetz'
     parametric_string = "(%s AT TIME ZONE timezone)::DATE = %s :: DATE"
 
@@ -470,6 +470,23 @@ class ShiftsRepository(MasterRepository):
             )
         ).filter(active_this_date=True)
         return shifts
+
+    @staticmethod
+    def get_appeals_with_appliers(instance: Shift, current_date, filters):
+        appeals = [
+            appeal.applier for appeal in
+            instance.appeals.annotate(  # Добавляем поле timezone для работы с кастомным лукапом datetz
+                timezone=F('shift__vacancy__timezone')
+            ).filter(
+                # TODO Нужно префетчить
+                shift_active_date__datetz=localtime(  # в часовом поясе вакансии
+                    current_date, timezone=timezone(instance.vacancy.timezone)
+                ).date(),
+                **filters
+            )
+        ]
+
+        return appeals
 
 
 class UserShiftRepository(MasterRepository):

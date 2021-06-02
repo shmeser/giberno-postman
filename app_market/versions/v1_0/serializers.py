@@ -5,8 +5,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Avg, Sum, Count, Q
 from django.db.models.functions import Coalesce
-from django.utils.timezone import localtime
-from pytz import timezone
 from rest_framework import serializers
 
 from app_market.enums import ShiftAppealStatus
@@ -614,26 +612,24 @@ class ShiftsWithAppealsSerializer(CRUDSerializer):
     appliers = serializers.SerializerMethodField()
 
     def get_appliers(self, instance):
-        # TODO refactor вынести в репозиторий
-        appliers = [appeal.applier for appeal in
-                    instance.appeals.filter(
-                        # TODO нужен часовой пояс вакансии в запросе на отклики
-                        shift_active_date__date=localtime(  # в часовом поясе вакансии
-                            self.context.get('current_date'), timezone=timezone(instance.vacancy.timezone)
-                        ).date(),
-                        **self.context.get('filters')
-                    )
-                    ]
+        appliers = ShiftsRepository().get_appeals_with_appliers(
+            instance,
+            self.context.get('current_date'),
+            self.context.get('filters')
+        )
+
         return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
 
     confirmed_appliers = serializers.SerializerMethodField()
 
     def get_confirmed_appliers(self, instance):
-        filtered_by_date = instance.appeals.filter(
-            status=ShiftAppealStatus.CONFIRMED,
-            shift_active_date=self.context.get('current_date')
+        appliers = ShiftsRepository().get_appeals_with_appliers(
+            instance,
+            self.context.get('current_date'),
+            {
+                'status': ShiftAppealStatus.CONFIRMED
+            }
         )
-        appliers = [appeal.applier for appeal in filtered_by_date]
         return UserProfileInVacanciesForManagerSerializer(instance=appliers, many=True).data
 
     class Meta:
@@ -809,7 +805,7 @@ class ConfirmedWorkerVacanciesSerializer(serializers.ModelSerializer):
 class ConfirmedWorkerDatesSerializer(serializers.ModelSerializer):
     real_time_start = DateTimeField()
     utc_offset = serializers.SerializerMethodField()
-    
+
     def get_utc_offset(self, instance):
         return pytz.timezone(instance.shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
 
