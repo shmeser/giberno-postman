@@ -18,12 +18,12 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSeri
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
     ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer, \
-    ConfirmedWorkerVacanciesSerializer, ConfirmedWorkerDatesSerializer, ConfirmedWorkerSerializer
+    ConfirmedWorkerVacanciesSerializer, ConfirmedWorkerDatesSerializer, ConfirmedWorkerSerializer, \
+    ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
-from app_users.permissions import IsManagerOrSecurity
 from app_users.versions.v1_0.repositories import ProfileRepository
 from backend.api_views import BaseAPIView
 from backend.controllers import PushController
@@ -973,19 +973,6 @@ class Skills(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
-    permission_classes = [IsManagerOrSecurity]
-    serializer_class = QRCodeSerializer
-    repository_class = UserShiftRepository
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=get_request_body(request))
-        if serializer.is_valid(raise_exception=True):
-            user_shift = self.repository_class().get_by_qr_data(qr_data=serializer.validated_data.get('qr_data'))
-            self.repository_class(me=request.user).update_status_by_qr_check(instance=user_shift)
-            return Response(UserShiftSerializer(instance=user_shift).data, status=status.HTTP_200_OK)
-
-
 class GetDocumentsForShift(CRUDAPIView):
     repository_class = ShiftsRepository
 
@@ -1164,7 +1151,7 @@ class QRView(APIView):
         return Response(camelize(data))
 
 
-class PassView(APIView):
+class CheckPassByManagerAPIView(APIView):
     repository_class = ShiftAppealsRepository
     serializer_class = QRCodeSerializer
 
@@ -1172,19 +1159,90 @@ class PassView(APIView):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             appeal = self.repository_class().get_by_qr_text(qr_text=serializer.validated_data.get('qr_text'))
-            data = self.repository_class(me=request.user).handle_pass_data_for_manager_or_security(
+            data = self.repository_class(me=request.user).handle_pass_data_for_manager(
                 qr_text=serializer.validated_data.get('qr_text')
             )
             data.update(ConfirmedWorkerSerializer(instance=appeal.applier).data)
-            return Response(data)
+            return Response(camelize(data))
 
 
-class AllowPassByManagerAPIVIew(APIView):
+class CheckPassBySecurityAPIView(APIView):
+    repository_class = ShiftAppealsRepository
+    serializer_class = QRCodeSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            appeal = self.repository_class().get_by_qr_text(qr_text=serializer.validated_data.get('qr_text'))
+            data = self.repository_class(me=request.user).handle_pass_data_for_security(
+                qr_text=serializer.validated_data.get('qr_text')
+            )
+            data.update(ConfirmedWorkerSerializer(instance=appeal.applier).data)
+            return Response(camelize(data))
+
+
+class RefusePassBySecurityAPIView(APIView):
+    repository_class = ShiftAppealsRepository
+    serializer_class = SecurityPassRefuseReasonSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            self.repository_class(me=request.user).refuse_pass_by_security(
+                record_id=kwargs.get('record_id'),
+                validated_data=serializer.validated_data
+            )
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class AllowPassByManagerAPIView(APIView):
     repository_class = ShiftAppealsRepository
 
     def post(self, request, *args, **kwargs):
         self.repository_class(me=request.user).allow_pass_by_manager(record_id=kwargs.get('record_id'))
-        return Response(None, status=status.HTTP_200_OK)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class RefusePassByManagerAPIView(APIView):
+    repository_class = ShiftAppealsRepository
+    serializer_class = ManagerAppealCancelReasonSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            self.repository_class(me=request.user).refuse_pass_by_manager(
+                record_id=kwargs.get('record_id'),
+                validated_data=serializer.validated_data
+            )
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class ShiftAppealCompleteByManager(APIView):
+    repository_class = ShiftAppealsRepository
+
+    serializer_class = QRCodeSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            self.repository_class(me=request.user).complete_appeal_by_manager(
+                qr_text=serializer.validated_data.get('qr_text')
+            )
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class FireByManagerAPIView(APIView):
+    repository_class = ShiftAppealsRepository
+    serializer_class = FireByManagerReasonSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            self.repository_class(me=request.user).fire_by_manager(
+                record_id=kwargs.get('record_id'),
+                validated_data=serializer.validated_data
+            )
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['POST'])

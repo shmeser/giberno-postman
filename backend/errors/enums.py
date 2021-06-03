@@ -41,6 +41,7 @@ class ErrorsCodes(EnumM):
     VACANCY_OR_SHOP_CHAT_IS_BLOCKED = 'Вы были заблокированы и не можете подать заявку на эту вакансию'
 
     APPEAL_ALREADY_COMPLETED = 'Эта смена уже завершена'
+    APPEAL_ALREADY_CANCELLED = 'Эта смена уже закрыта'
     INCONVENIENT_JOB_STATUS = 'Для выполнения данного действия статус работы должен быть другим'
 
 

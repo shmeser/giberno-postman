@@ -70,6 +70,16 @@ class ManagerAppealCancelReason(IntEnumM):
     NO_DRIVER_LICENCE = 8  # Нет водительского удостоверения
 
 
+class SecurityPassRefuseReason(IntEnumM):
+    CUSTOM = 0  # Причина будет указана самостоятельно текстом
+    NO_PASSPORT = 3  # Нет паспорта
+    MANAGER_SUPPORT_NEED = 9  # Требуется помощь менеджера
+
+
+class FireByManagerReason(IntEnumM):
+    CUSTOM = 0  # Причина будет указана самостоятельно текстом
+
+
 class ShiftWorkTime(IntEnumM):
     # Тип времени смены (время начала)
     MORNING = 0  # Утренняя
@@ -91,4 +101,3 @@ class JobStatus(IntEnumM):
     JOB_IN_PROCESS = 3  # Работа в процессе
     WAITING_FOR_COMPLETION = 4  # Ждет завершения
     COMPLETED = 5  # Завершена
-

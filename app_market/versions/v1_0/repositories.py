@@ -9,6 +9,7 @@ from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
+from django.db import transaction
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
 from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
@@ -23,7 +24,7 @@ from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus, Work
     JobStatus, JobStatusForClient
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument
-from app_market.utils import handle_date_for_appeals
+from app_market.utils import handle_date_for_appeals, QRHandler
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -1318,6 +1319,33 @@ class ShiftAppealsRepository(MasterRepository):
                 dict(Error(ErrorsCodes.APPEAL_EXISTS))
             ])
 
+    @staticmethod
+    def check_if_already_completed(appeal):
+        if appeal.job_status == JobStatus.COMPLETED.value:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEAL_ALREADY_CANCELLED))
+            ])
+
+    @staticmethod
+    def cancel_appeal(appeal):
+        if appeal.status == ShiftAppealStatus.CANCELED.value:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEAL_ALREADY_COMPLETED))
+            ])
+        appeal.status = ShiftAppealStatus.CANCELED.value
+        appeal.save()
+
+    def set_completed_status(self, appeal):
+        self.check_if_already_completed(appeal=appeal)
+
+        appeal.job_status = JobStatus.COMPLETED.value
+        appeal.status = ShiftAppealStatus.COMPLETED.value
+        appeal.completed_real_time = now()
+        # TODO Прикрутить логику по расчетам выплаты и все такое
+        #  Логика расчета выплаты: оплачиваем только полностью отработанные часы + неполные часы из расчета:
+        #  1-30 минут ставка за час\2, 31-60 минут ставка за час.
+        appeal.save()
+
     def check_time_range(self, queryset, time_start, time_end):
         if queryset.filter(
                 status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
@@ -1440,8 +1468,13 @@ class ShiftAppealsRepository(MasterRepository):
             # status__in=[ShiftAppealStatus.INITIAL.value] # TODO нужно ли учитывать все заявки при создании чата
         ).exists()
 
+    def is_related_security(self, instance):
+        if self.me.account_type == AccountType.SECURITY.value and \
+                instance.shift.vacancy.shop not in self.me.shops.all():
+            raise PermissionDenied()
+
     def is_related_manager(self, instance):
-        if instance.shift.vacancy.shop not in self.me.shops.all():
+        if self.me.account_type == AccountType.MANAGER.value and instance.shift.vacancy.shop not in self.me.shops.all():
             raise PermissionDenied()
 
     def confirm_by_manager(self, record_id):
@@ -1534,9 +1567,6 @@ class ShiftAppealsRepository(MasterRepository):
             instance.job_status = JobStatus.JOB_IN_PROCESS.value
             instance.save()
 
-    def let_pass_by_manager(self, record_id):
-        pass
-
     def get_new_confirmed_count(self):
         return 0
 
@@ -1602,10 +1632,18 @@ class ShiftAppealsRepository(MasterRepository):
 
         return self.handle_pass_data(appeal=appeal)
 
-    def handle_pass_data_for_manager_or_security(self, qr_text):
+    def handle_pass_data_for_security(self, qr_text):
+        appeal = self.get_by_qr_text(qr_text=qr_text)
+        self.is_related_security(instance=appeal)
+        appeal.security_qr_scan_time = now()
+        appeal.save()
+        return self.handle_pass_data(appeal=appeal)
+
+    def handle_pass_data_for_manager(self, qr_text):
         appeal = self.get_by_qr_text(qr_text=qr_text)
         self.is_related_manager(instance=appeal)
-
+        appeal.manager_qr_scan_time = now()
+        appeal.save()
         return self.handle_pass_data(appeal=appeal)
 
     def allow_pass_by_manager(self, record_id):
@@ -1615,6 +1653,36 @@ class ShiftAppealsRepository(MasterRepository):
             appeal.job_status = JobStatus.JOB_IN_PROCESS.value
             appeal.qr_text = None
             appeal.save()
+            # TODO может нужно отправлять пользователю уведомление об изменении job_status
+        else:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
+            ])
+
+    def refuse_pass_by_security(self, record_id, validated_data):
+        appeal = self.get_by_id(record_id=record_id)
+        self.is_related_security(instance=appeal)
+        if appeal.job_status == JobStatus.JOB_SOON.value:
+            appeal.security_pass_refuse_reason = validated_data.get('reason')
+            appeal.security_pass_refuse_reason_text = validated_data.get('text')
+            appeal.save()
+            # TODO отправлять пользователю уведомление
+        else:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
+            ])
+
+    def refuse_pass_by_manager(self, record_id, validated_data):
+        appeal = self.get_by_id(record_id=record_id)
+        self.is_related_manager(instance=appeal)
+        if appeal.job_status == JobStatus.JOB_SOON.value:
+            appeal.job_status = None
+            appeal.status = ShiftAppealStatus.CANCELED.value
+            appeal.manager_cancel_reason = validated_data.get('reason')
+            appeal.manager_reason_text = validated_data.get('text')
+            appeal.qr_text = None
+            appeal.save()
+            # TODO может нужно отправлять пользователю уведомление об изменении job_status
         else:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
@@ -1646,23 +1714,36 @@ class ShiftAppealsRepository(MasterRepository):
             else:
                 job_status = JobStatusForClient.JOB_NOT_SOON.value
                 appeal = confirmed_appeals.earliest('time_start')
-
         return job_status, qr_text, qr_pass, leave_time, appeal
 
     def complete_appeal(self, record_id):
+        # Сценарий 3: Самозанятый во время смены просит его отпустить пораньше
+        # (для любых случаев, когда самозанятого отпускают и оплатят часть денег)
+        # В данном случае самозанятый не обязан сканировать QR для завершения смены.
+
         appeal = self.get_by_id(record_id=record_id)
         if self.me != appeal.applier:
             raise PermissionDenied()
 
-        if appeal.job_status == JobStatus.COMPLETED.value:
-            raise CustomException(errors=[
-                dict(Error(ErrorsCodes.APPEAL_ALREADY_COMPLETED))
-            ])
+        self.set_completed_status(appeal=appeal)
+        # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
 
-        appeal.job_status = JobStatus.COMPLETED.value
-        appeal.status = ShiftAppealStatus.COMPLETED.value
-        appeal.time_completed = now()
+    def complete_appeal_by_manager(self, qr_text):
+        appeal = self.get_by_qr_text(qr_text=qr_text)
+        self.is_related_manager(instance=appeal)
+        self.set_completed_status(appeal=appeal)
+
+        # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
+
+    def fire_by_manager(self, record_id, validated_data):
+        # Сценарий когда менеджер увольняет кого-то
+        appeal = self.get_by_id(record_id=record_id)
+        self.is_related_manager(instance=appeal)
+        self.cancel_appeal(appeal=appeal)
+        appeal.fire_reason = validated_data.get('reason')
+        appeal.fire_reason_text = validated_data.get('text')
         appeal.save()
+        # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
 
     @staticmethod
     def prefetch_users(queryset):
@@ -1725,6 +1806,80 @@ class ShiftAppealsRepository(MasterRepository):
                 )
             )
         )
+
+    def bulk_cancel(self):
+        # закрытие неподтвержденных смен, у которых уже прошло время начала
+        queryset = self.model.objects.filter(status=ShiftAppealStatus.INITIAL.value, time_start__lte=now())
+        queryset.update(status=ShiftAppealStatus.CANCELED.value)
+        # TODO уведомления
+
+    def bulk_cancel_with_job_soon_status(self):
+        # Сценарий 1: Смена началась, QR для начала смены не отсканирован.
+        # В данном случае оставляем отклонение на менеджере,
+        # чтобы не было ситуации, когда менеджер опоздал к началу смены и все отклики автоматически отклонились.
+        # В таком случае, самозанятый замотивирован найти менеджера, чтобы отсканировать QR,
+        # а менеджер уволить, если cамозанятый не явился.
+        # Если оба оказываются безответственными, то отклик автоматически отменяется в конце смены.
+        with transaction.atomic():
+            queryset = self.model.objects.filter(
+                status=ShiftAppealStatus.CONFIRMED,
+                job_status=JobStatus.JOB_SOON.value,
+                qr_text__isnull=False
+            )
+            for appeal in queryset:
+                if appeal.time_end < now():
+                    appeal.status = ShiftAppealStatus.CANCELED.value
+                    appeal.qr_text = None
+                    appeal.save()
+
+    def bulk_set_job_soon_status(self):
+        with transaction.atomic():
+            upcoming_appeals = self.model.objects.filter(
+                status=ShiftAppealStatus.CONFIRMED,
+                job_status__isnull=True
+            )
+            soon = now() + timedelta(minutes=30)
+            for appeal in upcoming_appeals:
+                if now() < appeal.time_start < soon:
+                    appeal.job_status = JobStatus.JOB_SOON.value
+                    appeal.qr_text = QRHandler(appeal=appeal).create_qr_data()
+                    appeal.save()
+
+        # TODO уведомление - работа скоро
+
+    def bulk_set_waiting_for_completion_status(self):
+        with transaction.atomic():
+            queryset = self.model.objects.filter(
+                status=ShiftAppealStatus.CONFIRMED,
+                job_status=JobStatus.JOB_IN_PROCESS.value
+            )
+            for appeal in queryset:
+                if appeal.time_end < now():
+                    appeal.job_status = JobStatus.WAITING_FOR_COMPLETION
+                    appeal.qr_text = QRHandler(appeal=appeal).create_qr_data()
+                    appeal.save()
+
+        # TODO уведомление (скорее всего и менеджеру и пользователю)
+
+    def bulk_set_completed_status(self):
+        # Сценарий 2: Смена закончилась, QR для завершения смены не отсканирован.
+        # В данном случае, если ситуация по вине менеджера, то по истечении 1 часа после завершения смены,
+        # она автоматически переходит в статус Завершена и отрабатывается метод для выплаты денег.
+        # Если по вине самозанятого, то у менеджера есть час, чтобы решить вопрос
+        # (продлить смену или вернуть человека) или уволить.
+        with transaction.atomic():
+            appeals_to_complete = self.model.objects.filter(
+                status=ShiftAppealStatus.CONFIRMED,
+                job_status=JobStatus.WAITING_FOR_COMPLETION.value
+            )
+            interval = timedelta(hours=1)
+            for appeal in appeals_to_complete:
+                if appeal.time_end + interval > now():
+                    appeal.job_status = JobStatus.COMPLETED.value
+                    appeal.status = ShiftAppealStatus.COMPLETED.value
+                    appeal.completed_real_time = now()
+                    appeal.save()
+        # TODO уведомление (скорее всего и менеджеру и пользователю)
 
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
