@@ -1565,7 +1565,7 @@ class ShiftAppealsRepository(MasterRepository):
         date = timestamp_to_datetime(
             int(active_date)) if active_date is not None else now()  # По умолчанию текущий день
 
-        shift = Shift.objects.filter(id=shift_id).select_related('vacancy')
+        shift = Shift.objects.filter(id=shift_id).select_related('vacancy').first()
         vacancy_timezone_name = shift.vacancy.timezone if shift.vacancy.timezone else 'Europe/Moscow'
 
         filtered = self.model.objects.filter(**{**filters, **{'shift_id': shift_id}})
