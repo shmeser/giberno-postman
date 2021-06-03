@@ -7,8 +7,8 @@ from rest_framework.views import APIView
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer
 from app_market.versions.v1_0 import views as v1_0
-from app_market.versions.v1_0.serializers import ProfessionSerializer, QRCodeSerializer
-from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager, IsManagerOrSecurity
+from app_market.versions.v1_0.serializers import ProfessionSerializer
+from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager, IsSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exceptions import HttpException
@@ -223,21 +223,6 @@ class UserShiftsRetrieveAPIView(BaseAPIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.UserShiftsRetrieveAPIView().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
-
-
-class CheckUserShiftByManagerOrSecurityAPIView(BaseAPIView):
-    """
-    Проверка QR CODE со стороны охранника или менеджера
-    Если проверяющий -охранник, то статус смены остается неизменным
-    """
-    permission_classes = [IsManagerOrSecurity]
-    serializer_class = QRCodeSerializer
-
-    @staticmethod
-    def post(request, **kwargs):
-        if request.version in ['market_1_0']:
-            return v1_0.CheckUserShiftByManagerOrSecurityAPIView().post(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
@@ -558,8 +543,8 @@ class QRView(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
-class PassView(APIView):
-    permission_classes = [IsAuthenticated, IsManagerOrSecurity]
+class CheckPassByManagerAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
     def post(request, **kwargs):
@@ -567,12 +552,12 @@ class PassView(APIView):
             Получить объект пропуска
         """
         if request.version in ['market_1_0']:
-            return v1_0.PassView().post(request, **kwargs)
+            return v1_0.CheckPassByManagerAPIView().post(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
-class AllowPassByManagerAPIVIew(APIView):
+class AllowPassByManagerAPIView(APIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
@@ -581,10 +566,80 @@ class AllowPassByManagerAPIVIew(APIView):
             Одобрить пропуск со стороны менеджера
         """
         if request.version in ['market_1_0']:
-            return v1_0.AllowPassByManagerAPIVIew().post(request, **kwargs)
+            return v1_0.AllowPassByManagerAPIView().post(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
-       
+
+
+class CheckPassBySecurityAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsSecurity]
+
+    @staticmethod
+    def post(request, **kwargs):
+        """
+            Сканирование qr охранников
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.CheckPassBySecurityAPIView().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class RefusePassBySecurityAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsSecurity]
+
+    @staticmethod
+    def post(request, **kwargs):
+        """
+                Отказать в пропуске со стороны охранника
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.RefusePassBySecurityAPIView().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class RefusePassByManagerAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    def post(request, **kwargs):
+        """
+                Отказать в пропуске со стороны менеджера
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.RefusePassByManagerAPIView().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class FireByManagerAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    def post(request, **kwargs):
+        """
+        Увольнение самозанятого
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.FireByManagerAPIView().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class ShiftAppealCompleteByManager(APIView):
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    def post(request, **kwargs):
+        """
+            Завершить смену со стороны менеджером
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ShiftAppealCompleteByManager().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
 
 @api_view(['POST'])
 def work_location(request, **kwargs):
