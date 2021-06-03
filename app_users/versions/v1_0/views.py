@@ -190,7 +190,7 @@ class MyProfile(CRUDAPIView):
 class MyProfileUploads(APIView):
     def post(self, request):
         uploaded_files = RequestMapper.file_entities(request, request.user)
-        saved_files = MediaRepository().bulk_create(uploaded_files)
+        saved_files = MediaRepository(request.user).bulk_create(uploaded_files)
         serializer = MediaSerializer(saved_files, many=True, context={
             'me': request.user,
             'headers': get_request_headers(request),
