@@ -3,8 +3,10 @@ from datetime import datetime
 import pytz
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Avg, Sum, Count, Q
+from django.db.models import Avg, Sum, Count, Q, F
 from django.db.models.functions import Coalesce
+from django.utils.timezone import localtime
+from pytz import timezone
 from rest_framework import serializers
 
 from app_market.enums import ShiftAppealStatus
@@ -563,9 +565,13 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
         return Shift.objects.filter(id__in=list(set(active_shifts_ids_by_date)))
 
     def active_appeals(self, instance):
-        return ShiftAppeal.objects.filter(
+        return ShiftAppeal.objects.annotate(
+            timezone=F('shift__vacancy__timezone')  # Добавляем временную зону для отклика из вакансии
+        ).filter(
             shift__vacancy=instance,
-            shift_active_date=self.context.get('current_date'),
+            shift_active_date__datetz=localtime(  # должны совпадать даты в часовом поясе вакансии
+                self.context.get('current_date'), timezone=timezone(instance.timezone)
+            ).date(),
             **self.context.get('filters')
         )
 
