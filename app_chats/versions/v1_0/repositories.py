@@ -446,7 +446,14 @@ class ChatsRepository(MasterRepository):
 
         unread_data_dict = self.get_chat_unread_data_for_all_participants(record, users)
 
+        active_managers_ids = [am.id for am in record.active_managers.all()]
+        inactive_managers_ids = []
+
         for user in users:
+            # Собираем ид неактивных менеджеров
+            if user.account_type == AccountType.MANAGER.value and user.id not in active_managers_ids:
+                inactive_managers_ids.append(user.id)
+
             prepared_data.append({
                 'sockets': [s.socket_id for s in user.sockets.all()],
                 'chat': camelize(
@@ -468,7 +475,7 @@ class ChatsRepository(MasterRepository):
                 ),
             })
 
-        return prepared_data, users, push_title_for_non_owner
+        return prepared_data, users, push_title_for_non_owner, inactive_managers_ids
 
     @staticmethod
     def fast_related_loading(queryset, point=None):

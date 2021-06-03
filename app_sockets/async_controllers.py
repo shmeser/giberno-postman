@@ -170,7 +170,7 @@ class AsyncSocketController:
             })
 
     async def send_chat_message(self, room_id, group_name, prepared_message):
-        personalized_chat_variants_with_sockets, chat_users, push_title = await self.repository_class(
+        personalized_chat_variants_with_sockets, chat_users, push_title, inactive_mng_ids = await self.repository_class(
             me=self.consumer.user
         ).get_chat_for_all_participants(  # 10
             chat_id=room_id
@@ -199,8 +199,14 @@ class AsyncSocketController:
 
         # Отправляем сообщение по пушам всем участникам чата, кроме самого себя
         # Заголовки сообщения формируется исходя из роли отправителя
+
+        inactive_mng_ids.append(self.consumer.user.id)  # Не отправляем пуш неактивным менеджерам и самому себе
+
+        users_to_send = chat_users.exclude(
+            pk__in=inactive_mng_ids
+        )
         await AsyncPushController().send_message(
-            users_to_send=chat_users.exclude(pk=self.consumer.user.id),  # Не отправляем себе пуш о новом сообщ.
+            users_to_send=users_to_send,
             title=push_title,
             message=chained_get(prepared_message, 'text', default=''),
             uuid=chained_get(prepared_message, 'uuid', default=''),
