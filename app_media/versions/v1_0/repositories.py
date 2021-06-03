@@ -14,6 +14,10 @@ from backend.utils import chained_get
 class MediaRepository(MasterRepository):
     model = MediaModel
 
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
     def get_by_id(self, record_id):
         try:
             return self.model.objects.get(id=record_id, is_staff=False)
@@ -23,11 +27,29 @@ class MediaRepository(MasterRepository):
                 detail='Объект %s с ID=%d не найден' % (self.model._meta.verbose_name, record_id)
             )
 
+    def remove_all_avatars(self):
+        self.model.objects.filter(
+            type=MediaType.AVATAR.value,
+            owner_ct=ContentType.objects.get_for_model(self.me),
+            owner_id=self.me.id
+        ).delete()
+
     def bulk_create(self, files: [File]):
         media_models = []
+        avatar = None  # Аватарка должна быть одна, поэтому из всех переданных аватарок выбираем последнюю
         for file in files:
+            if file.type == MediaType.AVATAR.value:
+                avatar = file
+            else:
+                media_models.append(
+                    self.model(**dict(file))
+                )
+        if avatar and self.me:
+            # Если пришла аватарка, то удаляем все старые аватарки у пользователя
+            self.remove_all_avatars()
+            # Добавляем аватарку в массив файлов
             media_models.append(
-                self.model(**dict(file))
+                self.model(**dict(avatar))
             )
 
         return self.model.objects.bulk_create(media_models)
@@ -42,7 +64,8 @@ class MediaRepository(MasterRepository):
             return x.type == media_type
 
     @classmethod
-    def get_related_media(cls, model_instance, prefetched_data, m_type, m_format=None, mime_type=None, multiple=False, only_prefetched=False):
+    def get_related_media(cls, model_instance, prefetched_data, m_type, m_format=None, mime_type=None, multiple=False,
+                          only_prefetched=False):
         """
 
         :param model_instance:
