@@ -10,7 +10,8 @@ from django.contrib.postgres.indexes import GinIndex
 from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
-    ShiftStatus, ShiftAppealStatus, AppealCancelReason, ManagerAppealCancelReason, JobStatus
+    ShiftStatus, ShiftAppealStatus, AppealCancelReason, ManagerAppealCancelReason, JobStatus, SecurityPassRefuseReason, \
+    FireByManagerReason
 from app_media.models import MediaModel
 from app_users.enums import REQUIRED_DOCS_FOR_CHOICES
 from app_users.models import UserProfile
@@ -228,11 +229,30 @@ class ShiftAppeal(BaseModel):
         null=True, blank=True, choices=choices(ManagerAppealCancelReason), verbose_name='Причина отмены менеджером')
     manager_reason_text = models.CharField(max_length=255, null=True, blank=True, verbose_name='Текст причины')
 
+    fire_reason = models.PositiveIntegerField(
+        null=True, blank=True, choices=choices(FireByManagerReason), verbose_name='Причина увольнения менеджером')
+
+    fire_reason_text = models.CharField(max_length=255, null=True, blank=True,
+                                        verbose_name='Текст причины увольнения менеджером')
+
     # сделано отдельными полями (а не берется из смены) чтоб иметь возможность вычисления верного временного
     # диапазона, когда рабочая смена начинается в один день, а заканчивается в другой
     time_start = models.DateTimeField(null=True, blank=True, verbose_name='Время начала смены')
     time_end = models.DateTimeField(null=True, blank=True, verbose_name='Время окончания смены')
-    time_completed = models.DateTimeField(null=True, blank=True, verbose_name='Фактическое время окончания смены')
+
+    security_qr_scan_time = models.DateTimeField(null=True, blank=True,
+                                                 verbose_name='Время сканирования QR кода охранником')
+    manager_qr_scan_time = models.DateTimeField(null=True, blank=True,
+                                                verbose_name='Время сканирования QR кода менеджером')
+
+    security_pass_refuse_reason = models.PositiveIntegerField(
+        null=True, blank=True, choices=choices(SecurityPassRefuseReason),
+        verbose_name='Причина отказа в пропуске охранником')
+    security_pass_refuse_reason_text = models.CharField(max_length=255, null=True, blank=True,
+                                                        verbose_name='Текст причины отказа в пропуске охранником')
+
+    started_real_time = models.DateTimeField(null=True, blank=True, verbose_name='Фактическое время начала смены')
+    completed_real_time = models.DateTimeField(null=True, blank=True, verbose_name='Фактическое время окончания смены')
 
     job_status = models.PositiveIntegerField(choices=choices(JobStatus), null=True, blank=True, default=None,
                                              verbose_name='Статус работы')
