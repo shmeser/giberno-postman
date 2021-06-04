@@ -585,21 +585,6 @@ class UserShiftRepository(MasterRepository):
             return result[pagination.offset: pagination.limit]
         return result
 
-    def get_confirmed_workers_vacancies_for_manager(self, current_date, pagination=None, order_by: list = None,
-                                                    filters={}):
-        result = self.model.objects.filter(
-            shift__shop__in=self.me.shops.all(),
-            real_time_start__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
-            **filters
-        ).select_related(
-            'shift__vacancy'
-        ).distinct('shift__vacancy')
-        if order_by:
-            result = result.order_by(*order_by)
-        if pagination:
-            return result[pagination.offset: pagination.limit]
-        return result
-
     def get_confirmed_workers_dates_for_manager(self, calendar_from, calendar_to):
         # TODO проверить часовые пояса
         result = self.model.objects.filter(
@@ -1880,6 +1865,21 @@ class ShiftAppealsRepository(MasterRepository):
                     appeal.completed_real_time = now()
                     appeal.save()
         # TODO уведомление (скорее всего и менеджеру и пользователю)
+
+    def get_confirmed_workers_professions_for_manager(self, current_date, pagination=None, order_by: list = None,
+                                                      filters={}):
+        result = self.model.objects.filter(
+            shift__shop__in=self.me.shops.all(),
+            shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date() if current_date else None,
+            **filters
+        ).select_related(
+            'shift__vacancy__profession'
+        ).distinct('shift__vacancy__profession')
+        if order_by:
+            result = result.order_by(*order_by)
+        if pagination:
+            return result[pagination.offset: pagination.limit]
+        return result
 
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):

@@ -9,7 +9,7 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     ConfirmAppealByManagerAPIView, RejectAppealByManagerAPIView, UserShiftsRetrieveAPIView, \
     VacanciesActiveDatesForManagerListAPIView, VacanciesDistributors, SingleVacancyActiveDatesForManagerListAPIView, \
     ShiftAppealCancel, VacancyShiftsWithAppealsListForManagerAPIView, GetDocumentsForShift, MarketDocuments, \
-    ShiftForManagers, ShiftAppealsForManagers, ConfirmedWorkers, ConfirmedWorkersVacancies, ConfirmedWorkersDates, \
+    ShiftForManagers, ShiftAppealsForManagers, ConfirmedWorkers, ConfirmedWorkersProfessions, ConfirmedWorkersDates, \
     QRView, ShiftAppealComplete, CheckPassByManagerAPIView, AllowPassByManagerAPIView, work_location, \
     ShiftAppealCompleteByManager, \
     RefusePassByManagerAPIView, CheckPassBySecurityAPIView, RefusePassBySecurityAPIView, FireByManagerAPIView
@@ -71,7 +71,7 @@ urlpatterns = [
 managers_urls = [
     # Список подтвержденных работников
     path('market/managers/self_employed/dates', ConfirmedWorkersDates.as_view()),
-    path('market/managers/self_employed/vacancies', ConfirmedWorkersVacancies.as_view()),
+    path('market/managers/self_employed/professions', ConfirmedWorkersProfessions.as_view()),
     path('market/managers/self_employed', ConfirmedWorkers.as_view()),
     path('market/managers/self_employed/<int:record_id>', ConfirmedWorkers.as_view()),
 
