@@ -487,7 +487,7 @@ class ConfirmedWorkers(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
-class ConfirmedWorkersVacancies(APIView):
+class ConfirmedWorkersProfessions(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrManager]
 
     @staticmethod
@@ -496,7 +496,7 @@ class ConfirmedWorkersVacancies(APIView):
             Список вакансий одобренных работников (получают Администраторы / менеджеры ) )
         """
         if request.version in ['market_1_0']:
-            return v1_0.ConfirmedWorkersVacancies().get(request, **kwargs)
+            return v1_0.ConfirmedWorkersProfessions().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 

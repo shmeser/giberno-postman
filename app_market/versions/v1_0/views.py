@@ -18,7 +18,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSeri
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
     ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer, \
-    ConfirmedWorkerVacanciesSerializer, ConfirmedWorkerDatesSerializer, ConfirmedWorkerSerializer, \
+    ConfirmedWorkerProfessionsSerializer, ConfirmedWorkerDatesSerializer, ConfirmedWorkerSerializer, \
     ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
@@ -1047,7 +1047,8 @@ class ConfirmedWorkers(CRUDAPIView):
         'time_start': 'shift__time_start'
     }
     array_filter_params = {
-        'vacancy': 'shift__vacancy_id__in'
+        'vacancy': 'shift__vacancy_id__in',
+        'profession': 'shift__vacancy__profession_id__in',
     }
 
     default_filters = {
@@ -1077,13 +1078,13 @@ class ConfirmedWorkers(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class ConfirmedWorkersVacancies(CRUDAPIView):
+class ConfirmedWorkersProfessions(CRUDAPIView):
     allowed_http_methods = ['get']
     repository_class = UserShiftRepository
-    serializer_class = ConfirmedWorkerVacanciesSerializer
+    serializer_class = ConfirmedWorkerProfessionsSerializer
     order_params = {
-        'id': 'shift__vacancy_id',
-        'title': 'shift__vacancy__title'
+        'id': 'shift__vacancy__profession_id',
+        'title': 'shift__vacancy__profession__name'
     }
 
     def get(self, request, *args, **kwargs):
@@ -1092,7 +1093,7 @@ class ConfirmedWorkersVacancies(CRUDAPIView):
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
 
-        dataset = self.repository_class(me=request.user).get_confirmed_workers_vacancies_for_manager(
+        dataset = self.repository_class(me=request.user).get_confirmed_workers_professions_for_manager(
             current_date=current_date, pagination=pagination, order_by=order_params, filters=filters
         )
 
