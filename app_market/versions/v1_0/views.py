@@ -1080,7 +1080,7 @@ class ConfirmedWorkers(CRUDAPIView):
 
 class ConfirmedWorkersProfessions(CRUDAPIView):
     allowed_http_methods = ['get']
-    repository_class = ShiftAppealsRepository
+    repository_class = UserShiftRepository
     serializer_class = ConfirmedWorkerProfessionsSerializer
     order_params = {
         'id': 'shift__vacancy__profession_id',

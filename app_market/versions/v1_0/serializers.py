@@ -809,7 +809,7 @@ class ConfirmedWorkerProfessionsSerializer(serializers.ModelSerializer):
         return instance.shift.vacancy.profession.name
 
     class Meta:
-        model = ShiftAppeal
+        model = UserShift
         fields = ['id', 'title']
 
 

@@ -596,6 +596,21 @@ class UserShiftRepository(MasterRepository):
         ).distinct('real_time_start', 'shift__vacancy__timezone').order_by('real_time_start')
         return result
 
+    def get_confirmed_workers_professions_for_manager(self, current_date, pagination=None, order_by: list = None,
+                                                    filters={}):
+        result = self.model.objects.filter(
+            shift__shop__in=self.me.shops.all(),
+            real_time_start__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
+            **filters
+        ).select_related(
+            'shift__vacancy'
+        ).distinct('shift__vacancy__profession')
+        if order_by:
+            result = result.order_by(*order_by)
+        if pagination:
+            return result[pagination.offset: pagination.limit]
+        return result
+
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
     model = Vacancy
