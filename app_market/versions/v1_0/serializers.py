@@ -9,7 +9,7 @@ from django.utils.timezone import localtime
 from pytz import timezone
 from rest_framework import serializers
 
-from app_market.enums import ShiftAppealStatus
+from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, FireByManagerReason
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category, ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
@@ -21,7 +21,7 @@ from app_users.enums import REQUIRED_DOCS_DICT
 from app_users.models import UserProfile
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
-from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime, ArrayRemove
+from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime, ArrayRemove, choices
 
 
 def map_status_for_required_docs(required_docs, user_docs):
@@ -876,6 +876,21 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
 
 class QRCodeSerializer(serializers.Serializer):
     qr_text = serializers.CharField()
+
+
+class ManagerAppealCancelReasonSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=choices(ManagerAppealCancelReason))
+    text = serializers.CharField(allow_null=True)
+
+
+class FireByManagerReasonSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=choices(FireByManagerReason))
+    text = serializers.CharField(allow_null=True)
+
+
+class SecurityPassRefuseReasonSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=choices(SecurityPassRefuseReason))
+    text = serializers.CharField(allow_null=True)
 
 
 class ShiftConditionsSerializer(serializers.Serializer):

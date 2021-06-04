@@ -40,6 +40,11 @@ class IsManager(permissions.BasePermission):
         return request.user.account_type == AccountType.MANAGER
 
 
+class IsSecurity(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.account_type == AccountType.SECURITY
+
+
 class IsSelfEmployed(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.account_type == AccountType.SELF_EMPLOYED
