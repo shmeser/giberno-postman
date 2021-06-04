@@ -540,12 +540,15 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
         queryset = self.active_shifts(instance=instance)
         if queryset.count():
             # TODO удалить поле employees_count т.к. в разные дни на одной смене разное к-во людей
-            return queryset.aggregate(
+            return queryset.annotate(
+                timezone=F('vacancy__timezone')
+            ).aggregate(
                 count=Coalesce(
                     Count(
-                        'usershift',
+                        'appeals',
                         filter=Q(  # TODO нужно перепроверить, тут сравнение с datetime а не date
-                            usershift__real_time_start__date=self.context.get('current_date')
+                            appeals__shift_active_date__datetz=self.context.get('current_date'),
+                            appeals__status__in=self.context.get('filters').get('status__in')
                         )
                     ), 0
                 )
