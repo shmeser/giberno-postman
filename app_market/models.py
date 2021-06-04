@@ -149,6 +149,8 @@ class Vacancy(BaseModel):
 
     chats = GenericRelation('app_chats.Chat', object_id_field='target_id', content_type_field='target_ct',
                             related_query_name='generic_target')
+    profession = models.ForeignKey('Profession', on_delete=models.SET_NULL, verbose_name='Профессия', null=True,
+                                   blank=True)
 
     def __str__(self):
         return f'{self.title}'

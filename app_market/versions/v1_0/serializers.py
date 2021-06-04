@@ -796,20 +796,20 @@ class VacancyInConfirmedWorkerSerializer(serializers.ModelSerializer):
         fields = ['id', 'title']
 
 
-class ConfirmedWorkerVacanciesSerializer(serializers.ModelSerializer):
+class ConfirmedWorkerProfessionsSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
     title = serializers.SerializerMethodField()
 
     @staticmethod
     def get_id(instance):
-        return instance.shift.vacancy_id
+        return instance.shift.vacancy.profession_id
 
     @staticmethod
     def get_title(instance):
-        return instance.shift.vacancy.title
+        return instance.shift.vacancy.profession.name
 
     class Meta:
-        model = UserShift
+        model = ShiftAppeal
         fields = ['id', 'title']
 
 
