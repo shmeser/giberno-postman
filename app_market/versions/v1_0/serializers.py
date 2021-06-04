@@ -547,8 +547,10 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
                     Count(
                         'appeals',
                         filter=Q(  # TODO нужно перепроверить, тут сравнение с datetime а не date
-                            appeals__shift_active_date__datetz=self.context.get('current_date'),
-                            appeals__status__in=self.context.get('filters').get('status__in')
+                            appeals__shift_active_date__datetz=localtime(
+                                self.context.get('current_date'), timezone=timezone(instance.timezone)
+                            ).date(),
+                            appeals__status=ShiftAppealStatus.CONFIRMED.value
                         )
                     ), 0
                 )
