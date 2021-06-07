@@ -519,7 +519,7 @@ class ShiftsRepository(MasterRepository):
             time_end__gttimetz=localtime(now(), timezone=timezone(vacancy_timezone_name))
         ).exists()
 
-        is_within_radius = Vacancy.objects.annotate(
+        is_within_radius = Vacancy.objects.annotate(  # Есть вакансия, где дистанция меньше, чем указанный в ней радиус
             distance=Distance('shop__location', point)
         ).filter(
             id=shift.vacancy_id,
