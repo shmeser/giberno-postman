@@ -413,11 +413,16 @@ class ShiftsRepository(MasterRepository):
     @staticmethod
     def active_dates(queryset):
         active_dates = []
+        current_time = now()
         if queryset.count():
             for shift in queryset:
-                utc_offset = pytz.timezone(shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
+                vacancy_timezone = pytz.timezone(shift.vacancy.timezone)
+                utc_offset = vacancy_timezone.utcoffset(datetime.utcnow()).total_seconds()
                 for active_date in shift.active_dates:
-                    if active_date > now():
+                    # Нужно сравнивать даты без времени и только во временной зоне вакансии
+                    if localtime(active_date, timezone=vacancy_timezone).date() >= localtime(
+                            current_time, timezone=vacancy_timezone
+                    ).date():
                         active_dates.append({
                             'utc_offset': utc_offset,
                             'timestamp': datetime_to_timestamp(active_date)
@@ -597,7 +602,7 @@ class UserShiftRepository(MasterRepository):
         return result
 
     def get_confirmed_workers_professions_for_manager(self, current_date, pagination=None, order_by: list = None,
-                                                    filters={}):
+                                                      filters={}):
         result = self.model.objects.filter(
             shift__shop__in=self.me.shops.all(),
             real_time_start__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
