@@ -1328,14 +1328,14 @@ class ShiftAppealsRepository(MasterRepository):
     def check_if_already_completed(appeal):
         if appeal.job_status == JobStatus.COMPLETED.value:
             raise CustomException(errors=[
-                dict(Error(ErrorsCodes.APPEAL_ALREADY_CANCELLED))
+                dict(Error(ErrorsCodes.APPEAL_ALREADY_COMPLETED))
             ])
 
     @staticmethod
     def cancel_appeal(appeal):
         if appeal.status == ShiftAppealStatus.CANCELED.value:
             raise CustomException(errors=[
-                dict(Error(ErrorsCodes.APPEAL_ALREADY_COMPLETED))
+                dict(Error(ErrorsCodes.APPEAL_ALREADY_CANCELLED))
             ])
         appeal.status = ShiftAppealStatus.CANCELED.value
         appeal.save()
@@ -1748,6 +1748,16 @@ class ShiftAppealsRepository(MasterRepository):
         appeal.fire_reason = validated_data.get('reason')
         appeal.fire_reason_text = validated_data.get('text')
         appeal.save()
+        # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
+
+    def prolong_by_manager(self, record_id, validated_data):
+        # Сценарий когда менеджер увольняет кого-то
+        appeal = self.get_by_id(record_id=record_id)
+        self.is_related_manager(instance=appeal)
+        self.cancel_appeal(appeal=appeal)
+        appeal.time_end = appeal.time_end + timedelta(hours=validated_data.get('hours'))
+        appeal.save()
+
         # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
 
     @staticmethod
