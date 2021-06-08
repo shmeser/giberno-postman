@@ -458,6 +458,7 @@ class NotificationsRepository(MasterRepository):
             Prefetch(
                 'media',
                 queryset=MediaModel.objects.filter(
+                    deleted=False,
                     type=MediaType.NOTIFICATION_ICON.value,
                     owner_ct_id=ContentType.objects.get_for_model(Notification).id,
                     format=MediaFormat.IMAGE.value

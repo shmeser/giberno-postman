@@ -19,7 +19,8 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSeri
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
     ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer, \
     ConfirmedWorkerProfessionsSerializer, ConfirmedWorkerDatesSerializer, ConfirmedWorkerSerializer, \
-    ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer
+    ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer, \
+    ProlongByManagerReasonSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -1240,6 +1241,20 @@ class FireByManagerAPIView(APIView):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             self.repository_class(me=request.user).fire_by_manager(
+                record_id=kwargs.get('record_id'),
+                validated_data=serializer.validated_data
+            )
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class ProlongByManager(APIView):
+    repository_class = ShiftAppealsRepository
+    serializer_class = ProlongByManagerReasonSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            self.repository_class(me=request.user).prolong_by_manager(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )

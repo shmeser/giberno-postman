@@ -12,7 +12,8 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     ShiftForManagers, ShiftAppealsForManagers, ConfirmedWorkers, ConfirmedWorkersProfessions, ConfirmedWorkersDates, \
     QRView, ShiftAppealComplete, CheckPassByManagerAPIView, AllowPassByManagerAPIView, work_location, \
     ShiftAppealCompleteByManager, \
-    RefusePassByManagerAPIView, CheckPassBySecurityAPIView, RefusePassBySecurityAPIView, FireByManagerAPIView
+    RefusePassByManagerAPIView, CheckPassBySecurityAPIView, RefusePassBySecurityAPIView, FireByManagerAPIView, \
+    ProlongByManager
 
 urlpatterns = [
     # Торговые сети
@@ -79,6 +80,7 @@ managers_urls = [
     path('market/managers/self_employed/<int:record_id>/reviews',
          SelfEmployedUserReviewsByAdminOrManagerAPIView.as_view()),
 
+    # Вакансии и отклики на вакансии
     path('market/managers/vacancies', ActiveVacanciesWithAppliersByDateForManagerListAPIView.as_view()),
     path('market/managers/vacancies/<int:record_id>', VacancyByManagerRetrieveAPIView.as_view()),
     path('market/managers/vacancies/<int:record_id>/appeals',
@@ -96,11 +98,12 @@ managers_urls = [
     path('market/security/appeals/pass', CheckPassBySecurityAPIView.as_view()),
     path('market/security/appeals/<int:record_id>/pass/refuse', RefusePassBySecurityAPIView.as_view()),
 
-    path('market/managers/appeals/pass', CheckPassByManagerAPIView.as_view()),
     path('market/managers/appeals/<int:record_id>/pass/allow', AllowPassByManagerAPIView.as_view()),
     path('market/managers/appeals/<int:record_id>/pass/refuse', RefusePassByManagerAPIView.as_view()),
-    path('market/managers/appeals/complete', ShiftAppealCompleteByManager.as_view()),
     path('market/managers/appeals/<int:record_id>/fire', FireByManagerAPIView.as_view()),
+    path('market/managers/appeals/<int:record_id>/prolong', ProlongByManager.as_view()),
+    path('market/managers/appeals/pass', CheckPassByManagerAPIView.as_view()),
+    path('market/managers/appeals/complete', ShiftAppealCompleteByManager.as_view()),
 
     # Отклики на смену
     path('market/managers/shifts/<int:record_id>', ShiftForManagers.as_view()),

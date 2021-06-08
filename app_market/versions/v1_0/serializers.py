@@ -893,6 +893,10 @@ class FireByManagerReasonSerializer(serializers.Serializer):
     text = serializers.CharField(allow_null=True)
 
 
+class ProlongByManagerReasonSerializer(serializers.Serializer):
+    hours = serializers.IntegerField(allow_null=False)
+
+
 class SecurityPassRefuseReasonSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=choices(SecurityPassRefuseReason))
     text = serializers.CharField(allow_null=True)

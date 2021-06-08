@@ -1,13 +1,10 @@
-from drf_yasg import openapi
-from drf_yasg.utils import swagger_auto_schema
+from rest_framework.decorators import api_view
 from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
-    POSTReviewByManagerSerializer
+from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, POSTReviewByManagerSerializer
 from app_market.versions.v1_0 import views as v1_0
-from app_market.versions.v1_0.serializers import ProfessionSerializer
 from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager, IsSecurity
 from backend.api_views import BaseAPIView
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -268,7 +265,6 @@ class VacancyReviewsAPIView(BaseAPIView):
     serializer_class = POSTReviewSerializer
 
     @staticmethod
-    @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
         """
         Оставить отзыв о вакансии
@@ -279,7 +275,6 @@ class VacancyReviewsAPIView(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
     def get(request, **kwargs):
         """
         Получить список отзывов о вакансии
@@ -294,7 +289,6 @@ class ShopReviewsAPIView(BaseAPIView):
     serializer_class = POSTReviewSerializer
 
     @staticmethod
-    @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
         """
         Oставить отзыв о магазине
@@ -305,7 +299,6 @@ class ShopReviewsAPIView(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
     def get(request, **kwargs):
         """
         Получить список отзывов о магазине
@@ -320,7 +313,6 @@ class DistributorReviewsAPIView(BaseAPIView):
     serializer_class = POSTReviewSerializer
 
     @staticmethod
-    @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
         """
         Оставить отзыв к торговой сети
@@ -331,7 +323,6 @@ class DistributorReviewsAPIView(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', ReviewModelSerializer)})
     def get(request, **kwargs):
         """
         Получить список отзывов торговой сети
@@ -401,7 +392,6 @@ class ToggleLikeVacancy(APIView):
     """
 
     @staticmethod
-    @swagger_auto_schema(responses={204: 'No Content'})
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.ToggleLikeVacancy().post(request, **kwargs)
@@ -411,7 +401,6 @@ class ToggleLikeVacancy(APIView):
 
 class Professions(APIView):
     @staticmethod
-    @swagger_auto_schema(responses={200: openapi.Response('response description', ProfessionSerializer)})
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Professions().get(request, **kwargs)
@@ -605,7 +594,7 @@ class RefusePassByManagerAPIView(APIView):
     @staticmethod
     def post(request, **kwargs):
         """
-                Отказать в пропуске со стороны менеджера
+            Отказать в пропуске со стороны менеджера
         """
         if request.version in ['market_1_0']:
             return v1_0.RefusePassByManagerAPIView().post(request, **kwargs)
@@ -627,13 +616,27 @@ class FireByManagerAPIView(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
+class ProlongByManager(APIView):
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    def post(request, **kwargs):
+        """
+        Продление смены самозанятого
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.ProlongByManager().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
 class ShiftAppealCompleteByManager(APIView):
     permission_classes = [IsAuthenticated, IsManager]
 
     @staticmethod
     def post(request, **kwargs):
         """
-            Завершить смену со стороны менеджером
+            Завершить смену со менеджером
         """
         if request.version in ['market_1_0']:
             return v1_0.ShiftAppealCompleteByManager().post(request, **kwargs)
