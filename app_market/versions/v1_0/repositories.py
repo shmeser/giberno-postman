@@ -88,6 +88,7 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
             Prefetch(
                 'media',
                 queryset=MediaModel.objects.filter(
+                    deleted=False,
                     type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
                     owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
                     format=MediaFormat.IMAGE.value
@@ -211,6 +212,7 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
             Prefetch(
                 'media',
                 queryset=MediaModel.objects.filter(
+                    deleted=False,
                     type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
                     owner_ct_id=ContentType.objects.get_for_model(Shop).id,
                     format=MediaFormat.IMAGE.value
@@ -876,6 +878,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             Prefetch(
                 'media',
                 queryset=MediaModel.objects.filter(
+                    deleted=False,
                     type=MediaType.BANNER.value,
                     owner_ct_id=ContentType.objects.get_for_model(Vacancy).id,
                     format=MediaFormat.IMAGE.value
@@ -892,6 +895,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                     Prefetch(
                         'media',
                         queryset=MediaModel.objects.filter(
+                            deleted=False,
                             type=MediaType.LOGO.value,
                             owner_ct_id=ContentType.objects.get_for_model(Shop).id,
                             format=MediaFormat.IMAGE.value
@@ -906,6 +910,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                             Prefetch(
                                 'media',
                                 queryset=MediaModel.objects.filter(
+                                    deleted=False,
                                     type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
                                     owner_ct_id=ContentType.objects.get_for_model(
                                         Distributor).id,
@@ -928,6 +933,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                 Value(f"'{settings.MEDIA_URL}'", output_field=CharField()),
                 Subquery(
                     MediaModel.objects.filter(
+                        deleted=False,
                         owner_id=OuterRef('shop_id'),
                         type=MediaType.LOGO.value,
                         owner_ct_id=ContentType.objects.get_for_model(Shop).id,
@@ -1772,6 +1778,7 @@ class ShiftAppealsRepository(MasterRepository):
                     Prefetch(
                         'media',
                         queryset=MediaModel.objects.filter(
+                            deleted=False,
                             owner_ct_id=user_ct.id,
                             type=MediaType.AVATAR.value,
                             format=MediaFormat.IMAGE.value,
@@ -1987,7 +1994,7 @@ class MarketDocumentsRepository(MasterRepository):
         vacancy_ct = ContentType.objects.get_for_model(Vacancy)
         # Media
         conditions.documents = MediaModel.objects.filter(
-            Q(type=MediaType.RULES_AND_ARTICLES.value) &  # Только с типом документы, правила
+            Q(type=MediaType.RULES_AND_ARTICLES.value, deleted=False) &  # Только с типом документы, правила
             Q(
                 Q(owner_id=None) |  # Либо глобальные (Гиберно)
                 Q(owner_ct=distributor_ct, owner_id=shift.vacancy.shop.distributor_id) |  # Либо торговой сети
@@ -2010,7 +2017,8 @@ class MarketDocumentsRepository(MasterRepository):
         return conditions
 
     def accept_global_docs(self):
-        global_documents = MediaModel.objects.filter(owner_id=None, type=MediaType.RULES_AND_ARTICLES.value)
+        global_documents = MediaModel.objects.filter(
+            owner_id=None, type=MediaType.RULES_AND_ARTICLES.value, deleted=False)
 
         for global_document in global_documents:
             GlobalDocument.objects.get_or_create(
@@ -2022,7 +2030,7 @@ class MarketDocumentsRepository(MasterRepository):
         distributor = Distributor.objects.filter(pk=distributor_id).prefetch_related(
             Prefetch(
                 'media',
-                queryset=MediaModel.objects.filter(type=MediaType.RULES_AND_ARTICLES.value),
+                queryset=MediaModel.objects.filter(deleted=False, type=MediaType.RULES_AND_ARTICLES.value),
                 to_attr='documents'
             )
         ).first()
@@ -2042,7 +2050,7 @@ class MarketDocumentsRepository(MasterRepository):
         vacancy = Vacancy.objects.filter(pk=vacancy_id).prefetch_related(
             Prefetch(
                 'media',
-                queryset=MediaModel.objects.filter(type=MediaType.RULES_AND_ARTICLES.value),
+                queryset=MediaModel.objects.filter(deleted=False, type=MediaType.RULES_AND_ARTICLES.value),
                 to_attr='documents'
             )
         ).first()
@@ -2062,7 +2070,7 @@ class MarketDocumentsRepository(MasterRepository):
         try:
             # Ищем документ с типом RULES_AND_ARTICLES
             document = MediaModel.objects.filter(
-                uuid=document_uuid, type=MediaType.RULES_AND_ARTICLES.value
+                uuid=document_uuid, type=MediaType.RULES_AND_ARTICLES.value, deleted=False
             ).first()
             if not document:
                 raise HttpException(
