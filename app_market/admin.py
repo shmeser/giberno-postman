@@ -16,7 +16,7 @@ class DistributorAdmin(FormattedAdmin):
 class ShopAdmin(FormattedAdmin):
     list_display = ['id', 'title', 'description', 'is_partner', 'discount', 'address']
     list_filter = ["is_partner"]
-    raw_id_fields = ['distributor']
+    raw_id_fields = ['distributor', 'city']
 
 
 @admin.register(Vacancy)

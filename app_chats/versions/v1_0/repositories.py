@@ -504,6 +504,7 @@ class ChatsRepository(MasterRepository):
                     Prefetch(
                         'media',
                         queryset=MediaModel.objects.filter(
+                            deleted=False,
                             type=MediaType.AVATAR.value,
                             owner_ct_id=ContentType.objects.get_for_model(UserProfile).id,
                             format=MediaFormat.IMAGE.value
@@ -528,6 +529,7 @@ class ChatsRepository(MasterRepository):
             prefetch_related_objects(chats_on_shops, Prefetch(
                 "target__distributor__media",
                 queryset=MediaModel.objects.filter(
+                    deleted=False,
                     type=MediaType.LOGO.value,
                     owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
                     format=MediaFormat.IMAGE.value
@@ -541,6 +543,7 @@ class ChatsRepository(MasterRepository):
             prefetch_related_objects(chats_on_vacancies, Prefetch(
                 "target__shop__distributor__media",
                 queryset=MediaModel.objects.filter(
+                    deleted=False,
                     type=MediaType.LOGO.value,
                     owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
                     format=MediaFormat.IMAGE.value
@@ -865,6 +868,7 @@ class MessagesRepository(MasterRepository):
             Prefetch(
                 'user__media',
                 queryset=MediaModel.objects.filter(
+                    deleted=False,
                     type=MediaType.AVATAR.value,
                     owner_ct_id=ContentType.objects.get_for_model(UserProfile).id,
                     format=MediaFormat.IMAGE.value
@@ -876,6 +880,7 @@ class MessagesRepository(MasterRepository):
             Prefetch(
                 'attachments',
                 queryset=MediaModel.objects.filter(
+                    deleted=False,
                     type=MediaType.ATTACHMENT.value,
                     owner_ct_id=ContentType.objects.get_for_model(Message).id
                 ),
@@ -901,6 +906,7 @@ class MessagesRepository(MasterRepository):
             Prefetch(
                 'attachments',
                 queryset=MediaModel.objects.filter(
+                    deleted=False,
                     type=MediaType.ATTACHMENT.value,
                     owner_ct_id=ContentType.objects.get_for_model(Message).id
                 ),

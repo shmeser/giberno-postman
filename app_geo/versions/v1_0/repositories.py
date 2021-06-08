@@ -47,6 +47,7 @@ class CountriesRepository(MasterRepository):
             Prefetch(
                 'media',
                 queryset=MediaModel.objects.filter(
+                    deleted=False,
                     owner_ct_id=country_ct,
                     type=MediaType.FLAG.value,
                     format=MediaFormat.IMAGE.value,

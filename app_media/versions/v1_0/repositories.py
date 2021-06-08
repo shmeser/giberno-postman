@@ -94,6 +94,7 @@ class MediaRepository(MasterRepository):
         # Если нет предзагруженных данных и нет флага "использовать из prefetch", делаем запрос в бд
         if not files and not only_prefetched:
             files = MediaModel.objects.filter(
+                deleted=False,
                 owner_id=prefetched_data.id, type=m_type,
                 owner_ct_id=ContentType.objects.get_for_model(prefetched_data).id,
             )
