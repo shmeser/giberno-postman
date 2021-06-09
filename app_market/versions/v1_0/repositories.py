@@ -1511,8 +1511,8 @@ class ShiftAppealsRepository(MasterRepository):
         self.is_related_manager(instance=instance)
         if not instance.status == ShiftAppealStatus.REJECTED:
             instance.status = ShiftAppealStatus.REJECTED
-            instance.manager_reason = reason
-            instance.manager_reason_text = text
+            instance.manager_cancel_reason = reason
+            instance.cancel_reason_text = text
             instance.save()
 
             status_changed = True
@@ -1654,8 +1654,8 @@ class ShiftAppealsRepository(MasterRepository):
         if appeal.job_status == JobStatus.JOB_SOON.value:
             appeal.job_status = None
             appeal.status = ShiftAppealStatus.CANCELED.value
-            appeal.manager_cancel_reason = validated_data.get('reason')
-            appeal.manager_reason_text = validated_data.get('text')
+            appeal.manager_refuse_reason = validated_data.get('reason')
+            appeal.refuse_reason_text = validated_data.get('text')
             appeal.qr_text = None
             appeal.save()
             # TODO может нужно отправлять пользователю уведомление об изменении job_status
@@ -1716,7 +1716,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeal = self.get_by_id(record_id=record_id)
         self.is_related_manager(instance=appeal)
         self.cancel_appeal(appeal=appeal)
-        appeal.fire_reason = validated_data.get('reason')
+        appeal.manager_fire_reason = validated_data.get('reason')
         appeal.fire_reason_text = validated_data.get('text')
         appeal.save()
         # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
@@ -1876,7 +1876,6 @@ class ShiftAppealsRepository(MasterRepository):
             order_by.append('-shift__time_end')
 
     def get_confirmed_workers_for_manager(self, current_date, pagination=None, order_by: list = None, filters={}):
-        # TODO проверить часовые пояса
         result = self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
@@ -1896,7 +1895,6 @@ class ShiftAppealsRepository(MasterRepository):
         return result
 
     def get_confirmed_workers_dates_for_manager(self, calendar_from, calendar_to):
-        # TODO проверить часовые пояса
         result = self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
@@ -1912,7 +1910,6 @@ class ShiftAppealsRepository(MasterRepository):
     def get_confirmed_workers_professions_for_manager(
             self, current_date, pagination=None, order_by: list = None, filters={}
     ):
-        # TODO проверить часовые пояса
         result = self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
