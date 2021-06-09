@@ -12,9 +12,9 @@ from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewM
     POSTReviewByManagerSerializer
 from app_market.enums import AppealCancelReason, ShiftAppealStatus
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository, \
+    DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
     MarketDocumentsRepository
-from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
+from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
     ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer, \
@@ -547,64 +547,64 @@ class Shifts(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class UserShiftsListAPIView(CRUDAPIView):
-    serializer_class = UserShiftSerializer
-    repository_class = UserShiftRepository
-    allowed_http_methods = ['get']
-
-    filter_params = {
-        'status': 'status'
-    }
-
-    bool_filter_params = {
-
-    }
-
-    array_filter_params = {
-    }
-
-    default_order_params = [
-        '-created_at'
-    ]
-
-    default_filters = {}
-
-    order_params = {
-        'id': 'id'
-    }
-
-    def get(self, request, **kwargs):
-        filters = RequestMapper(self).filters(request) or dict()
-        filters.update({'user': request.user})
-        pagination = RequestMapper.pagination(request)
-        order_params = RequestMapper(self).order(request)
-
-        dataset = self.repository_class().filter_by_kwargs(
-            kwargs=filters, order_by=order_params, paginator=pagination
-        )
-
-        serialized = self.serializer_class(dataset, many=True, context={
-            'me': request.user,
-            'headers': get_request_headers(request),
-        })
-
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
-
-
-class UserShiftsRetrieveAPIView(CRUDAPIView):
-    serializer_class = UserShiftSerializer
-    repository_class = UserShiftRepository
-    allowed_http_methods = ['get']
-
-    def get(self, request, **kwargs):
-        user_shift = self.repository_class().get_by_id(kwargs.get('record_id'))
-
-        serialized = self.serializer_class(user_shift, many=False, context={
-            'me': request.user,
-            'headers': get_request_headers(request),
-        })
-
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+# class UserShiftsListAPIView(CRUDAPIView):
+#     serializer_class = UserShiftSerializer
+#     repository_class = UserShiftRepository
+#     allowed_http_methods = ['get']
+#
+#     filter_params = {
+#         'status': 'status'
+#     }
+#
+#     bool_filter_params = {
+#
+#     }
+#
+#     array_filter_params = {
+#     }
+#
+#     default_order_params = [
+#         '-created_at'
+#     ]
+#
+#     default_filters = {}
+#
+#     order_params = {
+#         'id': 'id'
+#     }
+#
+#     def get(self, request, **kwargs):
+#         filters = RequestMapper(self).filters(request) or dict()
+#         filters.update({'user': request.user})
+#         pagination = RequestMapper.pagination(request)
+#         order_params = RequestMapper(self).order(request)
+#
+#         dataset = self.repository_class().filter_by_kwargs(
+#             kwargs=filters, order_by=order_params, paginator=pagination
+#         )
+#
+#         serialized = self.serializer_class(dataset, many=True, context={
+#             'me': request.user,
+#             'headers': get_request_headers(request),
+#         })
+#
+#         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+#
+#
+# class UserShiftsRetrieveAPIView(CRUDAPIView):
+#     serializer_class = UserShiftSerializer
+#     repository_class = UserShiftRepository
+#     allowed_http_methods = ['get']
+#
+#     def get(self, request, **kwargs):
+#         user_shift = self.repository_class().get_by_id(kwargs.get('record_id'))
+#
+#         serialized = self.serializer_class(user_shift, many=False, context={
+#             'me': request.user,
+#             'headers': get_request_headers(request),
+#         })
+#
+#         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class VacanciesStats(Vacancies):
@@ -1042,7 +1042,7 @@ class ShiftAppealsForManagers(CRUDAPIView):
 
 class ConfirmedWorkers(CRUDAPIView):
     allowed_http_methods = ['get']
-    repository_class = UserShiftRepository
+    repository_class = ShiftAppealsRepository
     serializer_class = ConfirmedWorkersShiftsSerializer
     order_params = {
         'time_start': 'shift__time_start'
@@ -1081,7 +1081,7 @@ class ConfirmedWorkers(CRUDAPIView):
 
 class ConfirmedWorkersProfessions(CRUDAPIView):
     allowed_http_methods = ['get']
-    repository_class = UserShiftRepository
+    repository_class = ShiftAppealsRepository
     serializer_class = ConfirmedWorkerProfessionsSerializer
     order_params = {
         'id': 'shift__vacancy__profession_id',
@@ -1110,7 +1110,7 @@ class ConfirmedWorkersProfessions(CRUDAPIView):
 
 class ConfirmedWorkersDates(CRUDAPIView):
     allowed_http_methods = ['get']
-    repository_class = UserShiftRepository
+    repository_class = ShiftAppealsRepository
     serializer_class = ConfirmedWorkerDatesSerializer
 
     def get(self, request, *args, **kwargs):

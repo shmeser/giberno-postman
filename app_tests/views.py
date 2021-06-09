@@ -153,14 +153,14 @@ class SeedDataForMarketAppAPIView(APIView):
             print('ShiftAppeal seed complete')
 
             # USER SHIFTS SEED
-            shift_appeals = ShiftAppeal.objects.all()
-            for shift_appeal in shift_appeals:
-                UserShift.objects.create(
-                    user=shift_appeal.applier,
-                    shift=shift_appeal.shift
-                )
-
-            print('UserShifts seed complete')
+            # shift_appeals = ShiftAppeal.objects.all()
+            # for shift_appeal in shift_appeals:
+            #     UserShift.objects.create(
+            #         user=shift_appeal.applier,
+            #         shift=shift_appeal.shift
+            #     )
+            #
+            # print('UserShifts seed complete')
 
         return Response('seed complete')
 
