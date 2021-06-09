@@ -60,15 +60,8 @@ class AppealCancelReason(IntEnumM):
 
 
 class ManagerAppealCancelReason(IntEnumM):
-    CUSTOM = 0  # Причина будет указана самостоятельно текстом
-    MISTAKE = 1  # Заявка принята была по ошибке
-    ACCIDENT = 2  # Отмена из-за непредвиденных ситуаций
-    NO_PASSPORT = 3  # Нет паспорта
-    WRONG_PASSPORT = 4  # Паспортные данные не верны
-    NO_INN = 5  # Нет ИНН
-    NO_SNILS = 6  # Нет СНИЛС
-    NO_MEDICAL_BOOK = 7  # Нет медкнижки
-    NO_DRIVER_LICENCE = 8  # Нет водительского удостоверения
+    WRONG_DOCUMENTS = 1  # Неверные документы
+    UNABLE_TO_WORK = 2  # Не готов к работе
 
 
 class SecurityPassRefuseReason(IntEnumM):

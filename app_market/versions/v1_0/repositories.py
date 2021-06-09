@@ -20,9 +20,9 @@ from rest_framework.exceptions import PermissionDenied
 from app_chats.models import ChatUser, Chat
 from app_feedback.models import Review, Like
 from app_geo.models import Region
-from app_market.enums import ShiftWorkTime, ShiftStatus, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
+from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
     JobStatus, JobStatusForClient
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, ShiftAppeal, \
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument
 from app_market.utils import handle_date_for_appeals, QRHandler
 from app_market.versions.v1_0.mappers import ShiftMapper
@@ -327,12 +327,26 @@ class DateTZ(CustomLookupBase):
     parametric_string = "(%s AT TIME ZONE timezone)::DATE = %s :: DATE"
 
 
+@Field.register_lookup
+class DateTZGte(CustomLookupBase):
+    # Кастомный lookup с приведением типов для сравнения дат во временной зоне из поля timezone
+    lookup_name = 'datetz_gte'
+    parametric_string = "(%s AT TIME ZONE timezone)::DATE >= %s :: DATE"
+
+
+@Field.register_lookup
+class DateTZLte(CustomLookupBase):
+    # Кастомный lookup с приведением типов для сравнения дат во временной зоне из поля timezone
+    lookup_name = 'datetz_lte'
+    parametric_string = "(%s AT TIME ZONE timezone)::DATE <= %s :: DATE"
+
+
 class ShiftsRepository(MasterRepository):
     model = Shift
 
     SHIFTS_CALENDAR_DEFAULT_DAYS_COUNT = 10
 
-    def __init__(self, me=None, calendar_from=None, calendar_to=None, vacancy_timezone_name='Europe/Moscow') -> None:
+    def __init__(self, me=None, calendar_from=None, calendar_to=None, vacancy_timezone_name='UTC') -> None:
         super().__init__()
         # TODO брать из вакансии vacancy_timezone_name
         self.vacancy_timezone_name = vacancy_timezone_name
@@ -545,29 +559,29 @@ class ShiftsRepository(MasterRepository):
         return should_notify_managers, managers, managers_sockets, chat_id
 
 
-class UserShiftRepository(MasterRepository):
-    model = UserShift
-
-    def __init__(self, me=None):
-        super().__init__()
-        self.me = me
-
-    # def update_status_by_qr_check(self, instance):
-    #     if instance.shift.vacancy.shop not in self.me.shops.all():
-    #         raise PermissionDenied()
-    #
-    #     if self.me.is_security:
-    #         return
-    #     if self.me.is_manager:
-    #         if instance.status == ShiftStatus.INITIAL:
-    #             instance.status = ShiftStatus.STARTED
-    #             instance.save()
-    #         elif instance.status == ShiftStatus.STARTED:
-    #             instance.status = ShiftStatus.COMPLETED
-    #             instance.qr_data = {}
-    #             instance.save()
-    #         elif instance.status == ShiftStatus.COMPLETED:
-    #             return
+# class UserShiftRepository(MasterRepository):
+#     model = UserShift
+#
+#     def __init__(self, me=None):
+#         super().__init__()
+#         self.me = me
+#
+#     def update_status_by_qr_check(self, instance):
+#         if instance.shift.vacancy.shop not in self.me.shops.all():
+#             raise PermissionDenied()
+#
+#         if self.me.is_security:
+#             return
+#         if self.me.is_manager:
+#             if instance.status == ShiftStatus.INITIAL:
+#                 instance.status = ShiftStatus.STARTED
+#                 instance.save()
+#             elif instance.status == ShiftStatus.STARTED:
+#                 instance.status = ShiftStatus.COMPLETED
+#                 instance.qr_data = {}
+#                 instance.save()
+#             elif instance.status == ShiftStatus.COMPLETED:
+#                 return
 
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
@@ -1862,10 +1876,13 @@ class ShiftAppealsRepository(MasterRepository):
             order_by.append('-shift__time_end')
 
     def get_confirmed_workers_for_manager(self, current_date, pagination=None, order_by: list = None, filters={}):
-        result = self.model.objects.filter(
+        # TODO проверить часовые пояса
+        result = self.model.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
             shift__shop__in=self.me.shops.all(),
             status=ShiftAppealStatus.CONFIRMED.value,
-            shift_active_date__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
+            shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date() if current_date else None,
             **filters
         ).select_related(
             'shift__vacancy'
@@ -1880,22 +1897,28 @@ class ShiftAppealsRepository(MasterRepository):
 
     def get_confirmed_workers_dates_for_manager(self, calendar_from, calendar_to):
         # TODO проверить часовые пояса
-        result = self.model.objects.filter(
+        result = self.model.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
             shift__shop__in=self.me.shops.all(),
             status=ShiftAppealStatus.CONFIRMED.value,
-            shift_active_date__gte=calendar_from,
-            shift_active_date__lte=calendar_to,
+            shift_active_date__datetz_gte=calendar_from.date(),
+            shift_active_date__datetz_lte=calendar_to.date(),
         ).select_related(
             'shift__vacancy'
         ).distinct('shift_active_date', 'shift__vacancy__timezone').order_by('shift_active_date')
         return result
 
-    def get_confirmed_workers_professions_for_manager(self, current_date, pagination=None, order_by: list = None,
-                                                      filters={}):
-        result = self.model.objects.filter(
+    def get_confirmed_workers_professions_for_manager(
+            self, current_date, pagination=None, order_by: list = None, filters={}
+    ):
+        # TODO проверить часовые пояса
+        result = self.model.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
             shift__shop__in=self.me.shops.all(),
             status=ShiftAppealStatus.CONFIRMED.value,
-            shift_active_date__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
+            shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date() if current_date else None,
             **filters
         ).select_related(
             'shift__vacancy'
