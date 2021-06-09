@@ -1042,7 +1042,7 @@ class ShiftAppealsForManagers(CRUDAPIView):
 
 class ConfirmedWorkers(CRUDAPIView):
     allowed_http_methods = ['get']
-    repository_class = UserShiftRepository
+    repository_class = ShiftAppealsRepository
     serializer_class = ConfirmedWorkersShiftsSerializer
     order_params = {
         'time_start': 'shift__time_start'
@@ -1081,7 +1081,7 @@ class ConfirmedWorkers(CRUDAPIView):
 
 class ConfirmedWorkersProfessions(CRUDAPIView):
     allowed_http_methods = ['get']
-    repository_class = UserShiftRepository
+    repository_class = ShiftAppealsRepository
     serializer_class = ConfirmedWorkerProfessionsSerializer
     order_params = {
         'id': 'shift__vacancy__profession_id',
@@ -1110,7 +1110,7 @@ class ConfirmedWorkersProfessions(CRUDAPIView):
 
 class ConfirmedWorkersDates(CRUDAPIView):
     allowed_http_methods = ['get']
-    repository_class = UserShiftRepository
+    repository_class = ShiftAppealsRepository
     serializer_class = ConfirmedWorkerDatesSerializer
 
     def get(self, request, *args, **kwargs):

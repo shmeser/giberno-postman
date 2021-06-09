@@ -552,74 +552,22 @@ class UserShiftRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-    def update_status_by_qr_check(self, instance):
-        if instance.shift.vacancy.shop not in self.me.shops.all():
-            raise PermissionDenied()
-
-        if self.me.is_security:
-            return
-        if self.me.is_manager:
-            if instance.status == ShiftStatus.INITIAL:
-                instance.status = ShiftStatus.STARTED
-                instance.save()
-            elif instance.status == ShiftStatus.STARTED:
-                instance.status = ShiftStatus.COMPLETED
-                instance.qr_data = {}
-                instance.save()
-            elif instance.status == ShiftStatus.COMPLETED:
-                return
-
-    @staticmethod
-    def modify_order_for_confirmed_workers(order_by):
-        if 'shift__time_start' in order_by:
-            order_by.append('shift__time_end')
-        if '-shift__time_start' in order_by:
-            order_by.append('-shift__time_end')
-
-    def get_confirmed_workers_for_manager(self, current_date, pagination=None, order_by: list = None, filters={}):
-        result = self.model.objects.filter(
-            shift__shop__in=self.me.shops.all(),
-            status__in=[ShiftStatus.INITIAL.value, ShiftStatus.STARTED.value],
-            real_time_start__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
-            **filters
-        ).select_related(
-            'shift__vacancy'
-        )
-        if order_by:
-            # Добавляем двойную сортировку, так как у смены есть time_start и time_end
-            self.modify_order_for_confirmed_workers(order_by)
-            result = result.order_by(*order_by)
-        if pagination:
-            return result[pagination.offset: pagination.limit]
-        return result
-
-    def get_confirmed_workers_dates_for_manager(self, calendar_from, calendar_to):
-        # TODO проверить часовые пояса
-        result = self.model.objects.filter(
-            shift__shop__in=self.me.shops.all(),
-            status__in=[ShiftStatus.INITIAL.value, ShiftStatus.STARTED.value],
-            real_time_start__gte=calendar_from,
-            real_time_start__lte=calendar_to,
-        ).select_related(
-            'shift__vacancy'
-        ).distinct('real_time_start', 'shift__vacancy__timezone').order_by('real_time_start')
-        return result
-
-    def get_confirmed_workers_professions_for_manager(self, current_date, pagination=None, order_by: list = None,
-                                                      filters={}):
-        result = self.model.objects.filter(
-            shift__shop__in=self.me.shops.all(),
-            status__in=[ShiftStatus.INITIAL.value, ShiftStatus.STARTED.value],
-            real_time_start__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
-            **filters
-        ).select_related(
-            'shift__vacancy'
-        ).distinct('shift__vacancy__profession')
-        if order_by:
-            result = result.order_by(*order_by)
-        if pagination:
-            return result[pagination.offset: pagination.limit]
-        return result
+    # def update_status_by_qr_check(self, instance):
+    #     if instance.shift.vacancy.shop not in self.me.shops.all():
+    #         raise PermissionDenied()
+    #
+    #     if self.me.is_security:
+    #         return
+    #     if self.me.is_manager:
+    #         if instance.status == ShiftStatus.INITIAL:
+    #             instance.status = ShiftStatus.STARTED
+    #             instance.save()
+    #         elif instance.status == ShiftStatus.STARTED:
+    #             instance.status = ShiftStatus.COMPLETED
+    #             instance.qr_data = {}
+    #             instance.save()
+    #         elif instance.status == ShiftStatus.COMPLETED:
+    #             return
 
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
@@ -1465,8 +1413,6 @@ class ShiftAppealsRepository(MasterRepository):
         if instance.status == ShiftAppealStatus.CONFIRMED.value:
             # Если подтвержденный отклик
             is_confirmed_appeal_canceled = True
-            # Ставим статус для user-shift - отменен TODO (пока completed), потом надо будет добавить CANCELED
-            # TODO сущность UserShift оказывается ненужной
 
         instance.status = ShiftAppealStatus.CANCELED.value
         if reason is not None and instance.cancel_reason is None:
@@ -1517,13 +1463,13 @@ class ShiftAppealsRepository(MasterRepository):
                 Q(time_end__range=(instance.time_start, instance.time_end))
             ).exclude(id=instance.id).delete()
 
-            # создаем смену пользователя
-            UserShift.objects.get_or_create(
-                user=instance.applier,
-                shift=instance.shift,
-                real_time_start=instance.time_start,
-                real_time_end=instance.time_end
-            )
+            # # создаем смену пользователя
+            # UserShift.objects.get_or_create(
+            #     user=instance.applier,
+            #     shift=instance.shift,
+            #     real_time_start=instance.time_start,
+            #     real_time_end=instance.time_end
+            # )
 
             status_changed = True
             manager_and_user_sockets += instance.applier.sockets.aggregate(
@@ -1792,14 +1738,14 @@ class ShiftAppealsRepository(MasterRepository):
                     )
                 ).prefetch_related(
                     Prefetch(
-                        'usershift_set',
-                        queryset=UserShift.objects.all().select_related(  # Все смены пользователя
+                        'appeals',
+                        queryset=ShiftAppeal.objects.all().select_related(  # Все отклики
                             'shift__vacancy'  # Догружаем смены->вакансии
                         ).annotate(  # Вычисляем рейтинг для каждой смены
                             rates_count=Subquery(
                                 Review.objects.filter(
                                     target_ct=user_ct,
-                                    target_id=OuterRef('user'),
+                                    target_id=OuterRef('applier'),
                                     shift_id=OuterRef('shift'),
                                 ).annotate(  # Если нет оценок то будет null
                                     count=Window(
@@ -1809,7 +1755,7 @@ class ShiftAppealsRepository(MasterRepository):
                             rating=Subquery(
                                 Review.objects.filter(
                                     target_ct=user_ct,
-                                    target_id=OuterRef('user'),
+                                    target_id=OuterRef('applier'),
                                     shift_id=OuterRef('shift'),
                                 ).annotate(  # Если нет оценок то будет null
                                     rating=Window(
@@ -1908,14 +1854,51 @@ class ShiftAppealsRepository(MasterRepository):
                     appeal.save()
         # TODO уведомление (скорее всего и менеджеру и пользователю)
 
+    @staticmethod
+    def modify_order_for_confirmed_workers(order_by):
+        if 'shift__time_start' in order_by:
+            order_by.append('shift__time_end')
+        if '-shift__time_start' in order_by:
+            order_by.append('-shift__time_end')
+
+    def get_confirmed_workers_for_manager(self, current_date, pagination=None, order_by: list = None, filters={}):
+        result = self.model.objects.filter(
+            shift__shop__in=self.me.shops.all(),
+            status=ShiftAppealStatus.CONFIRMED.value,
+            shift_active_date__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
+            **filters
+        ).select_related(
+            'shift__vacancy'
+        )
+        if order_by:
+            # Добавляем двойную сортировку, так как у смены есть time_start и time_end
+            self.modify_order_for_confirmed_workers(order_by)
+            result = result.order_by(*order_by)
+        if pagination:
+            return result[pagination.offset: pagination.limit]
+        return result
+
+    def get_confirmed_workers_dates_for_manager(self, calendar_from, calendar_to):
+        # TODO проверить часовые пояса
+        result = self.model.objects.filter(
+            shift__shop__in=self.me.shops.all(),
+            status=ShiftAppealStatus.CONFIRMED.value,
+            shift_active_date__gte=calendar_from,
+            shift_active_date__lte=calendar_to,
+        ).select_related(
+            'shift__vacancy'
+        ).distinct('shift_active_date', 'shift__vacancy__timezone').order_by('shift_active_date')
+        return result
+
     def get_confirmed_workers_professions_for_manager(self, current_date, pagination=None, order_by: list = None,
                                                       filters={}):
         result = self.model.objects.filter(
             shift__shop__in=self.me.shops.all(),
-            shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date() if current_date else None,
+            status=ShiftAppealStatus.CONFIRMED.value,
+            shift_active_date__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
             **filters
         ).select_related(
-            'shift__vacancy__profession'
+            'shift__vacancy'
         ).distinct('shift__vacancy__profession')
         if order_by:
             result = result.order_by(*order_by)

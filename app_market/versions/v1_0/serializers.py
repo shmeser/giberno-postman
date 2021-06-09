@@ -772,10 +772,10 @@ class SkillSerializer(CRUDSerializer):
         ]
 
 
-class VacancyInUserShiftSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Vacancy
-        fields = ['id', 'title', 'timezone']
+# class VacancyInUserShiftSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Vacancy
+#         fields = ['id', 'title', 'timezone']
 
 
 # class UserShiftSerializer(serializers.ModelSerializer):
@@ -814,14 +814,17 @@ class ConfirmedWorkerProfessionsSerializer(serializers.ModelSerializer):
 
 
 class ConfirmedWorkerDatesSerializer(serializers.ModelSerializer):
-    real_time_start = DateTimeField()
+    real_time_start = serializers.SerializerMethodField()
     utc_offset = serializers.SerializerMethodField()
+
+    def get_real_time_start(self, instance):
+        return datetime_to_timestamp(instance.time_start)
 
     def get_utc_offset(self, instance):
         return pytz.timezone(instance.shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
 
     class Meta:
-        model = UserShift
+        model = ShiftAppeal
         fields = ['real_time_start', 'utc_offset']
 
 
@@ -846,8 +849,8 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
     time_start = serializers.SerializerMethodField()
     time_end = serializers.SerializerMethodField()
-    real_time_start = DateTimeField()
-    real_time_end = DateTimeField()
+    real_time_start = serializers.SerializerMethodField()
+    real_time_end = serializers.SerializerMethodField()
 
     @staticmethod
     def get_vacancy(instance):
@@ -855,7 +858,7 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_user(instance):
-        return ConfirmedWorkerSerializer(instance=instance.user).data
+        return ConfirmedWorkerSerializer(instance=instance.applier).data
 
     @staticmethod
     def get_time_start(instance):
@@ -865,8 +868,16 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
     def get_time_end(instance):
         return instance.shift.time_end
 
+    @staticmethod
+    def get_real_time_start(instance):
+        return datetime_to_timestamp(instance.time_start)
+
+    @staticmethod
+    def get_real_time_end(instance):
+        return datetime_to_timestamp(instance.time_end)
+
     class Meta:
-        model = UserShift
+        model = ShiftAppeal
         fields = [
             'id',
             'status',
