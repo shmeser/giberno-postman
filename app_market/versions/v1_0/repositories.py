@@ -579,6 +579,7 @@ class UserShiftRepository(MasterRepository):
     def get_confirmed_workers_for_manager(self, current_date, pagination=None, order_by: list = None, filters={}):
         result = self.model.objects.filter(
             shift__shop__in=self.me.shops.all(),
+            status__in=[ShiftStatus.INITIAL.value, ShiftStatus.STARTED.value],
             real_time_start__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
             **filters
         ).select_related(
@@ -596,6 +597,7 @@ class UserShiftRepository(MasterRepository):
         # TODO проверить часовые пояса
         result = self.model.objects.filter(
             shift__shop__in=self.me.shops.all(),
+            status__in=[ShiftStatus.INITIAL.value, ShiftStatus.STARTED.value],
             real_time_start__gte=calendar_from,
             real_time_start__lte=calendar_to,
         ).select_related(
@@ -607,6 +609,7 @@ class UserShiftRepository(MasterRepository):
                                                       filters={}):
         result = self.model.objects.filter(
             shift__shop__in=self.me.shops.all(),
+            status__in=[ShiftStatus.INITIAL.value, ShiftStatus.STARTED.value],
             real_time_start__date=timestamp_to_datetime(int(current_date)).date() if current_date else None,
             **filters
         ).select_related(
@@ -1462,6 +1465,8 @@ class ShiftAppealsRepository(MasterRepository):
         if instance.status == ShiftAppealStatus.CONFIRMED.value:
             # Если подтвержденный отклик
             is_confirmed_appeal_canceled = True
+            # Ставим статус для user-shift - отменен TODO (пока completed), потом надо будет добавить CANCELED
+            # TODO сущность UserShift оказывается ненужной
 
         instance.status = ShiftAppealStatus.CANCELED.value
         if reason is not None and instance.cancel_reason is None:

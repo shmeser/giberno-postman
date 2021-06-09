@@ -40,8 +40,9 @@ class WorkExperience(IntEnumM):
 class ShiftStatus(IntEnumM):
     INITIAL = 0
     STARTED = 1
-    COMPLETED = 2
+    CANCELED = 2
     REJECTED = 3
+    COMPLETED = 4
 
 
 class ShiftAppealStatus(IntEnumM):
@@ -78,6 +79,8 @@ class SecurityPassRefuseReason(IntEnumM):
 
 class FireByManagerReason(IntEnumM):
     CUSTOM = 0  # Причина будет указана самостоятельно текстом
+    INCOMPETENT = 1  # Некомпетентен - не справляется с обязанностями
+    DRUNK = 2  # В состоянии алкогольного/наркотического опьянения
 
 
 class ShiftWorkTime(IntEnumM):

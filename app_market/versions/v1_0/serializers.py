@@ -778,16 +778,16 @@ class VacancyInUserShiftSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'timezone']
 
 
-class UserShiftSerializer(serializers.ModelSerializer):
-    vacancy = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_vacancy(instance):
-        return VacancyInUserShiftSerializer(instance=instance.shift.vacancy).data
-
-    class Meta:
-        model = UserShift
-        exclude = ['created_at', 'updated_at', 'deleted']
+# class UserShiftSerializer(serializers.ModelSerializer):
+#     vacancy = serializers.SerializerMethodField()
+#
+#     @staticmethod
+#     def get_vacancy(instance):
+#         return VacancyInUserShiftSerializer(instance=instance.shift.vacancy).data
+#
+#     class Meta:
+#         model = UserShift
+#         exclude = ['created_at', 'updated_at', 'deleted']
 
 
 class VacancyInConfirmedWorkerSerializer(serializers.ModelSerializer):

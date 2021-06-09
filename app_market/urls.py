@@ -52,8 +52,8 @@ urlpatterns = [
     path('market/shifts/<int:record_id>/documents', GetDocumentsForShift.as_view()),
 
     # Смены пользователя
-    path('market/user_shifts', UserShiftsListAPIView.as_view()),
-    path('market/user_shifts/<int:record_id>', UserShiftsRetrieveAPIView.as_view()),
+    # path('market/user_shifts', UserShiftsListAPIView.as_view()),
+    # path('market/user_shifts/<int:record_id>', UserShiftsRetrieveAPIView.as_view()),
 
     # Geolocation
     path('market/location', work_location),
