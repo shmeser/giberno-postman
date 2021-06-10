@@ -20,7 +20,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer, \
     ConfirmedWorkerProfessionsSerializer, ConfirmedWorkerDatesSerializer, ConfirmedWorkerSerializer, \
     ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer, \
-    ProlongByManagerReasonSerializer
+    ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -327,8 +327,10 @@ class ShiftAppealComplete(CRUDAPIView):
 
     def post(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        self.repository_class(me=request.user).complete_appeal(record_id=record_id)
-        return Response(None, status=status.HTTP_200_OK)
+        serializer = ShiftAppealCompleteSerializer(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            self.repository_class(me=request.user).complete_appeal(record_id=record_id, **serializer.validated_data)
+            return Response(None, status=status.HTTP_200_OK)
 
 
 class ActiveVacanciesWithAppliersByDateForManagerListAPIView(CRUDAPIView):
@@ -1224,13 +1226,14 @@ class RefusePassByManagerAPIView(APIView):
 class ShiftAppealCompleteByManager(APIView):
     repository_class = ShiftAppealsRepository
 
-    serializer_class = QRCodeSerializer
+    serializer_class = QRCodeCompleteSerializer
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             self.repository_class(me=request.user).complete_appeal_by_manager(
-                qr_text=serializer.validated_data.get('qr_text')
+                qr_text=serializer.validated_data.get('qr_text'),
+                **serializer.validated_data
             )
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 

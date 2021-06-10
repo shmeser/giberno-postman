@@ -9,7 +9,8 @@ from django.utils.timezone import localtime
 from pytz import timezone
 from rest_framework import serializers
 
-from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, FireByManagerReason
+from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
+    FireByManagerReason, AppealCompleteReason
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category, ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
@@ -894,6 +895,17 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
 
 class QRCodeSerializer(serializers.Serializer):
     qr_text = serializers.CharField()
+
+
+class QRCodeCompleteSerializer(serializers.Serializer):
+    qr_text = serializers.CharField()
+    reason = serializers.ChoiceField(choices=choices(AppealCompleteReason), allow_null=True)
+    text = serializers.CharField(allow_null=True)
+
+
+class ShiftAppealCompleteSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=choices(AppealCompleteReason), allow_null=True)
+    text = serializers.CharField(allow_null=True)
 
 
 class ManagerAppealCancelReasonSerializer(serializers.Serializer):

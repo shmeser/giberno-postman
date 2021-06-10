@@ -11,7 +11,7 @@ from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
     ShiftStatus, ShiftAppealStatus, AppealCancelReason, ManagerAppealCancelReason, JobStatus, SecurityPassRefuseReason, \
-    FireByManagerReason, ManagerAppealRefuseReason
+    FireByManagerReason, ManagerAppealRefuseReason, AppealCompleteReason
 from app_media.models import MediaModel
 from app_users.enums import REQUIRED_DOCS_FOR_CHOICES
 from app_users.models import UserProfile
@@ -226,6 +226,11 @@ class ShiftAppeal(BaseModel):
     cancel_reason = models.PositiveIntegerField(
         null=True, blank=True, choices=choices(AppealCancelReason), verbose_name='Причина отмены самозанятым')
     reason_text = models.CharField(max_length=255, null=True, blank=True, verbose_name='Текст причины отмены')
+
+    complete_reason = models.PositiveIntegerField(null=True, blank=True, choices=choices(AppealCompleteReason),
+                                                  verbose_name='Причина завершения смены')
+    complete_reason_text = models.CharField(max_length=255, null=True, blank=True,
+                                            verbose_name='Текст причины завершения')
 
     manager_cancel_reason = models.PositiveIntegerField(
         null=True, blank=True, choices=choices(ManagerAppealCancelReason), verbose_name='Причина отмены менеджером')

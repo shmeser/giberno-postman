@@ -76,6 +76,11 @@ class ManagerAppealRefuseReason(IntEnumM):
     UNABLE_TO_WORK = 2  # Не готов к работе
 
 
+class AppealCompleteReason(IntEnumM):
+    WORK_IS_DONE = 1  # Работа выполнена
+    HEALTH_PROBLEM = 2  # Плохое самочувствие
+
+
 class SecurityPassRefuseReason(IntEnumM):
     CUSTOM = 0  # Причина будет указана самостоятельно текстом
     NO_PASSPORT = 3  # Нет паспорта
