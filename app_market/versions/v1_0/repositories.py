@@ -1632,7 +1632,10 @@ class ShiftAppealsRepository(MasterRepository):
             appeal.job_status = JobStatus.JOB_IN_PROCESS.value
             appeal.qr_text = None
             appeal.save()
-            # TODO может нужно отправлять пользователю уведомление об изменении job_status
+            sockets = appeal.applier.aggregate(
+                sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+            )['sockets']
+            return appeal, sockets
         else:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
@@ -1645,7 +1648,10 @@ class ShiftAppealsRepository(MasterRepository):
             appeal.security_pass_refuse_reason = validated_data.get('reason')
             appeal.security_pass_refuse_reason_text = validated_data.get('text')
             appeal.save()
-            # TODO отправлять пользователю уведомление
+            sockets = appeal.applier.aggregate(
+                sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+            )['sockets']
+            return appeal, sockets
         else:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
@@ -1661,7 +1667,10 @@ class ShiftAppealsRepository(MasterRepository):
             appeal.refuse_reason_text = validated_data.get('text')
             appeal.qr_text = None
             appeal.save()
-            # TODO может нужно отправлять пользователю уведомление об изменении job_status
+            sockets = appeal.applier.aggregate(
+                sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+            )['sockets']
+            return appeal, sockets
         else:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
@@ -1709,14 +1718,19 @@ class ShiftAppealsRepository(MasterRepository):
             raise PermissionDenied()
 
         self.set_completed_status(appeal=appeal, **data)
-        # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
+        sockets = appeal.applier.aggregate(
+            sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+        )['sockets']
+        return appeal, sockets
 
     def complete_appeal_by_manager(self, qr_text, **data):
         appeal = self.get_by_qr_text(qr_text=qr_text)
         self.is_related_manager(instance=appeal)
         self.set_completed_status(appeal=appeal, **data)
-
-        # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
+        sockets = appeal.applier.aggregate(
+            sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+        )['sockets']
+        return appeal, sockets
 
     def fire_by_manager(self, record_id, validated_data):
         # Сценарий когда менеджер увольняет кого-то
@@ -1726,7 +1740,10 @@ class ShiftAppealsRepository(MasterRepository):
         appeal.manager_fire_reason = validated_data.get('reason')
         appeal.fire_reason_text = validated_data.get('text')
         appeal.save()
-        # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
+        sockets = appeal.applier.aggregate(
+            sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+        )['sockets']
+        return appeal, sockets
 
     def prolong_by_manager(self, record_id, validated_data):
         # Сценарий когда менеджер увольняет кого-то
@@ -1735,8 +1752,10 @@ class ShiftAppealsRepository(MasterRepository):
         self.cancel_appeal(appeal=appeal)
         appeal.time_end = appeal.time_end + timedelta(hours=validated_data.get('hours'))
         appeal.save()
-
-        # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
+        sockets = appeal.applier.aggregate(
+            sockets=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+        )['sockets']
+        return appeal, sockets
 
     @staticmethod
     def prefetch_users(queryset):
