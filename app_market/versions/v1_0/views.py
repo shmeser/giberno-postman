@@ -329,7 +329,16 @@ class ShiftAppealComplete(CRUDAPIView):
         record_id = kwargs.get(self.urlpattern_record_id_name)
         serializer = ShiftAppealCompleteSerializer(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            self.repository_class(me=request.user).complete_appeal(record_id=record_id, **serializer.validated_data)
+            appeal, sockets = self.repository_class(me=request.user).complete_appeal(
+                record_id=record_id, **serializer.validated_data
+            )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
             return Response(None, status=status.HTTP_200_OK)
 
 
@@ -1194,10 +1203,17 @@ class RefusePassBySecurityAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            self.repository_class(me=request.user).refuse_pass_by_security(
+            appeal, sockets = self.repository_class(me=request.user).refuse_pass_by_security(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1205,7 +1221,14 @@ class AllowPassByManagerAPIView(APIView):
     repository_class = ShiftAppealsRepository
 
     def post(self, request, *args, **kwargs):
-        self.repository_class(me=request.user).allow_pass_by_manager(record_id=kwargs.get('record_id'))
+        appeal, sockets = self.repository_class(me=request.user).allow_pass_by_manager(record_id=kwargs.get('record_id'))
+        SocketController().send_message_to_many_connections(sockets, {
+            'type': 'appeal_job_status_updated',
+            'prepared_data': {
+                'id': appeal.id,
+                'jobStatus': appeal.job_status,
+            }
+        })
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1216,10 +1239,17 @@ class RefusePassByManagerAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            self.repository_class(me=request.user).refuse_pass_by_manager(
+            appeal, sockets = self.repository_class(me=request.user).refuse_pass_by_manager(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1231,10 +1261,17 @@ class ShiftAppealCompleteByManager(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            self.repository_class(me=request.user).complete_appeal_by_manager(
+            appeal, sockets = self.repository_class(me=request.user).complete_appeal_by_manager(
                 qr_text=serializer.validated_data.get('qr_text'),
                 **serializer.validated_data
             )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1245,10 +1282,17 @@ class FireByManagerAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            self.repository_class(me=request.user).fire_by_manager(
+            appeal, sockets = self.repository_class(me=request.user).fire_by_manager(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1259,10 +1303,17 @@ class ProlongByManager(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            self.repository_class(me=request.user).prolong_by_manager(
+            appeal, sockets = self.repository_class(me=request.user).prolong_by_manager(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
