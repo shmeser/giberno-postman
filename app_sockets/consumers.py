@@ -239,7 +239,7 @@ class Consumer(AsyncJsonWebsocketConsumer):
             },
         )
 
-    # Состояние чата изменилось - менеджер подсоединился или завершил консультацию
+    # Статус отклика изменился
     async def appeal_status_updated(self, data):
         logger.info({
             'eventType': SocketEventType.SERVER_APPEAL_STATUS_UPDATED.value,
@@ -252,7 +252,20 @@ class Consumer(AsyncJsonWebsocketConsumer):
             },
         )
 
-    # Состояние чата изменилось - менеджер подсоединился или завершил консультацию
+    # Статус работы в отклике изменился
+    async def appeal_job_status_updated(self, data):
+        logger.info({
+            'eventType': SocketEventType.SERVER_APPEAL_JOB_STATUS_UPDATED.value,
+            'appeal': data.get('prepared_data')
+        })
+        await self.send_json(
+            {
+                'eventType': SocketEventType.SERVER_APPEAL_JOB_STATUS_UPDATED.value,
+                'appeal': data.get('prepared_data')
+            },
+        )
+
+    # Тема предложенная ботом в чате принята от пользователя
     async def chat_bot_intent_accepted(self, data):
         logger.info({
             'eventType': SocketEventType.SERVER_CHAT_BOT_INTENT_ACCEPTED.value,

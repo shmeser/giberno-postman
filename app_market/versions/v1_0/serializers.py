@@ -9,7 +9,8 @@ from django.utils.timezone import localtime
 from pytz import timezone
 from rest_framework import serializers
 
-from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, FireByManagerReason
+from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
+    FireByManagerReason, AppealCompleteReason
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category, ShiftAppeal
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
@@ -448,6 +449,7 @@ class VacancyInShiftSerializer(VacanciesSerializer):
             'id',
             'title',
             'price',
+            'radius',
             'utc_offset',
             'shop',
         ]
@@ -616,7 +618,8 @@ class ShiftAppealsSerializer(CRUDSerializer):
 
     class Meta:
         model = ShiftAppeal
-        fields = ['id', 'status', 'shift_active_date', 'time_start', 'time_end', 'created_at', 'shift', 'vacancy']
+        fields = [
+            'id', 'status', 'shift_active_date', 'time_start', 'time_end', 'created_at', 'shift', 'vacancy']
 
 
 class ShiftsWithAppealsSerializer(CRUDSerializer):
@@ -772,22 +775,22 @@ class SkillSerializer(CRUDSerializer):
         ]
 
 
-class VacancyInUserShiftSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Vacancy
-        fields = ['id', 'title', 'timezone']
+# class VacancyInUserShiftSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Vacancy
+#         fields = ['id', 'title', 'timezone']
 
 
-class UserShiftSerializer(serializers.ModelSerializer):
-    vacancy = serializers.SerializerMethodField()
-
-    @staticmethod
-    def get_vacancy(instance):
-        return VacancyInUserShiftSerializer(instance=instance.shift.vacancy).data
-
-    class Meta:
-        model = UserShift
-        exclude = ['created_at', 'updated_at', 'deleted']
+# class UserShiftSerializer(serializers.ModelSerializer):
+#     vacancy = serializers.SerializerMethodField()
+#
+#     @staticmethod
+#     def get_vacancy(instance):
+#         return VacancyInUserShiftSerializer(instance=instance.shift.vacancy).data
+#
+#     class Meta:
+#         model = UserShift
+#         exclude = ['created_at', 'updated_at', 'deleted']
 
 
 class VacancyInConfirmedWorkerSerializer(serializers.ModelSerializer):
@@ -814,14 +817,17 @@ class ConfirmedWorkerProfessionsSerializer(serializers.ModelSerializer):
 
 
 class ConfirmedWorkerDatesSerializer(serializers.ModelSerializer):
-    real_time_start = DateTimeField()
+    real_time_start = serializers.SerializerMethodField()
     utc_offset = serializers.SerializerMethodField()
+
+    def get_real_time_start(self, instance):
+        return datetime_to_timestamp(instance.time_start)
 
     def get_utc_offset(self, instance):
         return pytz.timezone(instance.shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
 
     class Meta:
-        model = UserShift
+        model = ShiftAppeal
         fields = ['real_time_start', 'utc_offset']
 
 
@@ -846,8 +852,8 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
     time_start = serializers.SerializerMethodField()
     time_end = serializers.SerializerMethodField()
-    real_time_start = DateTimeField()
-    real_time_end = DateTimeField()
+    real_time_start = serializers.SerializerMethodField()
+    real_time_end = serializers.SerializerMethodField()
 
     @staticmethod
     def get_vacancy(instance):
@@ -855,7 +861,7 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_user(instance):
-        return ConfirmedWorkerSerializer(instance=instance.user).data
+        return ConfirmedWorkerSerializer(instance=instance.applier).data
 
     @staticmethod
     def get_time_start(instance):
@@ -865,8 +871,16 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
     def get_time_end(instance):
         return instance.shift.time_end
 
+    @staticmethod
+    def get_real_time_start(instance):
+        return datetime_to_timestamp(instance.time_start)
+
+    @staticmethod
+    def get_real_time_end(instance):
+        return datetime_to_timestamp(instance.time_end)
+
     class Meta:
-        model = UserShift
+        model = ShiftAppeal
         fields = [
             'id',
             'status',
@@ -881,6 +895,17 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
 
 class QRCodeSerializer(serializers.Serializer):
     qr_text = serializers.CharField()
+
+
+class QRCodeCompleteSerializer(serializers.Serializer):
+    qr_text = serializers.CharField()
+    reason = serializers.ChoiceField(choices=choices(AppealCompleteReason), allow_null=True)
+    text = serializers.CharField(allow_null=True)
+
+
+class ShiftAppealCompleteSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=choices(AppealCompleteReason), allow_null=True)
+    text = serializers.CharField(allow_null=True)
 
 
 class ManagerAppealCancelReasonSerializer(serializers.Serializer):

@@ -1,6 +1,6 @@
 from django.contrib.gis import admin
 
-from app_market.models import Distributor, Shop, Vacancy, Shift, UserShift, Order, Transaction, Coupon, Profession, \
+from app_market.models import Distributor, Shop, Vacancy, Shift, Order, Transaction, Coupon, Profession, \
     UserProfession, DistributorCategory, Category, ShiftAppeal
 from backend.mixins import FormattedAdmin
 
@@ -43,13 +43,6 @@ class ShiftAdmin(FormattedAdmin):
         'time_start', 'time_end', 'date_start', 'date_end', 'frequency'
     ]
     raw_id_fields = ['vacancy', 'shop']
-
-
-@admin.register(UserShift)
-class UserShiftAdmin(FormattedAdmin):
-    list_display = ['id', 'real_time_start', 'real_time_end', 'qr_data', 'qr_code_gen_at']
-    list_filter = ["status"]
-    raw_id_fields = ['user', 'shift']
 
 
 @admin.register(Coupon)

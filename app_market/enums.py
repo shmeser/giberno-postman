@@ -40,8 +40,9 @@ class WorkExperience(IntEnumM):
 class ShiftStatus(IntEnumM):
     INITIAL = 0
     STARTED = 1
-    COMPLETED = 2
+    CANCELED = 2
     REJECTED = 3
+    COMPLETED = 4
 
 
 class ShiftAppealStatus(IntEnumM):
@@ -70,6 +71,16 @@ class ManagerAppealCancelReason(IntEnumM):
     NO_DRIVER_LICENCE = 8  # Нет водительского удостоверения
 
 
+class ManagerAppealRefuseReason(IntEnumM):
+    WRONG_DOCUMENTS = 1  # Неверные документы
+    UNABLE_TO_WORK = 2  # Не готов к работе
+
+
+class AppealCompleteReason(IntEnumM):
+    WORK_IS_DONE = 1  # Работа выполнена
+    HEALTH_PROBLEM = 2  # Плохое самочувствие
+
+
 class SecurityPassRefuseReason(IntEnumM):
     CUSTOM = 0  # Причина будет указана самостоятельно текстом
     NO_PASSPORT = 3  # Нет паспорта
@@ -78,6 +89,8 @@ class SecurityPassRefuseReason(IntEnumM):
 
 class FireByManagerReason(IntEnumM):
     CUSTOM = 0  # Причина будет указана самостоятельно текстом
+    INCOMPETENT = 1  # Некомпетентен - не справляется с обязанностями
+    DRUNK = 2  # В состоянии алкогольного/наркотического опьянения
 
 
 class ShiftWorkTime(IntEnumM):

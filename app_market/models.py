@@ -11,7 +11,7 @@ from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
     ShiftStatus, ShiftAppealStatus, AppealCancelReason, ManagerAppealCancelReason, JobStatus, SecurityPassRefuseReason, \
-    FireByManagerReason
+    FireByManagerReason, ManagerAppealRefuseReason, AppealCompleteReason
 from app_media.models import MediaModel
 from app_users.enums import REQUIRED_DOCS_FOR_CHOICES
 from app_users.models import UserProfile
@@ -227,15 +227,26 @@ class ShiftAppeal(BaseModel):
         null=True, blank=True, choices=choices(AppealCancelReason), verbose_name='Причина отмены самозанятым')
     reason_text = models.CharField(max_length=255, null=True, blank=True, verbose_name='Текст причины отмены')
 
+    complete_reason = models.PositiveIntegerField(null=True, blank=True, choices=choices(AppealCompleteReason),
+                                                  verbose_name='Причина завершения смены')
+    complete_reason_text = models.CharField(max_length=255, null=True, blank=True,
+                                            verbose_name='Текст причины завершения')
+
     manager_cancel_reason = models.PositiveIntegerField(
         null=True, blank=True, choices=choices(ManagerAppealCancelReason), verbose_name='Причина отмены менеджером')
-    manager_reason_text = models.CharField(max_length=255, null=True, blank=True, verbose_name='Текст причины')
+    cancel_reason_text = models.CharField(max_length=255, null=True, blank=True, verbose_name='Текст причины')
 
-    fire_reason = models.PositiveIntegerField(
+    manager_fire_reason = models.PositiveIntegerField(
         null=True, blank=True, choices=choices(FireByManagerReason), verbose_name='Причина увольнения менеджером')
 
     fire_reason_text = models.CharField(max_length=255, null=True, blank=True,
                                         verbose_name='Текст причины увольнения менеджером')
+
+    manager_refuse_reason = models.PositiveIntegerField(
+        null=True, blank=True, choices=choices(ManagerAppealRefuseReason), verbose_name='Причина отклонения отклика')
+
+    refuse_reason_text = models.CharField(max_length=255, null=True, blank=True,
+                                          verbose_name='Текст причины отклонения отклика')
 
     # сделано отдельными полями (а не берется из смены) чтоб иметь возможность вычисления верного временного
     # диапазона, когда рабочая смена начинается в один день, а заканчивается в другой

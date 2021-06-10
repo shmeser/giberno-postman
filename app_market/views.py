@@ -1,5 +1,4 @@
 from rest_framework.decorators import api_view
-from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
@@ -196,31 +195,31 @@ class Shifts(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
-class UserShiftsListAPIView(BaseAPIView):
-    """
-    Возвращает список смен пользователя
-    можно фильтровать по статусу смены.
-    """
-    permission_classes = [IsAuthenticated, IsSelfEmployed]
-
-    @staticmethod
-    def get(request, **kwargs):
-        if request.version in ['market_1_0']:
-            return v1_0.UserShiftsListAPIView().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
-
-
-class UserShiftsRetrieveAPIView(BaseAPIView):
-    """
-    получение смены пользователя по id
-    """
-    permission_classes = [IsAuthenticated, IsSelfEmployed]
-
-    @staticmethod
-    def get(request, **kwargs):
-        if request.version in ['market_1_0']:
-            return v1_0.UserShiftsRetrieveAPIView().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+# class UserShiftsListAPIView(BaseAPIView):
+#     """
+#     Возвращает список смен пользователя
+#     можно фильтровать по статусу смены.
+#     """
+#     permission_classes = [IsAuthenticated, IsSelfEmployed]
+#
+#     @staticmethod
+#     def get(request, **kwargs):
+#         if request.version in ['market_1_0']:
+#             return v1_0.UserShiftsListAPIView().get(request, **kwargs)
+#         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+#
+#
+# class UserShiftsRetrieveAPIView(BaseAPIView):
+#     """
+#     получение смены пользователя по id
+#     """
+#     permission_classes = [IsAuthenticated, IsSelfEmployed]
+#
+#     @staticmethod
+#     def get(request, **kwargs):
+#         if request.version in ['market_1_0']:
+#             return v1_0.UserShiftsRetrieveAPIView().get(request, **kwargs)
+#         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class GetDocumentsForShift(APIView):

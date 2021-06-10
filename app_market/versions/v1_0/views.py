@@ -12,15 +12,15 @@ from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewM
     POSTReviewByManagerSerializer
 from app_market.enums import AppealCancelReason, ShiftAppealStatus
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShopsRepository, ShiftsRepository, UserShiftRepository, ShiftAppealsRepository, \
+    DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
     MarketDocumentsRepository
-from app_market.versions.v1_0.serializers import QRCodeSerializer, UserShiftSerializer, VacanciesClusterSerializer, \
+from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
     ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer, \
     ConfirmedWorkerProfessionsSerializer, ConfirmedWorkerDatesSerializer, ConfirmedWorkerSerializer, \
     ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer, \
-    ProlongByManagerReasonSerializer
+    ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -327,8 +327,19 @@ class ShiftAppealComplete(CRUDAPIView):
 
     def post(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        self.repository_class(me=request.user).complete_appeal(record_id=record_id)
-        return Response(None, status=status.HTTP_200_OK)
+        serializer = ShiftAppealCompleteSerializer(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            appeal, sockets = self.repository_class(me=request.user).complete_appeal(
+                record_id=record_id, **serializer.validated_data
+            )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
+            return Response(None, status=status.HTTP_200_OK)
 
 
 class ActiveVacanciesWithAppliersByDateForManagerListAPIView(CRUDAPIView):
@@ -447,8 +458,10 @@ class VacancyShiftsWithAppealsListForManagerAPIView(CRUDAPIView):
         current_date, next_day = RequestMapper(self).current_date_range(request)
         filters = RequestMapper(self).filters(request) or dict()
 
+        vacancy_id = kwargs.get('record_id') or request.query_params.get('vacancy')
+
         dataset = self.repository_class(me=request.user).vacancy_shifts_with_appeals_queryset(
-            record_id=kwargs.get('record_id'),
+            record_id=vacancy_id,
             pagination=pagination,
             current_date=current_date,
             next_day=next_day
@@ -547,64 +560,64 @@ class Shifts(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class UserShiftsListAPIView(CRUDAPIView):
-    serializer_class = UserShiftSerializer
-    repository_class = UserShiftRepository
-    allowed_http_methods = ['get']
-
-    filter_params = {
-        'status': 'status'
-    }
-
-    bool_filter_params = {
-
-    }
-
-    array_filter_params = {
-    }
-
-    default_order_params = [
-        '-created_at'
-    ]
-
-    default_filters = {}
-
-    order_params = {
-        'id': 'id'
-    }
-
-    def get(self, request, **kwargs):
-        filters = RequestMapper(self).filters(request) or dict()
-        filters.update({'user': request.user})
-        pagination = RequestMapper.pagination(request)
-        order_params = RequestMapper(self).order(request)
-
-        dataset = self.repository_class().filter_by_kwargs(
-            kwargs=filters, order_by=order_params, paginator=pagination
-        )
-
-        serialized = self.serializer_class(dataset, many=True, context={
-            'me': request.user,
-            'headers': get_request_headers(request),
-        })
-
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
-
-
-class UserShiftsRetrieveAPIView(CRUDAPIView):
-    serializer_class = UserShiftSerializer
-    repository_class = UserShiftRepository
-    allowed_http_methods = ['get']
-
-    def get(self, request, **kwargs):
-        user_shift = self.repository_class().get_by_id(kwargs.get('record_id'))
-
-        serialized = self.serializer_class(user_shift, many=False, context={
-            'me': request.user,
-            'headers': get_request_headers(request),
-        })
-
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+# class UserShiftsListAPIView(CRUDAPIView):
+#     serializer_class = UserShiftSerializer
+#     repository_class = UserShiftRepository
+#     allowed_http_methods = ['get']
+#
+#     filter_params = {
+#         'status': 'status'
+#     }
+#
+#     bool_filter_params = {
+#
+#     }
+#
+#     array_filter_params = {
+#     }
+#
+#     default_order_params = [
+#         '-created_at'
+#     ]
+#
+#     default_filters = {}
+#
+#     order_params = {
+#         'id': 'id'
+#     }
+#
+#     def get(self, request, **kwargs):
+#         filters = RequestMapper(self).filters(request) or dict()
+#         filters.update({'user': request.user})
+#         pagination = RequestMapper.pagination(request)
+#         order_params = RequestMapper(self).order(request)
+#
+#         dataset = self.repository_class().filter_by_kwargs(
+#             kwargs=filters, order_by=order_params, paginator=pagination
+#         )
+#
+#         serialized = self.serializer_class(dataset, many=True, context={
+#             'me': request.user,
+#             'headers': get_request_headers(request),
+#         })
+#
+#         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+#
+#
+# class UserShiftsRetrieveAPIView(CRUDAPIView):
+#     serializer_class = UserShiftSerializer
+#     repository_class = UserShiftRepository
+#     allowed_http_methods = ['get']
+#
+#     def get(self, request, **kwargs):
+#         user_shift = self.repository_class().get_by_id(kwargs.get('record_id'))
+#
+#         serialized = self.serializer_class(user_shift, many=False, context={
+#             'me': request.user,
+#             'headers': get_request_headers(request),
+#         })
+#
+#         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class VacanciesStats(Vacancies):
@@ -1042,7 +1055,7 @@ class ShiftAppealsForManagers(CRUDAPIView):
 
 class ConfirmedWorkers(CRUDAPIView):
     allowed_http_methods = ['get']
-    repository_class = UserShiftRepository
+    repository_class = ShiftAppealsRepository
     serializer_class = ConfirmedWorkersShiftsSerializer
     order_params = {
         'time_start': 'shift__time_start'
@@ -1081,7 +1094,7 @@ class ConfirmedWorkers(CRUDAPIView):
 
 class ConfirmedWorkersProfessions(CRUDAPIView):
     allowed_http_methods = ['get']
-    repository_class = UserShiftRepository
+    repository_class = ShiftAppealsRepository
     serializer_class = ConfirmedWorkerProfessionsSerializer
     order_params = {
         'id': 'shift__vacancy__profession_id',
@@ -1110,7 +1123,7 @@ class ConfirmedWorkersProfessions(CRUDAPIView):
 
 class ConfirmedWorkersDates(CRUDAPIView):
     allowed_http_methods = ['get']
-    repository_class = UserShiftRepository
+    repository_class = ShiftAppealsRepository
     serializer_class = ConfirmedWorkerDatesSerializer
 
     def get(self, request, *args, **kwargs):
@@ -1190,10 +1203,17 @@ class RefusePassBySecurityAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            self.repository_class(me=request.user).refuse_pass_by_security(
+            appeal, sockets = self.repository_class(me=request.user).refuse_pass_by_security(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1201,7 +1221,14 @@ class AllowPassByManagerAPIView(APIView):
     repository_class = ShiftAppealsRepository
 
     def post(self, request, *args, **kwargs):
-        self.repository_class(me=request.user).allow_pass_by_manager(record_id=kwargs.get('record_id'))
+        appeal, sockets = self.repository_class(me=request.user).allow_pass_by_manager(record_id=kwargs.get('record_id'))
+        SocketController().send_message_to_many_connections(sockets, {
+            'type': 'appeal_job_status_updated',
+            'prepared_data': {
+                'id': appeal.id,
+                'jobStatus': appeal.job_status,
+            }
+        })
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1212,24 +1239,39 @@ class RefusePassByManagerAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            self.repository_class(me=request.user).refuse_pass_by_manager(
+            appeal, sockets = self.repository_class(me=request.user).refuse_pass_by_manager(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 class ShiftAppealCompleteByManager(APIView):
     repository_class = ShiftAppealsRepository
 
-    serializer_class = QRCodeSerializer
+    serializer_class = QRCodeCompleteSerializer
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            self.repository_class(me=request.user).complete_appeal_by_manager(
-                qr_text=serializer.validated_data.get('qr_text')
+            appeal, sockets = self.repository_class(me=request.user).complete_appeal_by_manager(
+                qr_text=serializer.validated_data.get('qr_text'),
+                **serializer.validated_data
             )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1240,10 +1282,17 @@ class FireByManagerAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            self.repository_class(me=request.user).fire_by_manager(
+            appeal, sockets = self.repository_class(me=request.user).fire_by_manager(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1254,10 +1303,17 @@ class ProlongByManager(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            self.repository_class(me=request.user).prolong_by_manager(
+            appeal, sockets = self.repository_class(me=request.user).prolong_by_manager(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
+            SocketController().send_message_to_many_connections(sockets, {
+                'type': 'appeal_job_status_updated',
+                'prepared_data': {
+                    'id': appeal.id,
+                    'jobStatus': appeal.job_status,
+                }
+            })
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
