@@ -1311,8 +1311,11 @@ class ShiftAppealsRepository(MasterRepository):
         appeal.status = ShiftAppealStatus.CANCELED.value
         appeal.save()
 
-    def set_completed_status(self, appeal):
+    def set_completed_status(self, appeal, **data):
         self.check_if_already_completed(appeal=appeal)
+
+        appeal.complete_reason = data.get('reason')
+        appeal.complete_reason_text = data.get('text')
 
         appeal.job_status = JobStatus.COMPLETED.value
         appeal.status = ShiftAppealStatus.COMPLETED.value
@@ -1696,7 +1699,7 @@ class ShiftAppealsRepository(MasterRepository):
                 ).earliest('time_start')
         return job_status, qr_text, qr_pass, leave_time, appeal
 
-    def complete_appeal(self, record_id):
+    def complete_appeal(self, record_id, **data):
         # Сценарий 3: Самозанятый во время смены просит его отпустить пораньше
         # (для любых случаев, когда самозанятого отпускают и оплатят часть денег)
         # В данном случае самозанятый не обязан сканировать QR для завершения смены.
@@ -1705,13 +1708,13 @@ class ShiftAppealsRepository(MasterRepository):
         if self.me != appeal.applier:
             raise PermissionDenied()
 
-        self.set_completed_status(appeal=appeal)
+        self.set_completed_status(appeal=appeal, **data)
         # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
 
-    def complete_appeal_by_manager(self, qr_text):
+    def complete_appeal_by_manager(self, qr_text, **data):
         appeal = self.get_by_qr_text(qr_text=qr_text)
         self.is_related_manager(instance=appeal)
-        self.set_completed_status(appeal=appeal)
+        self.set_completed_status(appeal=appeal, **data)
 
         # TODO  уведомление об изменении job_status (может менеджеру, может и пользователю тоже)
 

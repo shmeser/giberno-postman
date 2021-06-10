@@ -101,20 +101,17 @@ managers_urls = [
     path('market/security/appeals/pass', CheckPassBySecurityAPIView.as_view()),
     path('market/security/appeals/<int:record_id>/pass/refuse', RefusePassBySecurityAPIView.as_view()),
 
-    # Управление откликами
-    # Перенесенные урлы
-    path('market/managers/appeals',
-         VacancyShiftsWithAppealsListForManagerAPIView.as_view()),
-    path('market/managers/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
-    path('market/managers/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
-
-    # ###
+    path('market/managers/appeals/pass', CheckPassByManagerAPIView.as_view()),
     path('market/managers/appeals/<int:record_id>/pass/allow', AllowPassByManagerAPIView.as_view()),
     path('market/managers/appeals/<int:record_id>/pass/refuse', RefusePassByManagerAPIView.as_view()),
-    path('market/managers/appeals/<int:record_id>/fire', FireByManagerAPIView.as_view()),
-    path('market/managers/appeals/<int:record_id>/prolong', ProlongByManager.as_view()),
-    path('market/managers/appeals/pass', CheckPassByManagerAPIView.as_view()),
+
+    # Управление откликами
+    path('market/managers/appeals', VacancyShiftsWithAppealsListForManagerAPIView.as_view()),
     path('market/managers/appeals/complete', ShiftAppealCompleteByManager.as_view()),
+    path('market/managers/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
+    path('market/managers/appeals/<int:record_id>/prolong', ProlongByManager.as_view()),
+    path('market/managers/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
+    path('market/managers/appeals/<int:record_id>/fire', FireByManagerAPIView.as_view()),
 
     # Список смен
     path('market/managers/shifts/<int:record_id>', ShiftForManagers.as_view()),
