@@ -448,6 +448,7 @@ class VacancyInShiftSerializer(VacanciesSerializer):
             'id',
             'title',
             'price',
+            'radius',
             'utc_offset',
             'shop',
         ]
@@ -616,7 +617,8 @@ class ShiftAppealsSerializer(CRUDSerializer):
 
     class Meta:
         model = ShiftAppeal
-        fields = ['id', 'status', 'shift_active_date', 'time_start', 'time_end', 'created_at', 'shift', 'vacancy']
+        fields = [
+            'id', 'status', 'shift_active_date', 'time_start', 'time_end', 'created_at', 'shift', 'vacancy']
 
 
 class ShiftsWithAppealsSerializer(CRUDSerializer):

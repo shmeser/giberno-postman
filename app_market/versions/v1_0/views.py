@@ -447,8 +447,10 @@ class VacancyShiftsWithAppealsListForManagerAPIView(CRUDAPIView):
         current_date, next_day = RequestMapper(self).current_date_range(request)
         filters = RequestMapper(self).filters(request) or dict()
 
+        vacancy_id = kwargs.get('record_id') or request.query_params.get('vacancy')
+
         dataset = self.repository_class(me=request.user).vacancy_shifts_with_appeals_queryset(
-            record_id=kwargs.get('record_id'),
+            record_id=vacancy_id,
             pagination=pagination,
             current_date=current_date,
             next_day=next_day

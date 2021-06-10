@@ -538,8 +538,8 @@ class ShiftsRepository(MasterRepository):
         is_within_radius = Vacancy.objects.annotate(  # Есть вакансия, где дистанция меньше, чем указанный в ней радиус
             distance=Distance('shop__location', point)
         ).filter(
-            id=shift.vacancy_id,
-            distance__lte=F('radius')
+            Q(id=shift.vacancy_id, radius__isnull=False, distance__lte=F('radius')) |
+            Q(id=shift.vacancy_id, radius__isnull=True)  # Защита от вакансий без радиуса, чтобы не сигналило постоянно
         ).exists()
 
         if is_appeal_confirmed_for_today and not is_within_radius:
@@ -1676,7 +1676,9 @@ class ShiftAppealsRepository(MasterRepository):
         )
 
         if confirmed_appeals.exists():
-            appeal_having_job_status = confirmed_appeals.filter(job_status__isnull=False).first()
+            appeal_having_job_status = confirmed_appeals.filter(job_status__isnull=False).select_related(
+                'shift', 'shift__vacancy', 'shift__vacancy__shop'
+            ).first()
             if appeal_having_job_status:
                 job_status = appeal_having_job_status.job_status
                 appeal = appeal_having_job_status
@@ -1689,7 +1691,9 @@ class ShiftAppealsRepository(MasterRepository):
                     qr_text = appeal_having_job_status.qr_text
             else:
                 job_status = JobStatusForClient.JOB_NOT_SOON.value
-                appeal = confirmed_appeals.earliest('time_start')
+                appeal = confirmed_appeals.select_related(
+                    'shift', 'shift__vacancy', 'shift__vacancy__shop'
+                ).earliest('time_start')
         return job_status, qr_text, qr_pass, leave_time, appeal
 
     def complete_appeal(self, record_id):
