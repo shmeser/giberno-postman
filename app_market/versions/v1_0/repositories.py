@@ -9,7 +9,6 @@ from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
-from django.db import transaction
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
 from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
@@ -24,7 +23,7 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
     JobStatus, JobStatusForClient
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument
-from app_market.utils import handle_date_for_appeals, QRHandler
+from app_market.utils import handle_date_for_appeals
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -307,10 +306,24 @@ class DatesArrayContains(CustomLookupBase):
 
 
 @Field.register_lookup
+class LTTimeTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'lttimetz'
+    parametric_string = "%s < %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
 class LTETimeTZ(CustomLookupBase):
     # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
     lookup_name = 'ltetimetz'
     parametric_string = "%s <= %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class GTETimeTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'gtetimetz'
+    parametric_string = "%s >= %s AT TIME ZONE timezone"
 
 
 @Field.register_lookup
@@ -1822,9 +1835,23 @@ class ShiftAppealsRepository(MasterRepository):
 
     def bulk_cancel(self):
         # закрытие неподтвержденных смен, у которых уже прошло время начала
-        queryset = self.model.objects.filter(status=ShiftAppealStatus.INITIAL.value, time_start__lte=now())
-        queryset.update(status=ShiftAppealStatus.CANCELED.value)
-        # TODO уведомления
+        appeals = self.model.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            status=ShiftAppealStatus.INITIAL.value,
+            time_start__ltetimetz=now()  # сравнивается время вакансии в ее часовом поясе
+        ).prefetch_related(
+            Prefetch(
+                'applier',
+                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                )
+            )
+        )
+
+        appeals.update(status=ShiftAppealStatus.CANCELED.value)
+        # Нужны заявители, которым отправлять данные по сокетам и по пушам
+        return appeals
 
     def bulk_cancel_with_job_soon_status(self):
         # Сценарий 1: Смена началась, QR для начала смены не отсканирован.
@@ -1833,44 +1860,84 @@ class ShiftAppealsRepository(MasterRepository):
         # В таком случае, самозанятый замотивирован найти менеджера, чтобы отсканировать QR,
         # а менеджер уволить, если cамозанятый не явился.
         # Если оба оказываются безответственными, то отклик автоматически отменяется в конце смены.
-        with transaction.atomic():
-            queryset = self.model.objects.filter(
-                status=ShiftAppealStatus.CONFIRMED,
-                job_status=JobStatus.JOB_SOON.value,
-                qr_text__isnull=False
+        appeals = self.model.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            status=ShiftAppealStatus.CONFIRMED,
+            job_status=JobStatus.JOB_SOON.value,
+            qr_text__isnull=False,
+            time_end__ltetimetz=now()
+        ).prefetch_related(
+            Prefetch(
+                'applier',
+                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                )
             )
-            for appeal in queryset:
-                if appeal.time_end < now():
-                    appeal.status = ShiftAppealStatus.CANCELED.value
-                    appeal.qr_text = None
-                    appeal.save()
+        )
+
+        appeals.update(
+            status=ShiftAppealStatus.CANCELED.value,
+            qr_text=None
+        )
+        return appeals
 
     def bulk_set_job_soon_status(self):
-        with transaction.atomic():
-            upcoming_appeals = self.model.objects.filter(
-                status=ShiftAppealStatus.CONFIRMED,
-                job_status__isnull=True
-            )
-            soon = now() + timedelta(minutes=30)
-            for appeal in upcoming_appeals:
-                if now() < appeal.time_start < soon:
-                    appeal.job_status = JobStatus.JOB_SOON.value
-                    appeal.qr_text = QRHandler(appeal=appeal).create_qr_data()
-                    appeal.save()
+        soon = now() + timedelta(minutes=30)
 
-        # TODO уведомление - работа скоро
+        upcoming_appeals = self.model.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            status=ShiftAppealStatus.CONFIRMED,
+            job_status__isnull=True,
+            time_start__lttimetz=soon,
+            time_start__gttimetz=now(),
+        ).prefetch_related(
+            Prefetch(
+                'applier',
+                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                )
+            )
+        )
+
+        upcoming_appeals.update(
+            qr_text=ExpressionWrapper(
+                Concat(Value('userId='), F('applier_id'), Value('&appealId='), F('id')),
+                output_field=CharField()
+            ),
+            job_status=JobStatus.JOB_SOON.value
+        )
+
+        return upcoming_appeals
 
     def bulk_set_waiting_for_completion_status(self):
-        with transaction.atomic():
-            queryset = self.model.objects.filter(
-                status=ShiftAppealStatus.CONFIRMED,
-                job_status=JobStatus.JOB_IN_PROCESS.value
+        appeals = self.model.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            status=ShiftAppealStatus.CONFIRMED,
+            job_status=JobStatus.JOB_IN_PROCESS.value,
+            time_end__lttimetz=now()
+        ).prefetch_related(
+            Prefetch(
+                'applier',
+                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                )
             )
-            for appeal in queryset:
-                if appeal.time_end < now():
-                    appeal.job_status = JobStatus.WAITING_FOR_COMPLETION
-                    appeal.qr_text = QRHandler(appeal=appeal).create_qr_data()
-                    appeal.save()
+        )
+
+        appeals.update(
+            qr_text=ExpressionWrapper(
+                Concat(Value('userId='), F('applier_id'), Value('&appealId='), F('id')),
+                output_field=CharField()
+            ),
+            job_status=JobStatus.WAITING_FOR_COMPLETION.value
+        )
+
+        # TODO relevant managers
+
+        return appeals
 
         # TODO уведомление (скорее всего и менеджеру и пользователю)
 
@@ -1880,18 +1947,33 @@ class ShiftAppealsRepository(MasterRepository):
         # она автоматически переходит в статус Завершена и отрабатывается метод для выплаты денег.
         # Если по вине самозанятого, то у менеджера есть час, чтобы решить вопрос
         # (продлить смену или вернуть человека) или уволить.
-        with transaction.atomic():
-            appeals_to_complete = self.model.objects.filter(
-                status=ShiftAppealStatus.CONFIRMED,
-                job_status=JobStatus.WAITING_FOR_COMPLETION.value
+        interval = timedelta(hours=1)
+
+        appeals_to_complete = self.model.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            status=ShiftAppealStatus.CONFIRMED.value,
+            job_status=JobStatus.WAITING_FOR_COMPLETION.value,
+            time_end__gttimetz=now() - interval
+        ).prefetch_related(
+            Prefetch(
+                'applier',
+                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                )
             )
-            interval = timedelta(hours=1)
-            for appeal in appeals_to_complete:
-                if appeal.time_end + interval > now():
-                    appeal.job_status = JobStatus.COMPLETED.value
-                    appeal.status = ShiftAppealStatus.COMPLETED.value
-                    appeal.completed_real_time = now()
-                    appeal.save()
+        )
+
+        appeals_to_complete.update(
+            job_status=JobStatus.COMPLETED.value,
+            status=ShiftAppealStatus.COMPLETED.value,
+            completed_real_time=now()
+        )
+
+        # TODO relevant managers
+
+        return appeals_to_complete
+
         # TODO уведомление (скорее всего и менеджеру и пользователю)
 
     @staticmethod
