@@ -1961,6 +1961,14 @@ class ShiftAppealsRepository(MasterRepository):
                 queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
                     sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
                 )
+            ),
+            Prefetch(
+                # TODO учитывать настройки отпуска у менеджера
+                'shift__vacancy__shop__staff',
+                queryset=UserProfile.objects.filter(account_type=AccountType.MANAGER.value, deteled=False).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                ),
+                to_attr='relevant_managers'
             )
         )
 
@@ -1970,11 +1978,7 @@ class ShiftAppealsRepository(MasterRepository):
             completed_real_time=now()
         )
 
-        # TODO relevant managers
-
         return appeals_to_complete
-
-        # TODO уведомление (скорее всего и менеджеру и пользователю)
 
     @staticmethod
     def modify_order_for_confirmed_workers(order_by):
