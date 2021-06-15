@@ -60,9 +60,8 @@ def update_appeals():
         icon_type = NotificationIcon.DEFAULT.value
         title = _WAITING_COMPLETION_TITLE
         message = f'Смена по вакансии {a.shift.vacancy.title} ожидает завершения.'
-        send_notification_and_socket_event_on_appeal(
+        send_notification_and_socket_event_on_appeal_with_managers(
             appeal=a,
-            sockets=a.applier.sockets_array or [],
             title=title,
             message=message,
             icon_type=icon_type
@@ -74,13 +73,30 @@ def update_appeals():
         icon_type = NotificationIcon.DEFAULT.value
         title = _COMPLETED_APPEAL_TITLE
         message = f'Смена по вакансии {a.shift.vacancy.title} успешно завершена.'
-        send_notification_and_socket_event_on_appeal(
+        send_notification_and_socket_event_on_appeal_with_managers(
             appeal=a,
-            sockets=a.applier.sockets_array or [],
             title=title,
             message=message,
             icon_type=icon_type
         )
+
+
+def send_notification_and_socket_event_on_appeal_with_managers(appeal, title, message, icon_type):
+    users_to_send = []
+
+    applier_sockets = appeal.applier.sockets_array or []
+    managers_sockets = []
+
+    if appeal.shift.vacancy.shop.relevant_managers:
+        for m in appeal.shift.vacancy.shop.relevant_managers:
+            managers_sockets += m.sockets_array
+            users_to_send.append(m)
+
+    sockets = managers_sockets + applier_sockets  # Объединяем все сокеты
+    users_to_send.append(appeal.applier)  # Добавляем заявителя
+
+    send_notification_and_socket_event_on_appeal(appeal=appeal, sockets=sockets, title=title, message=message,
+                                                 icon_type=icon_type)
 
 
 def send_notification_and_socket_event_on_appeal(appeal, sockets, title, message, icon_type):
