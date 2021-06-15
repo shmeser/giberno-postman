@@ -87,8 +87,8 @@ def send_notification_and_socket_event_on_appeal_with_managers(appeal, title, me
     applier_sockets = appeal.applier.sockets_array or []
     managers_sockets = []
 
-    if appeal.relevant_managers:
-        for m in appeal.relevant_managers:
+    if appeal.shift.vacancy.shop.relevant_managers:
+        for m in appeal.shift.vacancy.shop.relevant_managers:
             managers_sockets += m.sockets_array
             users_to_send.append(m)
 

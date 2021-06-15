@@ -1948,6 +1948,14 @@ class ShiftAppealsRepository(MasterRepository):
                 queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
                     sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
                 )
+            ),
+            Prefetch(
+                # TODO учитывать настройки отпуска у менеджера
+                'shift__vacancy__shop__staff',
+                queryset=UserProfile.objects.filter(account_type=AccountType.MANAGER.value, deleted=False).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                ),
+                to_attr='relevant_managers'
             )
         )
 
