@@ -1835,11 +1835,21 @@ class ShiftAppealsRepository(MasterRepository):
 
     def bulk_cancel(self):
         # закрытие неподтвержденных смен, у которых уже прошло время начала
-        appeals = self.model.objects.annotate(
+
+        # Переводим в list ид откликов, чтобы они не перетерлись после .update()
+        appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
             status=ShiftAppealStatus.INITIAL.value,
             time_start__ltetimetz=now()  # сравнивается время вакансии в ее часовом поясе
+        ).values_list('id', flat=True))
+
+        self.model.objects.filter(
+            id__in=appeals_ids
+        ).update(status=ShiftAppealStatus.CANCELED.value)
+
+        appeals = self.model.objects.filter(
+            id__in=appeals_ids
         ).prefetch_related(
             Prefetch(
                 'applier',
@@ -1849,7 +1859,6 @@ class ShiftAppealsRepository(MasterRepository):
             )
         )
 
-        appeals.update(status=ShiftAppealStatus.CANCELED.value)
         # Нужны заявители, которым отправлять данные по сокетам и по пушам
         return appeals
 
@@ -1860,14 +1869,21 @@ class ShiftAppealsRepository(MasterRepository):
         # В таком случае, самозанятый замотивирован найти менеджера, чтобы отсканировать QR,
         # а менеджер уволить, если cамозанятый не явился.
         # Если оба оказываются безответственными, то отклик автоматически отменяется в конце смены.
-        appeals = self.model.objects.annotate(
+        appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
             status=ShiftAppealStatus.CONFIRMED,
             job_status=JobStatus.JOB_SOON.value,
             qr_text__isnull=False,
             time_end__ltetimetz=now()
-        ).prefetch_related(
+        ).values_list('id', flat=True))
+
+        self.model.objects.filter(id__in=appeals_ids).update(
+            status=ShiftAppealStatus.CANCELED.value,
+            qr_text=None
+        )
+
+        appeals = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
             Prefetch(
                 'applier',
                 queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
@@ -1876,32 +1892,21 @@ class ShiftAppealsRepository(MasterRepository):
             )
         )
 
-        appeals.update(
-            status=ShiftAppealStatus.CANCELED.value,
-            qr_text=None
-        )
         return appeals
 
     def bulk_set_job_soon_status(self):
         soon = now() + timedelta(minutes=30)
 
-        upcoming_appeals = self.model.objects.annotate(
+        appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
             status=ShiftAppealStatus.CONFIRMED,
             job_status__isnull=True,
             time_start__lttimetz=soon,
             time_start__gttimetz=now(),
-        ).prefetch_related(
-            Prefetch(
-                'applier',
-                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
-                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                )
-            )
-        )
+        ).values_list('id', flat=True))
 
-        upcoming_appeals.update(
+        self.model.objects.filter(id__in=appeals_ids).update(
             qr_text=ExpressionWrapper(
                 Concat(Value('userId='), F('applier_id'), Value('&appealId='), F('id')),
                 output_field=CharField()
@@ -1909,16 +1914,7 @@ class ShiftAppealsRepository(MasterRepository):
             job_status=JobStatus.JOB_SOON.value
         )
 
-        return upcoming_appeals
-
-    def bulk_set_waiting_for_completion_status(self):
-        appeals = self.model.objects.annotate(
-            timezone=F('shift__vacancy__timezone')
-        ).filter(
-            status=ShiftAppealStatus.CONFIRMED,
-            job_status=JobStatus.JOB_IN_PROCESS.value,
-            time_end__lttimetz=now()
-        ).prefetch_related(
+        upcoming_appeals = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
             Prefetch(
                 'applier',
                 queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
@@ -1927,12 +1923,32 @@ class ShiftAppealsRepository(MasterRepository):
             )
         )
 
-        appeals.update(
+        return upcoming_appeals
+
+    def bulk_set_waiting_for_completion_status(self):
+        appeals_ids = list(self.model.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            status=ShiftAppealStatus.CONFIRMED,
+            job_status=JobStatus.JOB_IN_PROCESS.value,
+            time_end__lttimetz=now()
+        ).values_list('id', flat=True))
+
+        self.model.objects.filter(id__in=appeals_ids).update(
             qr_text=ExpressionWrapper(
                 Concat(Value('userId='), F('applier_id'), Value('&appealId='), F('id')),
                 output_field=CharField()
             ),
             job_status=JobStatus.WAITING_FOR_COMPLETION.value
+        )
+
+        appeals = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
+            Prefetch(
+                'applier',
+                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                )
+            )
         )
 
         # TODO relevant managers
@@ -1949,13 +1965,21 @@ class ShiftAppealsRepository(MasterRepository):
         # (продлить смену или вернуть человека) или уволить.
         interval = timedelta(hours=1)
 
-        appeals_to_complete = self.model.objects.annotate(
+        appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
             status=ShiftAppealStatus.CONFIRMED.value,
             job_status=JobStatus.WAITING_FOR_COMPLETION.value,
             time_end__gttimetz=now() - interval
-        ).prefetch_related(
+        ).values_list('id', flat=True))
+
+        self.model.objects.filter(id__in=appeals_ids).update(
+            job_status=JobStatus.COMPLETED.value,
+            status=ShiftAppealStatus.COMPLETED.value,
+            completed_real_time=now()
+        )
+
+        appeals_to_complete = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
             Prefetch(
                 'applier',
                 queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
@@ -1970,12 +1994,6 @@ class ShiftAppealsRepository(MasterRepository):
                 ),
                 to_attr='relevant_managers'
             )
-        )
-
-        appeals_to_complete.update(
-            job_status=JobStatus.COMPLETED.value,
-            status=ShiftAppealStatus.COMPLETED.value,
-            completed_real_time=now()
         )
 
         return appeals_to_complete
