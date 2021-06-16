@@ -9,6 +9,12 @@ class POSTReviewSerializer(serializers.Serializer):
     value = serializers.FloatField(min_value=0.0, max_value=5.0)
 
 
+class POSTShopReviewSerializer(serializers.Serializer):
+    text = serializers.CharField()
+    value = serializers.FloatField(min_value=0.0, max_value=5.0)
+    shift = serializers.IntegerField(min_value=1)
+
+
 class POSTReviewByManagerSerializer(serializers.Serializer):
     text = serializers.CharField()
     value = serializers.FloatField(min_value=0.0, max_value=5.0)

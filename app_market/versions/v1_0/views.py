@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
-    POSTReviewByManagerSerializer
+    POSTReviewByManagerSerializer, POSTShopReviewSerializer
 from app_market.enums import AppealCancelReason, ShiftAppealStatus
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
@@ -711,7 +711,7 @@ class ReviewsBaseAPIView(BaseAPIView):
             'deleted': False
         }
         queryset = self.get_request_repository_class().filter_by_kwargs(kwargs=kwargs, paginator=pagination)
-        return Response(ReviewModelSerializer(instance=queryset, many=True).data)
+        return Response(camelize(ReviewModelSerializer(instance=queryset, many=True).data))
 
 
 class VacancyReviewsAPIView(ReviewsBaseAPIView):
@@ -721,9 +721,20 @@ class VacancyReviewsAPIView(ReviewsBaseAPIView):
 
 
 class ShopReviewsAPIView(ReviewsBaseAPIView):
-    serializer_class = POSTReviewSerializer
+    serializer_class = POSTShopReviewSerializer
     get_request_repository_class = ReviewsRepository
     post_request_repository_class = ShopsRepository
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            self.post_request_repository_class(me=request.user).make_review(
+                record_id=kwargs.get('record_id'),
+                text=serializer.validated_data['text'],
+                value=serializer.validated_data['value'],
+                shift=serializer.validated_data.get('shift')
+            )
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 class DistributorReviewsAPIView(ReviewsBaseAPIView):
@@ -1221,7 +1232,8 @@ class AllowPassByManagerAPIView(APIView):
     repository_class = ShiftAppealsRepository
 
     def post(self, request, *args, **kwargs):
-        appeal, sockets = self.repository_class(me=request.user).allow_pass_by_manager(record_id=kwargs.get('record_id'))
+        appeal, sockets = self.repository_class(me=request.user).allow_pass_by_manager(
+            record_id=kwargs.get('record_id'))
         SocketController().send_message_to_many_connections(sockets, {
             'type': 'appeal_job_status_updated',
             'prepared_data': {
