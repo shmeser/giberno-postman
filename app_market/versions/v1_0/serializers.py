@@ -489,6 +489,7 @@ class UserProfileInVacanciesForManagerSerializer(CRUDSerializer):
 
     @staticmethod
     def get_avatar(profile: UserProfile):
+        # TODO надо префетчить
         avatar = MediaRepository().filter_by_kwargs({
             'owner_id': profile.id,
             'owner_ct_id': ContentType.objects.get_for_model(profile).id,
@@ -839,7 +840,7 @@ class ConfirmedWorkerSerializer(CRUDSerializer):
 
     def get_avatar(self, prefetched_data):
         return MediaController(self.instance).get_related_images(
-            prefetched_data, MediaType.AVATAR.value, only_prefetched=False  # TODO поставить false
+            prefetched_data, MediaType.AVATAR.value, only_prefetched=False
         )
 
     class Meta:
