@@ -105,7 +105,7 @@ class MakeReviewMethodProviderRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-    def make_review(self, record_id, text, value, point=None):
+    def make_review(self, record_id, text, value, shift=None, point=None):
         # TODO добавить загрузку attachments
         owner_content_type = ContentType.objects.get_for_model(self.me)
         owner_ct_id = owner_content_type.id
@@ -126,6 +126,7 @@ class MakeReviewMethodProviderRepository(MasterRepository):
                 owner_id=owner_id,
                 target_ct_id=target_ct_id,
                 target_id=target_id,
+                shift_id=shift,
                 deleted=False
         ).exists():
             Review.objects.create(
@@ -139,7 +140,8 @@ class MakeReviewMethodProviderRepository(MasterRepository):
 
                 value=value,
                 text=text,
-                region=region
+                region=region,
+                shift_id=shift
             )
 
             # Пересчитываем количество оценок и рейтинг

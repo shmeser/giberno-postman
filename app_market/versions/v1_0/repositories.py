@@ -334,6 +334,34 @@ class GTTimeTZ(CustomLookupBase):
 
 
 @Field.register_lookup
+class LTdtTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'ltdttz'
+    parametric_string = "%s AT TIME ZONE timezone < %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class LTEdtTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'ltedttz'
+    parametric_string = "%s AT TIME ZONE timezone <= %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class GTEdtTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'gtedttz'
+    parametric_string = "%s AT TIME ZONE timezone >= %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class GTdtTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'gtdttz'
+    parametric_string = "%s AT TIME ZONE timezone > %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
 class DateTZ(CustomLookupBase):
     # Кастомный lookup с приведением типов для даты во временной зоне из поля timezone
     lookup_name = 'datetz'
@@ -1841,7 +1869,7 @@ class ShiftAppealsRepository(MasterRepository):
             timezone=F('shift__vacancy__timezone')
         ).filter(
             status=ShiftAppealStatus.INITIAL.value,
-            time_start__ltetimetz=now()  # сравнивается время вакансии в ее часовом поясе
+            time_start__ltedttz=now()  # сравнивается время вакансии в ее часовом поясе
         ).values_list('id', flat=True))
 
         self.model.objects.filter(
@@ -1875,7 +1903,7 @@ class ShiftAppealsRepository(MasterRepository):
             status=ShiftAppealStatus.CONFIRMED,
             job_status=JobStatus.JOB_SOON.value,
             qr_text__isnull=False,
-            time_end__ltetimetz=now()
+            time_end__ltedttz=now()
         ).values_list('id', flat=True))
 
         self.model.objects.filter(id__in=appeals_ids).update(
@@ -1902,8 +1930,8 @@ class ShiftAppealsRepository(MasterRepository):
         ).filter(
             status=ShiftAppealStatus.CONFIRMED,
             job_status__isnull=True,
-            time_start__lttimetz=soon,
-            time_start__gttimetz=now(),
+            time_start__ltdttz=soon,
+            time_start__gtdttz=now(),
         ).values_list('id', flat=True))
 
         self.model.objects.filter(id__in=appeals_ids).update(
@@ -1931,7 +1959,7 @@ class ShiftAppealsRepository(MasterRepository):
         ).filter(
             status=ShiftAppealStatus.CONFIRMED,
             job_status=JobStatus.JOB_IN_PROCESS.value,
-            time_end__lttimetz=now()
+            time_end__ltdttz=now()
         ).values_list('id', flat=True))
 
         self.model.objects.filter(id__in=appeals_ids).update(
@@ -1978,7 +2006,7 @@ class ShiftAppealsRepository(MasterRepository):
         ).filter(
             status=ShiftAppealStatus.CONFIRMED.value,
             job_status=JobStatus.WAITING_FOR_COMPLETION.value,
-            time_end__lttimetz=now() - interval
+            time_end__ltdttz=now() - interval
         ).values_list('id', flat=True))
 
         self.model.objects.filter(id__in=appeals_ids).update(

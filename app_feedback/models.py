@@ -27,6 +27,7 @@ class Review(GenericSourceTargetBase):
     region = models.ForeignKey(to=Region, on_delete=models.SET_NULL, null=True, blank=True)
 
     # Отзывы на самозанятого(оставляют Администраторы\менеджеры) на  базе конкретной вакансии
+    # Отзывы на магазин, необходимы вакансии работников, оставивших отзывы
     shift = models.ForeignKey(to='app_market.Shift', on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
