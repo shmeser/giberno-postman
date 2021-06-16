@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
-    POSTReviewByManagerSerializer, POSTShopReviewSerializer
+    POSTReviewByManagerSerializer, POSTShopReviewSerializer, ShopReviewsSerializer
 from app_market.enums import AppealCancelReason, ShiftAppealStatus
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
@@ -736,6 +736,13 @@ class ShopReviewsAPIView(ReviewsBaseAPIView):
             )
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
+    def get(self, request, *args, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        queryset = self.get_request_repository_class().get_shop_reviews(
+            shop_id=kwargs.get('record_id'), pagination=pagination
+        )
+        return Response(camelize(ShopReviewsSerializer(queryset, many=True).data))
+
 
 class DistributorReviewsAPIView(ReviewsBaseAPIView):
     serializer_class = POSTReviewSerializer
@@ -878,8 +885,7 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
                 {
                     'title': title,
                     'message': message,
-                    'uuid': str(
-                        common_uuid),
+                    'uuid': str(common_uuid),
                     'action': action,
                     'subjectId': subject_id,
                     'notificationType': notification_type,

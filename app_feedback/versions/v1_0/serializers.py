@@ -1,6 +1,10 @@
 from rest_framework import serializers
 
 from app_feedback.models import Review
+from app_market.models import Vacancy, Shop
+from app_media.enums import MediaType
+from app_media.versions.v1_0.controllers import MediaController
+from app_users.models import UserProfile
 from backend.fields import DateTimeField
 
 
@@ -32,4 +36,93 @@ class ReviewModelSerializer(serializers.ModelSerializer):
             'text',
             'owner_id',
             'created_at'
+        ]
+
+
+class OwnerIsUserSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField(read_only=True)
+
+    def get_avatar(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(
+            prefetched_data, MediaType.AVATAR.value, only_prefetched=True
+        )
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            "id",
+            "username",
+            "first_name",
+            "middle_name",
+            "last_name",
+            'avatar'
+        ]
+
+
+class OwnerIsShopSerializer(serializers.ModelSerializer):
+    logo = serializers.SerializerMethodField(read_only=True)
+
+    def get_logo(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(
+            prefetched_data, MediaType.AVATAR.value, only_prefetched=True
+        )
+
+    class Meta:
+        model = Shop
+        fields = [
+            "id",
+            "title",
+            "logo"
+        ]
+
+
+class ReviewOwnerSerializer(serializers.Serializer):
+    user = serializers.SerializerMethodField()
+    shop = serializers.SerializerMethodField()
+
+    def get_user(self, data):
+        if data._meta.model_name == 'userprofile':
+            return OwnerIsUserSerializer(data, many=False).data
+        return None
+
+    def get_shop(self, data):
+        if data._meta.model_name == 'shop':
+            return OwnerIsShopSerializer(data, many=False).data
+        return None
+
+
+class VacancyInReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vacancy
+        fields = [
+            "id",
+            "title",
+        ]
+
+
+class ShopReviewsSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+    vacancy = serializers.SerializerMethodField()
+    owner = serializers.SerializerMethodField()
+
+    def get_owner(self, data):
+        # Owner - GenericRelation - может быть либо user либо shop и т.д.
+        if not data.owner:
+            return None
+        return ReviewOwnerSerializer(data.owner, many=False).data
+
+    def get_vacancy(self, data):
+        if data.shift:
+            return VacancyInReviewSerializer(data.shift.vacancy, many=False).data
+        return None
+
+    class Meta:
+        model = Review
+        fields = [
+            'id',
+            'created_at',
+            'text',
+            'value',
+            'owner',
+            'vacancy'
         ]
