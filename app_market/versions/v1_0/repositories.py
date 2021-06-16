@@ -1978,7 +1978,7 @@ class ShiftAppealsRepository(MasterRepository):
         ).filter(
             status=ShiftAppealStatus.CONFIRMED.value,
             job_status=JobStatus.WAITING_FOR_COMPLETION.value,
-            time_end__gttimetz=now() - interval
+            time_end__lttimetz=now() - interval
         ).values_list('id', flat=True))
 
         self.model.objects.filter(id__in=appeals_ids).update(

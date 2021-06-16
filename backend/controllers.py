@@ -32,7 +32,6 @@ class PushController:
             notification_type,
             icon_type,
             **kwargs
-
     ):
 
         if not NotificationType.has_value(notification_type):
