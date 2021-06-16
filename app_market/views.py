@@ -2,7 +2,6 @@ from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, POSTReviewByManagerSerializer
 from app_market.versions.v1_0 import views as v1_0
 from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager, IsSecurity
 from backend.api_views import BaseAPIView
@@ -261,8 +260,6 @@ def vacancies_suggestions(request):
 
 
 class VacancyReviewsAPIView(BaseAPIView):
-    serializer_class = POSTReviewSerializer
-
     @staticmethod
     def post(request, **kwargs):
         """
@@ -285,8 +282,6 @@ class VacancyReviewsAPIView(BaseAPIView):
 
 
 class ShopReviewsAPIView(BaseAPIView):
-    serializer_class = POSTReviewSerializer
-
     @staticmethod
     def post(request, **kwargs):
         """
@@ -309,8 +304,6 @@ class ShopReviewsAPIView(BaseAPIView):
 
 
 class DistributorReviewsAPIView(BaseAPIView):
-    serializer_class = POSTReviewSerializer
-
     @staticmethod
     def post(request, **kwargs):
         """
@@ -334,7 +327,6 @@ class DistributorReviewsAPIView(BaseAPIView):
 
 class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrManager]
-    serializer_class = POSTReviewByManagerSerializer
 
     @staticmethod
     def post(request, **kwargs):
