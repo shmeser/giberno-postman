@@ -22,6 +22,7 @@ def update_appeals():
         message = f'К сожалению, ваш отклик на вакансию {a.shift.vacancy.title} был отменен автоматически, так как не был подтвержден до начала смены.'
         send_notification_and_socket_event_on_appeal(
             appeal=a,
+            users_to_send=[a.applier],
             sockets=a.applier.sockets_array or [],
             title=title,
             message=message,
@@ -35,6 +36,7 @@ def update_appeals():
         message = f'К сожалению, ваш отклик на вакансию {a.shift.vacancy.title} был отменен автоматически, так как не был отсканирован код.'
         send_notification_and_socket_event_on_appeal(
             appeal=a,
+            users_to_send=[a.applier],
             sockets=a.applier.sockets_array or [],
             title=title,
             message=message,
@@ -48,6 +50,7 @@ def update_appeals():
         message = f'Скоро начало смены по вакансии {a.shift.vacancy.title}.'
         send_notification_and_socket_event_on_appeal(
             appeal=a,
+            users_to_send=[a.applier],
             sockets=a.applier.sockets_array or [],
             title=title,
             message=message,
@@ -95,11 +98,17 @@ def send_notification_and_socket_event_on_appeal_with_managers(appeal, title, me
     sockets = managers_sockets + applier_sockets  # Объединяем все сокеты
     users_to_send.append(appeal.applier)  # Добавляем заявителя
 
-    send_notification_and_socket_event_on_appeal(appeal=appeal, sockets=sockets, title=title, message=message,
-                                                 icon_type=icon_type)
+    send_notification_and_socket_event_on_appeal(
+        appeal=appeal,
+        users_to_send=users_to_send,
+        sockets=sockets,
+        title=title,
+        message=message,
+        icon_type=icon_type
+    )
 
 
-def send_notification_and_socket_event_on_appeal(appeal, sockets, title, message, icon_type):
+def send_notification_and_socket_event_on_appeal(appeal, users_to_send, sockets, title, message, icon_type):
     SocketController().send_message_to_many_connections(sockets, {
         'type': 'appeal_job_status_updated',
         'prepared_data': {
@@ -118,7 +127,7 @@ def send_notification_and_socket_event_on_appeal(appeal, sockets, title, message
     common_uuid = uuid.uuid4()
 
     PushController().send_notification(
-        users_to_send=[appeal.applier],
+        users_to_send=users_to_send,
         title=title,
         message=message,
         common_uuid=common_uuid,
