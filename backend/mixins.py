@@ -117,8 +117,6 @@ class MakeReviewMethodProviderRepository(MasterRepository):
         target_ct_name = target_content_type.model
         target_id = record_id
 
-        # проверяем валидность id
-        self.get_by_id(record_id=target_id)
         region = Region.objects.filter(boundary__covers=point).first() if point else None
 
         if not Review.objects.filter(
