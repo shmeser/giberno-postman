@@ -1412,7 +1412,7 @@ class ShiftAppealsRepository(MasterRepository):
                 'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
             }
         })
-        return instance
+        return instance, created
 
     def get_by_id(self, record_id):
         # если будет self.base_query.filter() то manager ничего не сможет увидеть

@@ -11,6 +11,7 @@ from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer, POSTShopReviewSerializer, ShopReviewsSerializer
 from app_market.enums import AppealCancelReason, ShiftAppealStatus
+from app_market.utils import QRHandler
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
     MarketDocumentsRepository
@@ -250,7 +251,10 @@ class ShiftAppeals(CRUDAPIView):
         if self.repository_class(me=request.user).check_permission_for_appeal(data.get('shift')):
             serializer = ShiftAppealCreateSerializer(data=data)
             if serializer.is_valid(raise_exception=True):
-                instance = self.repository_class(me=request.user).get_or_create(**serializer.validated_data)
+                instance, created = self.repository_class(me=request.user).get_or_create(**serializer.validated_data)
+                if created:
+                    instance.qr_text = QRHandler(instance).create_qr_data()
+                    instance.save()
                 return Response(camelize(ShiftAppealsSerializer(instance=instance, many=False).data))
         else:
             raise CustomException(errors=[
