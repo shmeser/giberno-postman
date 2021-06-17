@@ -688,20 +688,19 @@ class EditManagerProfileSerializer(serializers.ModelSerializer):
             'last_name',
         ]
 
-    # SERIALIZERS ONLY FOR SWAGGER
 
-
+# SERIALIZERS ONLY FOR SWAGGER
 class FirebaseAuthRequestDescriptor(serializers.Serializer):
     firebase_token = serializers.CharField()
 
 
-class FirebaseAuthResponseDescriptor(serializers.Serializer):
-    refresh_token = serializers.CharField(max_length=255)
-    access_token = serializers.CharField(max_length=255)
-
-
-class ManagerAuthenticateResponseForSwagger(serializers.Serializer):
-    accessToken = serializers.CharField()
-    refreshToken = serializers.CharField()
-    password_changed = serializers.BooleanField()
 # SERIALIZERS ONLY FOR SWAGGER
+
+
+class CreateSecurityByAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = [
+            'distributors',
+            'shops'
+        ]

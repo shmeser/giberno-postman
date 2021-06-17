@@ -1,5 +1,6 @@
 import json
 
+from datetime import timedelta
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -31,7 +32,7 @@ from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, 
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
     NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer, \
     CreateManagerByAdminSerializer, UsernameSerializer, UsernameWithPasswordSerializer, \
-    PasswordSerializer, EditManagerProfileSerializer
+    PasswordSerializer, EditManagerProfileSerializer, CreateSecurityByAdminSerializer
 from backend.api_views import BaseAPIView
 from backend.entity import Error
 from backend.enums import Platform
@@ -680,3 +681,41 @@ class EditManagerProfileView(BaseAPIView):
 
             user = ProfileRepository().update(record_id=request.user.id, **serializer.validated_data)
             return Response(camelize(ProfileSerializer(instance=user).data))
+
+
+# SECURITY
+class CreateSecurityByAdmin(BaseAPIView):
+    serializer_class = CreateSecurityByAdminSerializer
+    repository_class = ProfileRepository
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            username, password = self.repository_class(
+                me=request.user
+            ).create_security_by_admin(serializer.validated_data)
+            return Response(camelize({
+                'username': username,
+                'password': password
+            }))
+
+
+class AuthenticateSecurity(BaseAPIView):
+    permission_classes = []
+    serializer_class = UsernameWithPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            user = ProfileRepository().get_by_username_and_password(validated_data=serializer.validated_data)
+            headers = get_request_headers(request)
+            jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(
+                user,
+                lifetime=timedelta(days=3650)  # Token на 10 лет
+            )
+
+            response_data = {
+                'accessToken': jwt_pair.access_token,
+                'refreshToken': jwt_pair.refresh_token,
+            }
+            return Response(response_data)

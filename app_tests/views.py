@@ -1,6 +1,8 @@
 import random
 
 import uuid
+
+from datetime import timedelta
 from django.db import transaction
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
@@ -23,7 +25,10 @@ class GetUserTokenTestAPIView(APIView):
 
     def get(self, request, *args, **kwargs):
         user = UserProfile.objects.get(id=self.kwargs['pk'])
-        return Response(str(RefreshToken.for_user(user=user).access_token))
+        token = RefreshToken.for_user(user=user)
+        access_token = token.access_token
+        access_token.set_exp(lifetime=timedelta(days=3650))
+        return Response(str(access_token))
 
 
 class SendTestPush(APIView):
