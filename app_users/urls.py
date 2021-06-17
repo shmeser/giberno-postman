@@ -3,7 +3,8 @@ from django.urls import path
 from app_users.views import AuthFirebase, AuthRefreshToken, firebase_web_auth, ReferenceCode, AuthVk, Users, \
     MyProfile, MyProfileUploads, MyProfileSocials, Notifications, NotificationsSettings, MyProfileCareer, \
     MyProfileDocuments, read_notification, CreateManagerByAdminAPIView, GetManagerByUsernameAPIView, \
-    AuthenticateManagerAPIView, ChangeManagerPasswordAPIView, EditManagerProfileView, PushUnsubscribe, push_subscribe
+    AuthenticateManagerAPIView, ChangeManagerPasswordAPIView, EditManagerProfileView, PushUnsubscribe, push_subscribe, \
+    CreateSecurityByAdmin, AuthenticateSecurity
 
 urlpatterns = [
     path('auth/firebase/web', firebase_web_auth),
@@ -11,6 +12,10 @@ urlpatterns = [
     path('auth/refresh', AuthRefreshToken.as_view()),
     path('auth/reference', ReferenceCode.as_view()),
     path('auth/vk', AuthVk.as_view()),
+
+    # SECURITY AUTH
+    path('auth/security/login', AuthenticateSecurity.as_view()),
+    # ###
 
     path('users', Users.as_view()),
     path('users/<int:record_id>', Users.as_view()),
@@ -37,5 +42,8 @@ urlpatterns = [
     path('users/managers/username', GetManagerByUsernameAPIView.as_view()),
     path('users/managers/login', AuthenticateManagerAPIView.as_view()),
     path('users/managers/password/change', ChangeManagerPasswordAPIView.as_view()),
-    path('users/managers/profile', EditManagerProfileView.as_view())
+    path('users/managers/profile', EditManagerProfileView.as_view()),
+
+    # CREATE SECURITY
+    path('admin/security', CreateSecurityByAdmin.as_view()),
 ]

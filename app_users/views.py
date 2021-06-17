@@ -314,3 +314,30 @@ class EditManagerProfileView(BaseAPIView):
         if request.version in ['users_1_0']:
             return v1_0.EditManagerProfileView().patch(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+# SECURITY
+class CreateSecurityByAdmin(BaseAPIView):
+    """
+    Создание охранника через админ.панель Суперменеджера.
+    Логин и пароль для первого входа охранника приходят в ответ на запрос.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, *args, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.CreateSecurityByAdmin().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AuthenticateSecurity(BaseAPIView):
+    """
+        Ввод логина и пароля со охранником
+    """
+    permission_classes = []
+    serializer_class = UsernameWithPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.AuthenticateSecurity().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

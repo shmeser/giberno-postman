@@ -98,9 +98,6 @@ managers_urls = [
     # Проверки смен и пропусков
     path('market/qr', QRView.as_view()),
 
-    path('market/security/appeals/pass', CheckPassBySecurityAPIView.as_view()),
-    path('market/security/appeals/<int:record_id>/pass/refuse', RefusePassBySecurityAPIView.as_view()),
-
     path('market/managers/appeals/pass', CheckPassByManagerAPIView.as_view()),
     path('market/managers/appeals/<int:record_id>/pass/allow', AllowPassByManagerAPIView.as_view()),
     path('market/managers/appeals/<int:record_id>/pass/refuse', RefusePassByManagerAPIView.as_view()),
@@ -119,4 +116,10 @@ managers_urls = [
     path('market/managers/shifts/<int:record_id>/appeals', ShiftAppealsForManagers.as_view()),
 ]
 
+security_urls = [
+    path('market/security/appeals/pass', CheckPassBySecurityAPIView.as_view()),
+    path('market/security/appeals/<int:record_id>/pass/refuse', RefusePassBySecurityAPIView.as_view()),
+]
+
 urlpatterns += managers_urls
+urlpatterns += security_urls

@@ -721,8 +721,8 @@ class ShiftsSerializer(CRUDSerializer):
         model = Shift
         fields = [
             'id',
-            'date_start',
-            'date_end',
+            # 'date_start',
+            # 'date_end',
             'time_start',
             'time_end',
             'active_today',

@@ -196,15 +196,17 @@ class JwtRepository:
 
         return pair
 
-    def create_jwt_pair(self, user):
+    def create_jwt_pair(self, user, lifetime=None):
         refresh = RefreshToken.for_user(user)
 
         refresh_token = str(refresh)
-        access_token = str(refresh.access_token)
+        access_token = refresh.access_token
+        if lifetime:
+            access_token.set_exp(lifetime=lifetime)
 
         return JwtToken.objects.create(
             **JwtTokenEntity(
-                user, access_token, refresh_token, self.app_version, self.platform_name, self.vendor
+                user, str(access_token), refresh_token, self.app_version, self.platform_name, self.vendor
             ).get_kwargs()
         )
 
@@ -268,6 +270,32 @@ class ProfileRepository(MasterRepository):
         )
         EmailSender(user=user, password=password).send(subject='Создана учетная запись менеджера')
         return user
+
+    def create_security_by_admin(self, data):
+        username = generate_username()
+        password = generate_password()
+
+        data_to_create_user = {
+            'username': username,
+            'account_type': AccountType.SECURITY.value,
+            'reg_reference': self.me,
+        }
+
+        user = self.create(**data_to_create_user)
+        user.set_password(password)
+        distributors = data.get('distributors')
+        shops = data.get('shops')
+
+        user.distributors.set(distributors)
+        user.shops.set(shops)
+        user.save()
+
+        NotificationsSettings.objects.create(
+            user=user,
+            enabled_types=[NotificationType.SYSTEM.value]
+        )
+
+        return username, password
 
     def get_by_id(self, record_id):
         try:
