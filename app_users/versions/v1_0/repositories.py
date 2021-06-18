@@ -1,6 +1,6 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q, Prefetch, Subquery, OuterRef, ExpressionWrapper, Sum, Count, FloatField
+from django.db.models import Q, Prefetch, Subquery, OuterRef, ExpressionWrapper, Sum, Count, FloatField, Window, Avg, F
 from django.utils.timezone import now
 from fcm_django.models import FCMDevice
 from rest_framework.exceptions import PermissionDenied
@@ -563,3 +563,25 @@ class DocumentsRepository(MasterRepository):
                 raise CustomException(errors=[
                     dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT, **{'detail': str(e)}))
                 ])
+
+
+class RatingRepository(MasterRepository):
+    model = Review
+
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+        # Основная часть запроса
+        self.base_query = self.model.objects.filter(target_ct=ContentType.objects.get_for_model(UserProfile)).annotate(
+            rating=Window(
+                expression=Avg('value'), partition_by=[F('target_id'), F('target_ct')])
+        ).distinct('target_id', 'target_ct_id')
+
+    def get_users_rating(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+
+        return records[paginator.offset:paginator.limit] if paginator else records
