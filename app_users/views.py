@@ -341,3 +341,13 @@ class AuthenticateSecurity(BaseAPIView):
         if request.version in ['users_1_0']:
             return v1_0.AuthenticateSecurity().post(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+####
+
+class UsersRating(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.UsersRating().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

@@ -1,6 +1,6 @@
 import json
-
 from datetime import timedelta
+
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -28,11 +28,12 @@ from app_users.enums import NotificationType, AccountType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
-    SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository, FCMDeviceRepository
+    SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository, FCMDeviceRepository, \
+    RatingRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
     NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer, \
     CreateManagerByAdminSerializer, UsernameSerializer, UsernameWithPasswordSerializer, \
-    PasswordSerializer, EditManagerProfileSerializer, CreateSecurityByAdminSerializer
+    PasswordSerializer, EditManagerProfileSerializer, CreateSecurityByAdminSerializer, RatingSerializer
 from backend.api_views import BaseAPIView
 from backend.entity import Error
 from backend.enums import Platform
@@ -719,3 +720,50 @@ class AuthenticateSecurity(BaseAPIView):
                 'refreshToken': jwt_pair.refresh_token,
             }
             return Response(response_data)
+
+
+class UsersRating(CRUDAPIView):
+    serializer_class = RatingSerializer
+    repository_class = RatingRepository
+
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'region': 'region_id'
+    }
+
+    date_filter_params = {
+        'calendar_from': 'created_at__gte',
+        'calendar_to': 'created_at__lte'
+    }
+
+    array_filter_params = {
+    }
+
+    default_order_params = [
+    ]
+
+    default_filters = {}
+
+    order_params = {
+        'rating': 'rating'
+    }
+
+    def get(self, request, **kwargs):
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        self.many = True
+        dataset = self.repository_class(
+            me=request.user
+        ).get_users_rating(
+            kwargs=filters, order_by=order_params, paginator=pagination
+        )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)

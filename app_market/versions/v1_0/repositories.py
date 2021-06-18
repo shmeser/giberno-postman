@@ -1640,6 +1640,7 @@ class ShiftAppealsRepository(MasterRepository):
 
         data = {
             'appeal_id': appeal.id,
+            'job_status': appeal.job_status,
             'passport': series,
             'position': appeal.shift.vacancy.title,
             'address': appeal.shift.vacancy.shop.address

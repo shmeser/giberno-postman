@@ -7,6 +7,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from app_feedback.models import Review
 from app_geo.models import City, Country
 from app_geo.versions.v1_0.repositories import CountriesRepository
 from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
@@ -694,7 +695,7 @@ class FirebaseAuthRequestDescriptor(serializers.Serializer):
     firebase_token = serializers.CharField()
 
 
-# SERIALIZERS ONLY FOR SWAGGER
+# ### SERIALIZERS ONLY FOR SWAGGER
 
 
 class CreateSecurityByAdminSerializer(serializers.ModelSerializer):
@@ -703,4 +704,46 @@ class CreateSecurityByAdminSerializer(serializers.ModelSerializer):
         fields = [
             'distributors',
             'shops'
+        ]
+
+
+class UserInReviewSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField(read_only=True)
+
+    def get_avatar(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(
+            prefetched_data, MediaType.AVATAR.value, only_prefetched=True
+        )
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            'id',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'avatar',
+        ]
+
+
+class RatingSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
+    place = serializers.SerializerMethodField()
+
+    def get_place(self, instance):
+        return None
+
+    def get_rating(self, instance):
+        return instance.rating
+
+    def get_user(self, instance):
+        return UserInReviewSerializer(instance.target, many=False).data
+
+    class Meta:
+        model = Review
+        fields = [
+            'place',
+            'rating',
+            'user'
         ]
