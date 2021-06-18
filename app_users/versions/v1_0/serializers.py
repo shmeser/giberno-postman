@@ -732,7 +732,7 @@ class RatingSerializer(serializers.ModelSerializer):
     place = serializers.SerializerMethodField()
 
     def get_place(self, instance):
-        return None
+        return instance.place
 
     def get_rating(self, instance):
         return instance.rating

@@ -1284,7 +1284,6 @@ class ShiftAppealCompleteByManager(APIView):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             appeal, sockets = self.repository_class(me=request.user).complete_appeal_by_manager(
-                qr_text=serializer.validated_data.get('qr_text'),
                 **serializer.validated_data
             )
             SocketController().send_message_to_many_connections(sockets, {

@@ -740,14 +740,7 @@ class UsersRating(CRUDAPIView):
     array_filter_params = {
     }
 
-    default_order_params = [
-    ]
-
     default_filters = {}
-
-    order_params = {
-        'rating': 'rating'
-    }
 
     def get(self, request, **kwargs):
         filters = RequestMapper(self).filters(request) or dict()
@@ -755,9 +748,7 @@ class UsersRating(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         self.many = True
-        dataset = self.repository_class(
-            me=request.user
-        ).get_users_rating(
+        dataset = self.repository_class(me=request.user).get_users_rating(
             kwargs=filters, order_by=order_params, paginator=pagination
         )
 

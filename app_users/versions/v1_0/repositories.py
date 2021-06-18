@@ -1,6 +1,7 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q, Prefetch, Subquery, OuterRef, ExpressionWrapper, Sum, Count, FloatField, Window, Avg, F
+from django.db.models.functions import RowNumber
 from django.utils.timezone import now
 from fcm_django.models import FCMDevice
 from rest_framework.exceptions import PermissionDenied
@@ -573,10 +574,18 @@ class RatingRepository(MasterRepository):
         self.me = me
 
         # Основная часть запроса
-        self.base_query = self.model.objects.filter(target_ct=ContentType.objects.get_for_model(UserProfile)).annotate(
+        self.base_query = self.model.objects.filter(
+            target_ct=ContentType.objects.get_for_model(UserProfile)
+        ).annotate(
             rating=Window(
-                expression=Avg('value'), partition_by=[F('target_id'), F('target_ct')])
-        ).distinct('target_id', 'target_ct_id')
+                expression=Avg('value'), partition_by=[F('target_id'), F('target_ct')]
+            )
+        ).annotate(
+            place=Window(
+                expression=RowNumber(),
+                partition_by=[F('target_id'), F('target_ct')],
+            )
+        ).distinct('target_id', 'target_ct_id').order_by('target_id', 'target_ct_id')
 
     def get_users_rating(self, kwargs, paginator=None, order_by: list = None):
         if order_by:

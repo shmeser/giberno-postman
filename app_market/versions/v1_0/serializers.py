@@ -901,22 +901,22 @@ class QRCodeSerializer(serializers.Serializer):
 class QRCodeCompleteSerializer(serializers.Serializer):
     qr_text = serializers.CharField()
     reason = serializers.ChoiceField(choices=choices(AppealCompleteReason), allow_null=True)
-    text = serializers.CharField(allow_null=True)
+    text = serializers.CharField(allow_null=True, required=False)
 
 
 class ShiftAppealCompleteSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=choices(AppealCompleteReason), allow_null=True)
-    text = serializers.CharField(allow_null=True)
+    text = serializers.CharField(allow_null=True, required=False)
 
 
 class ManagerAppealCancelReasonSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=choices(ManagerAppealCancelReason))
-    text = serializers.CharField(allow_null=True)
+    text = serializers.CharField(allow_null=True, required=False)
 
 
 class FireByManagerReasonSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=choices(FireByManagerReason))
-    text = serializers.CharField(allow_null=True)
+    text = serializers.CharField(allow_null=True, required=False)
 
 
 class ProlongByManagerReasonSerializer(serializers.Serializer):
@@ -925,7 +925,7 @@ class ProlongByManagerReasonSerializer(serializers.Serializer):
 
 class SecurityPassRefuseReasonSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=choices(SecurityPassRefuseReason))
-    text = serializers.CharField(allow_null=True)
+    text = serializers.CharField(allow_null=True, required=False)
 
 
 class ShiftConditionsSerializer(serializers.Serializer):
