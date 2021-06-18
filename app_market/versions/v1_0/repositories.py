@@ -562,6 +562,8 @@ class ShiftsRepository(MasterRepository):
         shift = Shift.objects.filter(
             id=shift_id
         ).select_related('vacancy').first()
+        if not shift:
+            raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=f'Смена с ID={shift_id} не найдена')
 
         vacancy_timezone_name = shift.vacancy.timezone if shift.vacancy.timezone else 'Europe/Moscow'
 
@@ -1765,8 +1767,8 @@ class ShiftAppealsRepository(MasterRepository):
         )['sockets']
         return appeal, sockets
 
-    def complete_appeal_by_manager(self, qr_text, **data):
-        appeal = self.get_by_qr_text(qr_text=qr_text)
+    def complete_appeal_by_manager(self, **data):
+        appeal = self.get_by_qr_text(qr_text=data.get('qr_text'))
         self.is_related_manager(instance=appeal)
         self.set_completed_status(appeal=appeal, **data)
         sockets = appeal.applier.sockets.aggregate(
