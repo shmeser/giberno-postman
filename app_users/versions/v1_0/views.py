@@ -227,7 +227,8 @@ class Users(CRUDAPIView):
     default_order_params = []
 
     default_filters = {
-        'is_staff': False
+        'is_staff': False,
+        'account_type': AccountType.SELF_EMPLOYED.value
     }
 
     order_params = {
