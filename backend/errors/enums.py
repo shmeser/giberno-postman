@@ -44,6 +44,8 @@ class ErrorsCodes(EnumM):
     APPEAL_ALREADY_CANCELLED = 'Эта смена уже закрыта'
     INCONVENIENT_JOB_STATUS = 'Для выполнения данного действия статус работы должен быть другим'
 
+    TOO_MANY_REVIEWS = 'Слишком много отзывов'
+
 
 class SocketErrors(IntEnumM):
     # Диапазон 3000-4999

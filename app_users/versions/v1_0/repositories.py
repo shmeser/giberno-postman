@@ -350,6 +350,8 @@ class ProfileRepository(MasterRepository):
 
     def make_review_to_self_employed_by_admin_or_manager(self, record_id, shift, text, value, point=None):
         # TODO добавить загрузку attachments
+
+        # TODO ограничить количество отзывов до 1 на одну смену для пользовтеля со стороны менеджера
         owner_content_type = ContentType.objects.get_for_model(self.me)
         owner_ct_id = owner_content_type.id
         owner_ct_name = owner_content_type.model
@@ -568,7 +570,7 @@ class DocumentsRepository(MasterRepository):
 
 
 class RatingRepository(MasterRepository):
-    model = Review
+    model = UserProfile
 
     def __init__(self, me=None) -> None:
         super().__init__()
@@ -604,5 +606,5 @@ class RatingRepository(MasterRepository):
         self.base_query = records
 
     def get_users_rating(self, kwargs, paginator=None):
-        records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        records = self.model.objects.filter()
         return records[paginator.offset:paginator.limit] if paginator else records
