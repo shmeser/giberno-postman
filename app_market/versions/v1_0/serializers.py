@@ -849,12 +849,17 @@ class ConfirmedWorkerSerializer(CRUDSerializer):
 
 
 class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
+    shift_id = serializers.SerializerMethodField()
     vacancy = serializers.SerializerMethodField()
     user = serializers.SerializerMethodField()
     time_start = serializers.SerializerMethodField()
     time_end = serializers.SerializerMethodField()
     real_time_start = serializers.SerializerMethodField()
     real_time_end = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_shift_id(instance):
+        return instance.shift_id
 
     @staticmethod
     def get_vacancy(instance):
@@ -884,6 +889,7 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
         model = ShiftAppeal
         fields = [
             'id',
+            'shift_id',
             'status',
             'time_start',
             'time_end',

@@ -733,8 +733,8 @@ class UsersRating(CRUDAPIView):
     }
 
     date_filter_params = {
-        'calendar_from': 'created_at__gte',
-        'calendar_to': 'created_at__lte'
+        'date_from': 'created_at__gte',
+        'date_to': 'created_at__lte'
     }
 
     array_filter_params = {
@@ -745,11 +745,10 @@ class UsersRating(CRUDAPIView):
     def get(self, request, **kwargs):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        order_params = RequestMapper(self).order(request)
 
         self.many = True
         dataset = self.repository_class(me=request.user).get_users_rating(
-            kwargs=filters, order_by=order_params, paginator=pagination
+            kwargs=filters, paginator=pagination
         )
 
         serialized = self.serializer_class(dataset, many=self.many, context={
