@@ -186,6 +186,13 @@ class ShopInVacancySerializer(ShopsSerializer):
 
 class ShopInVacancyShiftSerializer(ShopsSerializer):
     """ Вложенная модель магазина в вакансии (на экране просмотра откликов по вакансиям) """
+    lon = serializers.SerializerMethodField()
+    lat = serializers.SerializerMethodField()
+    def get_lon(self, instance):
+        return instance.location.x if instance.location else None
+
+    def get_lat(self, instance):
+        return instance.location.y if instance.location else None
 
     class Meta:
         model = Shop
@@ -193,6 +200,8 @@ class ShopInVacancyShiftSerializer(ShopsSerializer):
             'id',
             'title',
             'address',
+            'lon',
+            'lat',
             'walk_time',
             'logo',
         ]
