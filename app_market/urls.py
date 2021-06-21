@@ -42,7 +42,7 @@ urlpatterns = [
     path('market/appeals/<int:record_id>', ShiftAppeals.as_view()),
     path('market/appeals/<int:record_id>/cancel', ShiftAppealCancel.as_view()),
 
-    # Прервать смену
+    # Закрыть смену когда отображается таймер 15 мин после завершения
     path('market/appeals/<int:record_id>/complete', ShiftAppealComplete.as_view()),
 
     # Смены

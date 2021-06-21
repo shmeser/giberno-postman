@@ -79,7 +79,7 @@ class ShiftAppealComplete(BaseAPIView):
     @staticmethod
     def post(request, **kwargs):
         """
-        Завершить рабочую смену
+        закрыть смену после того как она была завершена (когда отображается таймер 15 минут чтоб уйти из зоны)
         """
         if request.version in ['market_1_0']:
             return v1_0.ShiftAppealComplete().post(request, **kwargs)

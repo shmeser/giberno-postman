@@ -849,12 +849,17 @@ class ConfirmedWorkerSerializer(CRUDSerializer):
 
 
 class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
+    shift_id = serializers.SerializerMethodField()
     vacancy = serializers.SerializerMethodField()
     user = serializers.SerializerMethodField()
     time_start = serializers.SerializerMethodField()
     time_end = serializers.SerializerMethodField()
     real_time_start = serializers.SerializerMethodField()
     real_time_end = serializers.SerializerMethodField()
+
+    @staticmethod
+    def get_shift_id(instance):
+        return instance.shift_id
 
     @staticmethod
     def get_vacancy(instance):
@@ -884,6 +889,7 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
         model = ShiftAppeal
         fields = [
             'id',
+            'shift_id',
             'status',
             'time_start',
             'time_end',
@@ -901,22 +907,22 @@ class QRCodeSerializer(serializers.Serializer):
 class QRCodeCompleteSerializer(serializers.Serializer):
     qr_text = serializers.CharField()
     reason = serializers.ChoiceField(choices=choices(AppealCompleteReason), allow_null=True)
-    text = serializers.CharField(allow_null=True)
+    text = serializers.CharField(allow_null=True, required=False)
 
 
 class ShiftAppealCompleteSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=choices(AppealCompleteReason), allow_null=True)
-    text = serializers.CharField(allow_null=True)
+    text = serializers.CharField(allow_null=True, required=False)
 
 
 class ManagerAppealCancelReasonSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=choices(ManagerAppealCancelReason))
-    text = serializers.CharField(allow_null=True)
+    text = serializers.CharField(allow_null=True, required=False)
 
 
 class FireByManagerReasonSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=choices(FireByManagerReason))
-    text = serializers.CharField(allow_null=True)
+    text = serializers.CharField(allow_null=True, required=False)
 
 
 class ProlongByManagerReasonSerializer(serializers.Serializer):
@@ -925,7 +931,7 @@ class ProlongByManagerReasonSerializer(serializers.Serializer):
 
 class SecurityPassRefuseReasonSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=choices(SecurityPassRefuseReason))
-    text = serializers.CharField(allow_null=True)
+    text = serializers.CharField(allow_null=True, required=False)
 
 
 class ShiftConditionsSerializer(serializers.Serializer):

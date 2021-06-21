@@ -1182,7 +1182,7 @@ class QRView(APIView):
             "qr_text": qr_text,
             "pass": qr_pass,
             "leave_time": leave_time,
-            "appeal": ShiftAppealsSerializer(instance=appeal).data
+            "appeal": ShiftAppealsSerializer(instance=appeal).data if appeal else None
         }
         return Response(camelize(data))
 
@@ -1284,7 +1284,6 @@ class ShiftAppealCompleteByManager(APIView):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             appeal, sockets = self.repository_class(me=request.user).complete_appeal_by_manager(
-                qr_text=serializer.validated_data.get('qr_text'),
                 **serializer.validated_data
             )
             SocketController().send_message_to_many_connections(sockets, {

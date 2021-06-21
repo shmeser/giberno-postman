@@ -562,6 +562,8 @@ class ShiftsRepository(MasterRepository):
         shift = Shift.objects.filter(
             id=shift_id
         ).select_related('vacancy').first()
+        if not shift:
+            raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=f'Смена с ID={shift_id} не найдена')
 
         vacancy_timezone_name = shift.vacancy.timezone if shift.vacancy.timezone else 'Europe/Moscow'
 
@@ -1337,7 +1339,7 @@ class ShiftAppealsRepository(MasterRepository):
             ])
 
     @staticmethod
-    def check_if_already_completed(appeal):
+    def check_if_already_job_completed(appeal):
         if appeal.job_status == JobStatus.COMPLETED.value:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.APPEAL_ALREADY_COMPLETED))
@@ -1352,14 +1354,18 @@ class ShiftAppealsRepository(MasterRepository):
         appeal.status = ShiftAppealStatus.CANCELED.value
         appeal.save()
 
-    def set_completed_status(self, appeal, **data):
-        self.check_if_already_completed(appeal=appeal)
+    def set_completed_status(self, appeal):
+        # self.check_if_already_job_completed(appeal=appeal)
+        appeal.status = ShiftAppealStatus.COMPLETED.value
+        appeal.save()
+
+    def set_job_completed_status(self, appeal, **data):
+        self.check_if_already_job_completed(appeal=appeal)
 
         appeal.complete_reason = data.get('reason')
         appeal.complete_reason_text = data.get('text')
 
         appeal.job_status = JobStatus.COMPLETED.value
-        appeal.status = ShiftAppealStatus.COMPLETED.value
         appeal.completed_real_time = now()
         # TODO Прикрутить логику по расчетам выплаты и все такое
         #  Логика расчета выплаты: оплачиваем только полностью отработанные часы + неполные часы из расчета:
@@ -1640,6 +1646,7 @@ class ShiftAppealsRepository(MasterRepository):
 
         data = {
             'appeal_id': appeal.id,
+            'job_status': appeal.job_status,
             'passport': series,
             'position': appeal.shift.vacancy.title,
             'address': appeal.shift.vacancy.shop.address
@@ -1738,7 +1745,7 @@ class ShiftAppealsRepository(MasterRepository):
                 if appeal.job_status == JobStatus.JOB_IN_PROCESS.value:
                     qr_pass = self.handle_pass_data_for_self_employed(appeal=appeal_having_job_status)
                 elif job_status == JobStatus.COMPLETED.value:
-                    leave_time = appeal_having_job_status.time_completed + timedelta(minutes=15)
+                    leave_time = appeal_having_job_status.completed_real_time + timedelta(minutes=15)
                     leave_time = datetime_to_timestamp(leave_time)
                 else:
                     qr_text = appeal_having_job_status.qr_text
@@ -1750,24 +1757,26 @@ class ShiftAppealsRepository(MasterRepository):
         return job_status, qr_text, qr_pass, leave_time, appeal
 
     def complete_appeal(self, record_id, **data):
-        # Сценарий 3: Самозанятый во время смены просит его отпустить пораньше
-        # (для любых случаев, когда самозанятого отпускают и оплатят часть денег)
-        # В данном случае самозанятый не обязан сканировать QR для завершения смены.
-
         appeal = self.get_by_id(record_id=record_id)
         if self.me != appeal.applier:
             raise PermissionDenied()
 
-        self.set_completed_status(appeal=appeal, **data)
+        if appeal.status != ShiftAppealStatus.CONFIRMED.value and appeal.job_status != JobStatus.COMPLETED.value:
+            raise PermissionDenied()
+
+        self.set_completed_status(appeal=appeal)
         sockets = appeal.applier.sockets.aggregate(
             sockets=ArrayRemove(ArrayAgg('socket_id'), None)
         )['sockets']
         return appeal, sockets
 
-    def complete_appeal_by_manager(self, qr_text, **data):
-        appeal = self.get_by_qr_text(qr_text=qr_text)
+    def complete_appeal_by_manager(self, **data):
+        # Сценарий 3: Самозанятый во время смены просит его отпустить пораньше
+        # (для любых случаев, когда самозанятого отпускают и оплатят часть денег)
+        # В данном случае самозанятый не обязан сканировать QR для завершения смены.
+        appeal = self.get_by_qr_text(qr_text=data.get('qr_text'))
         self.is_related_manager(instance=appeal)
-        self.set_completed_status(appeal=appeal, **data)
+        self.set_job_completed_status(appeal=appeal, **data)
         sockets = appeal.applier.sockets.aggregate(
             sockets=ArrayRemove(ArrayAgg('socket_id'), None)
         )['sockets']
@@ -1993,7 +2002,7 @@ class ShiftAppealsRepository(MasterRepository):
 
         # TODO уведомление (скорее всего и менеджеру и пользователю)
 
-    def bulk_set_completed_status(self):
+    def bulk_set_job_completed_status(self):
         # Сценарий 2: Смена закончилась, QR для завершения смены не отсканирован.
         # В данном случае, если ситуация по вине менеджера, то по истечении 1 часа после завершения смены,
         # она автоматически переходит в статус Завершена и отрабатывается метод для выплаты денег.
@@ -2011,7 +2020,7 @@ class ShiftAppealsRepository(MasterRepository):
 
         self.model.objects.filter(id__in=appeals_ids).update(
             job_status=JobStatus.COMPLETED.value,
-            status=ShiftAppealStatus.COMPLETED.value,
+            # status=ShiftAppealStatus.COMPLETED.value,
             completed_real_time=now()
         )
 
@@ -2033,6 +2042,22 @@ class ShiftAppealsRepository(MasterRepository):
         )
 
         return appeals_to_complete
+
+    def bulk_set_completed_status(self):
+        # После завершения смены есть таймер 15 минут, по истечении времени переводить статус в COMPLETE
+        interval = timedelta(minutes=15)
+
+        appeals_ids = list(self.model.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            status=ShiftAppealStatus.CONFIRMED.value,
+            job_status=JobStatus.COMPLETED.value,
+            completed_real_time__ltdttz=now() - interval
+        ).values_list('id', flat=True))
+
+        self.model.objects.filter(id__in=appeals_ids).update(
+            status=ShiftAppealStatus.COMPLETED.value,
+        )
 
     @staticmethod
     def modify_order_for_confirmed_workers(order_by):

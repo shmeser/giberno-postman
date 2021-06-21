@@ -1,6 +1,8 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q, Prefetch, Subquery, OuterRef, ExpressionWrapper, Sum, Count, FloatField
+from django.db.models import Q, Prefetch, Subquery, OuterRef, ExpressionWrapper, Sum, Count, FloatField, Window, Avg, F, \
+    Case, When
+from django.db.models.functions import RowNumber
 from django.utils.timezone import now
 from fcm_django.models import FCMDevice
 from rest_framework.exceptions import PermissionDenied
@@ -563,3 +565,44 @@ class DocumentsRepository(MasterRepository):
                 raise CustomException(errors=[
                     dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT, **{'detail': str(e)}))
                 ])
+
+
+class RatingRepository(MasterRepository):
+    model = Review
+
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+        review_ids_list = self.model.objects.filter(
+            target_ct=ContentType.objects.get_for_model(UserProfile)
+        ).annotate(
+            rating=Window(
+                expression=Avg('value'), partition_by=[F('target_id'), F('target_ct')]
+            )
+        ).order_by(
+            '-rating'
+        ).values_list('id', flat=True)
+
+        preserved = None
+        if review_ids_list:
+            preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(review_ids_list)])
+
+        records = self.model.objects.filter(
+            target_ct=ContentType.objects.get_for_model(UserProfile)
+        ).annotate(
+            rating=Window(
+                expression=Avg('value'), partition_by=[F('target_id'), F('target_ct')]
+            )
+        ).annotate(
+            place=Window(
+                expression=RowNumber(),
+                order_by=preserved
+            )
+        ).distinct('target_ct_id', 'target_id').order_by('target_ct_id', 'target_id', preserved)
+
+        self.base_query = records
+
+    def get_users_rating(self, kwargs, paginator=None):
+        records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        return records[paginator.offset:paginator.limit] if paginator else records
