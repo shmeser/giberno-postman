@@ -1182,7 +1182,7 @@ class QRView(APIView):
             "qr_text": qr_text,
             "pass": qr_pass,
             "leave_time": leave_time,
-            "appeal": ShiftAppealsSerializer(instance=appeal).data
+            "appeal": ShiftAppealsSerializer(instance=appeal).data if appeal else None
         }
         return Response(camelize(data))
 
