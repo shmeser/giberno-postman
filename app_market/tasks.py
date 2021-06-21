@@ -71,7 +71,7 @@ def update_appeals():
         )
 
     # TODO добавить оповещение для менеджеров
-    completed_appeals = ShiftAppealsRepository().bulk_set_completed_status()
+    completed_appeals = ShiftAppealsRepository().bulk_set_job_completed_status()
     for a in completed_appeals:
         icon_type = NotificationIcon.DEFAULT.value
         title = _COMPLETED_APPEAL_TITLE
@@ -82,6 +82,8 @@ def update_appeals():
             message=message,
             icon_type=icon_type
         )
+
+    ShiftAppealsRepository().bulk_set_completed_status()
 
 
 def send_notification_and_socket_event_on_appeal_with_managers(appeal, title, message, icon_type):
