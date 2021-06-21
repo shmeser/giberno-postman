@@ -1339,7 +1339,7 @@ class ShiftAppealsRepository(MasterRepository):
             ])
 
     @staticmethod
-    def check_if_already_completed(appeal):
+    def check_if_already_job_completed(appeal):
         if appeal.job_status == JobStatus.COMPLETED.value:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.APPEAL_ALREADY_COMPLETED))
@@ -1355,12 +1355,12 @@ class ShiftAppealsRepository(MasterRepository):
         appeal.save()
 
     def set_completed_status(self, appeal):
-        self.check_if_already_completed(appeal=appeal)
+        # self.check_if_already_job_completed(appeal=appeal)
         appeal.status = ShiftAppealStatus.COMPLETED.value
         appeal.save()
 
     def set_job_completed_status(self, appeal, **data):
-        self.check_if_already_completed(appeal=appeal)
+        self.check_if_already_job_completed(appeal=appeal)
 
         appeal.complete_reason = data.get('reason')
         appeal.complete_reason_text = data.get('text')
@@ -1759,6 +1759,9 @@ class ShiftAppealsRepository(MasterRepository):
     def complete_appeal(self, record_id, **data):
         appeal = self.get_by_id(record_id=record_id)
         if self.me != appeal.applier:
+            raise PermissionDenied()
+
+        if appeal.status != ShiftAppealStatus.CONFIRMED.value and appeal.job_status != JobStatus.COMPLETED.value:
             raise PermissionDenied()
 
         self.set_completed_status(appeal=appeal)
