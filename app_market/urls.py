@@ -12,7 +12,7 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     QRView, ShiftAppealComplete, CheckPassByManagerAPIView, AllowPassByManagerAPIView, work_location, \
     ShiftAppealCompleteByManager, \
     RefusePassByManagerAPIView, CheckPassBySecurityAPIView, RefusePassBySecurityAPIView, FireByManagerAPIView, \
-    ProlongByManager
+    ProlongByManager, CancelFiringByManager
 
 urlpatterns = [
     # Торговые сети
@@ -109,6 +109,7 @@ managers_urls = [
     path('market/managers/appeals/<int:record_id>/prolong', ProlongByManager.as_view()),
     path('market/managers/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
     path('market/managers/appeals/<int:record_id>/fire', FireByManagerAPIView.as_view()),
+    path('market/managers/appeals/<int:record_id>/fire/cancel', CancelFiringByManager.as_view()),
 
     # Список смен
     path('market/managers/shifts/<int:record_id>', ShiftForManagers.as_view()),

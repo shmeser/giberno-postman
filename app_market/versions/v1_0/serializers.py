@@ -615,6 +615,7 @@ class ShiftAppealsSerializer(CRUDSerializer):
     created_at = DateTimeField()
     time_start = DateTimeField()
     time_end = DateTimeField()
+    fire_at = DateTimeField()
 
     shift = serializers.SerializerMethodField()
     vacancy = serializers.SerializerMethodField()
@@ -630,7 +631,16 @@ class ShiftAppealsSerializer(CRUDSerializer):
     class Meta:
         model = ShiftAppeal
         fields = [
-            'id', 'status', 'shift_active_date', 'time_start', 'time_end', 'created_at', 'shift', 'vacancy']
+            'id',
+            'status',
+            'shift_active_date',
+            'time_start',
+            'time_end',
+            'created_at',
+            'fire_at',
+            'shift',
+            'vacancy'
+        ]
 
 
 class ShiftsWithAppealsSerializer(CRUDSerializer):
@@ -680,6 +690,7 @@ class ApplierSerializer(CRUDSerializer):
 
 class ShiftAppealsForManagersSerializer(CRUDSerializer):
     applier = serializers.SerializerMethodField()
+    fire_at = DateTimeField()
     required_docs = serializers.SerializerMethodField()
     work_experience = serializers.SerializerMethodField()
 
@@ -710,7 +721,7 @@ class ShiftAppealsForManagersSerializer(CRUDSerializer):
 
     class Meta:
         model = ShiftAppeal
-        fields = ['id', 'status', 'applier', 'required_docs', 'work_experience']
+        fields = ['id', 'status', 'fire_at', 'applier', 'required_docs', 'work_experience']
 
 
 class ShiftsSerializer(CRUDSerializer):
@@ -866,6 +877,7 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
     time_end = serializers.SerializerMethodField()
     real_time_start = serializers.SerializerMethodField()
     real_time_end = serializers.SerializerMethodField()
+    fire_at = DateTimeField()
 
     @staticmethod
     def get_shift_id(instance):
@@ -905,6 +917,7 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
             'time_end',
             'real_time_start',
             'real_time_end',
+            'fire_at',
             'user',
             'vacancy',
         ]

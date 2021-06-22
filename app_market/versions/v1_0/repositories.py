@@ -1791,18 +1791,38 @@ class ShiftAppealsRepository(MasterRepository):
         )['sockets']
         return appeal, sockets
 
+    def check_if_available(self, appeal):
+        if appeal.status == ShiftAppealStatus.CANCELED.value:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEAL_ALREADY_CANCELLED))
+            ])
+        if appeal.status == ShiftAppealStatus.COMPLETED.value:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.APPEAL_ALREADY_COMPLETED))
+            ])
+
     def fire_by_manager(self, record_id, validated_data):
         # Сценарий когда менеджер увольняет кого-то
         appeal = self.get_by_id(record_id=record_id)
         self.is_related_manager(instance=appeal)
-        self.cancel_appeal(appeal=appeal)
+        self.check_if_available(appeal=appeal)
         appeal.manager_fire_reason = validated_data.get('reason')
         appeal.fire_reason_text = validated_data.get('text')
+        # Устанавливаем увольнение через 10 минут после запроса
+        appeal.fire_at = now() + timedelta(minutes=10) if appeal.fire_at is None else appeal.fire_at
         appeal.save()
-        sockets = appeal.applier.sockets.aggregate(
-            sockets=ArrayRemove(ArrayAgg('socket_id'), None)
-        )['sockets']
-        return appeal, sockets
+        # sockets = appeal.applier.sockets.aggregate(
+        #     sockets=ArrayRemove(ArrayAgg('socket_id'), None)
+        # )['sockets']
+        # return appeal, sockets
+
+    def cancel_firing_by_manager(self, record_id):
+        # Сценарий когда менеджер увольняет кого-то
+        appeal = self.get_by_id(record_id=record_id)
+        self.is_related_manager(instance=appeal)
+        self.check_if_available(appeal=appeal)
+        appeal.fire_at = None
+        appeal.save()
 
     def can_be_prolonged(self, instance):
         if instance.status != ShiftAppealStatus.CONFIRMED.value:
@@ -2072,6 +2092,33 @@ class ShiftAppealsRepository(MasterRepository):
         self.model.objects.filter(id__in=appeals_ids).update(
             status=ShiftAppealStatus.COMPLETED.value,
         )
+
+    def fire_pending_appeals(self):
+        # Проставить jobStatus 6 уволен при всем ожидающим увольнения заявкам
+
+        appeals_ids = list(self.model.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            status=ShiftAppealStatus.CONFIRMED.value,
+            fire_at__isnull=False,
+            fire_at__lte=now()
+        ).values_list('id', flat=True))
+
+        self.model.objects.filter(id__in=appeals_ids).update(
+            status=ShiftAppealStatus.CANCELED.value,
+            job_status=JobStatusForClient.FIRED.value
+        )
+
+        appeals = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
+            Prefetch(
+                'applier',
+                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                )
+            )
+        )
+
+        return appeals
 
     @staticmethod
     def modify_order_for_confirmed_workers(order_by):

@@ -607,6 +607,20 @@ class FireByManagerAPIView(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
+class CancelFiringByManager(APIView):
+    permission_classes = [IsAuthenticated, IsManager]
+
+    @staticmethod
+    def post(request, **kwargs):
+        """
+        Отмена увольнения самозанятого
+        """
+        if request.version in ['market_1_0']:
+            return v1_0.CancelFiringByManager().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
 class ProlongByManager(APIView):
     permission_classes = [IsAuthenticated, IsManager]
 

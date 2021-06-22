@@ -242,6 +242,8 @@ class ShiftAppeal(BaseModel):
     fire_reason_text = models.CharField(max_length=255, null=True, blank=True,
                                         verbose_name='Текст причины увольнения менеджером')
 
+    fire_at = models.DateTimeField(null=True, blank=True, verbose_name='Время увольнения')
+
     manager_refuse_reason = models.PositiveIntegerField(
         null=True, blank=True, choices=choices(ManagerAppealRefuseReason), verbose_name='Причина отклонения отклика')
 
