@@ -730,12 +730,12 @@ class UsersRating(CRUDAPIView):
     allowed_http_methods = ['get']
 
     filter_params = {
-        'region': 'region_id'
+        'region': 'reviews__region_id'
     }
 
     date_filter_params = {
-        'date_from': 'created_at__gte',
-        'date_to': 'created_at__lte'
+        'date_from': 'reviews__created_at__gte',
+        'date_to': 'reviews__created_at__lte'
     }
 
     array_filter_params = {
