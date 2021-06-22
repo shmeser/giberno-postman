@@ -576,35 +576,35 @@ class RatingRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-        review_ids_list = self.model.objects.filter(
-            target_ct=ContentType.objects.get_for_model(UserProfile)
-        ).annotate(
-            rating=Window(
-                expression=Avg('value'), partition_by=[F('target_id'), F('target_ct')]
-            )
-        ).order_by(
-            '-rating'
-        ).values_list('id', flat=True)
-
-        preserved = None
-        if review_ids_list:
-            preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(review_ids_list)])
-
-        records = self.model.objects.filter(
-            target_ct=ContentType.objects.get_for_model(UserProfile)
-        ).annotate(
-            rating=Window(
-                expression=Avg('value'), partition_by=[F('target_id'), F('target_ct')]
-            )
-        ).annotate(
-            place=Window(
-                expression=RowNumber(),
-                order_by=preserved
-            )
-        ).distinct('target_ct_id', 'target_id').order_by('target_ct_id', 'target_id', preserved)
-
-        self.base_query = records
+        # review_ids_list = self.model.objects.filter(
+        #     target_ct=ContentType.objects.get_for_model(UserProfile)
+        # ).annotate(
+        #     rating=Window(
+        #         expression=Avg('value'), partition_by=[F('target_id'), F('target_ct')]
+        #     )
+        # ).order_by(
+        #     '-rating'
+        # ).values_list('id', flat=True)
+        #
+        # preserved = None
+        # if review_ids_list:
+        #     preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(review_ids_list)])
+        #
+        # records = self.model.objects.filter(
+        #     target_ct=ContentType.objects.get_for_model(UserProfile)
+        # ).annotate(
+        #     rating=Window(
+        #         expression=Avg('value'), partition_by=[F('target_id'), F('target_ct')]
+        #     )
+        # ).annotate(
+        #     place=Window(
+        #         expression=RowNumber(),
+        #         order_by=preserved
+        #     )
+        # ).distinct('target_ct_id', 'target_id').order_by('target_ct_id', 'target_id', preserved)
+        #
+        # self.base_query = records
 
     def get_users_rating(self, kwargs, paginator=None):
-        records = self.model.objects.filter()
+        records = self.model.objects.filter(reviews__isnull=False)
         return records[paginator.offset:paginator.limit] if paginator else records
