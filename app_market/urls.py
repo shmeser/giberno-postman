@@ -89,10 +89,10 @@ managers_urls = [
 
     # Отклики на вакансии
     # TODO удалить после правок на андроиде
-    path('market/managers/vacancies/<int:record_id>/appeals',
-         VacancyShiftsWithAppealsListForManagerAPIView.as_view()),
-    path('market/managers/vacancies/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
-    path('market/managers/vacancies/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
+    # path('market/managers/vacancies/<int:record_id>/appeals',
+    #      VacancyShiftsWithAppealsListForManagerAPIView.as_view()),
+    # path('market/managers/vacancies/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
+    # path('market/managers/vacancies/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
     ###
 
     # Проверки смен и пропусков
