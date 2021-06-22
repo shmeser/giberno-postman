@@ -152,9 +152,9 @@ class SeedDataForMarketAppAPIView(APIView):
             shifts = Shift.objects.all()
 
             # SET APPEALS FOR SELF EMPLOYED USERS
-            ShiftAppeal.objects.all().delete()
-            for user in users.filter(account_type=AccountType.SELF_EMPLOYED):
-                ShiftAppeal.objects.create(applier=user, shift=random.choice(shifts))
+            # ShiftAppeal.objects.all().delete()
+            # for user in users.filter(account_type=AccountType.SELF_EMPLOYED):
+            #     ShiftAppeal.objects.create(applier=user, shift=random.choice(shifts))
             print('ShiftAppeal seed complete')
 
             # USER SHIFTS SEED
