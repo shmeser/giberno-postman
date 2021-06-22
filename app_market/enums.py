@@ -107,6 +107,8 @@ class JobStatusForClient(IntEnumM):
     JOB_IN_PROCESS = 3  # Работа в процессе
     WAITING_FOR_COMPLETION = 4  # Ждет завершения
     COMPLETED = 5  # Завершена
+    WAITING_FOR_FIRING = 6  # Ждет увольнения
+    FIRED = 7  # Уволен
 
 
 class JobStatus(IntEnumM):
@@ -114,3 +116,5 @@ class JobStatus(IntEnumM):
     JOB_IN_PROCESS = 3  # Работа в процессе
     WAITING_FOR_COMPLETION = 4  # Ждет завершения
     COMPLETED = 5  # Завершена
+    WAITING_FOR_FIRING = 6  # Ждет увольнения
+    FIRED = 7  # Уволен

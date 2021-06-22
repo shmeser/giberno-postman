@@ -1303,18 +1303,21 @@ class FireByManagerAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            appeal, sockets = self.repository_class(me=request.user).fire_by_manager(
+            self.repository_class(me=request.user).fire_by_manager(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
-            SocketController().send_message_to_many_connections(sockets, {
-                'type': 'appeal_job_status_updated',
-                'prepared_data': {
-                    'id': appeal.id,
-                    'jobStatus': appeal.job_status,
-                }
-            })
             return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class CancelFiringByManager(APIView):
+    repository_class = ShiftAppealsRepository
+
+    def post(self, request, *args, **kwargs):
+        self.repository_class(me=request.user).cancel_firing_by_manager(
+            record_id=kwargs.get('record_id'),
+        )
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 class ProlongByManager(APIView):

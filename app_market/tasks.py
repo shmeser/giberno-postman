@@ -57,7 +57,6 @@ def update_appeals():
             icon_type=icon_type
         )
 
-    # TODO добавить оповещение для менеджеров
     waiting_completion = ShiftAppealsRepository().bulk_set_waiting_for_completion_status()
     for a in waiting_completion:
         icon_type = NotificationIcon.DEFAULT.value
@@ -70,7 +69,6 @@ def update_appeals():
             icon_type=icon_type
         )
 
-    # TODO добавить оповещение для менеджеров
     completed_appeals = ShiftAppealsRepository().bulk_set_job_completed_status()
     for a in completed_appeals:
         icon_type = NotificationIcon.DEFAULT.value
@@ -84,6 +82,21 @@ def update_appeals():
         )
 
     ShiftAppealsRepository().bulk_set_completed_status()
+
+    _FIRED_APPEAL_TITLE = 'Вы уволены'
+    fired_appeals = ShiftAppealsRepository().fire_pending_appeals()
+    for a in fired_appeals:
+        icon_type = NotificationIcon.WORKER_CANCELED_VACANCY.value
+        title = _FIRED_APPEAL_TITLE
+        message = f'К сожалению, вы были уволены. Ваша работа по вакансии {a.shift.vacancy.title} не будет оплачена.'
+        send_notification_and_socket_event_on_appeal(
+            appeal=a,
+            users_to_send=[a.applier],
+            sockets=a.applier.sockets_array or [],
+            title=title,
+            message=message,
+            icon_type=icon_type
+        )
 
 
 def send_notification_and_socket_event_on_appeal_with_managers(appeal, title, message, icon_type):
