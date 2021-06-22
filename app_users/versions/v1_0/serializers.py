@@ -735,10 +735,10 @@ class RatingSerializer(serializers.ModelSerializer):
         return instance.place
 
     def get_rating(self, instance):
-        return instance.rating
+        return instance.total_rating
 
     def get_user(self, instance):
-        return UserInReviewSerializer(instance.target, many=False).data
+        return UserInReviewSerializer(instance, many=False).data
 
     class Meta:
         model = Review

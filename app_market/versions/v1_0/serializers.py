@@ -188,6 +188,7 @@ class ShopInVacancyShiftSerializer(ShopsSerializer):
     """ Вложенная модель магазина в вакансии (на экране просмотра откликов по вакансиям) """
     lon = serializers.SerializerMethodField()
     lat = serializers.SerializerMethodField()
+
     def get_lon(self, instance):
         return instance.location.x if instance.location else None
 
@@ -920,7 +921,7 @@ class QRCodeCompleteSerializer(serializers.Serializer):
 
 
 class ShiftAppealCompleteSerializer(serializers.Serializer):
-    reason = serializers.ChoiceField(choices=choices(AppealCompleteReason), allow_null=True)
+    reason = serializers.ChoiceField(choices=choices(AppealCompleteReason), allow_null=True, required=False)
     text = serializers.CharField(allow_null=True, required=False)
 
 

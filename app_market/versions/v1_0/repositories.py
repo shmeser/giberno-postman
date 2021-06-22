@@ -1519,6 +1519,15 @@ class ShiftAppealsRepository(MasterRepository):
         # self.is_related_manager(instance=instance)
 
         if not instance.status == ShiftAppealStatus.CONFIRMED:
+
+            if instance.time_end <= now():
+                # Если подтвержнение смены после того как она закончилась
+                return status_changed, manager_and_user_sockets, instance
+
+            if instance.time_start <= now() and instance.time_end >= now():
+                # Если подтверждение смены позже времени начала, но раньше времени окончания
+                instance.job_status = JobStatusForClient.JOB_IN_PROCESS.value
+
             instance.status = ShiftAppealStatus.CONFIRMED
             instance.save()
             # удаляем остальные отклики пользователя
@@ -1795,11 +1804,16 @@ class ShiftAppealsRepository(MasterRepository):
         )['sockets']
         return appeal, sockets
 
+    def can_be_prolonged(self, instance):
+        if instance.status != ShiftAppealStatus.CONFIRMED.value:
+            raise HttpException(status_code=RESTErrors.FORBIDDEN.value, detail=RESTErrors.FORBIDDEN.name)
+
     def prolong_by_manager(self, record_id, validated_data):
-        # Сценарий когда менеджер увольняет кого-то
+        # Продление смены пользователя
         appeal = self.get_by_id(record_id=record_id)
         self.is_related_manager(instance=appeal)
-        self.cancel_appeal(appeal=appeal)
+        self.can_be_prolonged(instance=appeal)
+
         appeal.time_end = appeal.time_end + timedelta(hours=validated_data.get('hours'))
         appeal.save()
         sockets = appeal.applier.sockets.aggregate(
