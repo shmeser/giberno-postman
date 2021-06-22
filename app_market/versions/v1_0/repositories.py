@@ -574,8 +574,8 @@ class ShiftsRepository(MasterRepository):
             status=ShiftAppealStatus.CONFIRMED.value,
             shift_id=shift_id,
             shift_active_date__datetz=localtime(now(), timezone=timezone(vacancy_timezone_name)),
-            time_start__ltetimetz=localtime(now(), timezone=timezone(vacancy_timezone_name)),
-            time_end__gttimetz=localtime(now(), timezone=timezone(vacancy_timezone_name))
+            time_start__ltedttz=localtime(now(), timezone=timezone(vacancy_timezone_name)),
+            time_end__gtdttz=localtime(now(), timezone=timezone(vacancy_timezone_name))
         ).exists()
 
         is_within_radius = Vacancy.objects.annotate(  # Есть вакансия, где дистанция меньше, чем указанный в ней радиус
