@@ -641,7 +641,7 @@ class ShiftAppealCompleteByManager(APIView):
     @staticmethod
     def post(request, **kwargs):
         """
-            Завершить смену со менеджером
+            Завершить смену менеджером
         """
         if request.version in ['market_1_0']:
             return v1_0.ShiftAppealCompleteByManager().post(request, **kwargs)

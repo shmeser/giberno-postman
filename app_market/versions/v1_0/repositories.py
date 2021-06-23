@@ -1786,6 +1786,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeal = self.get_by_qr_text(qr_text=data.get('qr_text'))
         self.is_related_manager(instance=appeal)
         self.set_job_completed_status(appeal=appeal, **data)
+        self.set_completed_status(appeal=appeal)
         sockets = appeal.applier.sockets.aggregate(
             sockets=ArrayRemove(ArrayAgg('socket_id'), None)
         )['sockets']
