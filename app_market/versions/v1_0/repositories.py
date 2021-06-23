@@ -1786,7 +1786,6 @@ class ShiftAppealsRepository(MasterRepository):
         appeal = self.get_by_qr_text(qr_text=data.get('qr_text'))
         self.is_related_manager(instance=appeal)
         self.set_job_completed_status(appeal=appeal, **data)
-        self.set_completed_status(appeal=appeal)
         sockets = appeal.applier.sockets.aggregate(
             sockets=ArrayRemove(ArrayAgg('socket_id'), None)
         )['sockets']
@@ -2134,6 +2133,12 @@ class ShiftAppealsRepository(MasterRepository):
         ).filter(
             shift__shop__in=self.me.shops.all(),
             status=ShiftAppealStatus.CONFIRMED.value,
+            job_status__in=[
+                JobStatus.JOB_SOON.value,
+                JobStatus.JOB_IN_PROCESS.value,
+                JobStatus.WAITING_FOR_COMPLETION.value,
+                JobStatus.WAITING_FOR_FIRING.value
+            ],
             shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date() if current_date else None,
             **filters
         ).select_related(
@@ -2153,6 +2158,12 @@ class ShiftAppealsRepository(MasterRepository):
         ).filter(
             shift__shop__in=self.me.shops.all(),
             status=ShiftAppealStatus.CONFIRMED.value,
+            job_status__in=[
+                JobStatus.JOB_SOON.value,
+                JobStatus.JOB_IN_PROCESS.value,
+                JobStatus.WAITING_FOR_COMPLETION.value,
+                JobStatus.WAITING_FOR_FIRING.value
+            ],
             shift_active_date__datetz_gte=calendar_from.date(),
             shift_active_date__datetz_lte=calendar_to.date(),
         ).select_related(
@@ -2168,6 +2179,12 @@ class ShiftAppealsRepository(MasterRepository):
         ).filter(
             shift__shop__in=self.me.shops.all(),
             status=ShiftAppealStatus.CONFIRMED.value,
+            job_status__in=[
+                JobStatus.JOB_SOON.value,
+                JobStatus.JOB_IN_PROCESS.value,
+                JobStatus.WAITING_FOR_COMPLETION.value,
+                JobStatus.WAITING_FOR_FIRING.value
+            ],
             shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date() if current_date else None,
             **filters
         ).select_related(
