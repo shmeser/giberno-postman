@@ -109,7 +109,6 @@ class TelegramBotSender:
                 "chat_type": chat.type
             })
 
-            print(f'>>>> TELEGRAM_URL <<<< {TELEGRAM_URL} | >>>> TELEGRAM_BOT_TOKEN <<<< {TELEGRAM_BOT_TOKEN}')
             requests.post(
                 f"{TELEGRAM_URL}{TELEGRAM_BOT_TOKEN}/sendMessage", data=prepared_data
             )
@@ -122,5 +121,4 @@ class TelegramBotLogger(logging.Handler):
         self.setFormatter(TelegramFormatter())
 
     def emit(self, record):
-        print('>>>>>>>>>>>>>>>>> TELEGRAM ERROR SENDING <<<<<<<<<<<<<<<<<')
         TelegramBotSender.send_message(self.format(record), TelegramBotNotificationType.DEBUG.value)
