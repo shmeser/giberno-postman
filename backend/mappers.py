@@ -54,12 +54,12 @@ class RequestMapper:
                 pagination.offset = 0
 
         if request.GET.get('limit') is None:
-            pagination.limit = 10
+            pagination.limit = 30
         else:
             try:
                 pagination.limit = pagination.offset + int(request.GET.get('limit'))
             except Exception:
-                pagination.limit = 10
+                pagination.limit = 30
 
         return pagination
 

@@ -81,6 +81,7 @@ def update_appeals():
             icon_type=icon_type
         )
 
+    # По истечении 15 минут после завершения работы, окончательно закрываем смену
     ShiftAppealsRepository().bulk_set_completed_status()
 
     _FIRED_APPEAL_TITLE = 'Вы уволены'
