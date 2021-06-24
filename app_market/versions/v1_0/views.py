@@ -331,7 +331,8 @@ class ShiftAppealComplete(CRUDAPIView):
 
     def post(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        serializer = ShiftAppealCompleteSerializer(data=get_request_body(request))
+        body = get_request_body(request) if request.body else {}
+        serializer = ShiftAppealCompleteSerializer(data=body)
         if serializer.is_valid(raise_exception=True):
             appeal, sockets = self.repository_class(me=request.user).complete_appeal(
                 record_id=record_id, **serializer.validated_data
