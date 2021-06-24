@@ -9,7 +9,8 @@ from rest_framework.views import APIView
 
 from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
-    POSTReviewByManagerSerializer, POSTShopReviewSerializer, ShopReviewsSerializer
+    POSTReviewByManagerSerializer, POSTShopReviewSerializer, DistributorReviewsSerializer, \
+    VacancyReviewsSerializer, ShopVacanciesReviewsSerializer
 from app_market.enums import AppealCancelReason, ShiftAppealStatus
 from app_market.utils import QRHandler
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
@@ -724,6 +725,13 @@ class VacancyReviewsAPIView(ReviewsBaseAPIView):
     get_request_repository_class = ReviewsRepository
     post_request_repository_class = VacanciesRepository
 
+    def get(self, request, *args, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        queryset = self.get_request_repository_class().get_vacancy_reviews(
+            vacancy_id=kwargs.get('record_id'), pagination=pagination
+        )
+        return Response(camelize(VacancyReviewsSerializer(queryset, many=True).data))
+
 
 class ShopReviewsAPIView(ReviewsBaseAPIView):
     serializer_class = POSTShopReviewSerializer
@@ -743,16 +751,23 @@ class ShopReviewsAPIView(ReviewsBaseAPIView):
 
     def get(self, request, *args, **kwargs):
         pagination = RequestMapper.pagination(request)
-        queryset = self.get_request_repository_class().get_shop_reviews(
+        queryset = self.get_request_repository_class().get_shop_vacancies_reviews(
             shop_id=kwargs.get('record_id'), pagination=pagination
         )
-        return Response(camelize(ShopReviewsSerializer(queryset, many=True).data))
+        return Response(camelize(ShopVacanciesReviewsSerializer(queryset, many=True).data))
 
 
 class DistributorReviewsAPIView(ReviewsBaseAPIView):
     serializer_class = POSTReviewSerializer
     get_request_repository_class = ReviewsRepository
     post_request_repository_class = DistributorsRepository
+
+    def get(self, request, *args, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        queryset = self.get_request_repository_class().get_distributor_reviews(
+            distributor_id=kwargs.get('record_id'), pagination=pagination
+        )
+        return Response(camelize(DistributorReviewsSerializer(queryset, many=True).data))
 
 
 class SelfEmployedUserReviewsByAdminOrManagerAPIView(ReviewsBaseAPIView):
@@ -776,12 +791,10 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(ReviewsBaseAPIView):
 
     def get(self, request, *args, **kwargs):
         pagination = RequestMapper.pagination(request)
-        kwargs = {
-            'target_id': kwargs['record_id'],
-            'deleted': False
-        }
-        queryset = self.get_request_repository_class().filter_by_kwargs(kwargs=kwargs, paginator=pagination)
-        return Response(ReviewModelSerializer(instance=queryset, many=True).data)
+        queryset = self.get_request_repository_class().get_self_employed_reviews(
+            user_id=kwargs.get('record_id'), pagination=pagination
+        )
+        return Response(camelize(DistributorReviewsSerializer(queryset, many=True).data))
 
 
 class ConfirmAppealByManagerAPIView(CRUDAPIView):
