@@ -610,4 +610,33 @@ class RatingRepository(MasterRepository):
                 expression=DenseRank(), order_by=F('total_rating').desc()
             )
         ).order_by('-total_rating')
+        # TODO префетчить аватарки
         return records[paginator.offset:paginator.limit] if paginator else records
+
+    def get_my_rating(self, kwargs):
+        user_ct = ContentType.objects.get_for_model(UserProfile)
+        kwargs_for_reviews = self.get_kwargs_for_reviews(kwargs)
+        record = self.model.objects.filter(  # Фильтруем смз по нужным параметрам (регион оценки, смена, дата)
+            reviews__isnull=False,
+            id=self.me.id,
+            **kwargs
+        ).annotate(
+            total_rating=Subquery(
+                Review.objects.filter(  # Собираем рейтинг по тем же парамерам
+                    target_id=OuterRef('id'),
+                    target_ct=user_ct,
+                    **kwargs_for_reviews  # Измененные kwargs, так как тут модель не UserProfile? а Review
+                ).annotate(
+                    rating=Window(  # Приходится использовать оконные функции из-за сложной структуры оценок и задачи
+                        expression=Avg('value'), partition_by=[F('target_id')]
+                    )
+                ).values('rating')[:1]
+            )
+        ).distinct().annotate(
+            place=Window(
+                # Проставляем место (ранг) по убыванию рейтинга
+                expression=DenseRank(), order_by=F('total_rating').desc()
+            )
+        ).first()
+        # TODO префетчить аватарки
+        return record

@@ -351,3 +351,19 @@ class UsersRating(APIView):
         if request.version in ['users_1_0']:
             return v1_0.UsersRating().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class MyRating(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.MyRating().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class UserCareer(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.UserCareer().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

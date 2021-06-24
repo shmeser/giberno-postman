@@ -509,20 +509,6 @@ class QRView(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
-class QRView(APIView):
-    permission_classes = [IsAuthenticated, IsSelfEmployed]
-
-    @staticmethod
-    def get(request, **kwargs):
-        """
-            Информация по ближайшим/текущим сменам
-        """
-        if request.version in ['market_1_0']:
-            return v1_0.QRView().get(request, **kwargs)
-
-        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
-
-
 class CheckPassByManagerAPIView(APIView):
     permission_classes = [IsAuthenticated, IsManager]
 

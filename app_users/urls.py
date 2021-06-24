@@ -4,7 +4,7 @@ from app_users.views import AuthFirebase, AuthRefreshToken, firebase_web_auth, R
     MyProfile, MyProfileUploads, MyProfileSocials, Notifications, NotificationsSettings, MyProfileCareer, \
     MyProfileDocuments, read_notification, CreateManagerByAdminAPIView, GetManagerByUsernameAPIView, \
     AuthenticateManagerAPIView, ChangeManagerPasswordAPIView, EditManagerProfileView, PushUnsubscribe, push_subscribe, \
-    CreateSecurityByAdmin, AuthenticateSecurity, UsersRating
+    CreateSecurityByAdmin, AuthenticateSecurity, UsersRating, MyRating, UserCareer
 
 urlpatterns = [
     path('auth/firebase/web', firebase_web_auth),
@@ -19,6 +19,7 @@ urlpatterns = [
 
     path('users', Users.as_view()),
     path('users/<int:record_id>', Users.as_view()),
+    path('users/<int:record_id>/career', UserCareer.as_view()),
 
     path('users/profile', MyProfile.as_view()),
     path('users/profile/upload', MyProfileUploads.as_view()),
@@ -31,6 +32,7 @@ urlpatterns = [
     path('users/profile/documents/<int:record_id>', MyProfileDocuments.as_view()),
 
     path('users/rating', UsersRating.as_view()),
+    path('users/rating/my', MyRating.as_view()),
 
     path('notifications', Notifications.as_view()),
     path('notifications/<int:record_id>', Notifications.as_view()),

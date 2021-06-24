@@ -758,3 +758,77 @@ class UsersRating(CRUDAPIView):
         })
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class MyRating(CRUDAPIView):
+    serializer_class = RatingSerializer
+    repository_class = RatingRepository
+
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'region': 'reviews__region_id'
+    }
+
+    date_filter_params = {
+        'date_from': 'reviews__created_at__gte',
+        'date_to': 'reviews__created_at__lte'
+    }
+
+    array_filter_params = {
+    }
+
+    default_filters = {}
+
+    def get(self, request, **kwargs):
+        filters = RequestMapper(self).filters(request) or dict()
+
+        self.many = False
+        dataset = self.repository_class(me=request.user).get_my_rating(
+            kwargs=filters
+        )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class UserCareer(CRUDAPIView):
+    serializer_class = CareerSerializer
+    repository_class = CareerRepository
+
+    allowed_http_methods = ['get']
+
+    filter_params = {
+    }
+
+    default_order_params = ['year_start']
+
+    default_filters = {
+    }
+
+    order_params = {
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        self.many = True
+        dataset = self.repository_class().filter_by_kwargs(
+            kwargs={**filters, **{
+                'user_id': record_id
+            }}, paginator=pagination, order_by=order_params
+        )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
