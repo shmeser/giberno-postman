@@ -935,7 +935,7 @@ class QRCodeCompleteSerializer(serializers.Serializer):
 
 class ShiftAppealCompleteSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=choices(AppealCompleteReason), allow_null=True, required=False)
-    text = serializers.CharField(allow_null=True, required=False)
+    text = serializers.CharField(allow_null=True, required=False, allow_blank=True)
 
 
 class ManagerAppealCancelReasonSerializer(serializers.Serializer):
