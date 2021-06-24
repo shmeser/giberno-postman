@@ -575,48 +575,68 @@ class RatingRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-        # review_ids_list = self.model.objects.filter(
-        #     target_ct=ContentType.objects.get_for_model(UserProfile)
-        # ).annotate(
-        #     rating=Window(
-        #         expression=Avg('value'), partition_by=[F('target_id'), F('target_ct')]
-        #     )
-        # ).order_by(
-        #     '-rating'
-        # ).values_list('id', flat=True)
-        #
-        # preserved = None
-        # if review_ids_list:
-        #     preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(review_ids_list)])
-        #
-        # records = self.model.objects.filter(
-        #     target_ct=ContentType.objects.get_for_model(UserProfile)
-        # ).annotate(
-        #     rating=Window(
-        #         expression=Avg('value'), partition_by=[F('target_id'), F('target_ct')]
-        #     )
-        # ).annotate(
-        #     place=Window(
-        #         expression=RowNumber(),
-        #         order_by=preserved
-        #     )
-        # ).distinct('target_ct_id', 'target_id').order_by('target_ct_id', 'target_id', preserved)
-        #
-        # self.base_query = records
+    def get_kwargs_for_reviews(self, kwargs):
+        m_kwargs = kwargs.copy()
+        for k in m_kwargs.keys():
+            try:
+                new_key = k.replace('reviews__', '')
+                m_kwargs[new_key] = m_kwargs.pop(k)
+            except:
+                pass
+
+        return m_kwargs
 
     def get_users_rating(self, kwargs, paginator=None):
         user_ct = ContentType.objects.get_for_model(UserProfile)
-        records = self.model.objects.filter(reviews__isnull=False, **kwargs).annotate(
+        kwargs_for_reviews = self.get_kwargs_for_reviews(kwargs)
+        records = self.model.objects.filter(  # Фильтруем смз по нужным параметрам (регион оценки, смена, дата)
+            reviews__isnull=False,
+            **kwargs
+        ).annotate(
             total_rating=Subquery(
-                Review.objects.filter(target_id=OuterRef('id'), target_ct=user_ct).annotate(
-                    rating=Window(
+                Review.objects.filter(  # Собираем рейтинг по тем же парамерам
+                    target_id=OuterRef('id'),
+                    target_ct=user_ct,
+                    **kwargs_for_reviews  # Измененные kwargs, так как тут модель не UserProfile? а Review
+                ).annotate(
+                    rating=Window(  # Приходится использовать оконные функции из-за сложной структуры оценок и задачи
                         expression=Avg('value'), partition_by=[F('target_id')]
                     )
                 ).values('rating')[:1]
             )
         ).distinct().annotate(
             place=Window(
+                # Проставляем место (ранг) по убыванию рейтинга
                 expression=DenseRank(), order_by=F('total_rating').desc()
             )
         ).order_by('-total_rating')
+        # TODO префетчить аватарки
         return records[paginator.offset:paginator.limit] if paginator else records
+
+    def get_my_rating(self, kwargs):
+        user_ct = ContentType.objects.get_for_model(UserProfile)
+        kwargs_for_reviews = self.get_kwargs_for_reviews(kwargs)
+        record = self.model.objects.filter(  # Фильтруем смз по нужным параметрам (регион оценки, смена, дата)
+            reviews__isnull=False,
+            id=self.me.id,
+            **kwargs
+        ).annotate(
+            total_rating=Subquery(
+                Review.objects.filter(  # Собираем рейтинг по тем же парамерам
+                    target_id=OuterRef('id'),
+                    target_ct=user_ct,
+                    **kwargs_for_reviews  # Измененные kwargs, так как тут модель не UserProfile? а Review
+                ).annotate(
+                    rating=Window(  # Приходится использовать оконные функции из-за сложной структуры оценок и задачи
+                        expression=Avg('value'), partition_by=[F('target_id')]
+                    )
+                ).values('rating')[:1]
+            )
+        ).distinct().annotate(
+            place=Window(
+                # Проставляем место (ранг) по убыванию рейтинга
+                expression=DenseRank(), order_by=F('total_rating').desc()
+            )
+        ).first()
+        # TODO префетчить аватарки
+        return record
