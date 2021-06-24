@@ -690,7 +690,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                     ),
                     default=None,
                     output_field=IntegerField()
-                )
+                ),
+                distinct=True
             ), None)  # Удаляем из массива null значения
 
         # количество общих мест в вакансии
@@ -839,14 +840,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         return ShiftsRepository().active_dates(queryset=shifts)
 
     def vacancy_shifts_with_appeals_queryset(self, record_id, pagination=None, current_date=None, next_day=None):
-        # active_shifts = []
         vacancy = self.get_by_id_for_manager_or_security(record_id=record_id)
-        # shifts = ShiftsRepository(calendar_from=current_date, calendar_to=next_day).filter_by_kwargs(
-        #     kwargs={**filters, **{
-        #         'vacancy_id': vacancy.id
-        #     }},
-        #     paginator=pagination)
-
         shifts = ShiftsRepository(
             calendar_from=current_date, calendar_to=next_day
         ).get_shifts_on_current_date_for_vacancy(
@@ -857,14 +851,6 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
         if pagination:
             return shifts[pagination.offset:pagination.limit]
         return shifts
-
-        # for shift in shifts:
-        #     if len(shift.active_dates):
-        #         for active_date in shift.active_dates:
-        #             if active_date <= current_date < next_day:
-        #                 active_shifts.append(shift)
-        #                 break
-        # return list(set(active_shifts))
 
     def get_suggestions(self, search, paginator=None):
         records = self.model.objects.exclude(deleted=True).annotate(
