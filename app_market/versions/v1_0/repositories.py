@@ -2079,6 +2079,17 @@ class ShiftAppealsRepository(MasterRepository):
             status=ShiftAppealStatus.COMPLETED.value,
         )
 
+        completed_appeals = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
+            Prefetch(
+                'applier',
+                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                )
+            )
+        )
+
+        return completed_appeals
+
     def fire_pending_appeals(self):
         # Проставить jobStatus 6 уволен при всем ожидающим увольнения заявкам
 

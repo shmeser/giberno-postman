@@ -70,8 +70,8 @@ def update_appeals():
             icon_type=icon_type
         )
 
-    completed_appeals = ShiftAppealsRepository().bulk_set_job_completed_status()
-    for a in completed_appeals:
+    completed_job_appeals = ShiftAppealsRepository().bulk_set_job_completed_status()
+    for a in completed_job_appeals:
         icon_type = NotificationIcon.DEFAULT.value
         title = _COMPLETED_APPEAL_TITLE
         message = f'Смена по вакансии {a.shift.vacancy.title} успешно завершена.'
@@ -83,7 +83,9 @@ def update_appeals():
         )
 
     # По истечении 15 минут после завершения работы, окончательно закрываем смену
-    ShiftAppealsRepository().bulk_set_completed_status()
+    completed_appeals = ShiftAppealsRepository().bulk_set_completed_status()
+    for a in completed_appeals:
+        send_socket_event_on_appeal(appeal=a)
 
     _FIRED_APPEAL_TITLE = 'Вы уволены'
     fired_appeals = ShiftAppealsRepository().fire_pending_appeals()
@@ -123,6 +125,25 @@ def send_notification_and_socket_event_on_appeal_with_managers(appeal, title, me
         message=message,
         icon_type=icon_type
     )
+
+
+def send_socket_event_on_appeal(appeal):
+    sockets = appeal.applier.sockets_array or []
+    logger.info({
+        'type': 'appeal_job_status_updated',
+        'prepared_data': {
+            'id': appeal.id,
+            'jobStatus': appeal.job_status,
+        }
+    })
+
+    SocketController().send_message_to_many_connections(sockets, {
+        'type': 'appeal_job_status_updated',
+        'prepared_data': {
+            # 'id': appeal.id,
+            # 'jobStatus': appeal.job_status,
+        }
+    })
 
 
 def send_notification_and_socket_event_on_appeal(appeal, users_to_send, sockets, title, message, icon_type):

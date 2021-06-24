@@ -100,9 +100,8 @@ class VacancyInReviewSerializer(serializers.ModelSerializer):
         ]
 
 
-class ShopReviewsSerializer(serializers.ModelSerializer):
+class ReviewsSerializer(serializers.ModelSerializer):
     created_at = DateTimeField()
-    vacancy = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
 
     def get_owner(self, data):
@@ -110,6 +109,20 @@ class ShopReviewsSerializer(serializers.ModelSerializer):
         if not data.owner:
             return None
         return ReviewOwnerSerializer(data.owner, many=False).data
+
+    class Meta:
+        model = Review
+        fields = [
+            'id',
+            'created_at',
+            'text',
+            'value',
+            'owner',
+        ]
+
+
+class ShopReviewsSerializer(ReviewsSerializer):
+    vacancy = serializers.SerializerMethodField()
 
     def get_vacancy(self, data):
         if data.shift:
@@ -125,4 +138,46 @@ class ShopReviewsSerializer(serializers.ModelSerializer):
             'value',
             'owner',
             'vacancy'
+        ]
+
+
+class ShopVacanciesReviewsSerializer(ReviewsSerializer):
+    vacancy = serializers.SerializerMethodField()
+
+    def get_vacancy(self, data):
+        return VacancyInReviewSerializer(data.target, many=False).data
+
+    class Meta:
+        model = Review
+        fields = [
+            'id',
+            'created_at',
+            'text',
+            'value',
+            'owner',
+            'vacancy'
+        ]
+
+
+class DistributorReviewsSerializer(ReviewsSerializer):
+    class Meta:
+        model = Review
+        fields = [
+            'id',
+            'created_at',
+            'text',
+            'value',
+            'owner',
+        ]
+
+
+class VacancyReviewsSerializer(ReviewsSerializer):
+    class Meta:
+        model = Review
+        fields = [
+            'id',
+            'created_at',
+            'text',
+            'value',
+            'owner',
         ]
