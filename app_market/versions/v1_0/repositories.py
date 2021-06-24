@@ -2131,19 +2131,29 @@ class ShiftAppealsRepository(MasterRepository):
         result = self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
-            shift__shop__in=self.me.shops.all(),
-            status=ShiftAppealStatus.CONFIRMED.value,
-            job_status__in=[
-                JobStatus.JOB_SOON.value,
-                JobStatus.JOB_IN_PROCESS.value,
-                JobStatus.WAITING_FOR_COMPLETION.value,
-                JobStatus.WAITING_FOR_FIRING.value
-            ],
-            shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date() if current_date else None,
+            Q(
+                shift__shop__in=self.me.shops.all(),
+                status=ShiftAppealStatus.CONFIRMED.value
+            ) &
+            Q(
+                Q(job_status__in=[
+                    JobStatus.JOB_SOON.value,
+                    JobStatus.JOB_IN_PROCESS.value,
+                    JobStatus.WAITING_FOR_COMPLETION.value,
+                    JobStatus.WAITING_FOR_FIRING.value
+                ]) |
+                Q(job_status__isnull=True)
+
+            ),
             **filters
         ).select_related(
             'shift__vacancy'
         )
+        if current_date is not None:
+            result = result.filter(
+                shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date()
+            )
+
         if order_by:
             # Добавляем двойную сортировку, так как у смены есть time_start и time_end
             self.modify_order_for_confirmed_workers(order_by)
@@ -2156,16 +2166,22 @@ class ShiftAppealsRepository(MasterRepository):
         result = self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
-            shift__shop__in=self.me.shops.all(),
-            status=ShiftAppealStatus.CONFIRMED.value,
-            job_status__in=[
-                JobStatus.JOB_SOON.value,
-                JobStatus.JOB_IN_PROCESS.value,
-                JobStatus.WAITING_FOR_COMPLETION.value,
-                JobStatus.WAITING_FOR_FIRING.value
-            ],
-            shift_active_date__datetz_gte=calendar_from.date(),
-            shift_active_date__datetz_lte=calendar_to.date(),
+            Q(
+                shift__shop__in=self.me.shops.all(),
+                status=ShiftAppealStatus.CONFIRMED.value,
+                shift_active_date__datetz_gte=calendar_from.date(),
+                shift_active_date__datetz_lte=calendar_to.date(),
+            ) &
+            Q(
+                Q(job_status__in=[
+                    JobStatus.JOB_SOON.value,
+                    JobStatus.JOB_IN_PROCESS.value,
+                    JobStatus.WAITING_FOR_COMPLETION.value,
+                    JobStatus.WAITING_FOR_FIRING.value
+                ]) |
+                Q(job_status__isnull=True)
+            )
+
         ).select_related(
             'shift__vacancy'
         ).distinct('shift_active_date', 'shift__vacancy__timezone').order_by('shift_active_date')
@@ -2177,15 +2193,19 @@ class ShiftAppealsRepository(MasterRepository):
         result = self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
-            shift__shop__in=self.me.shops.all(),
-            status=ShiftAppealStatus.CONFIRMED.value,
-            job_status__in=[
-                JobStatus.JOB_SOON.value,
-                JobStatus.JOB_IN_PROCESS.value,
-                JobStatus.WAITING_FOR_COMPLETION.value,
-                JobStatus.WAITING_FOR_FIRING.value
-            ],
-            shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date() if current_date else None,
+            Q(
+                shift__shop__in=self.me.shops.all(),
+                status=ShiftAppealStatus.CONFIRMED.value,
+                shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date() if current_date else None) &
+            Q(
+                Q(job_status__in=[
+                    JobStatus.JOB_SOON.value,
+                    JobStatus.JOB_IN_PROCESS.value,
+                    JobStatus.WAITING_FOR_COMPLETION.value,
+                    JobStatus.WAITING_FOR_FIRING.value
+                ]) |
+                Q(job_status__isnull=True)
+            ),
             **filters
         ).select_related(
             'shift__vacancy'
