@@ -1,6 +1,7 @@
 import uuid
 
 from celery import shared_task
+from loguru import logger
 
 from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_sockets.controllers import SocketController
@@ -125,6 +126,13 @@ def send_notification_and_socket_event_on_appeal_with_managers(appeal, title, me
 
 
 def send_notification_and_socket_event_on_appeal(appeal, users_to_send, sockets, title, message, icon_type):
+    logger.info({
+        'type': 'appeal_job_status_updated',
+        'prepared_data': {
+            'id': appeal.id,
+            'jobStatus': appeal.job_status,
+        }
+    })
     SocketController().send_message_to_many_connections(sockets, {
         'type': 'appeal_job_status_updated',
         'prepared_data': {
