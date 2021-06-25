@@ -87,14 +87,6 @@ managers_urls = [
     path('market/managers/vacancies/<int:record_id>/active_dates',
          SingleVacancyActiveDatesForManagerListAPIView.as_view()),
 
-    # Отклики на вакансии
-    # TODO удалить после правок на андроиде
-    # path('market/managers/vacancies/<int:record_id>/appeals',
-    #      VacancyShiftsWithAppealsListForManagerAPIView.as_view()),
-    # path('market/managers/vacancies/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
-    # path('market/managers/vacancies/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
-    ###
-
     # Проверки смен и пропусков
     path('market/qr', QRView.as_view()),
 
@@ -109,7 +101,7 @@ managers_urls = [
     path('market/managers/appeals/<int:record_id>/prolong', ProlongByManager.as_view()),
     path('market/managers/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
     path('market/managers/appeals/<int:record_id>/fire', FireByManagerAPIView.as_view()),
-    path('market/managers/appeals/<int:record_id>/fire/cancel', CancelFiringByManager.as_view()),
+    path('market/managers/appeals/<int:record_id>/fire/cancel', CancelFiringByManager.as_view()),  # TODO
 
     # Список смен
     path('market/managers/shifts/<int:record_id>', ShiftForManagers.as_view()),
