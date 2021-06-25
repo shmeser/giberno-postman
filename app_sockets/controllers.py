@@ -81,7 +81,8 @@ class SocketController:
         except Exception as e:
             logger.error(e)
 
-    def send_message_to_one_connection(self, socket_id, data):
+    @staticmethod
+    def send_message_to_one_connection(socket_id, data):
         # Отправка уведомления в одиночный канал подключенного пользователя
         try:
             channel_layer = get_channel_layer()
@@ -89,7 +90,8 @@ class SocketController:
         except Exception as e:
             logger.error(e)
 
-    def send_message_to_many_connections(self, sockets, data):
+    @staticmethod
+    def send_message_to_many_connections(sockets, data):
         channel_layer = get_channel_layer()
         if sockets:
             for socket in sockets:

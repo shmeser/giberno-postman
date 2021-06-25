@@ -186,7 +186,7 @@ def add_managers_to_chat(version, chat):
         # Отправляем всем релевантным менеджерам по сокетам смену состояния чата
         for socket_id in managers_sockets:
             # Отправялем сообщение автору сообщения о том, что оно прочитано
-            SocketController(version=AvailableVersion.V1_0.value).send_message_to_one_connection(socket_id, {
+            SocketController.send_message_to_one_connection(socket_id, {
                 'type': 'chat_state_updated',
                 'prepared_data': {
                     'id': chat.id,

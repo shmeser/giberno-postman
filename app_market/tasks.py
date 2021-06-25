@@ -1,8 +1,8 @@
 import uuid
 
 from celery import shared_task
-from loguru import logger
 
+from app_market.utils import send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
@@ -21,7 +21,7 @@ def update_appeals():
     """ Отмена неподтвержденных откликов """
     canceled_appeals = ShiftAppealsRepository().bulk_cancel()
     for a in canceled_appeals:
-        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+        applier_sockets, managers_sockets, users_to_send = ShiftAppealsRepository.get_self_employed_and_managers_with_sockets(
             appeal=a
         )
         send_socket_event_on_appeal_statuses(
@@ -43,7 +43,7 @@ def update_appeals():
     """ Отмена откликов со статусом "работа скоро" """
     canceled_job_soon_appeals = ShiftAppealsRepository().bulk_cancel_with_job_soon_status()
     for a in canceled_job_soon_appeals:
-        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+        applier_sockets, managers_sockets, users_to_send = ShiftAppealsRepository.get_self_employed_and_managers_with_sockets(
             appeal=a
         )
         send_socket_event_on_appeal_statuses(
@@ -65,7 +65,7 @@ def update_appeals():
     """ Новый job-статус "работа скоро" для откликов """
     job_soon_appeals = ShiftAppealsRepository().bulk_set_job_soon_status()
     for a in job_soon_appeals:
-        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+        applier_sockets, managers_sockets, users_to_send = ShiftAppealsRepository.get_self_employed_and_managers_with_sockets(
             appeal=a
         )
         send_socket_event_on_appeal_statuses(
@@ -87,7 +87,7 @@ def update_appeals():
     """ Новый job-статус "ожидает завершения" для откликов """
     waiting_completion = ShiftAppealsRepository().bulk_set_waiting_for_completion_status()
     for a in waiting_completion:
-        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+        applier_sockets, managers_sockets, users_to_send = ShiftAppealsRepository.get_self_employed_and_managers_with_sockets(
             appeal=a
         )
         send_socket_event_on_appeal_statuses(
@@ -111,7 +111,7 @@ def update_appeals():
     """ Новый job-статус "завершен" для откликов """
     completed_job_appeals = ShiftAppealsRepository().bulk_set_job_completed_status()
     for a in completed_job_appeals:
-        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+        applier_sockets, managers_sockets, users_to_send = ShiftAppealsRepository.get_self_employed_and_managers_with_sockets(
             appeal=a
         )
         send_socket_event_on_appeal_statuses(
@@ -136,7 +136,7 @@ def update_appeals():
     # По истечении 15 минут после завершения работы, окончательно закрываем смену
     completed_appeals = ShiftAppealsRepository().bulk_set_completed_status()
     for a in completed_appeals:
-        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+        applier_sockets, managers_sockets, users_to_send = ShiftAppealsRepository.get_self_employed_and_managers_with_sockets(
             appeal=a
         )
         send_socket_event_on_appeal_statuses(
@@ -147,7 +147,7 @@ def update_appeals():
     _FIRED_APPEAL_TITLE = 'Вы уволены'
     fired_appeals = ShiftAppealsRepository().fire_pending_appeals()
     for a in fired_appeals:
-        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+        applier_sockets, managers_sockets, users_to_send = ShiftAppealsRepository.get_self_employed_and_managers_with_sockets(
             appeal=a
         )
         send_socket_event_on_appeal_statuses(
@@ -165,57 +165,6 @@ def update_appeals():
             message=message,
             icon_type=icon_type
         )
-
-
-def get_self_employed_with_managers_and_sockets(appeal):
-    users_and_managers = []
-    applier_sockets = appeal.applier.sockets_array or []
-    managers_sockets = []
-
-    if appeal.shift.vacancy.shop.relevant_managers:
-        for m in appeal.shift.vacancy.shop.relevant_managers:
-            managers_sockets += m.sockets_array
-            users_and_managers.append(m)
-
-    users_and_managers.append(appeal.applier)  # Добавляем заявителя
-
-    return applier_sockets, managers_sockets, users_and_managers
-
-
-def send_socket_event_on_appeal_statuses(appeal, applier_sockets, managers_sockets):
-    # Только самозанятому
-    logger.info({
-        'type': 'appeal_job_status_updated',
-        'prepared_data': {
-            'id': appeal.id,
-            'jobStatus': appeal.job_status,
-        }
-    })
-
-    SocketController().send_message_to_many_connections(applier_sockets, {
-        'type': 'appeal_job_status_updated',
-        'prepared_data': {
-            'id': appeal.id,
-            'jobStatus': appeal.job_status,
-        }
-    })
-
-    # И самозанятому и менеджерам релевантным
-    sockets = applier_sockets + managers_sockets
-    logger.info({
-        'type': 'appeal_status_updated',
-        'prepared_data': {
-            'id': appeal.id,
-            'status': appeal.status,
-        }
-    })
-    SocketController().send_message_to_many_connections(sockets, {
-        'type': 'appeal_status_updated',
-        'prepared_data': {
-            'id': appeal.id,
-            'status': appeal.status,
-        }
-    })
 
 
 def send_notification_on_appeal(appeal, users_to_send, sockets, title, message, icon_type):

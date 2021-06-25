@@ -12,7 +12,7 @@ from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewM
     POSTReviewByManagerSerializer, POSTShopReviewSerializer, DistributorReviewsSerializer, \
     VacancyReviewsSerializer, ShopVacanciesReviewsSerializer
 from app_market.enums import AppealCancelReason, ShiftAppealStatus
-from app_market.utils import QRHandler
+from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
     MarketDocumentsRepository
@@ -253,6 +253,14 @@ class ShiftAppeals(CRUDAPIView):
             serializer = ShiftAppealCreateSerializer(data=data)
             if serializer.is_valid(raise_exception=True):
                 instance, created = self.repository_class(me=request.user).get_or_create(**serializer.validated_data)
+                # Отправляем по сокетам смену status и job_status смз и менеджерам
+                applier_sockets, managers_sockets, users_and_managers = self.repository_class \
+                    .get_self_employed_and_managers_with_sockets(appeal=instance)
+
+                send_socket_event_on_appeal_statuses(
+                    appeal=instance, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+                )
+
                 if created:
                     instance.qr_text = QRHandler(instance).create_qr_data()
                     instance.save()
@@ -267,6 +275,15 @@ class ShiftAppeals(CRUDAPIView):
         if serializer.is_valid(raise_exception=True):
             record_id = kwargs.get(self.urlpattern_record_id_name)
             instance = self.repository_class(me=request.user).update(record_id, **serializer.validated_data)
+
+            # Отправляем по сокетам смену status и job_status смз и менеджерам
+            applier_sockets, managers_sockets, users_and_managers = self.repository_class \
+                .get_self_employed_and_managers_with_sockets(appeal=instance)
+
+            send_socket_event_on_appeal_statuses(
+                appeal=instance, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
+
             return Response(camelize(ShiftAppealsSerializer(instance=instance, many=False).data))
 
 
@@ -286,6 +303,13 @@ class ShiftAppealCancel(CRUDAPIView):
             record_id=record_id, reason=reason, text=data.get('text')
         )
         managers, sockets = VacanciesRepository().get_managers_and_sockets_for_vacancy(appeal.shift.vacancy)
+
+        # Отправляем по сокетам смену status и job_status смз и менеджерам
+        send_socket_event_on_appeal_statuses(
+            appeal=appeal,
+            applier_sockets=list(appeal.applier.sockets.all().values_list('socket_id', flat=True)) or [],
+            managers_sockets=sockets
+        )
 
         _WORKER_CANCELED_APPEAL_TITLE = 'Самозанятый отказался от вакансии'
 
@@ -335,16 +359,17 @@ class ShiftAppealComplete(CRUDAPIView):
         body = get_request_body(request) if request.body else {}
         serializer = ShiftAppealCompleteSerializer(data=body)
         if serializer.is_valid(raise_exception=True):
-            appeal, sockets = self.repository_class(me=request.user).complete_appeal(
+            appeal = self.repository_class(me=request.user).complete_appeal(
                 record_id=record_id, **serializer.validated_data
             )
-            SocketController().send_message_to_many_connections(sockets, {
-                'type': 'appeal_job_status_updated',
-                'prepared_data': {
-                    'id': appeal.id,
-                    'jobStatus': appeal.job_status,
-                }
-            })
+            # Отправляем по сокетам смену status и job_status смз и менеджерам
+            applier_sockets, managers_sockets, users_and_managers = self.repository_class \
+                .get_self_employed_and_managers_with_sockets(appeal=appeal)
+
+            send_socket_event_on_appeal_statuses(
+                appeal=appeal, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
+
             return Response(None, status=status.HTTP_200_OK)
 
 
@@ -785,7 +810,7 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(ReviewsBaseAPIView):
                 text=serializer.validated_data['text'],
                 value=serializer.validated_data['value'],
                 point=point,
-                shift=serializer.validated_data.get('shift')
+                shift_id=serializer.validated_data.get('shift')
             )
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
@@ -800,19 +825,19 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(ReviewsBaseAPIView):
 class ConfirmAppealByManagerAPIView(CRUDAPIView):
     def post(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        status_changed, sockets, appeal = ShiftAppealsRepository(me=request.user).confirm_by_manager(
+        status_changed, appeal = ShiftAppealsRepository(me=request.user).confirm_by_manager(
             record_id=record_id)
 
         _MANAGER_ACCEPTED_APPEAL_TITLE = 'Отклик одобрен'
 
         if status_changed:
-            SocketController().send_message_to_many_connections(sockets, {
-                'type': 'appeal_status_updated',
-                'prepared_data': {
-                    'id': appeal.id,
-                    'status': appeal.status,
-                }
-            })
+            # Отправляем по сокетам смену status и job_status смз и менеджерам
+            applier_sockets, managers_sockets, users_and_managers = self.repository_class \
+                .get_self_employed_and_managers_with_sockets(appeal=appeal)
+
+            send_socket_event_on_appeal_statuses(
+                appeal=appeal, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
 
             title = _MANAGER_ACCEPTED_APPEAL_TITLE
             message = f'Ваш отклик на вакансию {appeal.shift.vacancy.title} одобрен'
@@ -839,7 +864,7 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
 
             # Отправка уведомления по сокетам
             SocketController(request.user, version='1.0').send_notification_to_many_connections(
-                [s.socket_id for s in appeal.applier.sockets.all()],
+                applier_sockets,
                 {
                     'title': title,
                     'message': message,
@@ -857,7 +882,7 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
     def post(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
         data = get_request_body(request)
-        status_changed, sockets, appeal = ShiftAppealsRepository(me=request.user).reject_by_manager(
+        status_changed, appeal = ShiftAppealsRepository(me=request.user).reject_by_manager(
             record_id=record_id,
             reason=data.get('reason'),
             text=data.get('text')
@@ -866,13 +891,13 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
         _MANAGER_REJECTED_APPEAL_TITLE = 'Отклик отклонён'
 
         if status_changed:
-            SocketController().send_message_to_many_connections(sockets, {
-                'type': 'appeal_status_updated',
-                'prepared_data': {
-                    'id': appeal.id,
-                    'status': appeal.status,
-                }
-            })
+            # Отправляем по сокетам смену status и job_status смз и менеджерам
+            applier_sockets, managers_sockets, users_and_managers = self.repository_class \
+                .get_self_employed_and_managers_with_sockets(appeal=appeal)
+
+            send_socket_event_on_appeal_statuses(
+                appeal=appeal, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
 
             title = _MANAGER_REJECTED_APPEAL_TITLE
             message = f'Ваш отклик на вакансию {appeal.shift.vacancy.title} отклонён'
@@ -899,7 +924,7 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
 
             # Отправка уведомления по сокетам
             SocketController(request.user, version='1.0').send_notification_to_many_connections(
-                [s.socket_id for s in appeal.applier.sockets.all()],
+                applier_sockets,
                 {
                     'title': title,
                     'message': message,
@@ -1242,7 +1267,7 @@ class RefusePassBySecurityAPIView(APIView):
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
-            SocketController().send_message_to_many_connections(sockets, {
+            SocketController.send_message_to_many_connections(sockets, {
                 'type': 'appeal_job_status_updated',
                 'prepared_data': {
                     'id': appeal.id,
@@ -1256,15 +1281,17 @@ class AllowPassByManagerAPIView(APIView):
     repository_class = ShiftAppealsRepository
 
     def post(self, request, *args, **kwargs):
-        appeal, sockets = self.repository_class(me=request.user).allow_pass_by_manager(
+        appeal = self.repository_class(me=request.user).allow_pass_by_manager(
             record_id=kwargs.get('record_id'))
-        SocketController().send_message_to_many_connections(sockets, {
-            'type': 'appeal_job_status_updated',
-            'prepared_data': {
-                'id': appeal.id,
-                'jobStatus': appeal.job_status,
-            }
-        })
+
+        # Отправляем по сокетам смену status и job_status смз и менеджерам
+        applier_sockets, managers_sockets, users_and_managers = self.repository_class \
+            .get_self_employed_and_managers_with_sockets(appeal=appeal)
+
+        send_socket_event_on_appeal_statuses(
+            appeal=appeal, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+        )
+
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1275,17 +1302,19 @@ class RefusePassByManagerAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            appeal, sockets = self.repository_class(me=request.user).refuse_pass_by_manager(
+            appeal = self.repository_class(me=request.user).refuse_pass_by_manager(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
-            SocketController().send_message_to_many_connections(sockets, {
-                'type': 'appeal_job_status_updated',
-                'prepared_data': {
-                    'id': appeal.id,
-                    'jobStatus': appeal.job_status,
-                }
-            })
+
+            # Отправляем по сокетам смену status и job_status смз и менеджерам
+            applier_sockets, managers_sockets, users_and_managers = self.repository_class \
+                .get_self_employed_and_managers_with_sockets(appeal=appeal)
+
+            send_socket_event_on_appeal_statuses(
+                appeal=appeal, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
+
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1297,16 +1326,18 @@ class ShiftAppealCompleteByManager(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            appeal, sockets = self.repository_class(me=request.user).complete_appeal_by_manager(
+            appeal = self.repository_class(me=request.user).complete_appeal_by_manager(
                 **serializer.validated_data
             )
-            SocketController().send_message_to_many_connections(sockets, {
-                'type': 'appeal_job_status_updated',
-                'prepared_data': {
-                    'id': appeal.id,
-                    'jobStatus': appeal.job_status,
-                }
-            })
+
+            # Отправляем по сокетам смену status и job_status смз и менеджерам
+            applier_sockets, managers_sockets, users_and_managers = self.repository_class \
+                .get_self_employed_and_managers_with_sockets(appeal=appeal)
+
+            send_socket_event_on_appeal_statuses(
+                appeal=appeal, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
+
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -1341,17 +1372,17 @@ class ProlongByManager(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            appeal, sockets = self.repository_class(me=request.user).prolong_by_manager(
+            appeal = self.repository_class(me=request.user).prolong_by_manager(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
-            SocketController().send_message_to_many_connections(sockets, {
-                'type': 'appeal_job_status_updated',
-                'prepared_data': {
-                    'id': appeal.id,
-                    'jobStatus': appeal.job_status,
-                }
-            })
+            # Отправляем по сокетам смену status и job_status смз и менеджерам
+            applier_sockets, managers_sockets, users_and_managers = self.repository_class \
+                .get_self_employed_and_managers_with_sockets(appeal=appeal)
+
+            send_socket_event_on_appeal_statuses(
+                appeal=appeal, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
