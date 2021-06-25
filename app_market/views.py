@@ -340,9 +340,7 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(BaseAPIView):
 
     @staticmethod
     def get(request, **kwargs):
-        """
-            Получить список отзывов на самозанятого (получают Администраторы / менеджеры))
-        """
+        """ Получить список отзывов на самозанятого (получают Администраторы / менеджеры) """
         if request.version in ['market_1_0']:
             return v1_0.SelfEmployedUserReviewsByAdminOrManagerAPIView().get(request, **kwargs)
 
@@ -354,9 +352,7 @@ class ConfirmAppealByManagerAPIView(BaseAPIView):
 
     @staticmethod
     def post(request, **kwargs):
-        """
-            подтвердить отклик на вакансию (подтверждают Администраторы / менеджеры))
-        """
+        """ подтвердить отклик на вакансию (подтверждают Администраторы / менеджеры) """
         if request.version in ['market_1_0']:
             return v1_0.ConfirmAppealByManagerAPIView().post(request, **kwargs)
 
@@ -368,9 +364,7 @@ class RejectAppealByManagerAPIView(BaseAPIView):
 
     @staticmethod
     def post(request, **kwargs):
-        """
-            Отклонить отклик на вакансию (отклоняют Администраторы / менеджеры))
-        """
+        """ Отклонить отклик на вакансию (отклоняют Администраторы / менеджеры) """
         if request.version in ['market_1_0']:
             return v1_0.RejectAppealByManagerAPIView().post(request, **kwargs)
 
@@ -430,9 +424,7 @@ class ShiftForManagers(APIView):
 
     @staticmethod
     def get(request, **kwargs):
-        """
-            Смена (получают Администраторы / менеджеры))
-        """
+        """ Смена (получают Администраторы / менеджеры) """
         if request.version in ['market_1_0']:
             return v1_0.ShiftForManagers().get(request, **kwargs)
 
@@ -444,9 +436,7 @@ class ShiftAppealsForManagers(APIView):
 
     @staticmethod
     def get(request, **kwargs):
-        """
-            Отклики на смену (получают Администраторы / менеджеры))
-        """
+        """ Отклики на смену (получают Администраторы / менеджеры) """
         if request.version in ['market_1_0']:
             return v1_0.ShiftAppealsForManagers().get(request, **kwargs)
 
@@ -458,9 +448,7 @@ class ConfirmedWorkers(APIView):
 
     @staticmethod
     def get(request, **kwargs):
-        """
-            Список одобренных работников (получают Администраторы / менеджеры ) )
-        """
+        """ Список одобренных работников (получают Администраторы / менеджеры ) """
         if request.version in ['market_1_0']:
             return v1_0.ConfirmedWorkers().get(request, **kwargs)
 
@@ -472,9 +460,7 @@ class ConfirmedWorkersProfessions(APIView):
 
     @staticmethod
     def get(request, **kwargs):
-        """
-            Список вакансий одобренных работников (получают Администраторы / менеджеры ) )
-        """
+        """ Список вакансий одобренных работников (получают Администраторы / менеджеры ) """
         if request.version in ['market_1_0']:
             return v1_0.ConfirmedWorkersProfessions().get(request, **kwargs)
 
@@ -486,9 +472,7 @@ class ConfirmedWorkersDates(APIView):
 
     @staticmethod
     def get(request, **kwargs):
-        """
-            Список дат для смен одобренных работников (получают Администраторы / менеджеры ) )
-        """
+        """ Список дат для смен одобренных работников (получают Администраторы / менеджеры ) """
         if request.version in ['market_1_0']:
             return v1_0.ConfirmedWorkersDates().get(request, **kwargs)
 
@@ -500,9 +484,7 @@ class QRView(APIView):
 
     @staticmethod
     def get(request, **kwargs):
-        """
-            Информация по ближайшим/текущим сменам
-        """
+        """ Информация по ближайшим/текущим сменам """
         if request.version in ['market_1_0']:
             return v1_0.QRView().get(request, **kwargs)
 
@@ -514,9 +496,7 @@ class CheckPassByManagerAPIView(APIView):
 
     @staticmethod
     def post(request, **kwargs):
-        """
-            Получить объект пропуска
-        """
+        """ Получить объект пропуска """
         if request.version in ['market_1_0']:
             return v1_0.CheckPassByManagerAPIView().post(request, **kwargs)
 
@@ -528,9 +508,7 @@ class AllowPassByManagerAPIView(APIView):
 
     @staticmethod
     def post(request, **kwargs):
-        """
-            Одобрить пропуск со стороны менеджера
-        """
+        """ Одобрить пропуск со стороны менеджера """
         if request.version in ['market_1_0']:
             return v1_0.AllowPassByManagerAPIView().post(request, **kwargs)
 
@@ -542,9 +520,7 @@ class CheckPassBySecurityAPIView(APIView):
 
     @staticmethod
     def post(request, **kwargs):
-        """
-            Сканирование qr охранников
-        """
+        """ Сканирование qr охранников """
         if request.version in ['market_1_0']:
             return v1_0.CheckPassBySecurityAPIView().post(request, **kwargs)
 
@@ -556,9 +532,7 @@ class RefusePassBySecurityAPIView(APIView):
 
     @staticmethod
     def post(request, **kwargs):
-        """
-                Отказать в пропуске со стороны охранника
-        """
+        """ Отказать в пропуске со стороны охранника """
         if request.version in ['market_1_0']:
             return v1_0.RefusePassBySecurityAPIView().post(request, **kwargs)
 
@@ -570,9 +544,7 @@ class RefusePassByManagerAPIView(APIView):
 
     @staticmethod
     def post(request, **kwargs):
-        """
-            Отказать в пропуске со стороны менеджера
-        """
+        """ Отказать в пропуске со стороны менеджера """
         if request.version in ['market_1_0']:
             return v1_0.RefusePassByManagerAPIView().post(request, **kwargs)
 
@@ -584,9 +556,7 @@ class FireByManagerAPIView(APIView):
 
     @staticmethod
     def post(request, **kwargs):
-        """
-        Увольнение самозанятого
-        """
+        """ Увольнение самозанятого """
         if request.version in ['market_1_0']:
             return v1_0.FireByManagerAPIView().post(request, **kwargs)
 
@@ -598,9 +568,7 @@ class CancelFiringByManager(APIView):
 
     @staticmethod
     def post(request, **kwargs):
-        """
-        Отмена увольнения самозанятого
-        """
+        """ Отмена увольнения самозанятого """
         if request.version in ['market_1_0']:
             return v1_0.CancelFiringByManager().post(request, **kwargs)
 
@@ -612,9 +580,7 @@ class ProlongByManager(APIView):
 
     @staticmethod
     def post(request, **kwargs):
-        """
-        Продление смены самозанятого
-        """
+        """ Продление смены самозанятого """
         if request.version in ['market_1_0']:
             return v1_0.ProlongByManager().post(request, **kwargs)
 
@@ -626,9 +592,7 @@ class ShiftAppealCompleteByManager(APIView):
 
     @staticmethod
     def post(request, **kwargs):
-        """
-            Завершить смену менеджером
-        """
+        """ Завершить смену менеджером """
         if request.version in ['market_1_0']:
             return v1_0.ShiftAppealCompleteByManager().post(request, **kwargs)
 

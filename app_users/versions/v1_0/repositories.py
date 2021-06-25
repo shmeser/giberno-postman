@@ -10,7 +10,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from app_feedback.models import Review
 from app_geo.models import Region
 from app_market.enums import ShiftAppealStatus
-from app_market.versions.v1_0.repositories import ShiftsRepository, ShiftAppealsRepository
+from app_market.models import Shift, ShiftAppeal
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -347,7 +347,7 @@ class ProfileRepository(MasterRepository):
         self.me.username = username
         self.me.save()
 
-    def make_review_to_self_employed_by_admin_or_manager(self, record_id, shift, text, value, point=None):
+    def make_review_to_self_employed_by_admin_or_manager(self, record_id, shift_id, text, value, point=None):
         # TODO добавить загрузку attachments
 
         # TODO ограничить количество отзывов до 1 на одну смену для пользовтеля со стороны менеджера
@@ -368,12 +368,20 @@ class ProfileRepository(MasterRepository):
             raise PermissionDenied()
 
         # проверка связи между магазином, сменой и менеджером
-        shift = ShiftsRepository().get_by_id(record_id=shift)
+        try:
+            shift = Shift.objects.get(id=shift_id)
+        except Shift.DoesNotExist:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {Shift._meta.verbose_name} с ID={shift_id} не найден'
+            )
 
-        appeal = ShiftAppealsRepository(me=applier).filter_by_kwargs(kwargs={
-            'shift': shift,
-            'status__in': [ShiftAppealStatus.CONFIRMED.value, ShiftAppealStatus.COMPLETED.value]
-        }).first()
+        appeal = ShiftAppeal.objects.filter(
+            deleted=False,
+            shift=shift,
+            applier=applier,
+            status__in=[ShiftAppealStatus.CONFIRMED.value, ShiftAppealStatus.COMPLETED.value]
+        ).first()
 
         shop = shift.vacancy.shop
 

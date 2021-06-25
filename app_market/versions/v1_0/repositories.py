@@ -1404,7 +1404,10 @@ class ShiftAppealsRepository(MasterRepository):
                 'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
             }
         })
-        return instance, created
+
+        prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=instance.id))
+
+        return prefetched_appeals.first(), created
 
     def get_by_id(self, record_id):
         # если будет self.base_query.filter() то manager ничего не сможет увидеть
@@ -1445,7 +1448,11 @@ class ShiftAppealsRepository(MasterRepository):
         # проверяем количество откликов на разные смены в одинаковое время
         self.check_time_range(queryset=queryset, time_start=time_start, time_end=time_end)
 
-        return super().update(record_id, **data)
+        updated = super().update(record_id, **data)
+
+        prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=updated.id))
+
+        return prefetched_appeals.first()
 
     def delete(self, record_id):
         instance = self.get_by_id(record_id=record_id)
@@ -1499,7 +1506,6 @@ class ShiftAppealsRepository(MasterRepository):
         instance = instances.first()
 
         status_changed = False
-        manager_and_user_sockets = []
 
         # проверяем доступ менеджера к смене на которую откликнулись
         # self.is_related_manager(instance=instance)
@@ -1508,7 +1514,7 @@ class ShiftAppealsRepository(MasterRepository):
 
             if instance.time_end <= now():
                 # Если подтвержнение смены после того как она закончилась
-                return status_changed, manager_and_user_sockets, instance
+                return status_changed, instance
 
             if instance.time_start <= now() and instance.time_end >= now():
                 # Если подтверждение смены позже времени начала, но раньше времени окончания
@@ -1521,6 +1527,7 @@ class ShiftAppealsRepository(MasterRepository):
                 Q(time_start__range=(instance.time_start, instance.time_end)) |
                 Q(time_end__range=(instance.time_start, instance.time_end))
             ).exclude(id=instance.id).delete()
+            status_changed = True
 
             # # создаем смену пользователя
             # UserShift.objects.get_or_create(
@@ -1530,15 +1537,7 @@ class ShiftAppealsRepository(MasterRepository):
             #     real_time_end=instance.time_end
             # )
 
-            status_changed = True
-            manager_and_user_sockets += instance.applier.sockets.aggregate(
-                sockets=ArrayAgg('socket_id')
-            )['sockets']
-            manager_and_user_sockets += self.me.sockets.aggregate(
-                sockets=ArrayAgg('socket_id')
-            )['sockets']
-
-        return status_changed, manager_and_user_sockets, instance
+        return status_changed, instance
 
     def reject_by_manager(self, record_id, reason, text=None):
         status_changed = False
@@ -1550,8 +1549,6 @@ class ShiftAppealsRepository(MasterRepository):
 
         instance = instances.first()
 
-        manager_and_user_sockets = []
-
         # проверяем доступ менеджера к смене на которую откликнулись
         self.is_related_manager(instance=instance)
         if not instance.status == ShiftAppealStatus.REJECTED:
@@ -1561,14 +1558,8 @@ class ShiftAppealsRepository(MasterRepository):
             instance.save()
 
             status_changed = True
-            manager_and_user_sockets += instance.applier.sockets.aggregate(
-                sockets=ArrayAgg('socket_id')
-            )['sockets']
-            manager_and_user_sockets += self.me.sockets.aggregate(
-                sockets=ArrayAgg('socket_id')
-            )['sockets']
 
-        return status_changed, manager_and_user_sockets, instance
+        return status_changed, instance
 
     def get_by_id_for_manager(self, record_id):
         instance = self.get_by_id(record_id=record_id)
@@ -1675,10 +1666,11 @@ class ShiftAppealsRepository(MasterRepository):
             appeal.job_status = JobStatus.JOB_IN_PROCESS.value
             appeal.qr_text = None
             appeal.save()
-            sockets = appeal.applier.sockets.aggregate(
-                sockets=ArrayRemove(ArrayAgg('socket_id'), None)
-            )['sockets']
-            return appeal, sockets
+
+            prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=appeal.id))
+
+            return prefetched_appeals.first()
+
         else:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
@@ -1710,10 +1702,9 @@ class ShiftAppealsRepository(MasterRepository):
             appeal.refuse_reason_text = validated_data.get('text')
             appeal.qr_text = None
             appeal.save()
-            sockets = appeal.applier.sockets.aggregate(
-                sockets=ArrayRemove(ArrayAgg('socket_id'), None)
-            )['sockets']
-            return appeal, sockets
+            prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=appeal.id))
+
+            return prefetched_appeals.first()
         else:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
@@ -1760,10 +1751,10 @@ class ShiftAppealsRepository(MasterRepository):
             raise PermissionDenied()
 
         self.set_completed_status(appeal=appeal)
-        sockets = appeal.applier.sockets.aggregate(
-            sockets=ArrayRemove(ArrayAgg('socket_id'), None)
-        )['sockets']
-        return appeal, sockets
+
+        prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=appeal.id))
+
+        return prefetched_appeals.first()
 
     def complete_appeal_by_manager(self, **data):
         # Сценарий 3: Самозанятый во время смены просит его отпустить пораньше
@@ -1772,10 +1763,9 @@ class ShiftAppealsRepository(MasterRepository):
         appeal = self.get_by_qr_text(qr_text=data.get('qr_text'))
         self.is_related_manager(instance=appeal)
         self.set_job_completed_status(appeal=appeal, **data)
-        sockets = appeal.applier.sockets.aggregate(
-            sockets=ArrayRemove(ArrayAgg('socket_id'), None)
-        )['sockets']
-        return appeal, sockets
+        prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=appeal.id))
+
+        return prefetched_appeals.first()
 
     def check_if_available(self, appeal):
         if appeal.status == ShiftAppealStatus.CANCELED.value:
@@ -1797,10 +1787,6 @@ class ShiftAppealsRepository(MasterRepository):
         # Устанавливаем увольнение через 10 минут после запроса
         appeal.fire_at = now() + timedelta(minutes=10) if appeal.fire_at is None else appeal.fire_at
         appeal.save()
-        # sockets = appeal.applier.sockets.aggregate(
-        #     sockets=ArrayRemove(ArrayAgg('socket_id'), None)
-        # )['sockets']
-        # return appeal, sockets
 
     def cancel_firing_by_manager(self, record_id):
         # Сценарий когда менеджер увольняет кого-то
@@ -1822,10 +1808,9 @@ class ShiftAppealsRepository(MasterRepository):
 
         appeal.time_end = appeal.time_end + timedelta(hours=validated_data.get('hours'))
         appeal.save()
-        sockets = appeal.applier.sockets.aggregate(
-            sockets=ArrayRemove(ArrayAgg('socket_id'), None)
-        )['sockets']
-        return appeal, sockets
+        prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=appeal.id))
+
+        return prefetched_appeals.first()
 
     @staticmethod
     def prefetch_users(queryset):
@@ -1886,7 +1871,16 @@ class ShiftAppealsRepository(MasterRepository):
                     )
                 ).annotate(  # Аггрегируем коды документов, которые есть у пользователя
                     documents_types=ArrayRemove(ArrayAgg('documents__type', distinct=True), None),
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
                 )
+            ),
+            Prefetch(
+                # TODO учитывать настройки отпуска у менеджера
+                'shift__vacancy__shop__staff',
+                queryset=UserProfile.objects.filter(account_type=AccountType.MANAGER.value, deleted=False).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                ),
+                to_attr='relevant_managers'
             )
         )
 
@@ -1908,6 +1902,21 @@ class ShiftAppealsRepository(MasterRepository):
                 to_attr='relevant_managers'
             )
         )
+
+    @staticmethod
+    def get_self_employed_and_managers_with_sockets(appeal):
+        users_and_managers = []
+        applier_sockets = appeal.applier.sockets_array or []
+        managers_sockets = []
+
+        if appeal.shift.vacancy.shop.relevant_managers:
+            for m in appeal.shift.vacancy.shop.relevant_managers:
+                managers_sockets += m.sockets_array
+                users_and_managers.append(m)
+
+        users_and_managers.append(appeal.applier)  # Добавляем заявителя
+
+        return applier_sockets, managers_sockets, users_and_managers
 
     def bulk_cancel(self):
         # закрытие неподтвержденных смен, у которых уже прошло время начала
