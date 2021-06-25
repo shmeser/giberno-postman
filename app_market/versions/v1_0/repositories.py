@@ -1890,6 +1890,25 @@ class ShiftAppealsRepository(MasterRepository):
             )
         )
 
+    @staticmethod
+    def prefetch_applier_and_managers(queryset):
+        return queryset.prefetch_related(
+            Prefetch(
+                'applier',
+                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                )
+            ),
+            Prefetch(
+                # TODO учитывать настройки отпуска у менеджера
+                'shift__vacancy__shop__staff',
+                queryset=UserProfile.objects.filter(account_type=AccountType.MANAGER.value, deleted=False).annotate(
+                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
+                ),
+                to_attr='relevant_managers'
+            )
+        )
+
     def bulk_cancel(self):
         # закрытие неподтвержденных смен, у которых уже прошло время начала
 
@@ -1907,14 +1926,9 @@ class ShiftAppealsRepository(MasterRepository):
 
         appeals = self.model.objects.filter(
             id__in=appeals_ids
-        ).prefetch_related(
-            Prefetch(
-                'applier',
-                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
-                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                )
-            )
         )
+
+        appeals = self.prefetch_applier_and_managers(appeals)
 
         # Нужны заявители, которым отправлять данные по сокетам и по пушам
         return appeals
@@ -1940,14 +1954,9 @@ class ShiftAppealsRepository(MasterRepository):
             qr_text=None
         )
 
-        appeals = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
-            Prefetch(
-                'applier',
-                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
-                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                )
-            )
-        )
+        appeals = self.model.objects.filter(id__in=appeals_ids)
+
+        appeals = self.prefetch_applier_and_managers(appeals)
 
         return appeals
 
@@ -1971,14 +1980,9 @@ class ShiftAppealsRepository(MasterRepository):
             job_status=JobStatus.JOB_SOON.value
         )
 
-        upcoming_appeals = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
-            Prefetch(
-                'applier',
-                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
-                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                )
-            )
-        )
+        upcoming_appeals = self.model.objects.filter(id__in=appeals_ids)
+
+        upcoming_appeals = self.prefetch_applier_and_managers(upcoming_appeals)
 
         return upcoming_appeals
 
@@ -1999,28 +2003,11 @@ class ShiftAppealsRepository(MasterRepository):
             job_status=JobStatus.WAITING_FOR_COMPLETION.value
         )
 
-        appeals = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
-            Prefetch(
-                'applier',
-                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
-                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                )
-            ),
-            Prefetch(
-                # TODO учитывать настройки отпуска у менеджера
-                'shift__vacancy__shop__staff',
-                queryset=UserProfile.objects.filter(account_type=AccountType.MANAGER.value, deleted=False).annotate(
-                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                ),
-                to_attr='relevant_managers'
-            )
-        )
+        appeals = self.model.objects.filter(id__in=appeals_ids)
 
-        # TODO relevant managers
+        appeals = self.prefetch_applier_and_managers(appeals)
 
         return appeals
-
-        # TODO уведомление (скорее всего и менеджеру и пользователю)
 
     def bulk_set_job_completed_status(self):
         # Сценарий 2: Смена закончилась, QR для завершения смены не отсканирован.
@@ -2044,22 +2031,9 @@ class ShiftAppealsRepository(MasterRepository):
             completed_real_time=now()
         )
 
-        appeals_to_complete = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
-            Prefetch(
-                'applier',
-                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
-                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                )
-            ),
-            Prefetch(
-                # TODO учитывать настройки отпуска у менеджера
-                'shift__vacancy__shop__staff',
-                queryset=UserProfile.objects.filter(account_type=AccountType.MANAGER.value, deleted=False).annotate(
-                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                ),
-                to_attr='relevant_managers'
-            )
-        )
+        appeals_to_complete = self.model.objects.filter(id__in=appeals_ids)
+
+        appeals_to_complete = self.prefetch_applier_and_managers(appeals_to_complete)
 
         return appeals_to_complete
 
@@ -2079,14 +2053,9 @@ class ShiftAppealsRepository(MasterRepository):
             status=ShiftAppealStatus.COMPLETED.value,
         )
 
-        completed_appeals = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
-            Prefetch(
-                'applier',
-                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
-                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                )
-            )
-        )
+        completed_appeals = self.model.objects.filter(id__in=appeals_ids)
+
+        completed_appeals = self.prefetch_applier_and_managers(completed_appeals)
 
         return completed_appeals
 
@@ -2106,14 +2075,9 @@ class ShiftAppealsRepository(MasterRepository):
             job_status=JobStatusForClient.FIRED.value
         )
 
-        appeals = self.model.objects.filter(id__in=appeals_ids).prefetch_related(
-            Prefetch(
-                'applier',
-                queryset=UserProfile.objects.filter(account_type=AccountType.SELF_EMPLOYED.value).annotate(
-                    sockets_array=ArrayRemove(ArrayAgg('sockets__socket_id'), None)
-                )
-            )
-        )
+        appeals = self.model.objects.filter(id__in=appeals_ids)
+
+        appeals = self.prefetch_applier_and_managers(appeals)
 
         return appeals
 
