@@ -370,9 +370,8 @@ class ProfileRepository(MasterRepository):
         # проверка связи между магазином, сменой и менеджером
         shift = ShiftsRepository().get_by_id(record_id=shift)
 
-        appeal = ShiftAppealsRepository().filter_by_kwargs(kwargs={
+        appeal = ShiftAppealsRepository(me=applier).filter_by_kwargs(kwargs={
             'shift': shift,
-            'applier': applier,
             'status__in': [ShiftAppealStatus.CONFIRMED.value, ShiftAppealStatus.COMPLETED.value]
         }).first()
 
