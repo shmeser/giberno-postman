@@ -23,7 +23,6 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
     JobStatus, JobStatusForClient
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument
-from app_market.utils import handle_date_for_appeals
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -1297,7 +1296,29 @@ class ShiftAppealsRepository(MasterRepository):
             raise HttpException(detail='Appeal not found', status_code=RESTErrors.NOT_FOUND.value)
 
     @staticmethod
-    def get_start_end_time_range(**data):
+    def handle_date_for_appeals(shift, shift_active_date, by_end: bool = None):
+        utc_offset = pytz.timezone(shift.vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds() / 3600
+        if by_end:
+            time_object = shift.time_end
+        else:
+            time_object = shift.time_start
+
+        if by_end and shift.time_start > shift.time_end:
+            shift_active_date += timedelta(days=1)
+
+        year = shift_active_date.year
+        month = str(shift_active_date.month)
+        if len(month) == 1:
+            month = '0' + month
+        day = str(shift_active_date.day)
+        if len(day) == 1:
+            day = '0' + day
+
+        date = datetime.fromisoformat(f'{year}-{month}-{day} {time_object}')
+        date -= timedelta(hours=utc_offset)
+        return date
+
+    def get_start_end_time_range(self, **data):
 
         shift = data.get('shift')
         if not shift.time_start or not shift.time_end:
@@ -1306,13 +1327,13 @@ class ShiftAppealsRepository(MasterRepository):
             ])
 
         shift_active_date = data.get('shift_active_date')
-        time_start = handle_date_for_appeals(shift=shift, shift_active_date=shift_active_date)
+        time_start = self.handle_date_for_appeals(shift=shift, shift_active_date=shift_active_date)
         if time_start <= datetime.now():
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.SHIFT_OVERDUE))
             ])
 
-        time_end = handle_date_for_appeals(shift=shift, shift_active_date=shift_active_date, by_end=True)
+        time_end = self.handle_date_for_appeals(shift=shift, shift_active_date=shift_active_date, by_end=True)
 
         return time_start, time_end
 
