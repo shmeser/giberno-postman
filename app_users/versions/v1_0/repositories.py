@@ -362,17 +362,16 @@ class ProfileRepository(MasterRepository):
         target_id = record_id
 
         # проверяем валидность id конечной цели
-        target = self.get_by_id(record_id=target_id)
+        applier = self.get_by_id(record_id=target_id)
 
-        if target.account_type != AccountType.SELF_EMPLOYED:
+        if applier.account_type != AccountType.SELF_EMPLOYED:
             raise PermissionDenied()
 
         # проверка связи между магазином, сменой и менеджером
         shift = ShiftsRepository().get_by_id(record_id=shift)
 
-        appeal = ShiftAppealsRepository().filter_by_kwargs(kwargs={
+        appeal = ShiftAppealsRepository(me=applier).filter_by_kwargs(kwargs={
             'shift': shift,
-            'user': target,
             'status__in': [ShiftAppealStatus.CONFIRMED.value, ShiftAppealStatus.COMPLETED.value]
         }).first()
 
