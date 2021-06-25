@@ -101,7 +101,7 @@ managers_urls = [
     path('market/managers/appeals/<int:record_id>/prolong', ProlongByManager.as_view()),
     path('market/managers/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
     path('market/managers/appeals/<int:record_id>/fire', FireByManagerAPIView.as_view()),
-    path('market/managers/appeals/<int:record_id>/fire/cancel', CancelFiringByManager.as_view()),  # TODO
+    path('market/managers/appeals/<int:record_id>/fire/cancel', CancelFiringByManager.as_view()),
 
     # Список смен
     path('market/managers/shifts/<int:record_id>', ShiftForManagers.as_view()),
