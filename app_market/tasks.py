@@ -16,119 +16,174 @@ _COMPLETED_APPEAL_TITLE = 'Смена успешно завершена'
 
 @shared_task
 def update_appeals():
+    """ Проверка откликов """
+
+    """ Отмена неподтвержденных откликов """
     canceled_appeals = ShiftAppealsRepository().bulk_cancel()
     for a in canceled_appeals:
+        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+            appeal=a
+        )
+        send_socket_event_on_appeal_statuses(
+            appeal=a, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+        )
+
         icon_type = NotificationIcon.WORKER_CANCELED_VACANCY.value
         title = _CANCELED_APPEAL_TITLE
         message = f'К сожалению, ваш отклик на вакансию {a.shift.vacancy.title} был отменен автоматически, так как не был подтвержден до начала смены.'
-        send_notification_and_socket_event_on_appeal(
+        send_notification_on_appeal(
             appeal=a,
             users_to_send=[a.applier],
-            sockets=a.applier.sockets_array or [],
+            sockets=applier_sockets,
             title=title,
             message=message,
             icon_type=icon_type
         )
 
+    """ Отмена откликов со статусом "работа скоро" """
     canceled_job_soon_appeals = ShiftAppealsRepository().bulk_cancel_with_job_soon_status()
     for a in canceled_job_soon_appeals:
+        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+            appeal=a
+        )
+        send_socket_event_on_appeal_statuses(
+            appeal=a, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+        )
+
         icon_type = NotificationIcon.WORKER_CANCELED_VACANCY.value
         title = _CANCELED_APPEAL_TITLE
         message = f'К сожалению, ваш отклик на вакансию {a.shift.vacancy.title} был отменен автоматически, так как не был отсканирован код.'
-        send_notification_and_socket_event_on_appeal(
+        send_notification_on_appeal(
             appeal=a,
             users_to_send=[a.applier],
-            sockets=a.applier.sockets_array or [],
+            sockets=applier_sockets,
             title=title,
             message=message,
             icon_type=icon_type
         )
 
+    """ Новый job-статус "работа скоро" для откликов """
     job_soon_appeals = ShiftAppealsRepository().bulk_set_job_soon_status()
     for a in job_soon_appeals:
+        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+            appeal=a
+        )
+        send_socket_event_on_appeal_statuses(
+            appeal=a, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+        )
+
         icon_type = NotificationIcon.SHIFT_START_SOON.value
         title = _JOB_SOON_TITLE
         message = f'Скоро начало смены по вакансии {a.shift.vacancy.title}.'
-        send_notification_and_socket_event_on_appeal(
+        send_notification_on_appeal(
             appeal=a,
             users_to_send=[a.applier],
-            sockets=a.applier.sockets_array or [],
+            sockets=applier_sockets,
             title=title,
             message=message,
             icon_type=icon_type
         )
 
+    """ Новый job-статус "ожидает завершения" для откликов """
     waiting_completion = ShiftAppealsRepository().bulk_set_waiting_for_completion_status()
     for a in waiting_completion:
+        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+            appeal=a
+        )
+        send_socket_event_on_appeal_statuses(
+            appeal=a, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+        )
+
         icon_type = NotificationIcon.DEFAULT.value
         title = _WAITING_COMPLETION_TITLE
         message = f'Смена по вакансии {a.shift.vacancy.title} ожидает завершения.'
-        send_notification_and_socket_event_on_appeal_with_managers(
+
+        sockets = applier_sockets + managers_sockets
+        send_notification_on_appeal(
             appeal=a,
+            users_to_send=users_to_send,
+            sockets=sockets,
             title=title,
             message=message,
             icon_type=icon_type
         )
 
+    """ Новый job-статус "завершен" для откликов """
     completed_job_appeals = ShiftAppealsRepository().bulk_set_job_completed_status()
     for a in completed_job_appeals:
+        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+            appeal=a
+        )
+        send_socket_event_on_appeal_statuses(
+            appeal=a, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+        )
+
         icon_type = NotificationIcon.DEFAULT.value
         title = _COMPLETED_APPEAL_TITLE
         message = f'Смена по вакансии {a.shift.vacancy.title} успешно завершена.'
-        send_notification_and_socket_event_on_appeal_with_managers(
+
+        sockets = applier_sockets + managers_sockets
+        send_notification_on_appeal(
             appeal=a,
+            users_to_send=users_to_send,
+            sockets=sockets,
             title=title,
             message=message,
             icon_type=icon_type
         )
 
+    """ Новый статус "завершен" для откликов """
     # По истечении 15 минут после завершения работы, окончательно закрываем смену
     completed_appeals = ShiftAppealsRepository().bulk_set_completed_status()
     for a in completed_appeals:
-        send_socket_event_on_appeal(appeal=a)
+        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+            appeal=a
+        )
+        send_socket_event_on_appeal_statuses(
+            appeal=a, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+        )
 
+    """ Новый статус "отменен" и job-статус "уволен" для откликов """
     _FIRED_APPEAL_TITLE = 'Вы уволены'
     fired_appeals = ShiftAppealsRepository().fire_pending_appeals()
     for a in fired_appeals:
+        applier_sockets, managers_sockets, users_to_send = get_self_employed_with_managers_and_sockets(
+            appeal=a
+        )
+        send_socket_event_on_appeal_statuses(
+            appeal=a, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+        )
+
         icon_type = NotificationIcon.WORKER_CANCELED_VACANCY.value
         title = _FIRED_APPEAL_TITLE
         message = f'К сожалению, вы были уволены. Ваша работа по вакансии {a.shift.vacancy.title} не будет оплачена.'
-        send_notification_and_socket_event_on_appeal(
+        send_notification_on_appeal(
             appeal=a,
             users_to_send=[a.applier],
-            sockets=a.applier.sockets_array or [],
+            sockets=applier_sockets,
             title=title,
             message=message,
             icon_type=icon_type
         )
 
 
-def send_notification_and_socket_event_on_appeal_with_managers(appeal, title, message, icon_type):
-    users_to_send = []
-
+def get_self_employed_with_managers_and_sockets(appeal):
+    users_and_managers = []
     applier_sockets = appeal.applier.sockets_array or []
     managers_sockets = []
 
     if appeal.shift.vacancy.shop.relevant_managers:
         for m in appeal.shift.vacancy.shop.relevant_managers:
             managers_sockets += m.sockets_array
-            users_to_send.append(m)
+            users_and_managers.append(m)
 
-    sockets = managers_sockets + applier_sockets  # Объединяем все сокеты
-    users_to_send.append(appeal.applier)  # Добавляем заявителя
+    users_and_managers.append(appeal.applier)  # Добавляем заявителя
 
-    send_notification_and_socket_event_on_appeal(
-        appeal=appeal,
-        users_to_send=users_to_send,
-        sockets=sockets,
-        title=title,
-        message=message,
-        icon_type=icon_type
-    )
+    return applier_sockets, managers_sockets, users_and_managers
 
 
-def send_socket_event_on_appeal(appeal):
-    sockets = appeal.applier.sockets_array or []
+def send_socket_event_on_appeal_statuses(appeal, applier_sockets, managers_sockets):
+    # Только самозанятому
     logger.info({
         'type': 'appeal_job_status_updated',
         'prepared_data': {
@@ -137,31 +192,33 @@ def send_socket_event_on_appeal(appeal):
         }
     })
 
-    SocketController().send_message_to_many_connections(sockets, {
+    SocketController().send_message_to_many_connections(applier_sockets, {
         'type': 'appeal_job_status_updated',
         'prepared_data': {
-            # 'id': appeal.id,
-            # 'jobStatus': appeal.job_status,
+            'id': appeal.id,
+            'jobStatus': appeal.job_status,
         }
     })
 
-
-def send_notification_and_socket_event_on_appeal(appeal, users_to_send, sockets, title, message, icon_type):
+    # И самозанятому и менеджерам релевантным
+    sockets = applier_sockets + managers_sockets
     logger.info({
-        'type': 'appeal_job_status_updated',
+        'type': 'appeal_status_updated',
         'prepared_data': {
             'id': appeal.id,
-            'jobStatus': appeal.job_status,
+            'status': appeal.status,
         }
     })
     SocketController().send_message_to_many_connections(sockets, {
-        'type': 'appeal_job_status_updated',
+        'type': 'appeal_status_updated',
         'prepared_data': {
             'id': appeal.id,
-            'jobStatus': appeal.job_status,
+            'status': appeal.status,
         }
     })
 
+
+def send_notification_on_appeal(appeal, users_to_send, sockets, title, message, icon_type):
     action = NotificationAction.SHIFT.value
     subject_id = appeal.shift_id
     notification_type = NotificationType.SYSTEM.value
