@@ -350,6 +350,13 @@ class ChatsRepository(MasterRepository):
         return record
 
     def get_chat(self, record_id):
+        # При запросе чата по вакансии или по магазину релевантным менеджером, добавляем его в чат
+        if self.me.account_type == AccountType.MANAGER.value:
+            chat = self.model.objects.filter(id=record_id).first()
+            if chat and self.check_if_staff_or_participant(chat):  # Если являюсь релевантным менеджером
+                # Добавляем себя в список участников чата
+                ChatUser.objects.get_or_create(chat=chat, user=self.me)
+                
         records = self.base_query.filter(id=record_id)
         records = self.prefetch_first_unread_message(records)
         record = self.fast_related_loading(records).first()
