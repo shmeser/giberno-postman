@@ -1685,7 +1685,7 @@ class ShiftAppealsRepository(MasterRepository):
         self.is_related_manager(instance=appeal)
         if appeal.job_status == JobStatus.JOB_SOON.value:
             appeal.job_status = JobStatus.JOB_IN_PROCESS.value
-            appeal.qr_text = None
+            # appeal.qr_text = None
             appeal.save()
 
             prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=appeal.id))
@@ -1721,7 +1721,7 @@ class ShiftAppealsRepository(MasterRepository):
             appeal.status = ShiftAppealStatus.CANCELED.value
             appeal.manager_refuse_reason = validated_data.get('reason')
             appeal.refuse_reason_text = validated_data.get('text')
-            appeal.qr_text = None
+            # appeal.qr_text = None
             appeal.save()
             prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=appeal.id))
 
@@ -1975,13 +1975,13 @@ class ShiftAppealsRepository(MasterRepository):
         ).filter(
             status=ShiftAppealStatus.CONFIRMED,
             job_status=JobStatus.JOB_SOON.value,
-            qr_text__isnull=False,
+            # qr_text__isnull=False,
             time_end__ltedttz=now()
         ).values_list('id', flat=True))
 
         self.model.objects.filter(id__in=appeals_ids).update(
             status=ShiftAppealStatus.CANCELED.value,
-            qr_text=None
+            # qr_text=None
         )
 
         appeals = self.model.objects.filter(id__in=appeals_ids)
