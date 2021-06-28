@@ -15,7 +15,7 @@ from app_chats.models import Chat, Message, ChatUser, MessageStat
 from app_chats.versions.v1_0.serializers import MessagesSerializer, FirstUnreadMessageSerializer, \
     SocketChatSerializer
 from app_market.models import Shop, Vacancy, Distributor
-from app_market.versions.v1_0.repositories import ShiftAppealsRepository
+from app_market.versions.v1_0.repositories import ShiftAppealsRepository, VacanciesRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -102,6 +102,7 @@ class ChatsRepository(MasterRepository):
             })
 
     def check_conditions_for_manager(self, user_id, vacancy_id, appeal_id):
+        is_relevant_manager = True
         need_to_create = False
         users = []
         target_id = None
@@ -122,9 +123,14 @@ class ChatsRepository(MasterRepository):
                 subject_user
             ]
             # Проверяем есть ли такой пользователь и есть ли от него отклики на указанную вакансию
-            if not subject_user or not ShiftAppealsRepository.check_if_active_appeal(
-                    vacancy_id=vacancy_id, applier_id=user_id):
+            appeal_exists = ShiftAppealsRepository.check_if_active_appeal(vacancy_id=vacancy_id, applier_id=user_id)
+            if not subject_user or not appeal_exists:
                 need_to_create = False
+            if appeal_exists:
+                # Если есть заявка, и я - релевантный менеджер для этой вакансии, добавляем в чат себя
+                managers = VacanciesRepository(me=self.me).get_vacancy_managers(vacancy_id)
+                if self.me not in managers:
+                    is_relevant_manager = False
 
         # Запрашивается чат с пользователем по отклику на вакансию, если тот откликнулся на нее
         if appeal_id:
@@ -143,9 +149,11 @@ class ChatsRepository(MasterRepository):
                     subject_user
                 ]
             except Exception:
+                # Если нет заявки или не являюсь релевантным менеджером
                 need_to_create = False
+                is_relevant_manager = False
 
-        return need_to_create, users, target_ct, target_id, subject_user
+        return need_to_create, users, target_ct, target_id, subject_user, is_relevant_manager
 
     def check_conditions_for_self_employed(self, user_id, vacancy_id, shop_id, kwargs, checking_kwargs):
         need_to_create = False
@@ -198,6 +206,7 @@ class ChatsRepository(MasterRepository):
 
     def check_conditions_for_chat_creation(self, kwargs):
         need_to_create = False
+        is_relevant_manager = False
 
         user_id = kwargs.pop('user_id', None)
         shop_id = kwargs.pop('shop_id', None)
@@ -215,7 +224,7 @@ class ChatsRepository(MasterRepository):
         # ##
 
         if self.me.account_type == AccountType.MANAGER.value:  # Если роль менеджера
-            need_to_create, users, target_ct, target_id, subject_user = self.check_conditions_for_manager(
+            need_to_create, users, target_ct, target_id, subject_user, is_relevant_manager = self.check_conditions_for_manager(
                 user_id, vacancy_id, appeal_id)
 
         elif self.me.account_type == AccountType.SELF_EMPLOYED.value:  # Если роль самозанятого
@@ -251,7 +260,7 @@ class ChatsRepository(MasterRepository):
             'subject_user': subject_user,
         }
 
-        return checking_kwargs, need_to_create, chat_data
+        return checking_kwargs, need_to_create, chat_data, is_relevant_manager
 
     @staticmethod
     def create_chat(users, title=None, target_id=None, target_ct_id=None, target_ct_name=None, subject_user=None):
@@ -279,9 +288,15 @@ class ChatsRepository(MasterRepository):
         # Изменяем kwargs для работы с objects.filter(**kwargs)
         self.modify_kwargs(kwargs, order_by)
         # Проверяем условия для создания чата
-        checking_kwargs, should_create, chat_data = self.check_conditions_for_chat_creation(kwargs)
+        checking_kwargs, should_create, chat_data, is_relevant_manager = self.check_conditions_for_chat_creation(kwargs)
 
-        if not self.base_query.filter(**checking_kwargs).exists() and should_create:
+        found_chats = self.model.objects.filter(**checking_kwargs)
+        if found_chats and is_relevant_manager:
+            # Если релевантный менеджер для найденных чатов, то добавляем себя в чаты
+            for chat in found_chats:
+                ChatUser.objects.get_or_create(chat=chat, user=self.me)
+
+        if not found_chats and should_create:
             # Если не найдены нужные чаты
             self.create_chat(
                 users=chat_data['users'],
