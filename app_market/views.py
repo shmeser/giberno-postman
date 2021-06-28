@@ -479,6 +479,18 @@ class ConfirmedWorkersDates(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
+class PushSettingsForConfirmedWorkers(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrManager]
+
+    @staticmethod
+    def put(request, **kwargs):
+        """ Настройки уведомлений для одобренных работников (получают Администраторы / менеджеры ) """
+        if request.version in ['market_1_0']:
+            return v1_0.PushSettingsForConfirmedWorkers().put(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
 class QRView(APIView):
     permission_classes = [IsAuthenticated, IsSelfEmployed]
 

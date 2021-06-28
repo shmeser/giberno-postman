@@ -22,7 +22,8 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ShiftAppealsForManagersSerializer, VacancyForManagerSerializer, ConfirmedWorkersShiftsSerializer, \
     ConfirmedWorkerProfessionsSerializer, ConfirmedWorkerDatesSerializer, ConfirmedWorkerSerializer, \
     ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer, \
-    ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer
+    ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
+    ConfirmedWorkerSettingsValidator
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -1212,6 +1213,22 @@ class ConfirmedWorkersDates(CRUDAPIView):
         }
 
         return Response(camelize(only_dates), status=status.HTTP_200_OK)
+
+
+class PushSettingsForConfirmedWorkers(APIView):
+    def put(self, request, **kwargs):
+        validator = ConfirmedWorkerSettingsValidator(data=get_request_body(request))
+        if validator.is_valid(raise_exception=True):
+            appeal = ShiftAppealsRepository().get_by_id(kwargs.get('record_id'))
+            ShiftAppealsRepository(me=request.user).is_related_manager(appeal)
+            appeal.notify_leaving = validator.validated_data.get('notify_leaving')
+            appeal.save()
+            serialized = ConfirmedWorkersShiftsSerializer(appeal, many=False, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            })
+
+            return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class QRView(APIView):

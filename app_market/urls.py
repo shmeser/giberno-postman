@@ -12,7 +12,7 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     QRView, ShiftAppealComplete, CheckPassByManagerAPIView, AllowPassByManagerAPIView, work_location, \
     ShiftAppealCompleteByManager, \
     RefusePassByManagerAPIView, CheckPassBySecurityAPIView, RefusePassBySecurityAPIView, FireByManagerAPIView, \
-    ProlongByManager, CancelFiringByManager
+    ProlongByManager, CancelFiringByManager, PushSettingsForConfirmedWorkers
 
 urlpatterns = [
     # Торговые сети
@@ -72,6 +72,7 @@ managers_urls = [
     # Список подтвержденных работников
     path('market/managers/self_employed', ConfirmedWorkers.as_view()),
     path('market/managers/self_employed/<int:record_id>', ConfirmedWorkers.as_view()),
+    path('market/managers/self_employed/<int:record_id>/settings', PushSettingsForConfirmedWorkers.as_view()),
 
     path('market/managers/self_employed/dates', ConfirmedWorkersDates.as_view()),
     path('market/managers/self_employed/professions', ConfirmedWorkersProfessions.as_view()),
