@@ -347,7 +347,7 @@ class ProfileRepository(MasterRepository):
         self.me.username = username
         self.me.save()
 
-    def make_review_to_self_employed_by_admin_or_manager(self, record_id, shift_id, text, value, point=None):
+    def make_review_to_self_employed_by_admin_or_manager(self, user_id, shift_id, text, value, point=None):
         # TODO добавить загрузку attachments
 
         # TODO ограничить количество отзывов до 1 на одну смену для пользовтеля со стороны менеджера
@@ -359,7 +359,7 @@ class ProfileRepository(MasterRepository):
         target_content_type = ContentType.objects.get_for_model(self.model)
         target_ct_id = target_content_type.id
         target_ct_name = target_content_type.model
-        target_id = record_id
+        target_id = user_id
 
         # проверяем валидность id конечной цели
         applier = self.get_by_id(record_id=target_id)
@@ -417,7 +417,7 @@ class ProfileRepository(MasterRepository):
             )
 
             # Пересчитываем количество оценок и рейтинг
-            self.model.objects.filter(pk=record_id).update(
+            self.model.objects.filter(pk=user_id).update(
                 # в update нельзя использовать результаты annotate
                 # используем annotate в Subquery
                 rating=Subquery(

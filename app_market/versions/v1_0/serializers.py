@@ -918,6 +918,7 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
             'real_time_start',
             'real_time_end',
             'fire_at',
+            'notify_leaving',
             'user',
             'vacancy',
         ]
@@ -925,6 +926,10 @@ class ConfirmedWorkersShiftsSerializer(serializers.ModelSerializer):
 
 class QRCodeSerializer(serializers.Serializer):
     qr_text = serializers.CharField()
+
+
+class ConfirmedWorkerSettingsValidator(serializers.Serializer):
+    notify_leaving = serializers.BooleanField()
 
 
 class QRCodeCompleteSerializer(serializers.Serializer):

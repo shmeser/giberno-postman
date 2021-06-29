@@ -273,6 +273,7 @@ class ShiftAppeal(BaseModel):
                                              verbose_name='Статус работы')
 
     qr_text = models.CharField(max_length=150, null=True, blank=True)
+    notify_leaving = models.BooleanField(default=True)
 
     class Meta:
         db_table = 'app_market__shifts_appeals'

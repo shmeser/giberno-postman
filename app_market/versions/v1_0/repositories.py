@@ -569,6 +569,7 @@ class ShiftsRepository(MasterRepository):
         is_appeal_confirmed_for_today = ShiftAppeal.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            notify_leaving=True,  # Оповещения должны быть включены для этой заявки
             applier=self.me,
             status=ShiftAppealStatus.CONFIRMED.value,
             shift_id=shift_id,
@@ -599,31 +600,6 @@ class ShiftsRepository(MasterRepository):
             chat_id = chat.id
 
         return should_notify_managers, managers, managers_sockets, chat_id
-
-
-# class UserShiftRepository(MasterRepository):
-#     model = UserShift
-#
-#     def __init__(self, me=None):
-#         super().__init__()
-#         self.me = me
-#
-#     def update_status_by_qr_check(self, instance):
-#         if instance.shift.vacancy.shop not in self.me.shops.all():
-#             raise PermissionDenied()
-#
-#         if self.me.is_security:
-#             return
-#         if self.me.is_manager:
-#             if instance.status == ShiftStatus.INITIAL:
-#                 instance.status = ShiftStatus.STARTED
-#                 instance.save()
-#             elif instance.status == ShiftStatus.STARTED:
-#                 instance.status = ShiftStatus.COMPLETED
-#                 instance.qr_data = {}
-#                 instance.save()
-#             elif instance.status == ShiftStatus.COMPLETED:
-#                 return
 
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
@@ -1241,7 +1217,7 @@ class ShiftAppealsRepository(MasterRepository):
         self.me = me
         self.point = point
 
-        self.base_query = self.model.objects.filter(applier=self.me)
+        self.base_query = self.model.objects.filter(applier=self.me).exclude(deleted=True)
 
         self.limit = 10
 
@@ -1339,7 +1315,7 @@ class ShiftAppealsRepository(MasterRepository):
 
     @staticmethod
     def check_if_exists(queryset, data):
-        appeal = queryset.filter(**data).first()
+        appeal = queryset.filter(**data).exclude(deleted=True).first()
         if appeal:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.APPEAL_EXISTS))
@@ -1432,7 +1408,7 @@ class ShiftAppealsRepository(MasterRepository):
 
     def get_by_id(self, record_id):
         # если будет self.base_query.filter() то manager ничего не сможет увидеть
-        records = self.model.objects.filter(pk=record_id)
+        records = self.model.objects.filter(pk=record_id).exclude(deleted=True)
         records = self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records,
             point=self.point
@@ -1543,20 +1519,23 @@ class ShiftAppealsRepository(MasterRepository):
 
             instance.status = ShiftAppealStatus.CONFIRMED
             instance.save()
-            # удаляем остальные отклики пользователя
-            self.model.objects.filter(applier=instance.applier).filter(
-                Q(time_start__range=(instance.time_start, instance.time_end)) |
-                Q(time_end__range=(instance.time_start, instance.time_end))
-            ).exclude(id=instance.id).delete()
+            # удаляем отклики, которые начинаются или заканчиваются в пределах одобренного отклика или
+            # которые в очень удаленном магазине
+            self.model.objects.filter(
+                applier=instance.applier
+            ).filter(
+                # Начинаются во время текущей смены
+                Q(time_start__gte=instance.time_start, time_start__lt=instance.time_end) |
+                # Заканчиваются во время текущей смены
+                Q(time_end__gt=instance.time_start, time_end__lte=instance.time_end) |
+                # Перекрывают полностью текущую
+                Q(time_start__lte=instance.time_start, time_end__gte=instance.time_end)
+            ).exclude(
+                id=instance.id
+            ).update(
+                deleted=True
+            )
             status_changed = True
-
-            # # создаем смену пользователя
-            # UserShift.objects.get_or_create(
-            #     user=instance.applier,
-            #     shift=instance.shift,
-            #     real_time_start=instance.time_start,
-            #     real_time_end=instance.time_end
-            # )
 
         return status_changed, instance
 
