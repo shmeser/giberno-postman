@@ -78,7 +78,7 @@ managers_urls = [
     path('market/managers/self_employed/professions', ConfirmedWorkersProfessions.as_view()),
 
     # Отзывы на самозанятых
-    path('market/managers/self_employed/<int:record_id>/reviews',
+    path('market/managers/self_employed/<int:user_id>/reviews',
          SelfEmployedUserReviewsByAdminOrManagerAPIView.as_view()),
 
     # Вакансии

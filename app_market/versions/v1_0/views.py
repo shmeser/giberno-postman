@@ -807,7 +807,7 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(ReviewsBaseAPIView):
 
         if serializer.is_valid(raise_exception=True):
             self.post_request_repository_class(me=request.user).make_review_to_self_employed_by_admin_or_manager(
-                record_id=kwargs.get('record_id'),
+                user_id=kwargs.get('user_id'),
                 text=serializer.validated_data['text'],
                 value=serializer.validated_data['value'],
                 point=point,
@@ -818,7 +818,7 @@ class SelfEmployedUserReviewsByAdminOrManagerAPIView(ReviewsBaseAPIView):
     def get(self, request, *args, **kwargs):
         pagination = RequestMapper.pagination(request)
         queryset = self.get_request_repository_class().get_self_employed_reviews(
-            user_id=kwargs.get('record_id'), pagination=pagination
+            user_id=kwargs.get('user_id'), pagination=pagination
         )
         return Response(camelize(DistributorReviewsSerializer(queryset, many=True).data))
 
