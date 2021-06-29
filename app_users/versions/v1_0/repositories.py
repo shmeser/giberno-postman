@@ -1,6 +1,7 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q, Prefetch, Subquery, OuterRef, ExpressionWrapper, Sum, Count, FloatField, Window, Avg, F
+from django.db.models import Q, Prefetch, Subquery, OuterRef, ExpressionWrapper, Sum, Count, FloatField, Window, Avg, F, \
+    Value
 from django.db.models.functions import DenseRank
 from django.utils.timezone import now
 from fcm_django.models import FCMDevice
@@ -604,7 +605,7 @@ class RatingRepository(MasterRepository):
                 Review.objects.filter(  # Собираем рейтинг по тем же парамерам
                     target_id=OuterRef('id'),
                     target_ct=user_ct,
-                    **kwargs_for_reviews  # Измененные kwargs, так как тут модель не UserProfile? а Review
+                    **kwargs_for_reviews  # Измененные kwargs, так как тут модель не UserProfile, а Review
                 ).annotate(
                     rating=Window(  # Приходится использовать оконные функции из-за сложной структуры оценок и задачи
                         expression=Avg('value'), partition_by=[F('target_id')]
@@ -623,9 +624,8 @@ class RatingRepository(MasterRepository):
     def get_my_rating(self, kwargs):
         user_ct = ContentType.objects.get_for_model(UserProfile)
         kwargs_for_reviews = self.get_kwargs_for_reviews(kwargs)
-        record = self.model.objects.filter(  # Фильтруем смз по нужным параметрам (регион оценки, смена, дата)
+        queryset = self.model.objects.filter(  # Фильтруем смз по нужным параметрам (регион оценки, смена, дата)
             reviews__isnull=False,
-            id=self.me.id,
             **kwargs
         ).annotate(
             total_rating=Subquery(
@@ -644,6 +644,29 @@ class RatingRepository(MasterRepository):
                 # Проставляем место (ранг) по убыванию рейтинга
                 expression=DenseRank(), order_by=F('total_rating').desc()
             )
-        ).first()
-        # TODO префетчить аватарки
-        return record
+        )
+
+        # Берем общий рейтинг для использования в WITH блоке
+        sql, params = queryset.query.sql_with_params()  # Разбиваем его на параметризованный SQL и параметры
+        final_params = params + (self.me.id,)  # Добавляем в параметры свой ид
+        # Создаем итоговый SQL
+        final_sql = f'''
+            WITH ratings AS ({sql})
+            
+            SELECT * FROM ratings WHERE id=%s LIMIT 1
+            '''
+
+        records = self.model.objects.raw(final_sql, final_params)  # Выполняем RAW запрос с параметрами
+
+        my_profile = None
+        for record in records:
+            my_profile = record
+            break
+
+        if not my_profile:  # Если нет рейтинга по своему профилю, то проставляем null
+            my_profile = UserProfile.objects.filter(id=self.me.id).annotate(
+                place=Value(None, output_field=FloatField()),
+                total_rating=Value(None, output_field=FloatField())
+            ).first()
+
+        return my_profile
