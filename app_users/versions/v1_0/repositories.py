@@ -1,5 +1,6 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
+from django.db import connection
 from django.db.models import Q, Prefetch, Subquery, OuterRef, ExpressionWrapper, Sum, Count, FloatField, Window, Avg, F, \
     Value
 from django.db.models.functions import DenseRank
@@ -348,10 +349,61 @@ class ProfileRepository(MasterRepository):
         self.me.username = username
         self.me.save()
 
+    @staticmethod
+    def recalculate_rating_place_for_users():
+        user_ct = ContentType.objects.get_for_model(UserProfile)
+        updated_ratings = UserProfile.objects.filter(  # Фильтруем смз по нужным параметрам (регион оценки, смена, дата)
+            reviews__isnull=False,
+        ).annotate(
+            total_rating=Subquery(
+                Review.objects.filter(  # Собираем рейтинг по тем же парамерам
+                    target_id=OuterRef('id'),
+                    target_ct=user_ct,
+                ).annotate(
+                    rating=Window(  # Приходится использовать оконные функции из-за сложной структуры оценок и задачи
+                        expression=Avg('value'), partition_by=[F('target_id')]
+                    )
+                ).values('rating')[:1]
+            )
+        ).distinct().annotate(
+            place=Window(
+                # Проставляем место (ранг) по убыванию рейтинга
+                expression=DenseRank(), order_by=F('total_rating').desc()
+            )
+        ).order_by('-total_rating')
+
+        # Обновляем место в общем рейтинге для всех пользователей
+        sql = f'''
+            WITH 
+
+            updated_rating AS (
+                {updated_ratings.query}
+            ),
+
+            joined_ratings AS (
+                SELECT 
+                    p.id, 
+                    ur.place 
+                FROM app_users__profiles p 
+                LEFT JOIN updated_rating ur ON p.id=ur.id
+                WHERE 
+                    p.account_type={AccountType.SELF_EMPLOYED.value}
+            )
+
+            UPDATE app_users__profiles p 
+            SET 
+                rating_place=jr.place 
+            FROM joined_ratings jr
+            WHERE 
+                p.id=jr.id
+        '''
+
+        with connection.cursor() as c:
+            c.execute(sql)  # Update запросы выполняются через cursor
+
     def make_review_to_self_employed_by_admin_or_manager(self, user_id, shift_id, text, value, point=None):
         # TODO добавить загрузку attachments
 
-        # TODO ограничить количество отзывов до 1 на одну смену для пользовтеля со стороны менеджера
         owner_content_type = ContentType.objects.get_for_model(self.me)
         owner_ct_id = owner_content_type.id
         owner_ct_name = owner_content_type.model
@@ -417,29 +469,8 @@ class ProfileRepository(MasterRepository):
                 shift=shift
             )
 
-            # Пересчитываем количество оценок и рейтинг
-            self.model.objects.filter(pk=user_id).update(
-                # в update нельзя использовать результаты annotate
-                # используем annotate в Subquery
-                rating=Subquery(
-                    self.model.objects.filter(
-                        id=OuterRef('id')
-                    ).annotate(
-                        calculated_rating=ExpressionWrapper(
-                            Sum('reviews__value') / Count('reviews'),
-                            output_field=FloatField()
-                        )
-                    ).values('calculated_rating')[:1]
-                ),
-                rates_count=Subquery(
-                    self.model.objects.filter(
-                        id=OuterRef('id')
-                    ).annotate(
-                        calculated_rates_count=Count('reviews'),
-                    ).values('calculated_rates_count')[:1]
-                ),
-                updated_at=now()
-            )
+            # пересчитываем место в общем рейтинге для всех пользователей
+            self.recalculate_rating_place_for_users()
 
 
 class AsyncProfileRepository(ProfileRepository):

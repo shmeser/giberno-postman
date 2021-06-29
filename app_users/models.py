@@ -59,6 +59,7 @@ class UserProfile(AbstractUser, BaseModel):
 
     verified = models.BooleanField(default=False, verbose_name='Профиль проверен')
     bonus_balance = models.PositiveIntegerField(default=0, verbose_name='Очки славы')
+    rating_place = models.PositiveIntegerField(null=True, blank=True, verbose_name='Место в общем рейтинге')
     favourite_vacancies_count = models.PositiveIntegerField(default=0, verbose_name='Количество избранных вакансий')
 
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
@@ -83,9 +84,6 @@ class UserProfile(AbstractUser, BaseModel):
     # конкретные магазины к которым прикреплен админ, менеджер или охранник
     shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины', related_name='staff')
 
-    # у самозанятых есть рейтинг формирующийся на основе отзывов со стороны менеджеров и админов
-    rating = models.FloatField(default=0, verbose_name='Рейтинг пользователя')
-    rates_count = models.PositiveIntegerField(default=0, verbose_name='Количество оценок пользователя')
     reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
 
     @property
