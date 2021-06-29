@@ -569,6 +569,7 @@ class ShiftsRepository(MasterRepository):
         is_appeal_confirmed_for_today = ShiftAppeal.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            notify_leaving=True,  # Оповещения должны быть включены для этой заявки
             applier=self.me,
             status=ShiftAppealStatus.CONFIRMED.value,
             shift_id=shift_id,
@@ -599,31 +600,6 @@ class ShiftsRepository(MasterRepository):
             chat_id = chat.id
 
         return should_notify_managers, managers, managers_sockets, chat_id
-
-
-# class UserShiftRepository(MasterRepository):
-#     model = UserShift
-#
-#     def __init__(self, me=None):
-#         super().__init__()
-#         self.me = me
-#
-#     def update_status_by_qr_check(self, instance):
-#         if instance.shift.vacancy.shop not in self.me.shops.all():
-#             raise PermissionDenied()
-#
-#         if self.me.is_security:
-#             return
-#         if self.me.is_manager:
-#             if instance.status == ShiftStatus.INITIAL:
-#                 instance.status = ShiftStatus.STARTED
-#                 instance.save()
-#             elif instance.status == ShiftStatus.STARTED:
-#                 instance.status = ShiftStatus.COMPLETED
-#                 instance.qr_data = {}
-#                 instance.save()
-#             elif instance.status == ShiftStatus.COMPLETED:
-#                 return
 
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
