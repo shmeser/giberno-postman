@@ -404,7 +404,6 @@ class ProfileRepository(MasterRepository):
     def make_review_to_self_employed_by_admin_or_manager(self, user_id, shift_id, text, value, point=None):
         # TODO добавить загрузку attachments
 
-        # TODO ограничить количество отзывов до 1 на одну смену для пользовтеля со стороны менеджера
         owner_content_type = ContentType.objects.get_for_model(self.me)
         owner_ct_id = owner_content_type.id
         owner_ct_name = owner_content_type.model
@@ -470,8 +469,8 @@ class ProfileRepository(MasterRepository):
                 shift=shift
             )
 
-        # TODO пересчитываем рейтинг и место для всех пользователей
-        self.recalculate_rating_place_for_users()
+            # пересчитываем место в общем рейтинге для всех пользователей
+            self.recalculate_rating_place_for_users()
 
 
 class AsyncProfileRepository(ProfileRepository):
