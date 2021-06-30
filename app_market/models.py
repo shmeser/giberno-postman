@@ -78,13 +78,6 @@ class Shop(BaseModel):
     city = models.ForeignKey(City, blank=True, null=True, on_delete=models.SET_NULL)
     address = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Адрес')
 
-    is_partner = models.BooleanField(default=False, verbose_name='Является партнером')
-
-    discount = models.PositiveIntegerField(null=True, blank=True, verbose_name='Базовый размер скидки')
-    discount_multiplier = models.PositiveIntegerField(null=True, blank=True, verbose_name='Множитель размера скидки')
-    discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
-    discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
-
     rating = models.FloatField(default=0, verbose_name='Рейтинг магазина')
     rates_count = models.PositiveIntegerField(default=0, verbose_name='Количество оценок магазина')
 
@@ -300,6 +293,23 @@ class UserShift(BaseModel):
         db_table = 'app_market__shift_user'
         verbose_name = 'Смена пользователя'
         verbose_name_plural = 'Смены пользователей'
+
+
+class Partner(BaseModel):
+    distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE)
+
+    discount = models.PositiveIntegerField(null=True, blank=True, verbose_name='Базовый размер скидки')
+    discount_multiplier = models.PositiveIntegerField(null=True, blank=True, verbose_name='Множитель размера скидки')
+    discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
+    discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
+
+    def __str__(self):
+        return f'{self.distributor.title}'
+
+    class Meta:
+        db_table = 'app_market__partners'
+        verbose_name = 'Партнер'
+        verbose_name_plural = 'Партнеры'
 
 
 class Coupon(BaseModel):

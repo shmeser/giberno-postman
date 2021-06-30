@@ -616,3 +616,21 @@ def work_location(request, **kwargs):
     if request.version in ['market_1_0']:
         return v1_0.work_location(request._request, **kwargs)
     raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class Partners(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.Partners().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class PartnersCategories(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.PartnersCategories().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)

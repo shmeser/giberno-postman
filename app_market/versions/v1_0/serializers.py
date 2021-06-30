@@ -11,7 +11,7 @@ from rest_framework import serializers
 
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, UserShift, Category, ShiftAppeal
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -834,7 +834,7 @@ class ConfirmedWorkerProfessionsSerializer(serializers.ModelSerializer):
         return instance.shift.vacancy.profession.name
 
     class Meta:
-        model = UserShift
+        model = ShiftAppeal
         fields = ['id', 'title']
 
 
@@ -1018,3 +1018,35 @@ class ShiftDocumentsSerializer(serializers.Serializer):
 
     def get_is_confirmed(self, instance):
         return instance.is_confirmed
+
+
+class DistributorInPartnerSerializer(DistributorsSerializer):
+    class Meta:
+        model = Distributor
+        fields = [
+            'id',
+            'title',
+            'description',
+            'logo',
+            'banner'
+        ]
+
+
+class PartnersSerializer(serializers.ModelSerializer):
+    distributor = serializers.SerializerMethodField()
+
+    def get_distributor(self, data):
+        if data.distributor:
+            return DistributorInPartnerSerializer(data.distributor).data
+        return None
+
+    class Meta:
+        model = Partner
+        fields = [
+            'id',
+            'discount',
+            'discount_multiplier',
+            'discount_terms',
+            'discount_description',
+            'distributor'
+        ]

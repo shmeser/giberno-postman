@@ -15,7 +15,7 @@ from app_market.enums import AppealCancelReason, ShiftAppealStatus
 from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
-    MarketDocumentsRepository
+    MarketDocumentsRepository, PartnersRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
@@ -23,7 +23,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ConfirmedWorkerProfessionsSerializer, ConfirmedWorkerDatesSerializer, ConfirmedWorkerSerializer, \
     ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer, \
     ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
-    ConfirmedWorkerSettingsValidator
+    ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -1459,3 +1459,57 @@ def work_location(request, **kwargs):
         })
 
     return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class Partners(CRUDAPIView):
+    serializer_class = PartnersSerializer
+    repository_class = PartnersRepository
+    allowed_http_methods = ['get']
+
+    array_filter_params = {
+        'category': 'distributor__categories__id__in',
+    }
+
+    # default_order_params = []
+
+    # default_filters = {}
+
+    order_params = {
+        'id': 'id',
+        'title': 'title',
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class PartnersCategories(APIView):
+    serializer_class = CategoriesSerializer
+    repository_class = PartnersRepository
+
+    def get(self, request, **kwargs):
+        dataset = self.repository_class().get_all_categories()
+        serialized = self.serializer_class(dataset, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
