@@ -12,7 +12,7 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     QRView, ShiftAppealComplete, CheckPassByManagerAPIView, AllowPassByManagerAPIView, work_location, \
     ShiftAppealCompleteByManager, \
     RefusePassByManagerAPIView, CheckPassBySecurityAPIView, RefusePassBySecurityAPIView, FireByManagerAPIView, \
-    ProlongByManager, CancelFiringByManager
+    ProlongByManager, CancelFiringByManager, PushSettingsForConfirmedWorkers, Partners, PartnersCategories
 
 urlpatterns = [
     # Торговые сети
@@ -50,10 +50,6 @@ urlpatterns = [
     path('market/shifts/<int:record_id>', Shifts.as_view()),
     path('market/shifts/<int:record_id>/documents', GetDocumentsForShift.as_view()),
 
-    # Смены пользователя
-    # path('market/user_shifts', UserShiftsListAPIView.as_view()),
-    # path('market/user_shifts/<int:record_id>', UserShiftsRetrieveAPIView.as_view()),
-
     # Geolocation
     path('market/location', work_location),
 
@@ -66,18 +62,24 @@ urlpatterns = [
 
     # Документы
     path('market/documents', MarketDocuments.as_view()),
+
+    # Партнеры
+    path('market/partners', Partners.as_view()),
+    path('market/partners/<int:record_id>', Partners.as_view()),
+    path('market/partners/categories', PartnersCategories.as_view()),
 ]
 
 managers_urls = [
     # Список подтвержденных работников
     path('market/managers/self_employed', ConfirmedWorkers.as_view()),
     path('market/managers/self_employed/<int:record_id>', ConfirmedWorkers.as_view()),
+    path('market/managers/self_employed/<int:record_id>/settings', PushSettingsForConfirmedWorkers.as_view()),
 
     path('market/managers/self_employed/dates', ConfirmedWorkersDates.as_view()),
     path('market/managers/self_employed/professions', ConfirmedWorkersProfessions.as_view()),
 
     # Отзывы на самозанятых
-    path('market/managers/self_employed/<int:record_id>/reviews',
+    path('market/managers/self_employed/<int:user_id>/reviews',
          SelfEmployedUserReviewsByAdminOrManagerAPIView.as_view()),
 
     # Вакансии

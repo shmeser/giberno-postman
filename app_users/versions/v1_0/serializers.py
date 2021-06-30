@@ -73,9 +73,8 @@ class ProfileSerializer(CRUDSerializer):
 
     registration_completed = serializers.SerializerMethodField()
 
-    rating_place = serializers.SerializerMethodField(read_only=True)
     notifications_count = serializers.SerializerMethodField(read_only=True)
-    rating_by_vacancies = serializers.SerializerMethodField(read_only=True)
+    # rating_by_vacancies = serializers.SerializerMethodField(read_only=True)
 
     distributors = serializers.SerializerMethodField(read_only=True)
 
@@ -372,9 +371,6 @@ class ProfileSerializer(CRUDSerializer):
             'headers': self.headers
         }).data
 
-    def get_rating_place(self, profile: UserProfile):
-        return None
-
     def get_notifications_count(self, profile: UserProfile):
         return profile.notification_set.filter(read_at__isnull=True, deleted=False).count()
 
@@ -387,19 +383,19 @@ class ProfileSerializer(CRUDSerializer):
             return True
         return False
 
-    @staticmethod
-    def get_rating_by_vacancies(instance):
-        reviews = instance.reviews.all().values('shift__vacancy').annotate(rating=Avg('value')).annotate(
-            rates_count=Count('shift__vacancy'))
-
-        return [
-            {
-                'vacancy': review.get('shift__vacancy'),
-                'rating': review.get('rating'),
-                'rates_count': review.get('rates_count')
-            }
-            for review in reviews
-        ]
+    # @staticmethod
+    # def get_rating_by_vacancies(instance):
+    #     reviews = instance.reviews.all().values('shift__vacancy').annotate(rating=Avg('value')).annotate(
+    #         rates_count=Count('shift__vacancy'))
+    #
+    #     return [
+    #         {
+    #             'vacancy': review.get('shift__vacancy'),
+    #             'rating': review.get('rating'),
+    #             'rates_count': review.get('rates_count')
+    #         }
+    #         for review in reviews
+    #     ]
 
     @staticmethod
     def get_distributors(instance):
@@ -444,8 +440,7 @@ class ProfileSerializer(CRUDSerializer):
 
             'distributors',
             'shops',
-            'rating',
-            'rating_by_vacancies'
+            # 'rating_by_vacancies'
         ]
 
         extra_kwargs = {

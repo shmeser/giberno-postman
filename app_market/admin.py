@@ -1,7 +1,7 @@
 from django.contrib.gis import admin
 
 from app_market.models import Distributor, Shop, Vacancy, Shift, Order, Transaction, Coupon, Profession, \
-    UserProfession, DistributorCategory, Category, ShiftAppeal
+    UserProfession, DistributorCategory, Category, ShiftAppeal, Partner
 from backend.mixins import FormattedAdmin
 
 _ITEMS_PER_ITERATION = 5
@@ -12,10 +12,15 @@ class DistributorAdmin(FormattedAdmin):
     list_display = ['id', 'title', 'description', 'required_docs']
 
 
+@admin.register(Partner)
+class PartnerAdmin(FormattedAdmin):
+    list_display = ['id', 'distributor', 'discount']
+    raw_id_fields = ['distributor']
+
+
 @admin.register(Shop)
 class ShopAdmin(FormattedAdmin):
-    list_display = ['id', 'title', 'description', 'is_partner', 'discount', 'address']
-    list_filter = ["is_partner"]
+    list_display = ['id', 'title', 'description', 'address']
     raw_id_fields = ['distributor', 'city']
 
 
