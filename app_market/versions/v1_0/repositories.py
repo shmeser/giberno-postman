@@ -22,7 +22,7 @@ from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
     JobStatus, JobStatusForClient
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
-    GlobalDocument, VacancyDocument, DistributorDocument
+    GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -1683,10 +1683,7 @@ class ShiftAppealsRepository(MasterRepository):
             appeal.security_pass_refuse_reason = validated_data.get('reason')
             appeal.security_pass_refuse_reason_text = validated_data.get('text')
             appeal.save()
-            sockets = appeal.applier.sockets.aggregate(
-                sockets=ArrayRemove(ArrayAgg('socket_id'), None)
-            )['sockets']
-            return appeal, sockets
+            return appeal
         else:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
@@ -2394,3 +2391,16 @@ class MarketDocumentsRepository(MasterRepository):
         # Подтверждение конкретного документа
         if document_uuid:
             self.accept_document(document_uuid)
+
+
+class PartnersRepository(MasterRepository):
+    model = Partner
+
+    def get_by_id(self, record_id):
+        return super().get_by_id(record_id)
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        return super().filter_by_kwargs(kwargs, paginator, order_by)
+
+    def get_all_categories(self):
+        return Category.objects.filter(distributorcategory__distributor__partner__isnull=False)

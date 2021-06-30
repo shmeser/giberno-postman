@@ -1,8 +1,7 @@
 import random
-
 import uuid
-
 from datetime import timedelta
+
 from django.db import transaction
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
@@ -11,8 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app_market.models import Distributor, Shop, Vacancy, Shift, ShiftAppeal, UserShift
-from app_market.utils import QRHandler
+from app_market.models import Distributor, Shop, Vacancy, Shift
 from app_sockets.controllers import SocketController
 from app_users.enums import AccountType
 from app_users.models import UserProfile
