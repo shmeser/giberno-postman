@@ -1284,17 +1284,55 @@ class RefusePassBySecurityAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            appeal, sockets = self.repository_class(me=request.user).refuse_pass_by_security(
+            appeal = self.repository_class(me=request.user).refuse_pass_by_security(
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
-            SocketController.send_message_to_many_connections(sockets, {
-                'type': 'appeal_job_status_updated',
-                'prepared_data': {
-                    'id': appeal.id,
-                    'jobStatus': appeal.job_status,
-                }
+            managers, sockets = VacanciesRepository().get_managers_and_sockets_for_vacancy(appeal.shift.vacancy)
+
+            # Отправляем по сокетам смену status и job_status смз и менеджерам
+            send_socket_event_on_appeal_statuses(
+                appeal=appeal,
+                applier_sockets=list(appeal.applier.sockets.all().values_list('socket_id', flat=True)) or [],
+                managers_sockets=sockets
+            )
+
+            _SECURITY_REFUSED_APPEAL_TITLE = 'Охрана не пропустила работника'
+
+            title = _SECURITY_REFUSED_APPEAL_TITLE
+            message = f'Сотрудники охраны не пропустили работника {request.user.first_name} {request.user.last_name} по вакансии {appeal.shift.vacancy.title}'
+            action = NotificationAction.VACANCY.value
+            subject_id = appeal.shift.vacancy_id
+            notification_type = NotificationType.SYSTEM.value
+            icon_type = NotificationIcon.SECURITY_CANCELLATION_REASON.value
+
+            # uuid для массовой рассылки оповещений,
+            # у пользователей в бд будут созданы оповещения с одинаковым uuid
+            # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+            common_uuid = uuid.uuid4()
+
+            PushController().send_notification(
+                users_to_send=managers,
+                title=title,
+                message=message,
+                common_uuid=common_uuid,
+                action=action,
+                subject_id=subject_id,
+                notification_type=notification_type,
+                icon_type=icon_type
+            )
+
+            # Отправка уведомления по сокетам
+            SocketController(request.user, version='1.0').send_notification_to_many_connections(sockets, {
+                'title': title,
+                'message': message,
+                'uuid': str(common_uuid),
+                'action': action,
+                'subjectId': subject_id,
+                'notificationType': notification_type,
+                'iconType': icon_type,
             })
+
             return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 

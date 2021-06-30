@@ -1683,10 +1683,7 @@ class ShiftAppealsRepository(MasterRepository):
             appeal.security_pass_refuse_reason = validated_data.get('reason')
             appeal.security_pass_refuse_reason_text = validated_data.get('text')
             appeal.save()
-            sockets = appeal.applier.sockets.aggregate(
-                sockets=ArrayRemove(ArrayAgg('socket_id'), None)
-            )['sockets']
-            return appeal, sockets
+            return appeal
         else:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.INCONVENIENT_JOB_STATUS))
