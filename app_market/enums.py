@@ -118,3 +118,8 @@ class JobStatus(IntEnumM):
     COMPLETED = 5  # Завершена
     WAITING_FOR_FIRING = 6  # Ждет увольнения
     FIRED = 7  # Уволен
+
+
+class AchievementType(IntEnumM):
+    SAME_DISTRIBUTOR_SHIFT = 1  # Успешное завершение смены в одной торговой сети
+    EARLY_SHIFT = 2  # Работа в ранних сменах

@@ -10,8 +10,8 @@ from django.contrib.postgres.indexes import GinIndex
 from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
-    ShiftStatus, ShiftAppealStatus, AppealCancelReason, ManagerAppealCancelReason, JobStatus, SecurityPassRefuseReason, \
-    FireByManagerReason, ManagerAppealRefuseReason, AppealCompleteReason
+    ShiftAppealStatus, AppealCancelReason, ManagerAppealCancelReason, JobStatus, SecurityPassRefuseReason, \
+    FireByManagerReason, ManagerAppealRefuseReason, AppealCompleteReason, AchievementType
 from app_media.models import MediaModel
 from app_users.enums import REQUIRED_DOCS_FOR_CHOICES
 from app_users.models import UserProfile
@@ -274,27 +274,6 @@ class ShiftAppeal(BaseModel):
         verbose_name_plural = 'Отклики на рабочие смены'
 
 
-class UserShift(BaseModel):
-    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
-    shift = models.ForeignKey(Shift, on_delete=models.CASCADE)
-
-    real_time_start = models.DateTimeField(null=True, blank=True)
-    real_time_end = models.DateTimeField(null=True, blank=True)
-
-    status = models.PositiveIntegerField(choices=choices(ShiftStatus), default=ShiftStatus.INITIAL)
-
-    qr_data = models.JSONField(default=dict)
-    qr_code_gen_at = models.DateTimeField(null=True, blank=True)
-
-    def __str__(self):
-        return f'{self.id}'
-
-    class Meta:
-        db_table = 'app_market__shift_user'
-        verbose_name = 'Смена пользователя'
-        verbose_name_plural = 'Смены пользователей'
-
-
 class Partner(BaseModel):
     distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE)
 
@@ -492,3 +471,40 @@ class VacancyDocument(BaseModel):
         db_table = 'app_market__user_vacancy_document'
         verbose_name = 'Документ вакансии для пользователя'
         verbose_name_plural = 'Документы вакансий для пользователей'
+
+
+class Achievement(BaseModel):
+    name = models.CharField(max_length=512, blank=True, null=True)
+    description = models.CharField(max_length=3072, blank=True, null=True)
+
+    actions_min_count = models.PositiveIntegerField(
+        default=1, verbose_name='Количество действий для получения достижения'
+    )
+    type = models.PositiveIntegerField(choices=choices(AchievementType), null=True, blank=True)
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
+    class Meta:
+        db_table = 'app_market__achievements'
+        verbose_name = 'Достижение'
+        verbose_name_plural = 'Достижения'
+
+
+class AchievementProgress(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    achievement = models.ForeignKey(Achievement, on_delete=models.CASCADE)
+
+    actions_min_count = models.PositiveIntegerField(
+        default=1, verbose_name='Количество действий для получения достижения'
+    )
+    actions_count = models.PositiveIntegerField(default=0, verbose_name='Количество выполненных действий')
+
+    completed_at = models.DateTimeField(verbose_name='Время завершения прогресса по достижению')
+
+    def __str__(self):
+        return f'{self.id}'
+
+    class Meta:
+        db_table = 'app_market__achievement_progress'
+        verbose_name = 'Прогресс пользователя по достижению'
+        verbose_name_plural = 'Прогресс пользователей по достижениям'
