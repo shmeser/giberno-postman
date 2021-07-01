@@ -15,6 +15,7 @@ import pytz
 from PIL import Image, ExifTags
 from django.conf import settings
 from django.core.files.uploadedfile import TemporaryUploadedFile
+from django.db.models import Lookup, Field
 from django.db.models.expressions import Func, Expression, F, Value as V
 from django.db.models.functions.datetime import TruncBase
 from django.utils.timezone import make_aware, get_current_timezone, localtime
@@ -50,93 +51,6 @@ def get_request_body(request):
 
 def choices(em):
     return [(e.value, e.name) for e in em]
-
-
-class CP:
-    """
-    Цветной форматированный вывод в консоль
-    """
-
-    def __init__(self, **kwargs):
-        self.fg = getattr(self.FG, kwargs.get('fg', '')) if hasattr(self.FG, kwargs.get('fg', '')) else self.FG.black
-        self.bg = getattr(self.BG, kwargs.get('bg', '')) if hasattr(self.BG, kwargs.get('bg', '')) else self.BG.black
-
-        self.sp = int(kwargs.get('sp', 0))
-        self.nl = kwargs.get('nl', True)
-
-    RESET_FONT = '\033[0m'
-    BOLD_FONT = '\033[01m'
-    DISABLE_FONT = '\033[02m'
-    UNDERLINE_FONT = '\033[04m'
-    REVERSE_FONT = '\033[07m'
-    STRIKETHROUGH_FONT = '\033[09m'
-    INVISIBLE_FONT = '\033[08m'
-
-    def get_tabs(self):
-        tab_code = '\t'
-        tabs = ''
-        while self.sp > 0:
-            tabs += tab_code
-            self.sp -= 1
-
-        return tabs
-
-    class FG:
-        black = '\033[30m'
-        red = '\033[31m'
-        green = '\033[32m'
-        orange = '\033[33m'
-        blue = '\033[34m'
-        purple = '\033[35m'
-        cyan = '\033[36m'
-        lightgrey = '\033[37m'
-        darkgrey = '\033[90m'
-        lightred = '\033[91m'
-        lightgreen = '\033[92m'
-        yellow = '\033[93m'
-        lightblue = '\033[94m'
-        pink = '\033[95m'
-        lightcyan = '\033[96m'
-
-    class BG:
-        black = '\033[30m'  # '\033[40m' стояло хз че за цвет
-        red = '\033[41m'
-        green = '\033[42m'
-        orange = '\033[43m'
-        blue = '\033[44m'
-        purple = '\033[45m'
-        cyan = '\033[46m'
-        lightgrey = '\033[47m'
-
-    def bold(self, data=''):
-        data = str(data)
-        end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.BOLD_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
-
-    def disable(self, data=''):
-        data = str(data)
-        end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.DISABLE_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
-
-    def underline(self, data=''):
-        data = str(data)
-        end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.UNDERLINE_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
-
-    def reverse(self, data=''):
-        data = str(data)
-        end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.REVERSE_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
-
-    def strikethrough(self, data=''):
-        data = str(data)
-        end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.STRIKETHROUGH_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
-
-    def invisible(self, data=''):
-        data = str(data)
-        end = '\n' if self.nl else ''
-        print(f"{self.get_tabs()}{self.INVISIBLE_FONT}{self.bg}{self.fg}" + data + f"{self.RESET_FONT}", end=end)
 
 
 def timestamp_to_datetime(timestamp, local_time=True, milliseconds=True):
@@ -527,31 +441,6 @@ class RruleListOccurences(Func):
 # ####
 
 
-def assign_swagger_decorator(app_name, view_names, responses: dict = None):
-    from drf_yasg.utils import swagger_auto_schema
-
-    module = importlib.import_module(f'{app_name}.views')
-    for view_name in view_names:
-        view_class = getattr(module, view_name)
-
-        try:
-            # CRUDAPIView
-            allowed_http_methods = view_class.allowed_http_methods
-        except AttributeError:
-            # APIView or if 'allowed_http_methods' list not defined
-            allowed_http_methods = [method for method in view_class.http_method_names if method in view_class.__dict__]
-
-        for method in allowed_http_methods:
-            view_method = getattr(view_class, method)
-            if not responses:
-                try:
-                    lresponses = {200: view_class.serializer_class}
-                except (TypeError, AttributeError):
-                    raise NotImplementedError('Serializer class not found in view.')
-            decorator = swagger_auto_schema(tags=[view_class.__name__], responses=lresponses)
-            decorator(view_method)
-
-
 def read_csv(file_name):
     try:
         with open(file_name, newline='', encoding='utf-8-sig') as csv_result:
@@ -563,3 +452,113 @@ def read_csv(file_name):
             return result
     except Exception:
         print('ERROR')
+
+
+class CustomLookupBase(Lookup):
+    # Кастомный lookup
+    lookup_name = 'custom'
+    parametric_string = "%s <= %s AT TIME ZONE timezone"
+
+    def as_sql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        rhs, rhs_params = self.process_rhs(compiler, connection)
+        params = lhs_params + rhs_params
+        return self.parametric_string % (lhs, rhs), params
+
+
+@Field.register_lookup
+class DatesArrayContains(CustomLookupBase):
+    # Кастомный lookup с приведением типов для массива дат
+    lookup_name = 'dacontains'
+    parametric_string = "%s::DATE[] @> %s"
+
+
+@Field.register_lookup
+class LTTimeTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'lttimetz'
+    parametric_string = "%s < %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class LTETimeTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'ltetimetz'
+    parametric_string = "%s <= %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class GTETimeTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'gtetimetz'
+    parametric_string = "%s >= %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class GTTimeTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'gttimetz'
+    parametric_string = "%s > %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class LTdtTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'ltdttz'
+    parametric_string = "%s AT TIME ZONE timezone < %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class LTEdtTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'ltedttz'
+    parametric_string = "%s AT TIME ZONE timezone <= %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class GTEdtTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'gtedttz'
+    parametric_string = "%s AT TIME ZONE timezone >= %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class GTdtTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
+    lookup_name = 'gtdttz'
+    parametric_string = "%s AT TIME ZONE timezone > %s AT TIME ZONE timezone"
+
+
+@Field.register_lookup
+class DateTZ(CustomLookupBase):
+    # Кастомный lookup с приведением типов для даты во временной зоне из поля timezone
+    lookup_name = 'datetz'
+    parametric_string = "(%s AT TIME ZONE timezone)::DATE = %s :: DATE"
+
+
+@Field.register_lookup
+class DateTZGte(CustomLookupBase):
+    # Кастомный lookup с приведением типов для сравнения дат во временной зоне из поля timezone
+    lookup_name = 'datetz_gte'
+    parametric_string = "(%s AT TIME ZONE timezone)::DATE >= %s :: DATE"
+
+
+@Field.register_lookup
+class DateTZLte(CustomLookupBase):
+    # Кастомный lookup с приведением типов для сравнения дат во временной зоне из поля timezone
+    lookup_name = 'datetz_lte'
+    parametric_string = "(%s AT TIME ZONE timezone)::DATE <= %s :: DATE"
+
+
+@Field.register_lookup
+class MSLteContains(CustomLookupBase):
+    # Кастомный lookup для фильтрации DateTime по миллисекундам (в бд записи с точностью до МИКРОсекунд)
+    lookup_name = 'ms_lte'
+    parametric_string = "DATE_TRUNC('millisecond', %s)::TIMESTAMPTZ <= %s"
+
+
+@Field.register_lookup
+class MSGteContains(CustomLookupBase):
+    # Кастомный lookup для фильтрации DateTime по миллисекундам (в бд записи с точностью до МИКРОсекунд)
+    lookup_name = 'ms_gte'
+    parametric_string = "DATE_TRUNC('millisecond', %s)::TIMESTAMPTZ >= %s"

@@ -1054,10 +1054,11 @@ class PartnersSerializer(serializers.ModelSerializer):
 
 
 class AchievementsSerializer(serializers.ModelSerializer):
-    logo = serializers.SerializerMethodField()
+    icon = serializers.SerializerMethodField()
+    completed_at = serializers.SerializerMethodField()
 
-    def get_logo(self, prefetched_data):
-        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.LOGO.value)
+    def get_icon(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.ACHIEVEMENT_ICON.value)
 
     def get_completed_at(self, data):
         return datetime_to_timestamp(data.completed_at) if data.completed_at else None
@@ -1069,5 +1070,5 @@ class AchievementsSerializer(serializers.ModelSerializer):
             'name',
             'description',
             'completed_at',
-            'logo'
+            'icon'
         ]

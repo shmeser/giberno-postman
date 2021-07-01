@@ -1554,13 +1554,23 @@ class Achievements(CRUDAPIView):
     repository_class = AchievementsRepository
     allowed_http_methods = ['get']
 
-    array_filter_params = {
+    date_filter_params = {
+        'completed_at': 'completed_at'
+    }
+
+    bool_filter_params = {
+        'completed': 'completed'
     }
 
     order_params = {
         'id': 'id',
         'title': 'title',
+        'completed_at': 'completed_at'
     }
+
+    default_order_params = [
+        '-completed_at'
+    ]
 
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
