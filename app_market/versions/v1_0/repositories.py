@@ -10,7 +10,7 @@ from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
-    DateTimeField, Lookup, Field, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
+    DateTimeField, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
 from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
 from django.utils.timezone import now, localtime
 from pytz import timezone
@@ -22,7 +22,7 @@ from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
     JobStatus, JobStatusForClient
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
-    GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category
+    GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -283,102 +283,6 @@ class AsyncShopsRepository(ShopsRepository):
     @database_sync_to_async
     def get_by_id(self, record_id):
         return super().get_by_id(record_id)
-
-
-class CustomLookupBase(Lookup):
-    # Кастомный lookup
-    lookup_name = 'custom'
-    parametric_string = "%s <= %s AT TIME ZONE timezone"
-
-    def as_sql(self, compiler, connection):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)
-        params = lhs_params + rhs_params
-        return self.parametric_string % (lhs, rhs), params
-
-
-@Field.register_lookup
-class DatesArrayContains(CustomLookupBase):
-    # Кастомный lookup с приведением типов для массива дат
-    lookup_name = 'dacontains'
-    parametric_string = "%s::DATE[] @> %s"
-
-
-@Field.register_lookup
-class LTTimeTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
-    lookup_name = 'lttimetz'
-    parametric_string = "%s < %s AT TIME ZONE timezone"
-
-
-@Field.register_lookup
-class LTETimeTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
-    lookup_name = 'ltetimetz'
-    parametric_string = "%s <= %s AT TIME ZONE timezone"
-
-
-@Field.register_lookup
-class GTETimeTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
-    lookup_name = 'gtetimetz'
-    parametric_string = "%s >= %s AT TIME ZONE timezone"
-
-
-@Field.register_lookup
-class GTTimeTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
-    lookup_name = 'gttimetz'
-    parametric_string = "%s > %s AT TIME ZONE timezone"
-
-
-@Field.register_lookup
-class LTdtTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
-    lookup_name = 'ltdttz'
-    parametric_string = "%s AT TIME ZONE timezone < %s AT TIME ZONE timezone"
-
-
-@Field.register_lookup
-class LTEdtTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
-    lookup_name = 'ltedttz'
-    parametric_string = "%s AT TIME ZONE timezone <= %s AT TIME ZONE timezone"
-
-
-@Field.register_lookup
-class GTEdtTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
-    lookup_name = 'gtedttz'
-    parametric_string = "%s AT TIME ZONE timezone >= %s AT TIME ZONE timezone"
-
-
-@Field.register_lookup
-class GTdtTZ(CustomLookupBase):
-    # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
-    lookup_name = 'gtdttz'
-    parametric_string = "%s AT TIME ZONE timezone > %s AT TIME ZONE timezone"
-
-
-@Field.register_lookup
-class DateTZ(CustomLookupBase):
-    # Кастомный lookup с приведением типов для даты во временной зоне из поля timezone
-    lookup_name = 'datetz'
-    parametric_string = "(%s AT TIME ZONE timezone)::DATE = %s :: DATE"
-
-
-@Field.register_lookup
-class DateTZGte(CustomLookupBase):
-    # Кастомный lookup с приведением типов для сравнения дат во временной зоне из поля timezone
-    lookup_name = 'datetz_gte'
-    parametric_string = "(%s AT TIME ZONE timezone)::DATE >= %s :: DATE"
-
-
-@Field.register_lookup
-class DateTZLte(CustomLookupBase):
-    # Кастомный lookup с приведением типов для сравнения дат во временной зоне из поля timezone
-    lookup_name = 'datetz_lte'
-    parametric_string = "(%s AT TIME ZONE timezone)::DATE <= %s :: DATE"
 
 
 class ShiftsRepository(MasterRepository):
@@ -2396,11 +2300,132 @@ class MarketDocumentsRepository(MasterRepository):
 class PartnersRepository(MasterRepository):
     model = Partner
 
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.completed_at_expression = Subquery(
+            AchievementProgress.objects.filter(
+                achievement=OuterRef('pk'), user=self.me, completed_at__isnull=False
+            ).values('completed_at')[:1]
+        )
+
+        self.base_query = self.model.objects.annotate(
+            completed_at=self.completed_at_expression
+        )
+
+    @staticmethod
+    def fast_related_loading(queryset):
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа
+            Prefetch(
+                'distributor__media',
+                queryset=MediaModel.objects.filter(
+                    deleted=False,
+                    type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
+                    owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+            )
+        )
+
+        return queryset
+
     def get_by_id(self, record_id):
-        return super().get_by_id(record_id)
+        # если будет self.base_query.filter() то manager ничего не сможет увидеть
+        records = self.base_query.filter(pk=record_id).exclude(deleted=True)
+        record = self.fast_related_loading(records).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
-        return super().filter_by_kwargs(kwargs, paginator, order_by)
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs).distinct()
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs).distinct()
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
 
     def get_all_categories(self):
         return Category.objects.filter(distributorcategory__distributor__partner__isnull=False)
+
+
+class AchievementsRepository(MasterRepository):
+    model = Achievement
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.completed_at_expression = Subquery(
+            AchievementProgress.objects.filter(
+                achievement=OuterRef('pk'), user=self.me, completed_at__isnull=False
+            ).values('completed_at')[:1]
+        )
+        self.completed_expression = Exists(
+            AchievementProgress.objects.filter(
+                achievement=OuterRef('pk'), user=self.me, completed_at__isnull=False
+            )
+        )
+
+        self.base_query = self.model.objects.annotate(
+            completed_at=self.completed_at_expression,
+            completed=self.completed_expression
+        )
+
+    @staticmethod
+    def fast_related_loading(queryset):
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    deleted=False,
+                    type__in=[MediaType.ACHIEVEMENT_ICON.value],
+                    owner_ct_id=ContentType.objects.get_for_model(Achievement).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+            )
+        )
+
+        return queryset
+
+    @staticmethod
+    def modify_kwargs(kwargs, order_by):
+        completed_at = kwargs.pop('completed_at', None)
+
+        if '-completed_at' in order_by and completed_at:
+            kwargs.update({
+                'completed_at__lte': completed_at
+            })
+        if 'completed_at' in order_by and completed_at:
+            kwargs.update({
+                'completed_at__gte': completed_at
+            })
+
+    def get_by_id(self, record_id):
+        records = self.base_query.filter(pk=record_id).exclude(deleted=True)
+        record = self.fast_related_loading(records).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+
+        return record
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        # Изменяем kwargs для работы с objects.filter(**kwargs)
+        self.modify_kwargs(kwargs, order_by)
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )

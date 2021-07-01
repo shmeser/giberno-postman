@@ -356,7 +356,7 @@ class ChatsRepository(MasterRepository):
             if chat and self.check_if_staff_or_participant(chat):  # Если являюсь релевантным менеджером
                 # Добавляем себя в список участников чата
                 ChatUser.objects.get_or_create(chat=chat, user=self.me)
-                
+
         records = self.base_query.filter(id=record_id)
         records = self.prefetch_first_unread_message(records)
         record = self.fast_related_loading(records).first()
@@ -814,32 +814,6 @@ class AsyncChatsRepository(ChatsRepository):
     @database_sync_to_async
     def get_managers_and_sockets(self, chat_id):
         return super().get_managers_and_sockets(chat_id)
-
-
-class CustomLookupBase(Lookup):
-    # Кастомный lookup
-    lookup_name = 'custom'
-    parametric_string = "%s <= %s AT TIME ZONE timezone"
-
-    def as_sql(self, compiler, connection):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)
-        params = lhs_params + rhs_params
-        return self.parametric_string % (lhs, rhs), params
-
-
-@Field.register_lookup
-class MSLteContains(CustomLookupBase):
-    # Кастомный lookup для фильтрации DateTime по миллисекундам (в бд записи с точностью до МИКРОсекунд)
-    lookup_name = 'ms_lte'
-    parametric_string = "DATE_TRUNC('millisecond', %s)::TIMESTAMPTZ <= %s"
-
-
-@Field.register_lookup
-class MSGteContains(CustomLookupBase):
-    # Кастомный lookup для фильтрации DateTime по миллисекундам (в бд записи с точностью до МИКРОсекунд)
-    lookup_name = 'ms_gte'
-    parametric_string = "DATE_TRUNC('millisecond', %s)::TIMESTAMPTZ >= %s"
 
 
 class MessagesRepository(MasterRepository):

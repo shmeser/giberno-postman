@@ -24,6 +24,7 @@ class MediaType(IntEnumM):
     NOTIFICATION_ICON = 11
     ATTACHMENT = 12
     RULES_AND_ARTICLES = 13  # Уставы, правила, техники безопасности эксплуатации и т.д.
+    ACHIEVEMENT_ICON = 14
 
 
 class FileDownloadStatus(IntEnumM):

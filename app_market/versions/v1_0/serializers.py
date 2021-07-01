@@ -11,7 +11,8 @@ from rest_framework import serializers
 
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason
-from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner
+from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
+    Achievement
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -1049,4 +1050,25 @@ class PartnersSerializer(serializers.ModelSerializer):
             'discount_terms',
             'discount_description',
             'distributor'
+        ]
+
+
+class AchievementsSerializer(serializers.ModelSerializer):
+    icon = serializers.SerializerMethodField()
+    completed_at = serializers.SerializerMethodField()
+
+    def get_icon(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.ACHIEVEMENT_ICON.value)
+
+    def get_completed_at(self, data):
+        return datetime_to_timestamp(data.completed_at) if data.completed_at else None
+
+    class Meta:
+        model = Achievement
+        fields = [
+            'id',
+            'name',
+            'description',
+            'completed_at',
+            'icon'
         ]

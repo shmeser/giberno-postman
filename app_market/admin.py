@@ -1,7 +1,7 @@
 from django.contrib.gis import admin
 
 from app_market.models import Distributor, Shop, Vacancy, Shift, Order, Transaction, Coupon, Profession, \
-    UserProfession, DistributorCategory, Category, ShiftAppeal, Partner
+    UserProfession, DistributorCategory, Category, ShiftAppeal, Partner, Achievement, AchievementProgress
 from backend.mixins import FormattedAdmin
 
 _ITEMS_PER_ITERATION = 5
@@ -93,3 +93,21 @@ class CategoryAdmin(FormattedAdmin):
 @admin.register(DistributorCategory)
 class DistributorCategoryAdmin(FormattedAdmin):
     raw_id_fields = ['distributor', 'category']
+
+
+@admin.register(Achievement)
+class AchievementAdmin(FormattedAdmin):
+    list_display = [
+        'id', 'name', 'description', 'actions_min_count', 'type'
+    ]
+
+    list_filter = ["type"]
+
+
+@admin.register(AchievementProgress)
+class AchievementProgressAdmin(FormattedAdmin):
+    list_display = [
+        'id', 'achievement_id', 'actions_min_count', 'actions_count', 'completed_at'
+    ]
+
+    raw_id_fields = ['user', 'achievement']
