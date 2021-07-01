@@ -12,7 +12,7 @@ from rest_framework import serializers
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
-    Achievement
+    Achievement, Advertisement
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -1071,4 +1071,22 @@ class AchievementsSerializer(serializers.ModelSerializer):
             'description',
             'completed_at',
             'icon'
+        ]
+
+
+class AdvertisementsSerializer(serializers.ModelSerializer):
+    banner = serializers.SerializerMethodField()
+    created_at = DateTimeField()
+
+    def get_banner(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.BANNER.value)
+
+    class Meta:
+        model = Advertisement
+        fields = [
+            'id',
+            'title',
+            'description',
+            'created_at',
+            'banner'
         ]
