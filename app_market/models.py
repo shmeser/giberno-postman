@@ -508,3 +508,14 @@ class AchievementProgress(BaseModel):
         db_table = 'app_market__achievement_progress'
         verbose_name = 'Прогресс пользователя по достижению'
         verbose_name_plural = 'Прогресс пользователей по достижениям'
+
+
+class Advertisement(BaseModel):
+    title = models.CharField(max_length=512, blank=True, null=True)
+    description = models.CharField(max_length=3072, blank=True, null=True)
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
+    class Meta:
+        db_table = 'app_market__advertisements'
+        verbose_name = 'Рекламный блок'
+        verbose_name_plural = 'Рекламные блоки'

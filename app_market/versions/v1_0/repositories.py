@@ -22,7 +22,8 @@ from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
     JobStatus, JobStatusForClient
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
-    GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress
+    GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
+    Advertisement
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -2422,6 +2423,53 @@ class AchievementsRepository(MasterRepository):
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         # Изменяем kwargs для работы с objects.filter(**kwargs)
         self.modify_kwargs(kwargs, order_by)
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
+
+
+class AdvertisementsRepository(MasterRepository):
+    model = Advertisement
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.base_query = self.model.objects.all()
+
+    @staticmethod
+    def fast_related_loading(queryset):
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    deleted=False,
+                    type__in=[MediaType.BANNER.value],
+                    owner_ct_id=ContentType.objects.get_for_model(Advertisement).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+            )
+        )
+
+        return queryset
+
+    def get_by_id(self, record_id):
+        records = self.base_query.filter(pk=record_id).exclude(deleted=True)
+        record = self.fast_related_loading(records).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+
+        return record
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         if order_by:
             records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
         else:
