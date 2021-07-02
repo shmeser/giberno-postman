@@ -664,7 +664,9 @@ class VacanciesStats(Vacancies):
         order_params = RequestMapper(self).order(request)
 
         point, screen_diagonal_points, radius = RequestMapper().geo(request)
-        dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
+        dataset = self.repository_class(
+            point=point, screen_diagonal_points=screen_diagonal_points, me=request.user
+        ).filter_by_kwargs(
             kwargs=filters, order_by=order_params
         )
 
@@ -684,7 +686,9 @@ class VacanciesDistributors(Vacancies):
         order_params = RequestMapper(self).order(request)
         pagination = RequestMapper.pagination(request)
         point, screen_diagonal_points, radius = RequestMapper().geo(request)
-        dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
+        dataset = self.repository_class(
+            point=point, screen_diagonal_points=screen_diagonal_points, me=request.user
+        ).filter_by_kwargs(
             kwargs=filters, order_by=order_params
         )
 
