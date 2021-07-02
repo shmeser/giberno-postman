@@ -692,7 +692,7 @@ class VacanciesDistributors(Vacancies):
             kwargs=filters, order_by=order_params
         )
 
-        distributors = self.repository_class().aggregate_distributors(dataset, pagination)
+        distributors = self.repository_class(me=request.user).aggregate_distributors(dataset, pagination)
         serialized = DistributorsSerializer(distributors, many=True, context={
             'me': request.user,
             'headers': get_request_headers(request),
