@@ -13,6 +13,7 @@ from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, C
     DateTimeField, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
 from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
 from django.utils.timezone import now, localtime
+from loguru import logger
 from pytz import timezone
 from rest_framework.exceptions import PermissionDenied
 
@@ -20,7 +21,7 @@ from app_chats.models import ChatUser, Chat
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
-    JobStatus, JobStatusForClient
+    JobStatus, JobStatusForClient, AchievementType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
     Advertisement
@@ -1283,6 +1284,35 @@ class ShiftAppealsRepository(MasterRepository):
         #  1-30 минут ставка за час\2, 31-60 минут ставка за час.
         appeal.save()
 
+        # Провверка достижения
+        achievement = AchievementsRepository().filter_by_kwargs(
+            {'type': AchievementType.SAME_DISTRIBUTOR_SHIFT.value}).first()
+        if not achievement:
+            return
+
+        progress = AchievementsRepository.get_progress_for_user(
+            achievement_id=achievement.id, user_id=appeal.applier_id, **{
+                'started_at': appeal.completed_real_time
+            }
+        )
+
+        achieved_count = self.aggregate_stats_for_achievements(
+            appeal.applier_id,
+            achievement.actions_min_count,
+            progress.started_at
+        )
+
+        if achieved_count and progress.achieved_count < achieved_count:
+            # знак < если вдруг achieved_count придет кривой
+            # Если количество выполнений всех условий для ачивки изменилось,
+            # то отправляем пуш и записываем новые значения
+            progress.achieved_count = achieved_count
+            progress.save()
+
+            # TODO отправить пуш о достижении
+
+            logger.info(f'========= НОВОЕ ДОСТИЖЕНИЕ {achievement.name} для USER {appeal.applier_id} ==========')
+
     def check_time_range(self, queryset, time_start, time_end):
         if queryset.filter(
                 status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
@@ -1961,7 +1991,6 @@ class ShiftAppealsRepository(MasterRepository):
 
         self.model.objects.filter(id__in=appeals_ids).update(
             job_status=JobStatus.COMPLETED.value,
-            # status=ShiftAppealStatus.COMPLETED.value,
             completed_real_time=now()
         )
 
@@ -2110,6 +2139,35 @@ class ShiftAppealsRepository(MasterRepository):
         if pagination:
             return result[pagination.offset: pagination.limit]
         return result
+
+    @staticmethod
+    def aggregate_stats_for_achievements(applier_id, actions_min_count, progress_started_at):
+        appeals = ShiftAppeal.objects.filter(
+            applier_id=applier_id,  # Свои отклики
+            deleted=False,
+            job_status=JobStatus.COMPLETED.value,  # Успешно завершенные
+            completed_real_time__gte=progress_started_at  # После даты начала прогресса по ачивке
+        ).annotate(
+            distributor_id=F('shift__vacancy__shop__distributor_id')  # добавляем ид торговой сети
+        ).annotate(
+            count=Window(Count('id'), partition_by=['distributor_id'])  # считаем сколько таких откликов в каждой т.сети
+        ).annotate(
+            # Считаем сколько раз выполнено задание в каждой торговой сети для получения ачивки
+            times_count=ExpressionWrapper(
+                Round(F('count') / Value(actions_min_count)),
+                output_field=IntegerField()
+            )
+        ).values(
+            # группируем и берем только уникальные значения по торговой сети и количеству выполений
+            'distributor_id', 'count', 'times_count'
+        ).distinct()
+
+        achieved_count = appeals.aggregate(
+            # суммируем сколько раз в целом выполнены все условия для получения достижения
+            sum=Coalesce(Sum('times_count'), 0)
+        )['sum']
+
+        return achieved_count
 
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
@@ -2433,7 +2491,7 @@ class AchievementsRepository(MasterRepository):
                 'completed_at__gte': completed_at
             })
 
-    def get_by_id(self, record_id):
+    def inited_get_by_id(self, record_id):
         records = self.base_query.filter(pk=record_id).exclude(deleted=True)
         record = self.fast_related_loading(records).first()
         if not record:
@@ -2443,7 +2501,7 @@ class AchievementsRepository(MasterRepository):
 
         return record
 
-    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         # Изменяем kwargs для работы с objects.filter(**kwargs)
         self.modify_kwargs(kwargs, order_by)
         if order_by:
@@ -2453,6 +2511,15 @@ class AchievementsRepository(MasterRepository):
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
+
+    @staticmethod
+    def get_progress_for_user(achievement_id, user_id, **defaults):
+        progress, created = AchievementProgress.objects.get_or_create(
+            achievement_id=achievement_id,
+            user_id=user_id,
+            defaults=defaults
+        )
+        return progress
 
 
 class AdvertisementsRepository(MasterRepository):

@@ -1591,9 +1591,9 @@ class Achievements(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
         else:
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class(me=request.user).inited_filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
