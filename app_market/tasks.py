@@ -10,7 +10,6 @@ from app_market.versions.v1_0.repositories import ShiftAppealsRepository, Achiev
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
 from backend.controllers import PushController
-from backend.utils import chunks
 from giberno.celery import app
 
 _CANCELED_APPEAL_TITLE = 'Отклик на смену отменен'
@@ -253,4 +252,4 @@ def check_shift_achievement(appeal_real_date_end, applier_id):
 
         # TODO отправить пуш о достижении
 
-        logger.info(f'========= НОВОЕ ДОСТИЖЕНИЕ {achievement.title} для USER {applier_id} ==========')
+        logger.debug(f'========= НОВОЕ ДОСТИЖЕНИЕ {achievement.name} для USER {applier_id} ==========')
