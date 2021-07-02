@@ -107,7 +107,7 @@ class AchievementAdmin(FormattedAdmin):
 @admin.register(AchievementProgress)
 class AchievementProgressAdmin(FormattedAdmin):
     list_display = [
-        'id', 'achievement_id', 'actions_min_count', 'actions_count', 'completed_at'
+        'id', 'achievement_id', 'actions_min_count', 'achieved_count', 'completed_at'
     ]
 
     raw_id_fields = ['user', 'achievement']

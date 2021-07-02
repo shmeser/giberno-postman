@@ -2111,6 +2111,33 @@ class ShiftAppealsRepository(MasterRepository):
             return result[pagination.offset: pagination.limit]
         return result
 
+    @staticmethod
+    def aggregate_stats_for_achievements(applier_id, actions_min_count, progress_started_at):
+        achieved_count = ShiftAppeal.objects.filter(
+            applier_id=applier_id,  # Свои отклики
+            deleted=False,
+            status=ShiftAppealStatus.COMPLETED.value,  # Успешно завершенные
+            completed_real_time__gte=progress_started_at  # После даты начала прогресса по ачивке
+        ).annotate(
+            distributor_id=F('shift__vacancy__shop__distributor_id')  # добавляем ид торговой сети
+        ).annotate(
+            count=Window(Count('id'), partition_by=['distributor_id'])  # считаем сколько таких откликов в каждой т.сети
+        ).annotate(
+            # Считаем сколько раз выполнено задание в каждой торговой сети для получения ачивки
+            times_count=ExpressionWrapper(
+                Round(F('count') / Value(actions_min_count)),
+                output_field=IntegerField()
+            )
+        ).values(
+            # группируем и берем только уникальные значения по торговой сети и количеству выполений
+            'distributor_id', 'count', 'times_count'
+        ).distinct().aggregate(
+            # суммируем сколько раз в целом выполнены все условия для получения достижения
+            sum=Coalesce(Sum('times_count'), 0)
+        )['sum']
+
+        return achieved_count
+
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
     def __init__(self, me=None, point=None):
@@ -2433,7 +2460,7 @@ class AchievementsRepository(MasterRepository):
                 'completed_at__gte': completed_at
             })
 
-    def get_by_id(self, record_id):
+    def inited_get_by_id(self, record_id):
         records = self.base_query.filter(pk=record_id).exclude(deleted=True)
         record = self.fast_related_loading(records).first()
         if not record:
@@ -2443,7 +2470,7 @@ class AchievementsRepository(MasterRepository):
 
         return record
 
-    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         # Изменяем kwargs для работы с objects.filter(**kwargs)
         self.modify_kwargs(kwargs, order_by)
         if order_by:
@@ -2452,6 +2479,14 @@ class AchievementsRepository(MasterRepository):
             records = self.base_query.exclude(deleted=True).filter(**kwargs)
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
+
+    @staticmethod
+    def get_progress_for_user(achievement_id, user_id, **defaults):
+        return AchievementProgress.objects.get_or_create(
+            achievement_id=achievement_id,
+            user_id=user_id,
+            defaults=defaults
         )
 
 

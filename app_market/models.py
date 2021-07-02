@@ -497,10 +497,12 @@ class AchievementProgress(BaseModel):
     actions_min_count = models.PositiveIntegerField(
         default=1, verbose_name='Количество действий для получения достижения'
     )
-    actions_count = models.PositiveIntegerField(default=0, verbose_name='Количество выполненных действий')
+    achieved_count = models.PositiveIntegerField(default=0, verbose_name='Получено раз')
 
-    started_at = models.DateTimeField(verbose_name='Время начала накопления прогресса по достижению')
-    completed_at = models.DateTimeField(verbose_name='Время завершения прогресса по достижению')
+    started_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='Время начала накопления прогресса по достижению'
+    )
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='Время завершения прогресса по достижению')
 
     def __str__(self):
         return f'{self.id}'
