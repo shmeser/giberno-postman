@@ -287,7 +287,7 @@ class BotIntentsHandler:
         buttons = None
         if isinstance(target, Vacancy):
             vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
-            text = vacancy_repository().get_requirements(vacancy_id)
+            text = vacancy_repository.get_requirements(vacancy_id)
         return text, buttons
 
     @classmethod
@@ -296,7 +296,7 @@ class BotIntentsHandler:
         text = cls.__ASK_EXACT_VACANCY_CHAT
         if isinstance(target, Vacancy):
             vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
-            text = vacancy_repository().get_shift_remaining_time_to_start(subject_user, vacancy_id)
+            text = vacancy_repository.get_shift_remaining_time_to_start(subject_user, vacancy_id)
             if not text:
                 text = cls.__NO_CONFIRMED_APPEALS_FOR_VACANCY
 
@@ -307,7 +307,7 @@ class BotIntentsHandler:
         required_docs = 'Паспорт'
         if isinstance(target, Vacancy):
             vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
-            vacancy_required_docs = vacancy_repository().get_necessary_docs(target_id)
+            vacancy_required_docs = vacancy_repository.get_necessary_docs(target_id)
             if vacancy_required_docs:
                 required_docs = vacancy_required_docs
         if isinstance(target, Shop):
@@ -323,7 +323,7 @@ class BotIntentsHandler:
         buttons = None
         if isinstance(target, Vacancy):
             vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
-            has_active_shifts = vacancy_repository().check_if_has_confirmed_appeals(subject_user, vacancy_id)
+            has_active_shifts = vacancy_repository.check_if_has_confirmed_appeals(subject_user, vacancy_id)
             text = None
             if not has_active_shifts:
                 text = cls.__NO_CONFIRMED_APPEALS_FOR_VACANCY
@@ -386,7 +386,7 @@ class BotIntentsHandler:
         text = None
         if isinstance(target, Vacancy):
             vacancy_repository = RoutingMapper.room_repository(version=version, room_name=AvailableRoom.VACANCIES.value)
-            text = vacancy_repository().get_shift_remaining_time_to_start(subject_user, target_id)
+            text = vacancy_repository.get_shift_remaining_time_to_start(subject_user, target_id)
             if text:
                 text = 'Я могу подсказать вам как найти работу или подсказать статус по Откликам. Начнем?'
                 buttons = [
