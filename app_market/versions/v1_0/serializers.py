@@ -246,7 +246,7 @@ class VacanciesSerializer(CRUDSerializer):
         return MediaController(self.instance).get_related_images(prefetched_data, MediaType.BANNER.value)
 
     def get_is_favourite(self, vacancy):
-        return vacancy.likes.filter(owner_id=self.me.id, target_id=vacancy.id, deleted=False).exists()
+        return vacancy.is_favourite
 
     def get_utc_offset(self, vacancy):
         return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()

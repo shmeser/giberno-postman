@@ -493,7 +493,7 @@ class ShiftsRepository(MasterRepository):
         if is_appeal_confirmed_for_today and not is_within_radius:
             should_notify_managers = True
 
-            managers, managers_sockets = VacanciesRepository().get_managers_and_sockets_for_vacancy(
+            managers, managers_sockets = VacanciesRepository.get_managers_and_sockets_for_vacancy(
                 shift.vacancy
             )
 
@@ -585,6 +585,19 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             output_field=IntegerField()
         )
 
+        self.like_owner_ct = ContentType.objects.get_for_model(UserProfile)
+        self.like_target_ct = ContentType.objects.get_for_model(Vacancy)
+
+        # является ли избранной вакансией
+        self.is_favourite_expression = ExpressionWrapper(
+            Exists(Like.objects.filter(
+                deleted=False,
+                owner_id=self.me.id, owner_ct=self.like_owner_ct,
+                target_id=OuterRef('pk'), target_ct=self.like_target_ct
+            )),
+            output_field=BooleanField()
+        )
+
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(
             distance=self.distance_expression,
@@ -592,6 +605,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             work_time=self.work_time_expression,
             total_count=self.total_count_expression,
             free_count=self.free_count_expression,
+            is_favourite=self.is_favourite_expression,
         )
 
         # Фильтрация по вхождению в область на карте
@@ -629,16 +643,10 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
-        try:
-            if order_by:
-                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
-            else:
-                records = self.base_query.exclude(deleted=True).filter(**kwargs)
-        except Exception:  # no 'deleted' field
-            if order_by:
-                records = self.base_query.order_by(*order_by).filter(**kwargs)
-            else:
-                records = self.base_query.filter(**kwargs)
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
 
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
@@ -951,6 +959,16 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             like.deleted = not like.deleted
             like.save()
 
+        # пересчитываем количество избранных вакансий
+        self.me.favourite_vacancies_count = Like.objects.filter(
+            owner_ct=owner_ct,
+            target_ct=target_ct,
+            owner_id=self.me.id,
+            deleted=False
+        ).count()
+
+        self.me.save()
+
     def get_similar(self, record_id, pagination=None):
         current_vacancy = self.model.objects.filter(pk=record_id, deleted=False).select_related('shop').first()
         if current_vacancy:
@@ -972,7 +990,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         return []
 
-    def get_requirements(self, vacancy_id):
+    @staticmethod
+    def get_requirements(vacancy_id):
         vacancy = Vacancy.objects.get(pk=vacancy_id)
         required_experience = ''
         if vacancy.required_experience:
@@ -1011,7 +1030,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         return text
 
-    def get_necessary_docs(self, vacancy_id):
+    @staticmethod
+    def get_necessary_docs(vacancy_id):
         vacancy = Vacancy.objects.get(pk=vacancy_id)
         required_docs = ''
         if not vacancy.required_docs:
@@ -1038,7 +1058,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         return required_docs
 
-    def check_if_has_confirmed_appeals(self, subject_user, vacancy_id):
+    @staticmethod
+    def check_if_has_confirmed_appeals(subject_user, vacancy_id):
         return ShiftAppeal.objects.filter(
             applier=subject_user,
             shift__vacancy_id=vacancy_id,
@@ -1046,7 +1067,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             time_start__gt=now()
         ).exists()
 
-    def get_shift_remaining_time_to_start(self, subject_user, vacancy_id):
+    @staticmethod
+    def get_shift_remaining_time_to_start(subject_user, vacancy_id):
         # Только подтвержденные заявки
         earlier_confirmed_appeal = ShiftAppeal.objects.filter(
             applier=subject_user,
@@ -1091,7 +1113,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             return time_str
         return None
 
-    def get_managers_and_sockets_for_vacancy(self, vacancy: Vacancy):
+    @staticmethod
+    def get_managers_and_sockets_for_vacancy(vacancy: Vacancy):
         sockets = []
         managers = vacancy.shop.staff.filter(account_type=AccountType.MANAGER.value)
 

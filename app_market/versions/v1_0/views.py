@@ -144,6 +144,7 @@ class Vacancies(CRUDAPIView):
     # 'applied' на получение только тех вакансии на которые пользователь откликался
     # 'confirmed' на получение только тех вакансии которые подтвердил работодатель
     bool_filter_params = {
+        'is_favourite': 'is_favourite',
         'is_hot': 'is_hot',
         'applied': 'appeals__user',
         'confirmed': 'appeals__confirmed'
@@ -180,11 +181,15 @@ class Vacancies(CRUDAPIView):
 
         if record_id:
             self.serializer_class = VacancySerializer
-            dataset = self.repository_class(point).get_by_id(record_id)
+            dataset = self.repository_class(
+                point=point, me=request.user
+            ).get_by_id(record_id)
             dataset.increment_views_count()
         else:
             self.many = True
-            dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
+            dataset = self.repository_class(
+                point=point, screen_diagonal_points=screen_diagonal_points, me=request.user
+            ).filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
@@ -304,7 +309,7 @@ class ShiftAppealCancel(CRUDAPIView):
         appeal, is_confirmed_appeal_canceled = self.repository_class(me=request.user).cancel(
             record_id=record_id, reason=reason, text=data.get('text')
         )
-        managers, sockets = VacanciesRepository().get_managers_and_sockets_for_vacancy(appeal.shift.vacancy)
+        managers, sockets = VacanciesRepository.get_managers_and_sockets_for_vacancy(appeal.shift.vacancy)
 
         # Отправляем по сокетам смену status и job_status смз и менеджерам
         send_socket_event_on_appeal_statuses(
@@ -698,7 +703,7 @@ def vacancies_suggestions(request):
     dataset = []
     search = request.query_params.get('search') if request.query_params else None
     if search:
-        dataset = VacanciesRepository().get_suggestions(
+        dataset = VacanciesRepository(me=request.user).get_suggestions(
             # trigram_similar Поиск с использованием pg_trgm на проиндексированном поле
             search=search,
             paginator=pagination
@@ -710,8 +715,9 @@ def vacancies_suggestions(request):
 def similar_vacancies(request, **kwargs):
     pagination = RequestMapper.pagination(request)
     point, screen_diagonal_points, radius = RequestMapper().geo(request)
-    vacancies = VacanciesRepository(point=point, screen_diagonal_points=screen_diagonal_points,
-                                    me=request.user).get_similar(
+    vacancies = VacanciesRepository(
+        point=point, screen_diagonal_points=screen_diagonal_points, me=request.user
+    ).get_similar(
         kwargs.get('record_id'), pagination
     )
 
@@ -948,7 +954,7 @@ class ToggleLikeVacancy(APIView):
     repository = VacanciesRepository
 
     def post(self, request, **kwargs):
-        vacancy = self.repository().get_by_id(kwargs['record_id'])
+        vacancy = self.repository(me=request.user).get_by_id(kwargs['record_id'])
         self.repository(me=request.user).toggle_like(vacancy=vacancy)
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
@@ -1289,7 +1295,7 @@ class RefusePassBySecurityAPIView(APIView):
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
-            managers, sockets = VacanciesRepository().get_managers_and_sockets_for_vacancy(appeal.shift.vacancy)
+            managers, sockets = VacanciesRepository.get_managers_and_sockets_for_vacancy(appeal.shift.vacancy)
 
             # Отправляем по сокетам смену status и job_status смз и менеджерам
             send_socket_event_on_appeal_statuses(

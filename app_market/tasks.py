@@ -2,11 +2,14 @@ import uuid
 
 from celery import shared_task
 
+from backend.utils import chunks
+from giberno.celery import app
 from app_market.utils import send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
 from backend.controllers import PushController
+from celery import group
 
 _CANCELED_APPEAL_TITLE = 'Отклик на смену отменен'
 _JOB_SOON_TITLE = 'Смена скоро начнется'
@@ -198,3 +201,31 @@ def send_notification_on_appeal(appeal, users_to_send, sockets, title, message, 
         'notificationType': notification_type,
         'iconType': icon_type,
     })
+
+
+ITEMS_PER_CHUNK = 100
+
+
+def check_completed_appeals(ids_list):
+    chunked_ids = chunks(ids_list, ITEMS_PER_CHUNK)
+
+    jobs = group(  # Создаем группы асинхронных задач
+        [
+            check_shift_achievement.s(ids_chunk) for ids_chunk in chunked_ids
+        ]
+    )
+
+    jobs.apply_async()
+
+
+@app.task
+def check_shift_achievement(appeal_ids):
+    """
+        # из откликов собираем уникальных пользователей
+        # по каждому пользователю получаем или создаем прогресс по достижению
+        # считаем поличество завершенных откликов для каждого пользователя, включая текущий,
+            сгруппированных по торговой сети и начиная с даты создания прогресса
+            (если не было прогресса, то started_at присвоить время фактического завершения отклика)
+        # количество завершенных откликов по каждой торговой сети должно быть >=
+    """
+    pass
