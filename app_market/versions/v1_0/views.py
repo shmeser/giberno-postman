@@ -25,7 +25,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer, \
     ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
     ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer, AchievementsSerializer, \
-    AdvertisementsSerializer, OrdersSerializer, CouponsSerializer
+    AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -1087,6 +1087,7 @@ class MarketDocuments(CRUDAPIView):
         self.repository_class(me=request.user).accept_market_documents(
             global_docs=body.get('global'),
             distributor_id=body.get('distributor'),
+            partner_id=body.get('partner'),
             vacancy_id=body.get('vacancy'),
             document_uuid=body.get('uuid'),
         )
@@ -1559,6 +1560,16 @@ class PartnersCategories(APIView):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class GetDocumentsForPartner(CRUDAPIView):
+    repository_class = PartnersRepository
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        partner = self.repository_class().get_by_id(record_id)
+        conditions = MarketDocumentsRepository(me=request.user).get_conditions_for_user_on_partner(partner)
+        return Response(camelize(PartnerConditionsSerializer(conditions, many=False).data), status=status.HTTP_200_OK)
 
 
 class Achievements(CRUDAPIView):

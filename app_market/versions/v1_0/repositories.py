@@ -25,7 +25,7 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
     JobStatus, JobStatusForClient, AchievementType, OrderType, TransactionStatus, OrderStatus, Currency, TransactionType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
-    Advertisement, Order, Coupon, UserCoupon, Transaction
+    Advertisement, Order, Coupon, UserCoupon, Transaction, PartnerDocument
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -2269,6 +2269,33 @@ class MarketDocumentsRepository(MasterRepository):
 
         return conditions
 
+    def get_conditions_for_user_on_partner(self, partner):
+
+        conditions = Partner.objects.filter(id=partner.id).first()
+        conditions.partner_id = partner.id  # Для облегчения внутренней логики на ios
+
+        # ## Сбор нужных документов и статус по ним ##
+        partner_ct = ContentType.objects.get_for_model(Partner)
+        # Media
+        conditions.documents = MediaModel.objects.filter(
+            Q(type=MediaType.RULES_AND_ARTICLES.value, deleted=False) &  # Только с типом документы, правила
+            Q(
+                Q(owner_ct=partner_ct, owner_id=partner.id)  # Партнер
+            )
+        ).annotate(
+            partner_confirmed=Exists(PartnerDocument.objects.filter(document_id=OuterRef('pk'), user=self.me)),
+        ).annotate(
+            is_confirmed=Case(
+                When(Q(partner_confirmed=True), then=True),
+                default=False,
+                output_field=BooleanField()
+            )
+        )
+
+        conditions.text = "Текст о цифровой подписи по документам магазина партнера"
+
+        return conditions
+
     def accept_global_docs(self):
         global_documents = MediaModel.objects.filter(
             owner_id=None, type=MediaType.RULES_AND_ARTICLES.value, deleted=False)
@@ -2297,6 +2324,26 @@ class MarketDocumentsRepository(MasterRepository):
                 user=self.me,
                 distributor=distributor,
                 document=distributor_document
+            )
+
+    def accept_partner_docs(self, partner_id):
+        partner = Partner.objects.filter(pk=partner_id).prefetch_related(
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(deleted=False, type=MediaType.RULES_AND_ARTICLES.value),
+                to_attr='documents'
+            )
+        ).first()
+        if not partner:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {Partner._meta.verbose_name} с ID={partner_id} не найден')
+
+        for partner_document in partner.documents:
+            PartnerDocument.objects.get_or_create(
+                user=self.me,
+                partner=partner,
+                document=partner_document
             )
 
     def accept_vacancy_docs(self, vacancy_id):
@@ -2356,13 +2403,22 @@ class MarketDocumentsRepository(MasterRepository):
                     document=document
                 )
 
+            # Если документ принадлежит магазину партнеру
+            if isinstance(document.owner, Partner):
+                # Подтверждаем документ для пользователя
+                PartnerDocument.objects.get_or_create(
+                    user=self.me,
+                    partner_id=document.owner_id,
+                    document=document
+                )
         except Exception as e:
             raise HttpException(
                 status_code=RESTErrors.BAD_REQUEST.value,
                 detail=e
             )
 
-    def accept_market_documents(self, global_docs=None, distributor_id=None, vacancy_id=None, document_uuid=None):
+    def accept_market_documents(self, global_docs=None, distributor_id=None, partner_id=None, vacancy_id=None,
+                                document_uuid=None):
         # Подтверждение всех глобальных документов
         if global_docs is True:
             # TODO получение документов Гиберно (документы без владельца == документы компании)
@@ -2371,6 +2427,10 @@ class MarketDocumentsRepository(MasterRepository):
         # Подтверждение всех документов торговой сети
         if distributor_id:
             self.accept_distributor_docs(distributor_id)
+
+        # Подтверждение всех документов торговой сети
+        if partner_id:
+            self.accept_partner_docs(partner_id)
 
         # Подтверждение всех документов вакансии
         if vacancy_id:
@@ -2582,10 +2642,11 @@ class OrdersRepository(MasterRepository):
 
     @staticmethod
     def get_coupon_by_partner(partner_id, amount):
-        coupon = Coupon.objects.filter(partner_id=partner_id, amout=amount, deleted=False).first()
+        coupon = Coupon.objects.filter(partner_id=partner_id, discount_amount=amount, deleted=False).first()
         if not coupon:
-            # TODO если нет купона выдать ошибку
-            raise CustomException(errors=[])
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NO_SUITABLE_COUPON)),
+            ])
 
         return coupon
 
@@ -2689,14 +2750,14 @@ class OrdersRepository(MasterRepository):
                 self.cancel_transaction(t)
                 self.cancel_order(order)
                 raise CustomException(errors=[
-                    # TODO уже есть такой купон
+                    dict(Error(ErrorsCodes.YOU_HAVE_THIS_COUPON_ALREADY))
                 ])
 
             except Exception as e:
                 self.fail_transaction(t)
                 self.fail_order(order)
                 raise CustomException(errors=[
-                    # TODO ошибка оплаты
+                    dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS))
                 ])
 
         if data.get('type') == OrderType.WITHDRAW_BONUS_BY_VOUCHER.value:

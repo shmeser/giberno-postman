@@ -1007,10 +1007,21 @@ class ShiftConditionsSerializer(serializers.Serializer):
         return VacancyInShiftForDocumentsSerializer(instance.vacancy, many=False).data
 
     def get_documents(self, instance):
-        return ShiftDocumentsSerializer(instance.documents, many=True).data
+        return DocumentsSerializer(instance.documents, many=True).data
 
 
-class ShiftDocumentsSerializer(serializers.Serializer):
+class PartnerConditionsSerializer(serializers.Serializer):
+    partner_id = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
+
+    def get_partner_id(self, instance):
+        return instance.id
+
+    def get_documents(self, instance):
+        return DocumentsSerializer(instance.documents, many=True).data
+
+
+class DocumentsSerializer(serializers.Serializer):
     document = serializers.SerializerMethodField()
     is_confirmed = serializers.SerializerMethodField()
 

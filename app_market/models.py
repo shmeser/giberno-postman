@@ -477,6 +477,22 @@ class DistributorDocument(BaseModel):
         verbose_name_plural = 'Документы торговых сетей для пользователей'
 
 
+class PartnerDocument(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    partner = models.ForeignKey(Partner, on_delete=models.CASCADE)
+    document = models.ForeignKey(
+        MediaModel, on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_partner_documents'
+    )
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.partner.distributor.title} - {self.document.title}'
+
+    class Meta:
+        db_table = 'app_market__user_partner_document'
+        verbose_name = 'Документ Магазина-Партнера для пользователя'
+        verbose_name_plural = 'Документы Магазинов-Партнеров для пользователей'
+
+
 class VacancyDocument(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     vacancy = models.ForeignKey(Vacancy, on_delete=models.CASCADE)
