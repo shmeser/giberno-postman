@@ -2762,6 +2762,8 @@ class OrdersRepository(MasterRepository):
                 dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS))
             ])
 
+        return order
+
     def place_order(self, data):
         """
             # Проверить тип заказа
@@ -2778,7 +2780,7 @@ class OrdersRepository(MasterRepository):
         partner_id = data.get('partner')
 
         if order_type == OrderType.GET_COUPON.value:
-            self.purchase_coupon(partner_id, order_type, amount, terms_accepted, email)
+            return self.purchase_coupon(partner_id, order_type, amount, terms_accepted, email)
         if order_type == OrderType.WITHDRAW_BONUS_BY_VOUCHER.value:
             pass
 
@@ -2793,4 +2795,17 @@ class CouponsRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-        self.base_query = self.model.objects.all()
+        self.base_query = self.model.objects.filter(usercoupon__user=self.me)
+
+    @staticmethod
+    def fast_related_loading(queryset):
+        return queryset
+
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )

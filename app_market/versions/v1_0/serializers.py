@@ -1104,6 +1104,8 @@ class AdvertisementsSerializer(serializers.ModelSerializer):
 
 
 class OrdersSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+
     class Meta:
         model = Order
         fields = [
@@ -1117,6 +1119,8 @@ class OrdersSerializer(serializers.ModelSerializer):
 
 
 class CouponsSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+
     class Meta:
         model = Coupon
         fields = [
