@@ -2720,6 +2720,48 @@ class OrdersRepository(MasterRepository):
         order.status = OrderStatus.COMPLETED.value
         order.save()
 
+    def purchase_coupon(self, partner_id, order_type, amount, terms_accepted, email):
+        coupon = self.get_coupon_by_partner(partner_id=partner_id, amount=amount)
+
+        order = self.create_order(
+            email=email,
+            type=order_type,
+            terms_accepted=terms_accepted,
+        )
+
+        from_ct = ContentType.objects.get_for_model(self.me)
+        to_ct = ContentType.objects.get_for_model(coupon)
+        t = self.create_transaction(
+            order=order,
+            amount=amount,
+            t_type=TransactionType.PURCHASE.value,
+            from_id=self.me.id,
+            from_ct=from_ct,
+            from_ct_name=from_ct.model,
+            to_id=coupon.id,
+            to_ct=to_ct,
+            to_ct_name=to_ct.model,
+        )
+
+        try:
+            with transaction.atomic():
+                self.acquire_coupon(coupon, order)
+                self.complete_transaction(t)
+                self.complete_order(order)
+        except ForbiddenException:
+            self.cancel_transaction(t)
+            self.cancel_order(order)
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.YOU_HAVE_THIS_COUPON_ALREADY))
+            ])
+
+        except Exception as e:
+            self.fail_transaction(t)
+            self.fail_order(order)
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS))
+            ])
+
     def place_order(self, data):
         """
             # Проверить тип заказа
@@ -2731,50 +2773,13 @@ class OrdersRepository(MasterRepository):
 
         order_type = data.get('type')
         amount = data.get('amount')
+        email = data.get('email')
+        terms_accepted = data.get('terms_accepted')
+        partner_id = data.get('partner')
 
         if order_type == OrderType.GET_COUPON.value:
-            coupon = self.get_coupon_by_partner(partner_id=data.get('partner'), amount=amount)
-
-            order = self.create_order(
-                email=data.get('email'),
-                type=order_type,
-                terms_accepted=data.get('terms_accepted'),
-            )
-
-            from_ct = ContentType.objects.get_for_model(self.me)
-            to_ct = ContentType.objects.get_for_model(coupon)
-            t = self.create_transaction(
-                order=order,
-                amount=amount,
-                t_type=TransactionType.PURCHASE.value,
-                from_id=self.me.id,
-                from_ct=from_ct,
-                from_ct_name=from_ct.model,
-                to_id=coupon.id,
-                to_ct=to_ct,
-                to_ct_name=to_ct.model,
-            )
-
-            try:
-                with transaction.atomic():
-                    self.acquire_coupon(coupon, order)
-                    self.complete_transaction(t)
-                    self.complete_order(order)
-            except ForbiddenException:
-                self.cancel_transaction(t)
-                self.cancel_order(order)
-                raise CustomException(errors=[
-                    dict(Error(ErrorsCodes.YOU_HAVE_THIS_COUPON_ALREADY))
-                ])
-
-            except Exception as e:
-                self.fail_transaction(t)
-                self.fail_order(order)
-                raise CustomException(errors=[
-                    dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS))
-                ])
-
-        if data.get('type') == OrderType.WITHDRAW_BONUS_BY_VOUCHER.value:
+            self.purchase_coupon(partner_id, order_type, amount, terms_accepted, email)
+        if order_type == OrderType.WITHDRAW_BONUS_BY_VOUCHER.value:
             pass
 
     def retry_payment(self, order_id):
