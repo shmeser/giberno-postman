@@ -2655,7 +2655,7 @@ class OrdersRepository(MasterRepository):
             'order': order
         })
 
-        if created:
+        if not created:
             raise ForbiddenException
 
     def create_order(self, type, email, terms_accepted):
@@ -2666,12 +2666,18 @@ class OrdersRepository(MasterRepository):
             terms_accepted=terms_accepted
         )
 
-    def create_transaction(self, order, amount, t_type):
+    @staticmethod
+    def create_transaction(order, amount, t_type, from_id, from_ct, from_ct_name, to_id, to_ct, to_ct_name):
         return Transaction.objects.create(
-            user=self.me,
             order=order,
             amount=amount,
-            type=t_type
+            type=t_type,
+            from_ct=from_ct,
+            from_ct_name=from_ct_name,
+            from_id=from_id,
+            to_ct=to_ct,
+            to_ct_name=to_ct_name,
+            to_id=to_id
         )
 
     @staticmethod
@@ -2735,10 +2741,18 @@ class OrdersRepository(MasterRepository):
                 terms_accepted=data.get('terms_accepted'),
             )
 
+            from_ct = ContentType.objects.get_for_model(self.me)
+            to_ct = ContentType.objects.get_for_model(coupon)
             t = self.create_transaction(
                 order=order,
                 amount=amount,
-                t_type=TransactionType.PURCHASE.value
+                t_type=TransactionType.PURCHASE.value,
+                from_id=self.me.id,
+                from_ct=from_ct,
+                from_ct_name=from_ct.model,
+                to_id=coupon.id,
+                to_ct=to_ct,
+                to_ct_name=to_ct.model,
             )
 
             try:

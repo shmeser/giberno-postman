@@ -370,6 +370,7 @@ class Transaction(BaseModel):
     # Generic Relation base from
     from_id = models.PositiveIntegerField(null=True, blank=True)
     from_ct = models.ForeignKey(ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='from_ct')
+    from_ct_name = models.CharField(max_length=255, blank=True, null=True)
     _from = GenericForeignKey(ct_field='from_ct', fk_field='from_id')
 
     # Generic Relation base to
@@ -377,6 +378,7 @@ class Transaction(BaseModel):
     to_ct = models.ForeignKey(
         ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='to_ct'
     )
+    to_ct_name = models.CharField(max_length=255, blank=True, null=True)
     _to = GenericForeignKey(ct_field='to_ct', fk_field='to_id')
 
     comment = models.CharField(max_length=1024)
