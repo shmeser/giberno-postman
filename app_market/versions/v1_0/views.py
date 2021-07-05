@@ -1683,7 +1683,8 @@ class Orders(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def post(self, request, **kwargs):
-        dataset = self.repository_class().place_order()
+        body = get_request_body(request)
+        dataset = self.repository_class(me=request.user).place_order(body)
 
         self.many = False
 

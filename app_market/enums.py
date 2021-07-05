@@ -28,8 +28,8 @@ class TransactionType(IntEnumM):
     TRANSFER = 1  # Перевод
     DEPOSIT = 2  # Пополнение
     WITHDRAWAL = 3  # Вывод
-    RETURN = 4  # Возврат
-    PURCHASE = 5  # Покупка
+    PURCHASE = 4  # Покупка
+    RETURN = 5  # Возврат
 
 
 class TransactionStatus(IntEnumM):

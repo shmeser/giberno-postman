@@ -9,6 +9,7 @@ from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
+from django.db import transaction
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
 from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
@@ -21,10 +22,10 @@ from app_chats.models import ChatUser, Chat
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
-    JobStatus, JobStatusForClient, AchievementType
+    JobStatus, JobStatusForClient, AchievementType, OrderType, TransactionStatus, OrderStatus, Currency, TransactionType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
-    Advertisement, Order, Coupon
+    Advertisement, Order, Coupon, UserCoupon, Transaction
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -32,6 +33,7 @@ from app_users.enums import AccountType, DocumentType
 from app_users.models import UserProfile, Document
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.exceptions import ForbiddenException
 from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
 from backend.utils import ArrayRemove, datetime_to_timestamp, timestamp_to_datetime
@@ -2577,6 +2579,131 @@ class OrdersRepository(MasterRepository):
         self.me = me
 
         self.base_query = self.model.objects.all()
+
+    @staticmethod
+    def get_coupon_by_partner(partner_id, amount):
+        coupon = Coupon.objects.filter(partner_id=partner_id, amout=amount, deleted=False).first()
+        if not coupon:
+            # TODO если нет купона выдать ошибку
+            raise CustomException(errors=[])
+
+        return coupon
+
+    def acquire_coupon(self, coupon, order):
+        user_coupon, created = UserCoupon.objects.get_or_create(user=self.me, coupon=coupon, defaults={
+            'order': order
+        })
+
+        if created:
+            raise ForbiddenException
+
+    def create_order(self, type, email, terms_accepted):
+        return Order.objects.create(
+            user=self.me,
+            type=type,
+            email=email,
+            terms_accepted=terms_accepted
+        )
+
+    def create_transaction(self, order, amount, t_type):
+        return Transaction.objects.create(
+            user=self.me,
+            order=order,
+            amount=amount,
+            type=t_type
+        )
+
+    @staticmethod
+    def hold_transaction(transaction):
+        transaction.status = TransactionStatus.HOLD.value
+        transaction.save()
+
+    def complete_transaction(self, transaction):
+        if transaction.from_currency == Currency.BONUS.value:
+            if self.me.bonus_balance < transaction.amount:
+                # Если бонусный баланс меньше чем сумма в транзакции
+                raise CustomException()
+            self.me.bonus_balance -= transaction.amount
+            self.me.save()
+        transaction.status = TransactionStatus.COMPLETED.value
+        transaction.save()
+
+    @staticmethod
+    def fail_transaction(transaction):
+        transaction.status = TransactionStatus.FAILED.value
+        transaction.save()
+
+    @staticmethod
+    def cancel_transaction(transaction):
+        transaction.status = TransactionStatus.CANCELED.value
+        transaction.save()
+
+    @staticmethod
+    def fail_order(order):
+        order.status = OrderStatus.FAILED.value
+        order.save()
+
+    @staticmethod
+    def cancel_order(order):
+        order.status = OrderStatus.CANCELED.value
+        order.save()
+
+    @staticmethod
+    def complete_order(order):
+        order.status = OrderStatus.COMPLETED.value
+        order.save()
+
+    def place_order(self, data):
+        """
+            # Проверить тип заказа
+            # Создать заказ
+            # Проверить баланс
+            # Создать транзакцию
+            # Обновить статус заказа и баланс
+        """
+
+        order_type = data.get('type')
+        amount = data.get('amount')
+
+        if order_type == OrderType.GET_COUPON.value:
+            coupon = self.get_coupon_by_partner(partner_id=data.get('partner'), amount=amount)
+
+            order = self.create_order(
+                email=data.get('email'),
+                type=order_type,
+                terms_accepted=data.get('terms_accepted'),
+            )
+
+            t = self.create_transaction(
+                order=order,
+                amount=amount,
+                t_type=TransactionType.PURCHASE.value
+            )
+
+            try:
+                with transaction.atomic():
+                    self.acquire_coupon(coupon, order)
+                    self.complete_transaction(t)
+                    self.complete_order(order)
+            except ForbiddenException:
+                self.cancel_transaction(t)
+                self.cancel_order(order)
+                raise CustomException(errors=[
+                    # TODO уже есть такой купон
+                ])
+
+            except Exception as e:
+                self.fail_transaction(t)
+                self.fail_order(order)
+                raise CustomException(errors=[
+                    # TODO ошибка оплаты
+                ])
+
+        if data.get('type') == OrderType.WITHDRAW_BONUS_BY_VOUCHER.value:
+            pass
+
+    def retry_payment(self, order_id):
+        pass
 
 
 class CouponsRepository(MasterRepository):
