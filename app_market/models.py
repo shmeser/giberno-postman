@@ -283,6 +283,8 @@ class Partner(BaseModel):
     discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
     discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
 
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
     def __str__(self):
         return f'{self.distributor.title}'
 
@@ -340,7 +342,7 @@ class UserCoupon(BaseModel):
 
     class Meta:
         db_table = 'app_market__coupon_user'
-        verbose_name = 'Купон ползователя'
+        verbose_name = 'Купон пользователя'
         verbose_name_plural = 'Купоны пользователей'
 
 
