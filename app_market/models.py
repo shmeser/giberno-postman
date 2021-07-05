@@ -12,7 +12,7 @@ from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
     ShiftAppealStatus, AppealCancelReason, ManagerAppealCancelReason, JobStatus, SecurityPassRefuseReason, \
-    FireByManagerReason, ManagerAppealRefuseReason, AppealCompleteReason, AchievementType
+    FireByManagerReason, ManagerAppealRefuseReason, AppealCompleteReason, AchievementType, OrderType, OrderStatus
 from app_media.models import MediaModel
 from app_users.enums import REQUIRED_DOCS_FOR_CHOICES
 from app_users.models import UserProfile
@@ -315,6 +315,9 @@ class Order(BaseModel):
     email = models.EmailField(null=True, blank=True)
     terms_accepted = models.BooleanField(default=False)
     user = models.ForeignKey(UserProfile, blank=True, null=True, on_delete=models.SET_NULL)
+
+    type = models.PositiveIntegerField(default=OrderType.TEST.value, choices=choices(OrderType))
+    status = models.PositiveIntegerField(default=OrderStatus.CREATED.value, choices=choices(OrderStatus))
 
     def __str__(self):
         return f'{self.email}'

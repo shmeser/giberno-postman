@@ -10,15 +10,17 @@ class Currency(IntEnumM):
 
 class OrderStatus(IntEnumM):
     CREATED = 0  # Создан
-    HOLD = 1  # Средства захолдированны
-    CANCELED = 2  # Отменена (отмена холдирования)
+    COMPLETED = 1  # Успешно обработан
+    CANCELED = 2  # Отменен
     FAILED = 3  # Ошибка выполнения (недостаточно средств или сбой)
-    COMPLETED = 4  # Успешно завершена
+    RETURNING = 4  # Возврат (средств)
+    RETURNED = 5  # Возврат завершен
 
 
 class OrderType(IntEnumM):
-    GET_COUPON = 1  # Получение
-    CANCELED = 2  # Отменена (отмена холдирования)
+    TEST = 0
+    GET_COUPON = 1  # Получение купона за очки славы (бонусов)
+    WITHDRAW_BONUS_BY_VOUCHER = 2  # Вывод бонусных средств с использованием ваучера
 
 
 class TransactionType(IntEnumM):
