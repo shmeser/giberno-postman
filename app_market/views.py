@@ -652,3 +652,28 @@ class Advertisements(APIView):
             return v1_0.Advertisements().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class Orders(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.Orders().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.Orders().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class Coupons(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.Coupons().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)

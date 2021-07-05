@@ -24,7 +24,7 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
     JobStatus, JobStatusForClient, AchievementType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
-    Advertisement
+    Advertisement, Order, Coupon
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -2567,3 +2567,23 @@ class AdvertisementsRepository(MasterRepository):
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
+
+
+class OrdersRepository(MasterRepository):
+    model = Order
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.base_query = self.model.objects.all()
+
+
+class CouponsRepository(MasterRepository):
+    model = Coupon
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.base_query = self.model.objects.all()

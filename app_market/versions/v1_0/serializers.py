@@ -12,7 +12,7 @@ from rest_framework import serializers
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
-    Achievement, Advertisement
+    Achievement, Advertisement, Order, Coupon
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -1089,4 +1089,30 @@ class AdvertisementsSerializer(serializers.ModelSerializer):
             'description',
             'created_at',
             'banner'
+        ]
+
+
+class OrdersSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = [
+            'id',
+            'description',
+            'created_at',
+            'email',
+            'type',
+            'status',
+        ]
+
+
+class CouponsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Coupon
+        fields = [
+            'id',
+            'code',
+            'discount_amount',
+            'discount_terms',
+            'discount_description',
+            'created_at',
         ]
