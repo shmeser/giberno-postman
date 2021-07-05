@@ -52,21 +52,32 @@ class ShiftAdmin(FormattedAdmin):
 
 @admin.register(Coupon)
 class CouponAdmin(FormattedAdmin):
-    list_display = ['id', 'code', 'date', 'discount_amount', 'discount_terms', 'discount_description']
-    raw_id_fields = ['user', 'shop', 'distributor']
+    list_display = [
+        'id',
+        'code',
+        'discount_amount',
+        'discount_terms',
+        'discount_description'
+    ]
+    raw_id_fields = ['partner', ]
 
 
 @admin.register(Order)
 class OrderAdmin(FormattedAdmin):
     list_display = ['id', 'email', 'description', 'terms_accepted']
-    raw_id_fields = ['user', 'coupon', 'transaction']
+    raw_id_fields = ['user', ]
 
 
 @admin.register(Transaction)
 class TransactionAdmin(FormattedAdmin):
     list_display = [
-        'id', 'amount', 'exchange_rate', 'type', 'status', 'uuid', 'from_id', 'from_content_type', 'to_id',
-        'to_content_type', 'comment'
+        'id',
+        'amount',
+        'exchange_rate',
+        'type',
+        'status',
+        'uuid',
+        'comment'
     ]
 
 

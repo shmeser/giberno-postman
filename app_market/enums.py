@@ -8,12 +8,26 @@ class Currency(IntEnumM):
     RUB = 3
 
 
+class OrderStatus(IntEnumM):
+    CREATED = 0  # Создан
+    HOLD = 1  # Средства захолдированны
+    CANCELED = 2  # Отменена (отмена холдирования)
+    FAILED = 3  # Ошибка выполнения (недостаточно средств или сбой)
+    COMPLETED = 4  # Успешно завершена
+
+
+class OrderType(IntEnumM):
+    GET_COUPON = 1  # Получение
+    CANCELED = 2  # Отменена (отмена холдирования)
+
+
 class TransactionType(IntEnumM):
     TEST = 0
     TRANSFER = 1  # Перевод
     DEPOSIT = 2  # Пополнение
     WITHDRAWAL = 3  # Вывод
     RETURN = 4  # Возврат
+    PURCHASE = 5  # Покупка
 
 
 class TransactionStatus(IntEnumM):

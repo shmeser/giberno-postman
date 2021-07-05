@@ -2,7 +2,8 @@ import uuid as uuid
 
 import pytz
 from dateutil.rrule import MONTHLY, WEEKLY, DAILY
-from django.contrib.contenttypes.fields import GenericRelation
+from django.contrib.contenttypes.fields import GenericRelation, GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
@@ -293,15 +294,12 @@ class Partner(BaseModel):
 
 class Coupon(BaseModel):
     code = models.CharField(max_length=64, null=True, blank=True, unique=True)
-    date = models.DateTimeField(null=True, blank=True, verbose_name='Дата получения пользователем')
 
     discount_amount = models.PositiveIntegerField(null=True, blank=True, verbose_name='Размер скидки')
     discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
     discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
 
-    user = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True)
-    shop = models.ForeignKey(Shop, on_delete=models.SET_NULL, null=True, blank=True)
-    distributor = models.ForeignKey(Distributor, on_delete=models.SET_NULL, null=True, blank=True)
+    partner = models.ForeignKey(Partner, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return f'{self.code}'
@@ -316,10 +314,7 @@ class Order(BaseModel):
     description = models.CharField(max_length=1024, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     terms_accepted = models.BooleanField(default=False)
-
     user = models.ForeignKey(UserProfile, blank=True, null=True, on_delete=models.SET_NULL)
-    coupon = models.ForeignKey(Coupon, blank=True, null=True, on_delete=models.SET_NULL)
-    transaction = models.ForeignKey('Transaction', blank=True, null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return f'{self.email}'
@@ -330,7 +325,25 @@ class Order(BaseModel):
         verbose_name_plural = 'Заказы'
 
 
+class UserCoupon(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True)
+    coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True)
+
+    activated_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата активации')
+    order = models.ForeignKey(Order, blank=True, null=True, on_delete=models.SET_NULL)
+
+    def __str__(self):
+        return f'User{self.user_id} Coupon{self.coupon_id}'
+
+    class Meta:
+        db_table = 'app_market__coupon_user'
+        verbose_name = 'Купон ползователя'
+        verbose_name_plural = 'Купоны пользователей'
+
+
 class Transaction(BaseModel):
+    order = models.ForeignKey(Order, blank=True, null=True, on_delete=models.SET_NULL)
+
     amount = models.PositiveIntegerField(default=0, verbose_name='Сумма')
     exchange_rate = models.FloatField(default=1, verbose_name='Коэффициент обмена')
     type = models.PositiveIntegerField(
@@ -349,13 +362,17 @@ class Transaction(BaseModel):
 
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
 
+    # Generic Relation base from
     from_id = models.PositiveIntegerField(null=True, blank=True)
-    to_id = models.PositiveIntegerField(null=True, blank=True)
-    from_content_type = models.CharField(max_length=1024)
-    to_content_type = models.CharField(max_length=1024)
+    from_ct = models.ForeignKey(ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='from_ct')
+    _from = GenericForeignKey(ct_field='from_ct', fk_field='from_id')
 
-    from_content_type_id = models.PositiveIntegerField(null=True, blank=True)
-    to_content_type_id = models.PositiveIntegerField(null=True, blank=True)
+    # Generic Relation base to
+    to_id = models.PositiveIntegerField(null=True, blank=True)
+    to_ct = models.ForeignKey(
+        ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='to_ct'
+    )
+    _to = GenericForeignKey(ct_field='to_ct', fk_field='to_id')
 
     comment = models.CharField(max_length=1024)
 
