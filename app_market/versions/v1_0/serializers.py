@@ -12,7 +12,7 @@ from rest_framework import serializers
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
-    Achievement, Advertisement
+    Achievement, Advertisement, Order, Coupon
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -1007,10 +1007,21 @@ class ShiftConditionsSerializer(serializers.Serializer):
         return VacancyInShiftForDocumentsSerializer(instance.vacancy, many=False).data
 
     def get_documents(self, instance):
-        return ShiftDocumentsSerializer(instance.documents, many=True).data
+        return DocumentsSerializer(instance.documents, many=True).data
 
 
-class ShiftDocumentsSerializer(serializers.Serializer):
+class PartnerConditionsSerializer(serializers.Serializer):
+    partner_id = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
+
+    def get_partner_id(self, instance):
+        return instance.id
+
+    def get_documents(self, instance):
+        return DocumentsSerializer(instance.documents, many=True).data
+
+
+class DocumentsSerializer(serializers.Serializer):
     document = serializers.SerializerMethodField()
     is_confirmed = serializers.SerializerMethodField()
 
@@ -1089,4 +1100,34 @@ class AdvertisementsSerializer(serializers.ModelSerializer):
             'description',
             'created_at',
             'banner'
+        ]
+
+
+class OrdersSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+
+    class Meta:
+        model = Order
+        fields = [
+            'id',
+            'description',
+            'created_at',
+            'email',
+            'type',
+            'status',
+        ]
+
+
+class CouponsSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+
+    class Meta:
+        model = Coupon
+        fields = [
+            'id',
+            'code',
+            'discount_amount',
+            'discount_terms',
+            'discount_description',
+            'created_at',
         ]

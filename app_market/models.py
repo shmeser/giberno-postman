@@ -2,7 +2,8 @@ import uuid as uuid
 
 import pytz
 from dateutil.rrule import MONTHLY, WEEKLY, DAILY
-from django.contrib.contenttypes.fields import GenericRelation
+from django.contrib.contenttypes.fields import GenericRelation, GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
@@ -11,7 +12,7 @@ from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
     ShiftAppealStatus, AppealCancelReason, ManagerAppealCancelReason, JobStatus, SecurityPassRefuseReason, \
-    FireByManagerReason, ManagerAppealRefuseReason, AppealCompleteReason, AchievementType
+    FireByManagerReason, ManagerAppealRefuseReason, AppealCompleteReason, AchievementType, OrderType, OrderStatus
 from app_media.models import MediaModel
 from app_users.enums import REQUIRED_DOCS_FOR_CHOICES
 from app_users.models import UserProfile
@@ -282,6 +283,8 @@ class Partner(BaseModel):
     discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
     discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
 
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
     def __str__(self):
         return f'{self.distributor.title}'
 
@@ -293,15 +296,12 @@ class Partner(BaseModel):
 
 class Coupon(BaseModel):
     code = models.CharField(max_length=64, null=True, blank=True, unique=True)
-    date = models.DateTimeField(null=True, blank=True, verbose_name='Дата получения пользователем')
 
     discount_amount = models.PositiveIntegerField(null=True, blank=True, verbose_name='Размер скидки')
     discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
     discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
 
-    user = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True)
-    shop = models.ForeignKey(Shop, on_delete=models.SET_NULL, null=True, blank=True)
-    distributor = models.ForeignKey(Distributor, on_delete=models.SET_NULL, null=True, blank=True)
+    partner = models.ForeignKey(Partner, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return f'{self.code}'
@@ -316,10 +316,10 @@ class Order(BaseModel):
     description = models.CharField(max_length=1024, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     terms_accepted = models.BooleanField(default=False)
-
     user = models.ForeignKey(UserProfile, blank=True, null=True, on_delete=models.SET_NULL)
-    coupon = models.ForeignKey(Coupon, blank=True, null=True, on_delete=models.SET_NULL)
-    transaction = models.ForeignKey('Transaction', blank=True, null=True, on_delete=models.SET_NULL)
+
+    type = models.PositiveIntegerField(default=OrderType.TEST.value, choices=choices(OrderType))
+    status = models.PositiveIntegerField(default=OrderStatus.CREATED.value, choices=choices(OrderStatus))
 
     def __str__(self):
         return f'{self.email}'
@@ -330,7 +330,25 @@ class Order(BaseModel):
         verbose_name_plural = 'Заказы'
 
 
+class UserCoupon(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True)
+    coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True)
+
+    activated_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата активации')
+    order = models.ForeignKey(Order, blank=True, null=True, on_delete=models.SET_NULL)
+
+    def __str__(self):
+        return f'User{self.user_id} Coupon{self.coupon_id}'
+
+    class Meta:
+        db_table = 'app_market__coupon_user'
+        verbose_name = 'Купон пользователя'
+        verbose_name_plural = 'Купоны пользователей'
+
+
 class Transaction(BaseModel):
+    order = models.ForeignKey(Order, blank=True, null=True, on_delete=models.SET_NULL)
+
     amount = models.PositiveIntegerField(default=0, verbose_name='Сумма')
     exchange_rate = models.FloatField(default=1, verbose_name='Коэффициент обмена')
     type = models.PositiveIntegerField(
@@ -349,13 +367,19 @@ class Transaction(BaseModel):
 
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
 
+    # Generic Relation base from
     from_id = models.PositiveIntegerField(null=True, blank=True)
-    to_id = models.PositiveIntegerField(null=True, blank=True)
-    from_content_type = models.CharField(max_length=1024)
-    to_content_type = models.CharField(max_length=1024)
+    from_ct = models.ForeignKey(ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='from_ct')
+    from_ct_name = models.CharField(max_length=255, blank=True, null=True)
+    _from = GenericForeignKey(ct_field='from_ct', fk_field='from_id')
 
-    from_content_type_id = models.PositiveIntegerField(null=True, blank=True)
-    to_content_type_id = models.PositiveIntegerField(null=True, blank=True)
+    # Generic Relation base to
+    to_id = models.PositiveIntegerField(null=True, blank=True)
+    to_ct = models.ForeignKey(
+        ContentType, null=True, blank=True, on_delete=models.SET_NULL, related_name='to_ct'
+    )
+    to_ct_name = models.CharField(max_length=255, blank=True, null=True)
+    _to = GenericForeignKey(ct_field='to_ct', fk_field='to_id')
 
     comment = models.CharField(max_length=1024)
 
@@ -455,6 +479,22 @@ class DistributorDocument(BaseModel):
         db_table = 'app_market__user_distributor_document'
         verbose_name = 'Документ торговой сети для пользователя'
         verbose_name_plural = 'Документы торговых сетей для пользователей'
+
+
+class PartnerDocument(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    partner = models.ForeignKey(Partner, on_delete=models.CASCADE)
+    document = models.ForeignKey(
+        MediaModel, on_delete=models.SET_NULL, null=True, blank=True, related_name='confirmed_partner_documents'
+    )
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.partner.distributor.title} - {self.document.title}'
+
+    class Meta:
+        db_table = 'app_market__user_partner_document'
+        verbose_name = 'Документ Магазина-Партнера для пользователя'
+        verbose_name_plural = 'Документы Магазинов-Партнеров для пользователей'
 
 
 class VacancyDocument(BaseModel):

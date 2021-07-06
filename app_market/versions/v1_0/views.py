@@ -15,7 +15,8 @@ from app_market.enums import AppealCancelReason, ShiftAppealStatus
 from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
-    MarketDocumentsRepository, PartnersRepository, AchievementsRepository, AdvertisementsRepository
+    MarketDocumentsRepository, PartnersRepository, AchievementsRepository, AdvertisementsRepository, OrdersRepository, \
+    CouponsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
@@ -24,7 +25,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer, \
     ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
     ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer, AchievementsSerializer, \
-    AdvertisementsSerializer
+    AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -1086,6 +1087,7 @@ class MarketDocuments(CRUDAPIView):
         self.repository_class(me=request.user).accept_market_documents(
             global_docs=body.get('global'),
             distributor_id=body.get('distributor'),
+            partner_id=body.get('partner'),
             vacancy_id=body.get('vacancy'),
             document_uuid=body.get('uuid'),
         )
@@ -1560,6 +1562,16 @@ class PartnersCategories(APIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
+class GetDocumentsForPartner(CRUDAPIView):
+    repository_class = PartnersRepository
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        partner = self.repository_class().get_by_id(record_id)
+        conditions = MarketDocumentsRepository(me=request.user).get_conditions_for_user_on_partner(partner)
+        return Response(camelize(PartnerConditionsSerializer(conditions, many=False).data), status=status.HTTP_200_OK)
+
+
 class Achievements(CRUDAPIView):
     serializer_class = AchievementsSerializer
     repository_class = AchievementsRepository
@@ -1632,6 +1644,93 @@ class Advertisements(CRUDAPIView):
             dataset = self.repository_class().get_by_id(record_id)
         else:
             dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class Orders(CRUDAPIView):
+    serializer_class = OrdersSerializer
+    repository_class = OrdersRepository
+    allowed_http_methods = ['get']
+
+    order_params = {
+        'id': 'id',
+        'title': 'title',
+        'created_at': 'created_at'
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def post(self, request, **kwargs):
+        body = get_request_body(request)
+        dataset = self.repository_class(me=request.user).place_order(body)
+
+        self.many = False
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class Coupons(CRUDAPIView):
+    serializer_class = CouponsSerializer
+    repository_class = CouponsRepository
+    allowed_http_methods = ['get']
+
+    order_params = {
+        'id': 'id',
+        'created_at': 'created_at'
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            dataset = self.repository_class(me=request.user).inited_filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 

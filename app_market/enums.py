@@ -8,12 +8,28 @@ class Currency(IntEnumM):
     RUB = 3
 
 
+class OrderStatus(IntEnumM):
+    CREATED = 0  # Создан
+    COMPLETED = 1  # Успешно обработан
+    CANCELED = 2  # Отменен
+    FAILED = 3  # Ошибка выполнения (недостаточно средств или сбой)
+    RETURNING = 4  # Возврат (средств)
+    RETURNED = 5  # Возврат завершен
+
+
+class OrderType(IntEnumM):
+    TEST = 0
+    GET_COUPON = 1  # Получение купона за очки славы (бонусов)
+    WITHDRAW_BONUS_BY_VOUCHER = 2  # Вывод бонусных средств с использованием ваучера
+
+
 class TransactionType(IntEnumM):
     TEST = 0
     TRANSFER = 1  # Перевод
     DEPOSIT = 2  # Пополнение
     WITHDRAWAL = 3  # Вывод
-    RETURN = 4  # Возврат
+    PURCHASE = 4  # Покупка
+    RETURN = 5  # Возврат
 
 
 class TransactionStatus(IntEnumM):

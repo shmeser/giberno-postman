@@ -9,6 +9,7 @@ from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
+from django.db import transaction
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
 from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
@@ -21,17 +22,19 @@ from app_chats.models import ChatUser, Chat
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
-    JobStatus, JobStatusForClient, AchievementType
+    JobStatus, JobStatusForClient, AchievementType, OrderType, TransactionStatus, OrderStatus, Currency, TransactionType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
-    Advertisement
+    Advertisement, Order, Coupon, UserCoupon, Transaction, PartnerDocument
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_users.enums import AccountType, DocumentType
 from app_users.models import UserProfile, Document
+from app_users.utils import EmailSender
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.exceptions import ForbiddenException
 from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
 from backend.utils import ArrayRemove, datetime_to_timestamp, timestamp_to_datetime
@@ -2267,6 +2270,33 @@ class MarketDocumentsRepository(MasterRepository):
 
         return conditions
 
+    def get_conditions_for_user_on_partner(self, partner):
+
+        conditions = Partner.objects.filter(id=partner.id).first()
+        conditions.partner_id = partner.id  # Для облегчения внутренней логики на ios
+
+        # ## Сбор нужных документов и статус по ним ##
+        partner_ct = ContentType.objects.get_for_model(Partner)
+        # Media
+        conditions.documents = MediaModel.objects.filter(
+            Q(type=MediaType.RULES_AND_ARTICLES.value, deleted=False) &  # Только с типом документы, правила
+            Q(
+                Q(owner_ct=partner_ct, owner_id=partner.id)  # Партнер
+            )
+        ).annotate(
+            partner_confirmed=Exists(PartnerDocument.objects.filter(document_id=OuterRef('pk'), user=self.me)),
+        ).annotate(
+            is_confirmed=Case(
+                When(Q(partner_confirmed=True), then=True),
+                default=False,
+                output_field=BooleanField()
+            )
+        )
+
+        conditions.text = "Текст о цифровой подписи по документам магазина партнера"
+
+        return conditions
+
     def accept_global_docs(self):
         global_documents = MediaModel.objects.filter(
             owner_id=None, type=MediaType.RULES_AND_ARTICLES.value, deleted=False)
@@ -2295,6 +2325,26 @@ class MarketDocumentsRepository(MasterRepository):
                 user=self.me,
                 distributor=distributor,
                 document=distributor_document
+            )
+
+    def accept_partner_docs(self, partner_id):
+        partner = Partner.objects.filter(pk=partner_id).prefetch_related(
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(deleted=False, type=MediaType.RULES_AND_ARTICLES.value),
+                to_attr='documents'
+            )
+        ).first()
+        if not partner:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {Partner._meta.verbose_name} с ID={partner_id} не найден')
+
+        for partner_document in partner.documents:
+            PartnerDocument.objects.get_or_create(
+                user=self.me,
+                partner=partner,
+                document=partner_document
             )
 
     def accept_vacancy_docs(self, vacancy_id):
@@ -2354,13 +2404,22 @@ class MarketDocumentsRepository(MasterRepository):
                     document=document
                 )
 
+            # Если документ принадлежит магазину партнеру
+            if isinstance(document.owner, Partner):
+                # Подтверждаем документ для пользователя
+                PartnerDocument.objects.get_or_create(
+                    user=self.me,
+                    partner_id=document.owner_id,
+                    document=document
+                )
         except Exception as e:
             raise HttpException(
                 status_code=RESTErrors.BAD_REQUEST.value,
                 detail=e
             )
 
-    def accept_market_documents(self, global_docs=None, distributor_id=None, vacancy_id=None, document_uuid=None):
+    def accept_market_documents(self, global_docs=None, distributor_id=None, partner_id=None, vacancy_id=None,
+                                document_uuid=None):
         # Подтверждение всех глобальных документов
         if global_docs is True:
             # TODO получение документов Гиберно (документы без владельца == документы компании)
@@ -2369,6 +2428,10 @@ class MarketDocumentsRepository(MasterRepository):
         # Подтверждение всех документов торговой сети
         if distributor_id:
             self.accept_distributor_docs(distributor_id)
+
+        # Подтверждение всех документов торговой сети
+        if partner_id:
+            self.accept_partner_docs(partner_id)
 
         # Подтверждение всех документов вакансии
         if vacancy_id:
@@ -2560,6 +2623,262 @@ class AdvertisementsRepository(MasterRepository):
         return record
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
+
+
+class OrdersRepository(MasterRepository):
+    model = Order
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.base_query = self.model.objects.all()
+
+    @staticmethod
+    def get_coupon_by_partner(partner_id, amount):
+        coupon = Coupon.objects.filter(partner_id=partner_id, discount_amount=amount, deleted=False).first()
+        if not coupon:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NO_SUITABLE_COUPON)),
+            ])
+
+        return coupon
+
+    def acquire_coupon(self, coupon, order):
+        user_coupon, created = UserCoupon.objects.get_or_create(user=self.me, coupon=coupon, defaults={
+            'order': order
+        })
+
+        if not created:
+            raise ForbiddenException
+
+    def create_order(self, order_type, email, terms_accepted):
+        return Order.objects.create(
+            user=self.me,
+            type=order_type,
+            email=email,
+            terms_accepted=terms_accepted
+        )
+
+    @staticmethod
+    def create_transaction(
+            amount, t_type, to_id, to_ct, to_ct_name, from_id=None, from_ct=None, from_ct_name=None, order=None,
+            comment=None, **kwargs
+    ):
+        return Transaction.objects.create(
+            order=order,
+            amount=amount,
+            type=t_type,
+            from_ct=from_ct,
+            from_ct_name=from_ct_name,
+            from_id=from_id,
+            to_ct=to_ct,
+            to_ct_name=to_ct_name,
+            to_id=to_id,
+            comment=comment,
+            **kwargs
+        )
+
+    @staticmethod
+    def hold_transaction(t):
+        t.status = TransactionStatus.HOLD.value
+        t.save()
+
+    def complete_decreasing_transaction(self, t):
+        if t.from_currency == Currency.BONUS.value:
+            self.check_bonus_balance_for_decreasing(t.amount)
+
+            self.me.bonus_balance -= t.amount
+            self.me.save()
+        t.status = TransactionStatus.COMPLETED.value
+        t.save()
+
+    @staticmethod
+    def fail_transaction(t):
+        t.status = TransactionStatus.FAILED.value
+        t.save()
+
+    @staticmethod
+    def cancel_transaction(t):
+        t.status = TransactionStatus.CANCELED.value
+        t.save()
+
+    @staticmethod
+    def fail_order(order):
+        order.status = OrderStatus.FAILED.value
+        order.save()
+
+    @staticmethod
+    def cancel_order(order):
+        order.status = OrderStatus.CANCELED.value
+        order.save()
+
+    @staticmethod
+    def complete_order(order):
+        order.status = OrderStatus.COMPLETED.value
+        order.save()
+
+    def get_bonus_balance(self):
+        """
+            # Сумма всех успешных транзакций на пополнение бонусов
+            # Минус сумма всех успешных транзакций на вывод бонусов
+        """
+        user_ct = ContentType.objects.get_for_model(self.me)
+        # TODO учитывать exchange_rate в транзакциях на конвертацию (из бонусов в рубли например)
+        bonus_transactions = Transaction.objects.filter(
+            Q(status=TransactionStatus.COMPLETED.value) &  # Только успешные транзакции
+            Q(
+                Q(  # Уменьшение бонусов на счете пользователя (куда уходят - неважно)
+                    from_ct=user_ct,
+                    from_id=self.me.id,
+                    from_currency=Currency.BONUS.value
+                ) |
+                Q(  # Поступление бонусов на счет пользователя
+                    to_ct=user_ct,
+                    to_id=self.me.id,
+                    to_currency=Currency.BONUS.value
+                )
+            ) &
+            ~Q(  # Исключаем транзакции со своего счета на свой (если вдруг появятся)
+                from_ct=user_ct,
+                from_id=self.me.id,
+                from_currency=Currency.BONUS.value,
+                to_ct=user_ct,
+                to_id=self.me.id,
+                to_currency=Currency.BONUS.value
+            )
+        ).annotate(
+            # Поступление, если транзакция на счет
+            increase=Case(
+                When(
+                    Q(to_ct=user_ct, to_id=self.me.id),
+                    then=True
+                ),
+                default=False,
+                output_field=BooleanField()
+            ),
+            decrease=Case(
+                When(
+                    Q(from_ct=user_ct, from_id=self.me.id),
+                    then=True
+                ),
+                default=False,
+                output_field=BooleanField()
+            )
+        )
+
+        amounts = bonus_transactions.aggregate(
+            increase_amount=Coalesce(Sum('amount', filter=Q(increase=True)), 0),
+            decrease_amount=Coalesce(Sum('amount', filter=Q(decrease=True)), 0)
+        )
+
+        bonus_balance = amounts['increase_amount'] - amounts['decrease_amount']
+
+        return bonus_balance
+
+    def check_bonus_balance_for_decreasing(self, amount):
+        if amount > self.get_bonus_balance():
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
+            ])
+
+    def purchase_coupon(self, partner_id, order_type, amount, terms_accepted, email):
+        coupon = self.get_coupon_by_partner(partner_id=partner_id, amount=amount)
+
+        order = self.create_order(
+            email=email,
+            order_type=order_type,
+            terms_accepted=terms_accepted,
+        )
+
+        from_ct = ContentType.objects.get_for_model(self.me)
+        to_ct = ContentType.objects.get_for_model(coupon)
+        t = self.create_transaction(
+            order=order,
+            amount=amount,
+            t_type=TransactionType.PURCHASE.value,
+            from_id=self.me.id,
+            from_ct=from_ct,
+            from_ct_name=from_ct.model,
+            to_id=coupon.id,
+            to_ct=to_ct,
+            to_ct_name=to_ct.model,
+            comment='Покупка купона'
+        )
+
+        try:
+            with transaction.atomic():
+                self.acquire_coupon(coupon, order)
+                self.complete_decreasing_transaction(t)
+                self.complete_order(order)
+        except ForbiddenException:
+            self.cancel_transaction(t)
+            self.cancel_order(order)
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.YOU_HAVE_THIS_COUPON_ALREADY))
+            ])
+
+        except Exception as e:
+            self.fail_transaction(t)
+            self.fail_order(order)
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
+            ])
+
+        EmailSender.send_coupon_code(order.email, coupon.discount_amount, coupon.code, coupon.partner.distributor.title)
+        return order
+
+    def place_order(self, data):
+        """
+            # Проверить тип заказа
+            # Создать заказ
+            # Проверить баланс
+            # Создать транзакцию
+            # Обновить статус заказа и баланс
+        """
+
+        order_type = data.get('type')
+        amount = data.get('amount')
+        email = data.get('email')
+        terms_accepted = data.get('terms_accepted')
+        partner_id = data.get('partner')
+
+        if order_type == OrderType.GET_COUPON.value:
+            return self.purchase_coupon(partner_id, order_type, amount, terms_accepted, email)
+        if order_type == OrderType.WITHDRAW_BONUS_BY_VOUCHER.value:
+            pass
+
+    @classmethod
+    def deposit_bonuses(cls, amount, to_id, to_ct, to_ct_name):
+        # Начислить бонусы
+        t_type = TransactionType.DEPOSIT.value
+        cls.create_transaction(amount, t_type, to_id, to_ct, to_ct_name, comment='Начисление бонусов')
+
+    def retry_payment(self, order_id):
+        pass
+
+
+class CouponsRepository(MasterRepository):
+    model = Coupon
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.base_query = self.model.objects.filter(usercoupon__user=self.me)
+
+    @staticmethod
+    def fast_related_loading(queryset):
+        return queryset
+
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         if order_by:
             records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
         else:

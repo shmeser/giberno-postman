@@ -2,6 +2,7 @@ import random
 import uuid
 from datetime import timedelta
 
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
@@ -10,11 +11,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from app_market.enums import TransactionType, TransactionStatus
 from app_market.models import Distributor, Shop, Vacancy, Shift
+from app_market.versions.v1_0.repositories import OrdersRepository
 from app_sockets.controllers import SocketController
-from app_users.enums import AccountType
+from app_users.enums import AccountType, NotificationAction, NotificationIcon, NotificationType
 from app_users.models import UserProfile
 from backend.controllers import PushController
+from backend.errors.enums import RESTErrors
+from backend.errors.http_exceptions import HttpException
 from backend.utils import get_request_body
 
 
@@ -78,6 +83,69 @@ class SendTestPush(APIView):
             'icon_type': icon_type,
             **body
         }), status=status.HTTP_200_OK)
+
+
+class TestBonusesDeposit(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        body = get_request_body(request)
+        amount = body.get("amount", 0)
+
+        if amount <= 0:
+            raise HttpException(status_code=RESTErrors.BAD_REQUEST.value, detail='amount должен быть положительным')
+
+        user_ct = ContentType.objects.get_for_model(request.user)
+        OrdersRepository.create_transaction(
+            amount=amount,
+            t_type=TransactionType.TEST.value,
+            to_ct=user_ct,
+            to_ct_name=user_ct.model,
+            to_id=request.user.id,
+            comment='Тестовое начисление бонусов',
+            **{
+                'status': TransactionStatus.COMPLETED.value
+            }
+        )
+
+        request.user.bonus_balance += amount
+        request.user.save()
+
+        title = 'Начислены бонусы'
+        message = f'Начисление {amount} очков славы'
+        action = NotificationAction.USER.value
+        subject_id = request.user.id
+        notification_type = NotificationType.SYSTEM.value
+        icon_type = NotificationIcon.DEFAULT.value
+
+        # uuid для массовой рассылки оповещений,
+        # у пользователей в бд будут созданы оповещения с одинаковым uuid
+        # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+        common_uuid = uuid.uuid4()
+
+        PushController().send_notification(
+            users_to_send=[request.user],
+            title=title,
+            message=message,
+            common_uuid=common_uuid,
+            action=action,
+            subject_id=subject_id,
+            notification_type=notification_type,
+            icon_type=icon_type,
+        )
+
+        # Отправка уведомления по сокетам
+        SocketController(request.user, version='1.0').send_notification_to_my_connection({
+            'title': title,
+            'message': message,
+            'uuid': str(common_uuid),
+            'action': action,
+            'subjectId': subject_id,
+            'notificationType': notification_type,
+            'iconType': icon_type,
+        })
+
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 class SeedDataForMarketAppAPIView(APIView):
