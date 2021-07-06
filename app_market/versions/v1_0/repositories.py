@@ -31,6 +31,7 @@ from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_users.enums import AccountType, DocumentType
 from app_users.models import UserProfile, Document
+from app_users.utils import EmailSender
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import ForbiddenException
@@ -2667,7 +2668,10 @@ class OrdersRepository(MasterRepository):
         )
 
     @staticmethod
-    def create_transaction(order, amount, t_type, from_id, from_ct, from_ct_name, to_id, to_ct, to_ct_name):
+    def create_transaction(
+            amount, t_type, to_id, to_ct, to_ct_name, from_id=None, from_ct=None, from_ct_name=None, order=None,
+            comment=None, **kwargs
+    ):
         return Transaction.objects.create(
             order=order,
             amount=amount,
@@ -2677,7 +2681,9 @@ class OrdersRepository(MasterRepository):
             from_id=from_id,
             to_ct=to_ct,
             to_ct_name=to_ct_name,
-            to_id=to_id
+            to_id=to_id,
+            comment=comment,
+            **kwargs
         )
 
     @staticmethod
@@ -2725,7 +2731,7 @@ class OrdersRepository(MasterRepository):
             # Минус сумма всех успешных транзакций на вывод бонусов
         """
         user_ct = ContentType.objects.get_for_model(self.me)
-
+        # TODO учитывать exchange_rate в транзакциях на конвертацию (из бонусов в рубли например)
         bonus_transactions = Transaction.objects.filter(
             Q(status=TransactionStatus.COMPLETED.value) &  # Только успешные транзакции
             Q(
@@ -2804,6 +2810,7 @@ class OrdersRepository(MasterRepository):
             to_id=coupon.id,
             to_ct=to_ct,
             to_ct_name=to_ct.model,
+            comment='Покупка купона'
         )
 
         try:
@@ -2825,6 +2832,7 @@ class OrdersRepository(MasterRepository):
                 dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
             ])
 
+        EmailSender.send_coupon_code(order.email, coupon.discount_amount, coupon.code, coupon.partner.distributor.title)
         return order
 
     def place_order(self, data):
@@ -2846,6 +2854,12 @@ class OrdersRepository(MasterRepository):
             return self.purchase_coupon(partner_id, order_type, amount, terms_accepted, email)
         if order_type == OrderType.WITHDRAW_BONUS_BY_VOUCHER.value:
             pass
+
+    @classmethod
+    def deposit_bonuses(cls, amount, to_id, to_ct, to_ct_name):
+        # Начислить бонусы
+        t_type = TransactionType.DEPOSIT.value
+        cls.create_transaction(amount, t_type, to_id, to_ct, to_ct_name, comment='Начисление бонусов')
 
     def retry_payment(self, order_id):
         pass

@@ -15,13 +15,28 @@ class EmailSender:
         self.user = user
         self.password = password
 
-    def send(self, subject='Новое письмо'):
+    def send_account_credentials(self, subject='Новое письмо'):
         try:
             send_mail(
                 subject=subject,
                 message=f"Логин:{self.user.username},  Пароль:{self.password}",
                 from_email=f'GIBERNO Admin {settings.EMAIL_HOST_USER}',
                 recipient_list=[self.user.email],
+                auth_user=settings.EMAIL_HOST_USER,
+                auth_password=settings.EMAIL_HOST_PASSWORD,
+                fail_silently=False,
+            )
+        except Exception as e:
+            logger.error(e)
+
+    @staticmethod
+    def send_coupon_code(email, amount=0, code='', partner_name=''):
+        try:
+            send_mail(
+                subject='Ваш купон на скидку',
+                message=f"Код купона: {code} \nМагазин-Партнер: {partner_name} \nСкидка: {amount}",
+                from_email=f'GIBERNO Admin {settings.EMAIL_HOST_USER}',
+                recipient_list=[email],
                 auth_user=settings.EMAIL_HOST_USER,
                 auth_password=settings.EMAIL_HOST_PASSWORD,
                 fail_silently=False,
