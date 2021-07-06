@@ -2658,10 +2658,10 @@ class OrdersRepository(MasterRepository):
         if not created:
             raise ForbiddenException
 
-    def create_order(self, type, email, terms_accepted):
+    def create_order(self, order_type, email, terms_accepted):
         return Order.objects.create(
             user=self.me,
-            type=type,
+            type=order_type,
             email=email,
             terms_accepted=terms_accepted
         )
@@ -2681,29 +2681,28 @@ class OrdersRepository(MasterRepository):
         )
 
     @staticmethod
-    def hold_transaction(transaction):
-        transaction.status = TransactionStatus.HOLD.value
-        transaction.save()
+    def hold_transaction(t):
+        t.status = TransactionStatus.HOLD.value
+        t.save()
 
-    def complete_transaction(self, transaction):
-        if transaction.from_currency == Currency.BONUS.value:
-            if self.me.bonus_balance < transaction.amount:
-                # Если бонусный баланс меньше чем сумма в транзакции
-                raise CustomException()
-            self.me.bonus_balance -= transaction.amount
+    def complete_decreasing_transaction(self, t):
+        if t.from_currency == Currency.BONUS.value:
+            self.check_bonus_balance_for_decreasing(t.amount)
+
+            self.me.bonus_balance -= t.amount
             self.me.save()
-        transaction.status = TransactionStatus.COMPLETED.value
-        transaction.save()
+        t.status = TransactionStatus.COMPLETED.value
+        t.save()
 
     @staticmethod
-    def fail_transaction(transaction):
-        transaction.status = TransactionStatus.FAILED.value
-        transaction.save()
+    def fail_transaction(t):
+        t.status = TransactionStatus.FAILED.value
+        t.save()
 
     @staticmethod
-    def cancel_transaction(transaction):
-        transaction.status = TransactionStatus.CANCELED.value
-        transaction.save()
+    def cancel_transaction(t):
+        t.status = TransactionStatus.CANCELED.value
+        t.save()
 
     @staticmethod
     def fail_order(order):
@@ -2720,12 +2719,76 @@ class OrdersRepository(MasterRepository):
         order.status = OrderStatus.COMPLETED.value
         order.save()
 
+    def get_bonus_balance(self):
+        """
+            # Сумма всех успешных транзакций на пополнение бонусов
+            # Минус сумма всех успешных транзакций на вывод бонусов
+        """
+        user_ct = ContentType.objects.get_for_model(self.me)
+
+        bonus_transactions = Transaction.objects.filter(
+            Q(status=TransactionStatus.COMPLETED.value) &  # Только успешные транзакции
+            Q(
+                Q(  # Уменьшение бонусов на счете пользователя (куда уходят - неважно)
+                    from_ct=user_ct,
+                    from_id=self.me.id,
+                    from_currency=Currency.BONUS.value
+                ) |
+                Q(  # Поступление бонусов на счет пользователя
+                    to_ct=user_ct,
+                    to_id=self.me.id,
+                    to_currency=Currency.BONUS.value
+                )
+            ) &
+            ~Q(  # Исключаем транзакции со своего счета на свой (если вдруг появятся)
+                from_ct=user_ct,
+                from_id=self.me.id,
+                from_currency=Currency.BONUS.value,
+                to_ct=user_ct,
+                to_id=self.me.id,
+                to_currency=Currency.BONUS.value
+            )
+        ).annotate(
+            # Поступление, если транзакция на счет
+            increase=Case(
+                When(
+                    Q(to_ct=user_ct, to_id=self.me.id),
+                    then=True
+                ),
+                default=False,
+                output_field=BooleanField()
+            ),
+            decrease=Case(
+                When(
+                    Q(from_ct=user_ct, from_id=self.me.id),
+                    then=True
+                ),
+                default=False,
+                output_field=BooleanField()
+            )
+        )
+
+        amounts = bonus_transactions.aggregate(
+            increase_amount=Coalesce(Sum('amount', filter=Q(increase=True)), 0),
+            decrease_amount=Coalesce(Sum('amount', filter=Q(decrease=True)), 0)
+        )
+
+        bonus_balance = amounts['increase_amount'] - amounts['decrease_amount']
+
+        return bonus_balance
+
+    def check_bonus_balance_for_decreasing(self, amount):
+        if amount > self.get_bonus_balance():
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
+            ])
+
     def purchase_coupon(self, partner_id, order_type, amount, terms_accepted, email):
         coupon = self.get_coupon_by_partner(partner_id=partner_id, amount=amount)
 
         order = self.create_order(
             email=email,
-            type=order_type,
+            order_type=order_type,
             terms_accepted=terms_accepted,
         )
 
@@ -2746,7 +2809,7 @@ class OrdersRepository(MasterRepository):
         try:
             with transaction.atomic():
                 self.acquire_coupon(coupon, order)
-                self.complete_transaction(t)
+                self.complete_decreasing_transaction(t)
                 self.complete_order(order)
         except ForbiddenException:
             self.cancel_transaction(t)
@@ -2759,7 +2822,7 @@ class OrdersRepository(MasterRepository):
             self.fail_transaction(t)
             self.fail_order(order)
             raise CustomException(errors=[
-                dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS))
+                dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
             ])
 
         return order

@@ -49,7 +49,7 @@ class ErrorsCodes(EnumM):
     NO_SUITABLE_COUPON = 'Нет подходящего купона для данной операции'
     YOU_HAVE_THIS_COUPON_ALREADY = 'Вы уже получали такой купон'
 
-    NOT_ENOUGH_BONUS = 'Недостаточно бонусов для данной операции'
+    NOT_ENOUGH_BONUS_BALANCE = 'Недостаточно бонусов для данной операции'
 
 
 class SocketErrors(IntEnumM):
