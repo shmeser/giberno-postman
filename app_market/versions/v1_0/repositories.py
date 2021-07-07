@@ -1477,6 +1477,7 @@ class ShiftAppealsRepository(MasterRepository):
             if instance.time_start <= now() and instance.time_end >= now():
                 # Если подтверждение смены позже времени начала, но раньше времени окончания
                 instance.job_status = JobStatusForClient.JOB_IN_PROCESS.value
+                instance.started_real_time = now()
 
             instance.status = ShiftAppealStatus.CONFIRMED
             instance.save()
@@ -1538,6 +1539,7 @@ class ShiftAppealsRepository(MasterRepository):
         # меняем статус
         if instance.job_status == JobStatus.JOB_SOON.value:
             instance.job_status = JobStatus.JOB_IN_PROCESS.value
+            instance.started_real_time = now()
             instance.save()
 
     def get_new_confirmed_count(self):
@@ -1625,7 +1627,7 @@ class ShiftAppealsRepository(MasterRepository):
         self.is_related_manager(instance=appeal)
         if appeal.job_status == JobStatus.JOB_SOON.value:
             appeal.job_status = JobStatus.JOB_IN_PROCESS.value
-            # appeal.qr_text = None
+            appeal.started_real_time = now()
             appeal.save()
 
             prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=appeal.id))
