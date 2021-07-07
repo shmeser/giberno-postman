@@ -1067,12 +1067,16 @@ class PartnersSerializer(serializers.ModelSerializer):
 class AchievementsSerializer(serializers.ModelSerializer):
     icon = serializers.SerializerMethodField()
     completed_at = serializers.SerializerMethodField()
+    achieved_count = serializers.SerializerMethodField()
 
     def get_icon(self, prefetched_data):
         return MediaController(self.instance).get_related_images(prefetched_data, MediaType.ACHIEVEMENT_ICON.value)
 
     def get_completed_at(self, data):
         return datetime_to_timestamp(data.completed_at) if data.completed_at else None
+
+    def get_achieved_count(self, data):
+        return data.achieved_count
 
     class Meta:
         model = Achievement
@@ -1081,6 +1085,7 @@ class AchievementsSerializer(serializers.ModelSerializer):
             'name',
             'description',
             'completed_at',
+            'achieved_count',
             'icon'
         ]
 
