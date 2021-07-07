@@ -1643,8 +1643,9 @@ class ShiftAppealsRepository(MasterRepository):
         appeal = self.get_by_id(record_id=record_id)
         self.is_related_security(instance=appeal)
         if appeal.job_status == JobStatus.JOB_SOON.value:
-            appeal.job_status = None
-            appeal.status = ShiftAppealStatus.CANCELED.value
+            # TODO уточнить что нужно делать если охранник не пускает
+            # appeal.job_status = None
+            # appeal.status = ShiftAppealStatus.CANCELED.value
             appeal.security_pass_refuse_reason = validated_data.get('reason')
             appeal.security_pass_refuse_reason_text = validated_data.get('text')
             appeal.save()
