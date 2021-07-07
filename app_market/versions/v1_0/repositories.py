@@ -1643,6 +1643,8 @@ class ShiftAppealsRepository(MasterRepository):
         appeal = self.get_by_id(record_id=record_id)
         self.is_related_security(instance=appeal)
         if appeal.job_status == JobStatus.JOB_SOON.value:
+            appeal.job_status = None
+            appeal.status = ShiftAppealStatus.CANCELED.value
             appeal.security_pass_refuse_reason = validated_data.get('reason')
             appeal.security_pass_refuse_reason_text = validated_data.get('text')
             appeal.save()
@@ -1660,7 +1662,6 @@ class ShiftAppealsRepository(MasterRepository):
             appeal.status = ShiftAppealStatus.CANCELED.value
             appeal.manager_refuse_reason = validated_data.get('reason')
             appeal.refuse_reason_text = validated_data.get('text')
-            # appeal.qr_text = None
             appeal.save()
             prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=appeal.id))
 
