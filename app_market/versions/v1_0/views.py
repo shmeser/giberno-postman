@@ -15,7 +15,8 @@ from app_market.enums import AppealCancelReason, ShiftAppealStatus
 from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
-    MarketDocumentsRepository, PartnersRepository, AchievementsRepository, AdvertisementsRepository
+    MarketDocumentsRepository, PartnersRepository, AchievementsRepository, AdvertisementsRepository, OrdersRepository, \
+    CouponsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
@@ -24,7 +25,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer, \
     ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
     ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer, AchievementsSerializer, \
-    AdvertisementsSerializer
+    AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -144,6 +145,7 @@ class Vacancies(CRUDAPIView):
     # 'applied' на получение только тех вакансии на которые пользователь откликался
     # 'confirmed' на получение только тех вакансии которые подтвердил работодатель
     bool_filter_params = {
+        'is_favourite': 'is_favourite',
         'is_hot': 'is_hot',
         'applied': 'appeals__user',
         'confirmed': 'appeals__confirmed'
@@ -180,11 +182,15 @@ class Vacancies(CRUDAPIView):
 
         if record_id:
             self.serializer_class = VacancySerializer
-            dataset = self.repository_class(point).get_by_id(record_id)
+            dataset = self.repository_class(
+                point=point, me=request.user
+            ).get_by_id(record_id)
             dataset.increment_views_count()
         else:
             self.many = True
-            dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
+            dataset = self.repository_class(
+                point=point, screen_diagonal_points=screen_diagonal_points, me=request.user
+            ).filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
@@ -304,7 +310,7 @@ class ShiftAppealCancel(CRUDAPIView):
         appeal, is_confirmed_appeal_canceled = self.repository_class(me=request.user).cancel(
             record_id=record_id, reason=reason, text=data.get('text')
         )
-        managers, sockets = VacanciesRepository().get_managers_and_sockets_for_vacancy(appeal.shift.vacancy)
+        managers, sockets = VacanciesRepository.get_managers_and_sockets_for_vacancy(appeal.shift.vacancy)
 
         # Отправляем по сокетам смену status и job_status смз и менеджерам
         send_socket_event_on_appeal_statuses(
@@ -659,7 +665,9 @@ class VacanciesStats(Vacancies):
         order_params = RequestMapper(self).order(request)
 
         point, screen_diagonal_points, radius = RequestMapper().geo(request)
-        dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
+        dataset = self.repository_class(
+            point=point, screen_diagonal_points=screen_diagonal_points, me=request.user
+        ).filter_by_kwargs(
             kwargs=filters, order_by=order_params
         )
 
@@ -679,11 +687,13 @@ class VacanciesDistributors(Vacancies):
         order_params = RequestMapper(self).order(request)
         pagination = RequestMapper.pagination(request)
         point, screen_diagonal_points, radius = RequestMapper().geo(request)
-        dataset = self.repository_class(point, screen_diagonal_points).filter_by_kwargs(
+        dataset = self.repository_class(
+            point=point, screen_diagonal_points=screen_diagonal_points, me=request.user
+        ).filter_by_kwargs(
             kwargs=filters, order_by=order_params
         )
 
-        distributors = self.repository_class().aggregate_distributors(dataset, pagination)
+        distributors = self.repository_class(me=request.user).aggregate_distributors(dataset, pagination)
         serialized = DistributorsSerializer(distributors, many=True, context={
             'me': request.user,
             'headers': get_request_headers(request),
@@ -698,7 +708,7 @@ def vacancies_suggestions(request):
     dataset = []
     search = request.query_params.get('search') if request.query_params else None
     if search:
-        dataset = VacanciesRepository().get_suggestions(
+        dataset = VacanciesRepository(me=request.user).get_suggestions(
             # trigram_similar Поиск с использованием pg_trgm на проиндексированном поле
             search=search,
             paginator=pagination
@@ -710,8 +720,9 @@ def vacancies_suggestions(request):
 def similar_vacancies(request, **kwargs):
     pagination = RequestMapper.pagination(request)
     point, screen_diagonal_points, radius = RequestMapper().geo(request)
-    vacancies = VacanciesRepository(point=point, screen_diagonal_points=screen_diagonal_points,
-                                    me=request.user).get_similar(
+    vacancies = VacanciesRepository(
+        point=point, screen_diagonal_points=screen_diagonal_points, me=request.user
+    ).get_similar(
         kwargs.get('record_id'), pagination
     )
 
@@ -948,7 +959,7 @@ class ToggleLikeVacancy(APIView):
     repository = VacanciesRepository
 
     def post(self, request, **kwargs):
-        vacancy = self.repository().get_by_id(kwargs['record_id'])
+        vacancy = self.repository(me=request.user).get_by_id(kwargs['record_id'])
         self.repository(me=request.user).toggle_like(vacancy=vacancy)
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
@@ -1076,6 +1087,7 @@ class MarketDocuments(CRUDAPIView):
         self.repository_class(me=request.user).accept_market_documents(
             global_docs=body.get('global'),
             distributor_id=body.get('distributor'),
+            partner_id=body.get('partner'),
             vacancy_id=body.get('vacancy'),
             document_uuid=body.get('uuid'),
         )
@@ -1289,7 +1301,7 @@ class RefusePassBySecurityAPIView(APIView):
                 record_id=kwargs.get('record_id'),
                 validated_data=serializer.validated_data
             )
-            managers, sockets = VacanciesRepository().get_managers_and_sockets_for_vacancy(appeal.shift.vacancy)
+            managers, sockets = VacanciesRepository.get_managers_and_sockets_for_vacancy(appeal.shift.vacancy)
 
             # Отправляем по сокетам смену status и job_status смз и менеджерам
             send_socket_event_on_appeal_statuses(
@@ -1550,6 +1562,16 @@ class PartnersCategories(APIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
+class GetDocumentsForPartner(CRUDAPIView):
+    repository_class = PartnersRepository
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        partner = self.repository_class().get_by_id(record_id)
+        conditions = MarketDocumentsRepository(me=request.user).get_conditions_for_user_on_partner(partner)
+        return Response(camelize(PartnerConditionsSerializer(conditions, many=False).data), status=status.HTTP_200_OK)
+
+
 class Achievements(CRUDAPIView):
     serializer_class = AchievementsSerializer
     repository_class = AchievementsRepository
@@ -1581,9 +1603,9 @@ class Achievements(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
         else:
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class(me=request.user).inited_filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
@@ -1622,6 +1644,93 @@ class Advertisements(CRUDAPIView):
             dataset = self.repository_class().get_by_id(record_id)
         else:
             dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class Orders(CRUDAPIView):
+    serializer_class = OrdersSerializer
+    repository_class = OrdersRepository
+    allowed_http_methods = ['get']
+
+    order_params = {
+        'id': 'id',
+        'title': 'title',
+        'created_at': 'created_at'
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def post(self, request, **kwargs):
+        body = get_request_body(request)
+        dataset = self.repository_class(me=request.user).place_order(body)
+
+        self.many = False
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class Coupons(CRUDAPIView):
+    serializer_class = CouponsSerializer
+    repository_class = CouponsRepository
+    allowed_http_methods = ['get']
+
+    order_params = {
+        'id': 'id',
+        'created_at': 'created_at'
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            dataset = self.repository_class(me=request.user).inited_filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 

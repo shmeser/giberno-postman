@@ -271,7 +271,7 @@ class ProfileRepository(MasterRepository):
             user=user,
             enabled_types=[NotificationType.SYSTEM]
         )
-        EmailSender(user=user, password=password).send(subject='Создана учетная запись менеджера')
+        EmailSender(user=user, password=password).send_account_credentials(subject='Создана учетная запись менеджера')
         return user
 
     def create_security_by_admin(self, data):

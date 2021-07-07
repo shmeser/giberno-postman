@@ -194,31 +194,12 @@ class Shifts(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
-# class UserShiftsListAPIView(BaseAPIView):
-#     """
-#     Возвращает список смен пользователя
-#     можно фильтровать по статусу смены.
-#     """
-#     permission_classes = [IsAuthenticated, IsSelfEmployed]
-#
-#     @staticmethod
-#     def get(request, **kwargs):
-#         if request.version in ['market_1_0']:
-#             return v1_0.UserShiftsListAPIView().get(request, **kwargs)
-#         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
-#
-#
-# class UserShiftsRetrieveAPIView(BaseAPIView):
-#     """
-#     получение смены пользователя по id
-#     """
-#     permission_classes = [IsAuthenticated, IsSelfEmployed]
-#
-#     @staticmethod
-#     def get(request, **kwargs):
-#         if request.version in ['market_1_0']:
-#             return v1_0.UserShiftsRetrieveAPIView().get(request, **kwargs)
-#         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+class GetDocumentsForPartner(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.GetDocumentsForPartner().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class GetDocumentsForShift(APIView):
@@ -650,5 +631,30 @@ class Advertisements(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.Advertisements().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class Orders(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.Orders().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.Orders().post(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class Coupons(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.Coupons().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)

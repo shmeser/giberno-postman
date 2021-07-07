@@ -46,6 +46,11 @@ class ErrorsCodes(EnumM):
 
     TOO_MANY_REVIEWS = 'Слишком много отзывов'
 
+    NO_SUITABLE_COUPON = 'Нет подходящего купона для данной операции'
+    YOU_HAVE_THIS_COUPON_ALREADY = 'Вы уже получали такой купон'
+
+    NOT_ENOUGH_BONUS_BALANCE = 'Недостаточно бонусов для данной операции'
+
 
 class SocketErrors(IntEnumM):
     # Диапазон 3000-4999

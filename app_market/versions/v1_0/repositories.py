@@ -9,10 +9,12 @@ from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import TrigramSimilarity
+from django.db import transaction
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
 from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
 from django.utils.timezone import now, localtime
+from loguru import logger
 from pytz import timezone
 from rest_framework.exceptions import PermissionDenied
 
@@ -20,17 +22,19 @@ from app_chats.models import ChatUser, Chat
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
-    JobStatus, JobStatusForClient
+    JobStatus, JobStatusForClient, AchievementType, OrderType, TransactionStatus, OrderStatus, Currency, TransactionType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
-    Advertisement
+    Advertisement, Order, Coupon, UserCoupon, Transaction, PartnerDocument
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_users.enums import AccountType, DocumentType
 from app_users.models import UserProfile, Document
+from app_users.utils import EmailSender
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.exceptions import ForbiddenException
 from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
 from backend.utils import ArrayRemove, datetime_to_timestamp, timestamp_to_datetime
@@ -493,7 +497,7 @@ class ShiftsRepository(MasterRepository):
         if is_appeal_confirmed_for_today and not is_within_radius:
             should_notify_managers = True
 
-            managers, managers_sockets = VacanciesRepository().get_managers_and_sockets_for_vacancy(
+            managers, managers_sockets = VacanciesRepository.get_managers_and_sockets_for_vacancy(
                 shift.vacancy
             )
 
@@ -585,6 +589,19 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             output_field=IntegerField()
         )
 
+        self.like_owner_ct = ContentType.objects.get_for_model(UserProfile)
+        self.like_target_ct = ContentType.objects.get_for_model(Vacancy)
+
+        # является ли избранной вакансией
+        self.is_favourite_expression = ExpressionWrapper(
+            Exists(Like.objects.filter(
+                deleted=False,
+                owner_id=self.me.id, owner_ct=self.like_owner_ct,
+                target_id=OuterRef('pk'), target_ct=self.like_target_ct
+            )),
+            output_field=BooleanField()
+        )
+
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(
             distance=self.distance_expression,
@@ -592,6 +609,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             work_time=self.work_time_expression,
             total_count=self.total_count_expression,
             free_count=self.free_count_expression,
+            is_favourite=self.is_favourite_expression,
         )
 
         # Фильтрация по вхождению в область на карте
@@ -629,16 +647,10 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
-        try:
-            if order_by:
-                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
-            else:
-                records = self.base_query.exclude(deleted=True).filter(**kwargs)
-        except Exception:  # no 'deleted' field
-            if order_by:
-                records = self.base_query.order_by(*order_by).filter(**kwargs)
-            else:
-                records = self.base_query.filter(**kwargs)
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
 
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
@@ -951,6 +963,16 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             like.deleted = not like.deleted
             like.save()
 
+        # пересчитываем количество избранных вакансий
+        self.me.favourite_vacancies_count = Like.objects.filter(
+            owner_ct=owner_ct,
+            target_ct=target_ct,
+            owner_id=self.me.id,
+            deleted=False
+        ).count()
+
+        self.me.save()
+
     def get_similar(self, record_id, pagination=None):
         current_vacancy = self.model.objects.filter(pk=record_id, deleted=False).select_related('shop').first()
         if current_vacancy:
@@ -972,7 +994,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         return []
 
-    def get_requirements(self, vacancy_id):
+    @staticmethod
+    def get_requirements(vacancy_id):
         vacancy = Vacancy.objects.get(pk=vacancy_id)
         required_experience = ''
         if vacancy.required_experience:
@@ -1011,7 +1034,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         return text
 
-    def get_necessary_docs(self, vacancy_id):
+    @staticmethod
+    def get_necessary_docs(vacancy_id):
         vacancy = Vacancy.objects.get(pk=vacancy_id)
         required_docs = ''
         if not vacancy.required_docs:
@@ -1038,7 +1062,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         return required_docs
 
-    def check_if_has_confirmed_appeals(self, subject_user, vacancy_id):
+    @staticmethod
+    def check_if_has_confirmed_appeals(subject_user, vacancy_id):
         return ShiftAppeal.objects.filter(
             applier=subject_user,
             shift__vacancy_id=vacancy_id,
@@ -1046,7 +1071,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             time_start__gt=now()
         ).exists()
 
-    def get_shift_remaining_time_to_start(self, subject_user, vacancy_id):
+    @staticmethod
+    def get_shift_remaining_time_to_start(subject_user, vacancy_id):
         # Только подтвержденные заявки
         earlier_confirmed_appeal = ShiftAppeal.objects.filter(
             applier=subject_user,
@@ -1091,7 +1117,8 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             return time_str
         return None
 
-    def get_managers_and_sockets_for_vacancy(self, vacancy: Vacancy):
+    @staticmethod
+    def get_managers_and_sockets_for_vacancy(vacancy: Vacancy):
         sockets = []
         managers = vacancy.shop.staff.filter(account_type=AccountType.MANAGER.value)
 
@@ -1260,6 +1287,35 @@ class ShiftAppealsRepository(MasterRepository):
         #  1-30 минут ставка за час\2, 31-60 минут ставка за час.
         appeal.save()
 
+        # Провверка достижения
+        achievement = AchievementsRepository().filter_by_kwargs(
+            {'type': AchievementType.SAME_DISTRIBUTOR_SHIFT.value}).first()
+        if not achievement:
+            return
+
+        progress = AchievementsRepository.get_progress_for_user(
+            achievement_id=achievement.id, user_id=appeal.applier_id, **{
+                'started_at': appeal.completed_real_time
+            }
+        )
+
+        achieved_count = self.aggregate_stats_for_achievements(
+            appeal.applier_id,
+            achievement.actions_min_count,
+            progress.started_at
+        )
+
+        if achieved_count and progress.achieved_count < achieved_count:
+            # знак < если вдруг achieved_count придет кривой
+            # Если количество выполнений всех условий для ачивки изменилось,
+            # то отправляем пуш и записываем новые значения
+            progress.achieved_count = achieved_count
+            progress.save()
+
+            # TODO отправить пуш о достижении
+
+            logger.info(f'========= НОВОЕ ДОСТИЖЕНИЕ {achievement.name} для USER {appeal.applier_id} ==========')
+
     def check_time_range(self, queryset, time_start, time_end):
         if queryset.filter(
                 status__in=[ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
@@ -1421,6 +1477,7 @@ class ShiftAppealsRepository(MasterRepository):
             if instance.time_start <= now() and instance.time_end >= now():
                 # Если подтверждение смены позже времени начала, но раньше времени окончания
                 instance.job_status = JobStatusForClient.JOB_IN_PROCESS.value
+                instance.started_real_time = now()
 
             instance.status = ShiftAppealStatus.CONFIRMED
             instance.save()
@@ -1482,6 +1539,7 @@ class ShiftAppealsRepository(MasterRepository):
         # меняем статус
         if instance.job_status == JobStatus.JOB_SOON.value:
             instance.job_status = JobStatus.JOB_IN_PROCESS.value
+            instance.started_real_time = now()
             instance.save()
 
     def get_new_confirmed_count(self):
@@ -1569,7 +1627,7 @@ class ShiftAppealsRepository(MasterRepository):
         self.is_related_manager(instance=appeal)
         if appeal.job_status == JobStatus.JOB_SOON.value:
             appeal.job_status = JobStatus.JOB_IN_PROCESS.value
-            # appeal.qr_text = None
+            appeal.started_real_time = now()
             appeal.save()
 
             prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=appeal.id))
@@ -1585,6 +1643,9 @@ class ShiftAppealsRepository(MasterRepository):
         appeal = self.get_by_id(record_id=record_id)
         self.is_related_security(instance=appeal)
         if appeal.job_status == JobStatus.JOB_SOON.value:
+            # TODO уточнить что нужно делать если охранник не пускает
+            # appeal.job_status = None
+            # appeal.status = ShiftAppealStatus.CANCELED.value
             appeal.security_pass_refuse_reason = validated_data.get('reason')
             appeal.security_pass_refuse_reason_text = validated_data.get('text')
             appeal.save()
@@ -1602,7 +1663,6 @@ class ShiftAppealsRepository(MasterRepository):
             appeal.status = ShiftAppealStatus.CANCELED.value
             appeal.manager_refuse_reason = validated_data.get('reason')
             appeal.refuse_reason_text = validated_data.get('text')
-            # appeal.qr_text = None
             appeal.save()
             prefetched_appeals = self.prefetch_applier_and_managers(ShiftAppeal.objects.filter(id=appeal.id))
 
@@ -1938,7 +1998,6 @@ class ShiftAppealsRepository(MasterRepository):
 
         self.model.objects.filter(id__in=appeals_ids).update(
             job_status=JobStatus.COMPLETED.value,
-            # status=ShiftAppealStatus.COMPLETED.value,
             completed_real_time=now()
         )
 
@@ -2088,6 +2147,35 @@ class ShiftAppealsRepository(MasterRepository):
             return result[pagination.offset: pagination.limit]
         return result
 
+    @staticmethod
+    def aggregate_stats_for_achievements(applier_id, actions_min_count, progress_started_at):
+        appeals = ShiftAppeal.objects.filter(
+            applier_id=applier_id,  # Свои отклики
+            deleted=False,
+            job_status=JobStatus.COMPLETED.value,  # Успешно завершенные
+            completed_real_time__gte=progress_started_at  # После даты начала прогресса по ачивке
+        ).annotate(
+            distributor_id=F('shift__vacancy__shop__distributor_id')  # добавляем ид торговой сети
+        ).annotate(
+            count=Window(Count('id'), partition_by=['distributor_id'])  # считаем сколько таких откликов в каждой т.сети
+        ).annotate(
+            # Считаем сколько раз выполнено задание в каждой торговой сети для получения ачивки
+            times_count=ExpressionWrapper(
+                Round(F('count') / Value(actions_min_count)),
+                output_field=IntegerField()
+            )
+        ).values(
+            # группируем и берем только уникальные значения по торговой сети и количеству выполений
+            'distributor_id', 'count', 'times_count'
+        ).distinct()
+
+        achieved_count = appeals.aggregate(
+            # суммируем сколько раз в целом выполнены все условия для получения достижения
+            sum=Coalesce(Sum('times_count'), 0)
+        )['sum']
+
+        return achieved_count
+
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
     def __init__(self, me=None, point=None):
@@ -2186,6 +2274,33 @@ class MarketDocumentsRepository(MasterRepository):
 
         return conditions
 
+    def get_conditions_for_user_on_partner(self, partner):
+
+        conditions = Partner.objects.filter(id=partner.id).first()
+        conditions.partner_id = partner.id  # Для облегчения внутренней логики на ios
+
+        # ## Сбор нужных документов и статус по ним ##
+        partner_ct = ContentType.objects.get_for_model(Partner)
+        # Media
+        conditions.documents = MediaModel.objects.filter(
+            Q(type=MediaType.RULES_AND_ARTICLES.value, deleted=False) &  # Только с типом документы, правила
+            Q(
+                Q(owner_ct=partner_ct, owner_id=partner.id)  # Партнер
+            )
+        ).annotate(
+            partner_confirmed=Exists(PartnerDocument.objects.filter(document_id=OuterRef('pk'), user=self.me)),
+        ).annotate(
+            is_confirmed=Case(
+                When(Q(partner_confirmed=True), then=True),
+                default=False,
+                output_field=BooleanField()
+            )
+        )
+
+        conditions.text = "Текст о цифровой подписи по документам магазина партнера"
+
+        return conditions
+
     def accept_global_docs(self):
         global_documents = MediaModel.objects.filter(
             owner_id=None, type=MediaType.RULES_AND_ARTICLES.value, deleted=False)
@@ -2214,6 +2329,26 @@ class MarketDocumentsRepository(MasterRepository):
                 user=self.me,
                 distributor=distributor,
                 document=distributor_document
+            )
+
+    def accept_partner_docs(self, partner_id):
+        partner = Partner.objects.filter(pk=partner_id).prefetch_related(
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(deleted=False, type=MediaType.RULES_AND_ARTICLES.value),
+                to_attr='documents'
+            )
+        ).first()
+        if not partner:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {Partner._meta.verbose_name} с ID={partner_id} не найден')
+
+        for partner_document in partner.documents:
+            PartnerDocument.objects.get_or_create(
+                user=self.me,
+                partner=partner,
+                document=partner_document
             )
 
     def accept_vacancy_docs(self, vacancy_id):
@@ -2273,13 +2408,22 @@ class MarketDocumentsRepository(MasterRepository):
                     document=document
                 )
 
+            # Если документ принадлежит магазину партнеру
+            if isinstance(document.owner, Partner):
+                # Подтверждаем документ для пользователя
+                PartnerDocument.objects.get_or_create(
+                    user=self.me,
+                    partner_id=document.owner_id,
+                    document=document
+                )
         except Exception as e:
             raise HttpException(
                 status_code=RESTErrors.BAD_REQUEST.value,
                 detail=e
             )
 
-    def accept_market_documents(self, global_docs=None, distributor_id=None, vacancy_id=None, document_uuid=None):
+    def accept_market_documents(self, global_docs=None, distributor_id=None, partner_id=None, vacancy_id=None,
+                                document_uuid=None):
         # Подтверждение всех глобальных документов
         if global_docs is True:
             # TODO получение документов Гиберно (документы без владельца == документы компании)
@@ -2288,6 +2432,10 @@ class MarketDocumentsRepository(MasterRepository):
         # Подтверждение всех документов торговой сети
         if distributor_id:
             self.accept_distributor_docs(distributor_id)
+
+        # Подтверждение всех документов торговой сети
+        if partner_id:
+            self.accept_partner_docs(partner_id)
 
         # Подтверждение всех документов вакансии
         if vacancy_id:
@@ -2410,7 +2558,7 @@ class AchievementsRepository(MasterRepository):
                 'completed_at__gte': completed_at
             })
 
-    def get_by_id(self, record_id):
+    def inited_get_by_id(self, record_id):
         records = self.base_query.filter(pk=record_id).exclude(deleted=True)
         record = self.fast_related_loading(records).first()
         if not record:
@@ -2420,7 +2568,7 @@ class AchievementsRepository(MasterRepository):
 
         return record
 
-    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         # Изменяем kwargs для работы с objects.filter(**kwargs)
         self.modify_kwargs(kwargs, order_by)
         if order_by:
@@ -2430,6 +2578,15 @@ class AchievementsRepository(MasterRepository):
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
+
+    @staticmethod
+    def get_progress_for_user(achievement_id, user_id, **defaults):
+        progress, created = AchievementProgress.objects.get_or_create(
+            achievement_id=achievement_id,
+            user_id=user_id,
+            defaults=defaults
+        )
+        return progress
 
 
 class AdvertisementsRepository(MasterRepository):
@@ -2470,6 +2627,262 @@ class AdvertisementsRepository(MasterRepository):
         return record
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
+
+
+class OrdersRepository(MasterRepository):
+    model = Order
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.base_query = self.model.objects.all()
+
+    @staticmethod
+    def get_coupon_by_partner(partner_id, amount):
+        coupon = Coupon.objects.filter(partner_id=partner_id, discount_amount=amount, deleted=False).first()
+        if not coupon:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NO_SUITABLE_COUPON)),
+            ])
+
+        return coupon
+
+    def acquire_coupon(self, coupon, order):
+        user_coupon, created = UserCoupon.objects.get_or_create(user=self.me, coupon=coupon, defaults={
+            'order': order
+        })
+
+        if not created:
+            raise ForbiddenException
+
+    def create_order(self, order_type, email, terms_accepted):
+        return Order.objects.create(
+            user=self.me,
+            type=order_type,
+            email=email,
+            terms_accepted=terms_accepted
+        )
+
+    @staticmethod
+    def create_transaction(
+            amount, t_type, to_id, to_ct, to_ct_name, from_id=None, from_ct=None, from_ct_name=None, order=None,
+            comment=None, **kwargs
+    ):
+        return Transaction.objects.create(
+            order=order,
+            amount=amount,
+            type=t_type,
+            from_ct=from_ct,
+            from_ct_name=from_ct_name,
+            from_id=from_id,
+            to_ct=to_ct,
+            to_ct_name=to_ct_name,
+            to_id=to_id,
+            comment=comment,
+            **kwargs
+        )
+
+    @staticmethod
+    def hold_transaction(t):
+        t.status = TransactionStatus.HOLD.value
+        t.save()
+
+    def complete_decreasing_transaction(self, t):
+        if t.from_currency == Currency.BONUS.value:
+            self.check_bonus_balance_for_decreasing(t.amount)
+
+            self.me.bonus_balance -= t.amount
+            self.me.save()
+        t.status = TransactionStatus.COMPLETED.value
+        t.save()
+
+    @staticmethod
+    def fail_transaction(t):
+        t.status = TransactionStatus.FAILED.value
+        t.save()
+
+    @staticmethod
+    def cancel_transaction(t):
+        t.status = TransactionStatus.CANCELED.value
+        t.save()
+
+    @staticmethod
+    def fail_order(order):
+        order.status = OrderStatus.FAILED.value
+        order.save()
+
+    @staticmethod
+    def cancel_order(order):
+        order.status = OrderStatus.CANCELED.value
+        order.save()
+
+    @staticmethod
+    def complete_order(order):
+        order.status = OrderStatus.COMPLETED.value
+        order.save()
+
+    def get_bonus_balance(self):
+        """
+            # Сумма всех успешных транзакций на пополнение бонусов
+            # Минус сумма всех успешных транзакций на вывод бонусов
+        """
+        user_ct = ContentType.objects.get_for_model(self.me)
+        # TODO учитывать exchange_rate в транзакциях на конвертацию (из бонусов в рубли например)
+        bonus_transactions = Transaction.objects.filter(
+            Q(status=TransactionStatus.COMPLETED.value) &  # Только успешные транзакции
+            Q(
+                Q(  # Уменьшение бонусов на счете пользователя (куда уходят - неважно)
+                    from_ct=user_ct,
+                    from_id=self.me.id,
+                    from_currency=Currency.BONUS.value
+                ) |
+                Q(  # Поступление бонусов на счет пользователя
+                    to_ct=user_ct,
+                    to_id=self.me.id,
+                    to_currency=Currency.BONUS.value
+                )
+            ) &
+            ~Q(  # Исключаем транзакции со своего счета на свой (если вдруг появятся)
+                from_ct=user_ct,
+                from_id=self.me.id,
+                from_currency=Currency.BONUS.value,
+                to_ct=user_ct,
+                to_id=self.me.id,
+                to_currency=Currency.BONUS.value
+            )
+        ).annotate(
+            # Поступление, если транзакция на счет
+            increase=Case(
+                When(
+                    Q(to_ct=user_ct, to_id=self.me.id),
+                    then=True
+                ),
+                default=False,
+                output_field=BooleanField()
+            ),
+            decrease=Case(
+                When(
+                    Q(from_ct=user_ct, from_id=self.me.id),
+                    then=True
+                ),
+                default=False,
+                output_field=BooleanField()
+            )
+        )
+
+        amounts = bonus_transactions.aggregate(
+            increase_amount=Coalesce(Sum('amount', filter=Q(increase=True)), 0),
+            decrease_amount=Coalesce(Sum('amount', filter=Q(decrease=True)), 0)
+        )
+
+        bonus_balance = amounts['increase_amount'] - amounts['decrease_amount']
+
+        return bonus_balance
+
+    def check_bonus_balance_for_decreasing(self, amount):
+        if amount > self.get_bonus_balance():
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
+            ])
+
+    def purchase_coupon(self, partner_id, order_type, amount, terms_accepted, email):
+        coupon = self.get_coupon_by_partner(partner_id=partner_id, amount=amount)
+
+        order = self.create_order(
+            email=email,
+            order_type=order_type,
+            terms_accepted=terms_accepted,
+        )
+
+        from_ct = ContentType.objects.get_for_model(self.me)
+        to_ct = ContentType.objects.get_for_model(coupon)
+        t = self.create_transaction(
+            order=order,
+            amount=amount,
+            t_type=TransactionType.PURCHASE.value,
+            from_id=self.me.id,
+            from_ct=from_ct,
+            from_ct_name=from_ct.model,
+            to_id=coupon.id,
+            to_ct=to_ct,
+            to_ct_name=to_ct.model,
+            comment='Покупка купона'
+        )
+
+        try:
+            with transaction.atomic():
+                self.acquire_coupon(coupon, order)
+                self.complete_decreasing_transaction(t)
+                self.complete_order(order)
+        except ForbiddenException:
+            self.cancel_transaction(t)
+            self.cancel_order(order)
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.YOU_HAVE_THIS_COUPON_ALREADY))
+            ])
+
+        except Exception as e:
+            self.fail_transaction(t)
+            self.fail_order(order)
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
+            ])
+
+        EmailSender.send_coupon_code(order.email, coupon.discount_amount, coupon.code, coupon.partner.distributor.title)
+        return order
+
+    def place_order(self, data):
+        """
+            # Проверить тип заказа
+            # Создать заказ
+            # Проверить баланс
+            # Создать транзакцию
+            # Обновить статус заказа и баланс
+        """
+
+        order_type = data.get('type')
+        amount = data.get('amount')
+        email = data.get('email')
+        terms_accepted = data.get('terms_accepted')
+        partner_id = data.get('partner')
+
+        if order_type == OrderType.GET_COUPON.value:
+            return self.purchase_coupon(partner_id, order_type, amount, terms_accepted, email)
+        if order_type == OrderType.WITHDRAW_BONUS_BY_VOUCHER.value:
+            pass
+
+    @classmethod
+    def deposit_bonuses(cls, amount, to_id, to_ct, to_ct_name):
+        # Начислить бонусы
+        t_type = TransactionType.DEPOSIT.value
+        cls.create_transaction(amount, t_type, to_id, to_ct, to_ct_name, comment='Начисление бонусов')
+
+    def retry_payment(self, order_id):
+        pass
+
+
+class CouponsRepository(MasterRepository):
+    model = Coupon
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.base_query = self.model.objects.filter(usercoupon__user=self.me)
+
+    @staticmethod
+    def fast_related_loading(queryset):
+        return queryset
+
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         if order_by:
             records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
         else:
