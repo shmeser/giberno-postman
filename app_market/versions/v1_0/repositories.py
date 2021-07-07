@@ -2521,10 +2521,16 @@ class AchievementsRepository(MasterRepository):
                 achievement=OuterRef('pk'), user=self.me, completed_at__isnull=False
             )
         )
+        self.achieved_count_expression = Subquery(
+            AchievementProgress.objects.filter(
+                achievement=OuterRef('pk'), user=self.me
+            ).values('achieved_count')[:1]
+        )
 
         self.base_query = self.model.objects.annotate(
             completed_at=self.completed_at_expression,
-            completed=self.completed_expression
+            completed=self.completed_expression,
+            achieved_count=self.achieved_count_expression,
         )
 
     @staticmethod
