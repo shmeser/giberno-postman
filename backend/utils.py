@@ -22,6 +22,7 @@ from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 from ffmpy import FFmpeg
 from loguru import logger
+from timezonefinder import TimezoneFinder
 
 from app_media.enums import MediaFormat, FileDownloadStatus, MimeTypes
 from backend.entity import File as FileEntity
@@ -573,3 +574,13 @@ def get_timezone_name_from_utcoffset(seconds):
         return tz_list[0]
 
     return 'UTC'
+
+
+def get_timezone_name_by_geo(lon, lat):
+    try:
+        tf = TimezoneFinder()
+        timezone_name = tf.timezone_at(lng=lon, lat=lat)  # возвращает tz вида 'Europe/Moscow'
+        return timezone_name
+    except Exception as e:
+        logger.error(e)
+        return 'UTC'

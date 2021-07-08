@@ -2949,7 +2949,7 @@ class FinancesRepository(MasterRepository):
             ),
         )
 
-    def get_grouped_stats(self, interval, paginator=None, timezone_name='Europe/Moscow'):
+    def get_grouped_stats(self, interval, paginator=None, timezone_name='UTC'):
         interval_name = FinancesInterval(interval).name.lower()
 
         transactions = self.base_query.annotate(

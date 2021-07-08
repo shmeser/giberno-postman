@@ -11,7 +11,6 @@ from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer, POSTShopReviewSerializer, DistributorReviewsSerializer, \
     VacancyReviewsSerializer, ShopVacanciesReviewsSerializer
-from app_geo.versions.v1_0.repositories import CitiesRepository
 from app_market.enums import AppealCancelReason, ShiftAppealStatus
 from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
@@ -40,7 +39,8 @@ from backend.errors.enums import ErrorsCodes, RESTErrors
 from backend.errors.http_exceptions import CustomException, HttpException
 from backend.mappers import RequestMapper, DataMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_body, chained_get, get_request_headers, timestamp_to_datetime
+from backend.utils import get_request_body, chained_get, get_request_headers, timestamp_to_datetime, \
+    get_timezone_name_by_geo
 
 
 class Distributors(CRUDAPIView):
@@ -1759,10 +1759,10 @@ class Finances(CRUDAPIView):
         point, *_ = RequestMapper().geo(request)  # *_  - все ненужные распакованные переменные
 
         validator = FinancesValiadator(data=request.query_params)
-
         if validator.is_valid(raise_exception=True):
             dataset = self.repository_class(me=request.user).get_grouped_stats(
-                interval=validator.validated_data.get('interval'), paginator=pagination
+                interval=validator.validated_data.get('interval'), paginator=pagination,
+                timezone_name=get_timezone_name_by_geo(point.x, point.y) if point else 'UTC'
             )
 
             self.many = True
