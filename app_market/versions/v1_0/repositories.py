@@ -2906,7 +2906,10 @@ class FinancesRepository(MasterRepository):
         user_ct = ContentType.objects.get_for_model(self.me)
         # TODO учитывать exchange_rate в транзакциях на конвертацию (из бонусов в рубли например)
         self.base_query = self.model.objects.filter(
-            Q(status=TransactionStatus.COMPLETED.value) &  # Только успешные транзакции
+            Q(
+                status=TransactionStatus.COMPLETED.value,  # Только успешные транзакции
+                kind__isnull=False  # Вид не должен быть пустым
+            ) &
             Q(
                 Q(  # Уменьшение средств на счете пользователя (куда уходят - неважно)
                     from_ct=user_ct,
@@ -2967,7 +2970,7 @@ class FinancesRepository(MasterRepository):
             interval_name
         ).annotate(
             # Общая итоговая сумма со всеми вычетами
-            total=Coalesce(Sum('signed_amount', filter=Q(kind__isnull=False)), 0),  # Вид не должен быть пустым
+            total=Coalesce(Sum('signed_amount'), 0),
             # Сумма всех платежей - вознаграждений за работу
             pay_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.PAY.value)), 0),
             # Сумма всех налогов
