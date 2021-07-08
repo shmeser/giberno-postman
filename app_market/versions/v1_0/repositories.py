@@ -2681,7 +2681,8 @@ class OrdersRepository(MasterRepository):
 
     @staticmethod
     def create_transaction(
-            amount, t_type, to_id, to_ct, to_ct_name, from_id=None, from_ct=None, from_ct_name=None, order=None,
+            amount, t_type, to_id=None, to_ct=None, to_ct_name=None, from_id=None, from_ct=None, from_ct_name=None,
+            order=None,
             comment=None, **kwargs
     ):
         return Transaction.objects.create(
@@ -2761,10 +2762,9 @@ class OrdersRepository(MasterRepository):
             ~Q(  # Исключаем транзакции со своего счета на свой (если вдруг появятся)
                 from_ct=user_ct,
                 from_id=self.me.id,
-                from_currency=Currency.BONUS.value,
+                from_currency=F('to_currency'),
                 to_ct=user_ct,
                 to_id=self.me.id,
-                to_currency=Currency.BONUS.value
             )
         ).annotate(
             # Поступление, если транзакция на счет
@@ -2908,24 +2908,23 @@ class FinancesRepository(MasterRepository):
         self.base_query = self.model.objects.filter(
             Q(status=TransactionStatus.COMPLETED.value) &  # Только успешные транзакции
             Q(
-                Q(  # Уменьшение бонусов на счете пользователя (куда уходят - неважно)
+                Q(  # Уменьшение средств на счете пользователя (куда уходят - неважно)
                     from_ct=user_ct,
                     from_id=self.me.id,
                     from_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value]
                 ) |
-                Q(  # Поступление бонусов на счет пользователя
+                Q(  # Поступление средств на счет пользователя
                     to_ct=user_ct,
                     to_id=self.me.id,
                     to_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value]
                 )
             ) &
-            ~Q(  # Исключаем транзакции со своего счета на свой (если вдруг появятся)
+            ~Q(  # Исключаем транзакции со своего счета на свой в одной валюте (если вдруг появятся)
                 from_ct=user_ct,
                 from_id=self.me.id,
-                from_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value],
+                from_currency=F('to_currency'),
                 to_ct=user_ct,
-                to_id=self.me.id,
-                to_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value]
+                to_id=self.me.id
             )
         ).annotate(
             # Величина транзакции со знаком (со знаком '-' если на уменьшение баланса)
@@ -2952,6 +2951,8 @@ class FinancesRepository(MasterRepository):
     def get_grouped_stats(self, interval, paginator=None, timezone_name='UTC'):
         interval_name = FinancesInterval(interval).name.lower()
 
+        utc_offset = pytz.timezone(timezone_name).utcoffset(datetime.utcnow()).total_seconds()
+
         transactions = self.base_query.annotate(
             # Сокращаем дату до дня в указанной timezone
             day=TruncDay('created_at', tzinfo=timezone(timezone_name)),
@@ -2977,8 +2978,9 @@ class FinancesRepository(MasterRepository):
             penalty_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.PENALTY.value)), 0),
             # Сумма всех вознаграждений за друзей
             friend_reward_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.FRIEND_REWARD.value)), 0),
-            interval=Value(1, output_field=IntegerField()),  # Добавляем тип интервала, переданного с клиента
-            interval_date=F(interval_name)  # Обозначаем выбранный интервал как поле interval_date
+            interval=Value(interval, output_field=IntegerField()),  # Добавляем тип интервала, переданного с клиента
+            interval_date=F(interval_name),  # Обозначаем выбранный интервал как поле interval_date,
+            utc_offset=Value(utc_offset, output_field=IntegerField())  # utc offset для времени
         ).order_by(
             '-interval_date'
         )

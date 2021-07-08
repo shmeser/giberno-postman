@@ -1155,6 +1155,7 @@ class FinancesSerializer(serializers.ModelSerializer):
     friend_reward_amount = serializers.SerializerMethodField()
     interval = serializers.SerializerMethodField()
     interval_date = DateTimeField()
+    utc_offset = serializers.SerializerMethodField()
 
     def get_total(self, data):
         return data['total']
@@ -1177,6 +1178,9 @@ class FinancesSerializer(serializers.ModelSerializer):
     def get_interval(self, data):
         return data['interval']
 
+    def get_utc_offset(self, data):
+        return data['utc_offset']
+
     class Meta:
         model = Transaction
         fields = [
@@ -1188,4 +1192,5 @@ class FinancesSerializer(serializers.ModelSerializer):
             'friend_reward_amount',
             'interval',
             'interval_date',
+            'utc_offset',
         ]
