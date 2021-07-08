@@ -10,7 +10,7 @@ from pytz import timezone
 from rest_framework import serializers
 
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
-    FireByManagerReason, AppealCompleteReason
+    FireByManagerReason, AppealCompleteReason, FinancesInterval
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
     Achievement, Advertisement, Order, Coupon, Transaction
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
@@ -1138,27 +1138,54 @@ class CouponsSerializer(serializers.ModelSerializer):
         ]
 
 
+class FinancesValiadator(serializers.Serializer):
+    interval = serializers.ChoiceField(choices=choices(FinancesInterval))
+    interval_name = serializers.SerializerMethodField()
+
+    def get_interval_name(self, data):
+        return FinancesInterval(data.interval).name.lower()
+
+
 class FinancesSerializer(serializers.ModelSerializer):
-    created_at = DateTimeField()
-    increase = serializers.SerializerMethodField()
-    decrease = serializers.SerializerMethodField()
+    total = serializers.SerializerMethodField()
+    pay_amount = serializers.SerializerMethodField()
+    taxes_amount = serializers.SerializerMethodField()
+    insurance_amount = serializers.SerializerMethodField()
+    penalty_amount = serializers.SerializerMethodField()
+    friend_reward_amount = serializers.SerializerMethodField()
+    interval = serializers.SerializerMethodField()
+    interval_date = DateTimeField()
 
-    def get_increase(self, data):
-        return data.increase
+    def get_total(self, data):
+        return data['total']
 
-    def get_decrease(self, data):
-        return data.decrease
+    def get_pay_amount(self, data):
+        return data['pay_amount']
+
+    def get_taxes_amount(self, data):
+        return data['taxes_amount']
+
+    def get_insurance_amount(self, data):
+        return data['insurance_amount']
+
+    def get_penalty_amount(self, data):
+        return data['penalty_amount']
+
+    def get_friend_reward_amount(self, data):
+        return data['friend_reward_amount']
+
+    def get_interval(self, data):
+        return data['interval']
 
     class Meta:
         model = Transaction
         fields = [
-            'id',
-            'amount',
-            'type',
-            'kind',
-            'status',
-            'comment',
-            'from_currency',
-            'to_currency',
-            'created_at',
+            'total',
+            'pay_amount',
+            'taxes_amount',
+            'insurance_amount',
+            'penalty_amount',
+            'friend_reward_amount',
+            'interval',
+            'interval_date',
         ]

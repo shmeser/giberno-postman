@@ -562,3 +562,14 @@ class MSGteContains(CustomLookupBase):
     # Кастомный lookup для фильтрации DateTime по миллисекундам (в бд записи с точностью до МИКРОсекунд)
     lookup_name = 'ms_gte'
     parametric_string = "DATE_TRUNC('millisecond', %s)::TIMESTAMPTZ >= %s"
+
+
+def get_timezone_name_from_utcoffset(seconds):
+    utc_offset = datetime.timedelta(seconds=seconds)
+    utc_now = datetime.datetime.now(pytz.utc)  # current time UTC
+    tz_list = [tz for tz in map(pytz.timezone, pytz.common_timezones_set) if
+               utc_now.astimezone(tz).utcoffset() == -utc_offset]
+    if tz_list:
+        return tz_list[0]
+
+    return 'UTC'

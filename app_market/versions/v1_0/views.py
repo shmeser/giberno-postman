@@ -11,6 +11,7 @@ from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer, POSTShopReviewSerializer, DistributorReviewsSerializer, \
     VacancyReviewsSerializer, ShopVacanciesReviewsSerializer
+from app_geo.versions.v1_0.repositories import CitiesRepository
 from app_market.enums import AppealCancelReason, ShiftAppealStatus
 from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
@@ -25,7 +26,8 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer, \
     ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
     ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer, AchievementsSerializer, \
-    AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer, FinancesSerializer
+    AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer, FinancesSerializer, \
+    FinancesValiadator
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -1753,18 +1755,20 @@ class Finances(CRUDAPIView):
     }
 
     def get(self, request, **kwargs):
-        filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
-        order_params = RequestMapper(self).order(request)
+        point, *_ = RequestMapper().geo(request)  # *_  - все ненужные распакованные переменные
 
-        dataset = self.repository_class(me=request.user).get_grouped_stats(
-            kwargs=filters, order_by=order_params, paginator=pagination
-        )
+        validator = FinancesValiadator(data=request.query_params)
 
-        self.many = True
+        if validator.is_valid(raise_exception=True):
+            dataset = self.repository_class(me=request.user).get_grouped_stats(
+                interval=validator.validated_data.get('interval'), paginator=pagination
+            )
 
-        serialized = self.serializer_class(dataset, many=self.many, context={
-            'me': request.user,
-            'headers': get_request_headers(request),
-        })
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+            self.many = True
+
+            serialized = self.serializer_class(dataset, many=self.many, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            })
+            return Response(camelize(serialized.data), status=status.HTTP_200_OK)

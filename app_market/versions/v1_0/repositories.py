@@ -12,7 +12,8 @@ from django.contrib.postgres.search import TrigramSimilarity
 from django.db import transaction
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
-from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
+from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce, TruncDay, TruncWeek, TruncMonth, \
+    TruncYear
 from django.utils.timezone import now, localtime
 from loguru import logger
 from pytz import timezone
@@ -22,7 +23,8 @@ from app_chats.models import ChatUser, Chat
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
-    JobStatus, JobStatusForClient, AchievementType, OrderType, TransactionStatus, OrderStatus, Currency, TransactionType
+    JobStatus, JobStatusForClient, AchievementType, OrderType, TransactionStatus, OrderStatus, Currency, \
+    TransactionType, TransactionKind, FinancesInterval
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
     Advertisement, Order, Coupon, UserCoupon, Transaction, PartnerDocument
@@ -2771,22 +2773,18 @@ class OrdersRepository(MasterRepository):
                     Q(to_ct=user_ct, to_id=self.me.id),
                     then=True
                 ),
-                default=False,
-                output_field=BooleanField()
-            ),
-            decrease=Case(
                 When(
                     Q(from_ct=user_ct, from_id=self.me.id),
-                    then=True
+                    then=False
                 ),
                 default=False,
                 output_field=BooleanField()
-            )
+            ),
         )
 
         amounts = bonus_transactions.aggregate(
             increase_amount=Coalesce(Sum('amount', filter=Q(increase=True)), 0),
-            decrease_amount=Coalesce(Sum('amount', filter=Q(decrease=True)), 0)
+            decrease_amount=Coalesce(Sum('amount', filter=Q(increase=False)), 0)
         )
 
         bonus_balance = amounts['increase_amount'] - amounts['decrease_amount']
@@ -2930,26 +2928,61 @@ class FinancesRepository(MasterRepository):
                 to_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value]
             )
         ).annotate(
-            # Поступление, если транзакция на счет
-            increase=Case(
+            # Величина транзакции со знаком (со знаком '-' если на уменьшение баланса)
+            signed_amount=Case(
                 When(
+                    # Входящая транзакция на счет
                     Q(to_ct=user_ct, to_id=self.me.id),
-                    then=True
+                    then=F('amount')  # Оставляем само значение
                 ),
-                default=False,
-                output_field=BooleanField()
-            ),
-            decrease=Case(
                 When(
+                    # Исходящая со счета транзакция
                     Q(from_ct=user_ct, from_id=self.me.id),
-                    then=True
+                    then=ExpressionWrapper(
+                        # Меняем знак величины транзакции (0-amount)
+                        Value(0, output_field=IntegerField()) - F('amount'),
+                        output_field=IntegerField()
+                    )
                 ),
-                default=False,
-                output_field=BooleanField()
-            )
+                default=0,
+                output_field=IntegerField()
+            ),
         )
 
-    def get_grouped_stats(self, kwargs, paginator=None, order_by: list = None):
-        transactions = self.base_query.all()
+    def get_grouped_stats(self, interval, paginator=None, timezone_name='Europe/Moscow'):
+        interval_name = FinancesInterval(interval).name.lower()
 
+        transactions = self.base_query.annotate(
+            # Сокращаем дату до дня в указанной timezone
+            day=TruncDay('created_at', tzinfo=timezone(timezone_name)),
+            # Сокращаем дату до начала недели в указанной timezone
+            week=TruncWeek('created_at', tzinfo=timezone(timezone_name)),
+            # Сокращаем дату до начала месяца в указанной timezone
+            month=TruncMonth('created_at', tzinfo=timezone(timezone_name)),
+            # Сокращаем дату до начала года в указанной timezone
+            year=TruncYear('created_at', tzinfo=timezone(timezone_name)),
+        ).values(
+            # Группируем (GROUP BY) по нужному интервалу
+            interval_name
+        ).annotate(
+            # Общая итоговая сумма со всеми вычетами
+            total=Coalesce(Sum('signed_amount', filter=Q(kind__isnull=False)), 0),  # Вид не должен быть пустым
+            # Сумма всех платежей - вознаграждений за работу
+            pay_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.PAY.value)), 0),
+            # Сумма всех налогов
+            taxes_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.TAXES.value)), 0),
+            # Сумма всех страховок
+            insurance_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.INSURANCE.value)), 0),
+            # Сумма всех штрафов
+            penalty_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.PENALTY.value)), 0),
+            # Сумма всех вознаграждений за друзей
+            friend_reward_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.FRIEND_REWARD.value)), 0),
+            interval=Value(1, output_field=IntegerField()),  # Добавляем тип интервала, переданного с клиента
+            interval_date=F(interval_name)  # Обозначаем выбранный интервал как поле interval_date
+        ).order_by(
+            '-interval_date'
+        )
+
+        if paginator:
+            return transactions[paginator.offset:paginator.limit]
         return transactions

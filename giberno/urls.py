@@ -6,7 +6,6 @@ from django.urls import path, include
 from app_users.views import social_web_auth, login
 from frontend.views import PolicyView, AgreementView, DocumentsView, TermsView
 from giberno import settings
-from giberno.yasg import urlpatterns as doc_urls
 
 urlpatterns = [
                   path('django/admin/', admin.site.urls),
@@ -39,7 +38,6 @@ v1_0_urls = [
     path(v1_0, include(('app_chats.urls', 'chats_1_0'))),
 ]
 
-urlpatterns += doc_urls
 urlpatterns += social_web_auth
 urlpatterns += service_urls
 

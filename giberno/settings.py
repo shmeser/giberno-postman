@@ -22,7 +22,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'fcm_django',
-    'drf_yasg',
     'celery',
     'constance',
     'social_django',
