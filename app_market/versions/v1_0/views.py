@@ -16,7 +16,7 @@ from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
     MarketDocumentsRepository, PartnersRepository, AchievementsRepository, AdvertisementsRepository, OrdersRepository, \
-    CouponsRepository
+    CouponsRepository, FinancesRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
@@ -25,7 +25,8 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer, \
     ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
     ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer, AchievementsSerializer, \
-    AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer
+    AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer, FinancesSerializer, \
+    FinancesValiadator
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -38,7 +39,8 @@ from backend.errors.enums import ErrorsCodes, RESTErrors
 from backend.errors.http_exceptions import CustomException, HttpException
 from backend.mappers import RequestMapper, DataMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_body, chained_get, get_request_headers, timestamp_to_datetime
+from backend.utils import get_request_body, chained_get, get_request_headers, timestamp_to_datetime, \
+    get_timezone_name_by_geo
 
 
 class Distributors(CRUDAPIView):
@@ -1741,3 +1743,32 @@ class Coupons(CRUDAPIView):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class Finances(CRUDAPIView):
+    serializer_class = FinancesSerializer
+    repository_class = FinancesRepository
+    allowed_http_methods = ['get']
+
+    order_params = {
+        'date': 'date'
+    }
+
+    def get(self, request, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        point, *_ = RequestMapper().geo(request)  # *_  - все ненужные распакованные переменные
+
+        validator = FinancesValiadator(data=request.query_params)
+        if validator.is_valid(raise_exception=True):
+            dataset = self.repository_class(me=request.user).get_grouped_stats(
+                interval=validator.validated_data.get('interval'), paginator=pagination,
+                timezone_name=get_timezone_name_by_geo(point.x, point.y) if point else 'UTC'
+            )
+
+            self.many = True
+
+            serialized = self.serializer_class(dataset, many=self.many, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            })
+            return Response(camelize(serialized.data), status=status.HTTP_200_OK)

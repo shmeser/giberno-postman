@@ -12,7 +12,8 @@ from django.contrib.postgres.search import TrigramSimilarity
 from django.db import transaction
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
-from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
+from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce, TruncDay, TruncWeek, TruncMonth, \
+    TruncYear
 from django.utils.timezone import now, localtime
 from loguru import logger
 from pytz import timezone
@@ -22,7 +23,8 @@ from app_chats.models import ChatUser, Chat
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
-    JobStatus, JobStatusForClient, AchievementType, OrderType, TransactionStatus, OrderStatus, Currency, TransactionType
+    JobStatus, JobStatusForClient, AchievementType, OrderType, TransactionStatus, OrderStatus, Currency, \
+    TransactionType, TransactionKind, FinancesInterval
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
     Advertisement, Order, Coupon, UserCoupon, Transaction, PartnerDocument
@@ -2679,7 +2681,8 @@ class OrdersRepository(MasterRepository):
 
     @staticmethod
     def create_transaction(
-            amount, t_type, to_id, to_ct, to_ct_name, from_id=None, from_ct=None, from_ct_name=None, order=None,
+            amount, t_type, to_id=None, to_ct=None, to_ct_name=None, from_id=None, from_ct=None, from_ct_name=None,
+            order=None,
             comment=None, **kwargs
     ):
         return Transaction.objects.create(
@@ -2759,10 +2762,9 @@ class OrdersRepository(MasterRepository):
             ~Q(  # Исключаем транзакции со своего счета на свой (если вдруг появятся)
                 from_ct=user_ct,
                 from_id=self.me.id,
-                from_currency=Currency.BONUS.value,
+                from_currency=F('to_currency'),
                 to_ct=user_ct,
                 to_id=self.me.id,
-                to_currency=Currency.BONUS.value
             )
         ).annotate(
             # Поступление, если транзакция на счет
@@ -2771,22 +2773,18 @@ class OrdersRepository(MasterRepository):
                     Q(to_ct=user_ct, to_id=self.me.id),
                     then=True
                 ),
-                default=False,
-                output_field=BooleanField()
-            ),
-            decrease=Case(
                 When(
                     Q(from_ct=user_ct, from_id=self.me.id),
-                    then=True
+                    then=False
                 ),
                 default=False,
                 output_field=BooleanField()
-            )
+            ),
         )
 
         amounts = bonus_transactions.aggregate(
             increase_amount=Coalesce(Sum('amount', filter=Q(increase=True)), 0),
-            decrease_amount=Coalesce(Sum('amount', filter=Q(decrease=True)), 0)
+            decrease_amount=Coalesce(Sum('amount', filter=Q(increase=False)), 0)
         )
 
         bonus_balance = amounts['increase_amount'] - amounts['decrease_amount']
@@ -2896,3 +2894,100 @@ class CouponsRepository(MasterRepository):
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
+
+
+class FinancesRepository(MasterRepository):
+    model = Transaction
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        user_ct = ContentType.objects.get_for_model(self.me)
+        # TODO учитывать exchange_rate в транзакциях на конвертацию (из бонусов в рубли например)
+        self.base_query = self.model.objects.filter(
+            Q(
+                status=TransactionStatus.COMPLETED.value,  # Только успешные транзакции
+                kind__isnull=False  # Вид не должен быть пустым
+            ) &
+            Q(
+                Q(  # Уменьшение средств на счете пользователя (куда уходят - неважно)
+                    from_ct=user_ct,
+                    from_id=self.me.id,
+                    from_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value]
+                ) |
+                Q(  # Поступление средств на счет пользователя
+                    to_ct=user_ct,
+                    to_id=self.me.id,
+                    to_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value]
+                )
+            ) &
+            ~Q(  # Исключаем транзакции со своего счета на свой в одной валюте (если вдруг появятся)
+                from_ct=user_ct,
+                from_id=self.me.id,
+                from_currency=F('to_currency'),
+                to_ct=user_ct,
+                to_id=self.me.id
+            )
+        ).annotate(
+            # Величина транзакции со знаком (со знаком '-' если на уменьшение баланса)
+            signed_amount=Case(
+                When(
+                    # Входящая транзакция на счет
+                    Q(to_ct=user_ct, to_id=self.me.id),
+                    then=F('amount')  # Оставляем само значение
+                ),
+                When(
+                    # Исходящая со счета транзакция
+                    Q(from_ct=user_ct, from_id=self.me.id),
+                    then=ExpressionWrapper(
+                        # Меняем знак величины транзакции (0-amount)
+                        Value(0, output_field=IntegerField()) - F('amount'),
+                        output_field=IntegerField()
+                    )
+                ),
+                default=0,
+                output_field=IntegerField()
+            ),
+        )
+
+    def get_grouped_stats(self, interval, paginator=None, timezone_name='UTC'):
+        interval_name = FinancesInterval(interval).name.lower()
+
+        utc_offset = pytz.timezone(timezone_name).utcoffset(datetime.utcnow()).total_seconds()
+
+        transactions = self.base_query.annotate(
+            # Сокращаем дату до дня в указанной timezone
+            day=TruncDay('created_at', tzinfo=timezone(timezone_name)),
+            # Сокращаем дату до начала недели в указанной timezone
+            week=TruncWeek('created_at', tzinfo=timezone(timezone_name)),
+            # Сокращаем дату до начала месяца в указанной timezone
+            month=TruncMonth('created_at', tzinfo=timezone(timezone_name)),
+            # Сокращаем дату до начала года в указанной timezone
+            year=TruncYear('created_at', tzinfo=timezone(timezone_name)),
+        ).values(
+            # Группируем (GROUP BY) по нужному интервалу
+            interval_name
+        ).annotate(
+            # Общая итоговая сумма со всеми вычетами
+            total=Coalesce(Sum('signed_amount'), 0),
+            # Сумма всех платежей - вознаграждений за работу
+            pay_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.PAY.value)), 0),
+            # Сумма всех налогов
+            taxes_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.TAXES.value)), 0),
+            # Сумма всех страховок
+            insurance_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.INSURANCE.value)), 0),
+            # Сумма всех штрафов
+            penalty_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.PENALTY.value)), 0),
+            # Сумма всех вознаграждений за друзей
+            friend_reward_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.FRIEND_REWARD.value)), 0),
+            interval=Value(interval, output_field=IntegerField()),  # Добавляем тип интервала, переданного с клиента
+            interval_date=F(interval_name),  # Обозначаем выбранный интервал как поле interval_date,
+            utc_offset=Value(utc_offset, output_field=IntegerField())  # utc offset для времени
+        ).order_by(
+            '-interval_date'
+        )
+
+        if paginator:
+            return transactions[paginator.offset:paginator.limit]
+        return transactions

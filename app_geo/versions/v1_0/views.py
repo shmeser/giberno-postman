@@ -233,7 +233,7 @@ def cities_suggestions(request):
 
 @api_view(['GET'])
 def geocode(request):
-    point = RequestMapper().geo(request, raise_exception=True)[0]
+    point, *_ = RequestMapper().geo(request, raise_exception=True)
     dataset = CitiesRepository().geocode(point)
 
     # SpeedUp

@@ -22,6 +22,7 @@ from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 from ffmpy import FFmpeg
 from loguru import logger
+from timezonefinder import TimezoneFinder
 
 from app_media.enums import MediaFormat, FileDownloadStatus, MimeTypes
 from backend.entity import File as FileEntity
@@ -562,3 +563,24 @@ class MSGteContains(CustomLookupBase):
     # Кастомный lookup для фильтрации DateTime по миллисекундам (в бд записи с точностью до МИКРОсекунд)
     lookup_name = 'ms_gte'
     parametric_string = "DATE_TRUNC('millisecond', %s)::TIMESTAMPTZ >= %s"
+
+
+def get_timezone_name_from_utcoffset(seconds):
+    utc_offset = datetime.timedelta(seconds=seconds)
+    utc_now = datetime.datetime.now(pytz.utc)  # current time UTC
+    tz_list = [tz for tz in map(pytz.timezone, pytz.common_timezones_set) if
+               utc_now.astimezone(tz).utcoffset() == -utc_offset]
+    if tz_list:
+        return tz_list[0]
+
+    return 'UTC'
+
+
+def get_timezone_name_by_geo(lon, lat):
+    try:
+        tf = TimezoneFinder()
+        timezone_name = tf.timezone_at(lng=lon, lat=lat)  # возвращает tz вида 'Europe/Moscow'
+        return timezone_name
+    except Exception as e:
+        logger.error(e)
+        return 'UTC'
