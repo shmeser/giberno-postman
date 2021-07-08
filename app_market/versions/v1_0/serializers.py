@@ -12,7 +12,7 @@ from rest_framework import serializers
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
-    Achievement, Advertisement, Order, Coupon
+    Achievement, Advertisement, Order, Coupon, Transaction
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -1134,5 +1134,31 @@ class CouponsSerializer(serializers.ModelSerializer):
             'discount_amount',
             'discount_terms',
             'discount_description',
+            'created_at',
+        ]
+
+
+class FinancesSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+    increase = serializers.SerializerMethodField()
+    decrease = serializers.SerializerMethodField()
+
+    def get_increase(self, data):
+        return data.increase
+
+    def get_decrease(self, data):
+        return data.decrease
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'id',
+            'amount',
+            'type',
+            'kind',
+            'status',
+            'comment',
+            'from_currency',
+            'to_currency',
             'created_at',
         ]

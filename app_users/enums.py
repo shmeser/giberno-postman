@@ -108,3 +108,16 @@ REQUIRED_DOCS_DICT = {
     DocumentType.MEDICAL_BOOK: 'Медкнижка',
     DocumentType.DRIVER_LICENCE: 'Водительское удостоверение',
 }
+
+
+class CardType(IntEnumM):
+    DEBIT = 1  # Дебетовая
+    CREDIT = 2  # Кредитная
+    PREPAID = 3  # Предоплаченная (виртуальная и т.д.)
+
+
+class CardPaymentNetwork(IntEnumM):
+    UNKNOWN = 0
+    VISA = 1
+    MASTERCARD = 2
+    MIR = 3

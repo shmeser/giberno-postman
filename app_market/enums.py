@@ -30,6 +30,7 @@ class TransactionType(IntEnumM):
     WITHDRAWAL = 3  # Вывод
     PURCHASE = 4  # Покупка
     RETURN = 5  # Возврат
+    COMMISSION = 6  # Комиссия
 
 
 class TransactionStatus(IntEnumM):
@@ -38,6 +39,14 @@ class TransactionStatus(IntEnumM):
     CANCELED = 2  # Отменена (отмена холдирования)
     FAILED = 3  # Ошибка выполнения (недостаточно средств или сбой)
     COMPLETED = 4  # Успешно завершена
+
+
+class TransactionKind(IntEnumM):
+    PAY = 1  # Вознаграждение (зарплата)
+    TAXES = 2  # Налоги
+    INSURANCE = 3  # Страховка
+    PENALTY = 4  # Штраф
+    FRIEND_REWARD = 5  # Вознаграждение за друга
 
 
 class VacancyEmployment(IntEnumM):
@@ -139,3 +148,10 @@ class JobStatus(IntEnumM):
 class AchievementType(IntEnumM):
     SAME_DISTRIBUTOR_SHIFT = 1  # Успешное завершение смены в одной торговой сети
     EARLY_SHIFT = 2  # Работа в ранних сменах
+
+
+class FinancesInterval(IntEnumM):
+    DAY = 1
+    WEEK = 2
+    MONTH = 3
+    YEAR = 4

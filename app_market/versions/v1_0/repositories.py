@@ -2896,3 +2896,60 @@ class CouponsRepository(MasterRepository):
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
+
+
+class FinancesRepository(MasterRepository):
+    model = Transaction
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        user_ct = ContentType.objects.get_for_model(self.me)
+        # TODO учитывать exchange_rate в транзакциях на конвертацию (из бонусов в рубли например)
+        self.base_query = self.model.objects.filter(
+            Q(status=TransactionStatus.COMPLETED.value) &  # Только успешные транзакции
+            Q(
+                Q(  # Уменьшение бонусов на счете пользователя (куда уходят - неважно)
+                    from_ct=user_ct,
+                    from_id=self.me.id,
+                    from_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value]
+                ) |
+                Q(  # Поступление бонусов на счет пользователя
+                    to_ct=user_ct,
+                    to_id=self.me.id,
+                    to_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value]
+                )
+            ) &
+            ~Q(  # Исключаем транзакции со своего счета на свой (если вдруг появятся)
+                from_ct=user_ct,
+                from_id=self.me.id,
+                from_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value],
+                to_ct=user_ct,
+                to_id=self.me.id,
+                to_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value]
+            )
+        ).annotate(
+            # Поступление, если транзакция на счет
+            increase=Case(
+                When(
+                    Q(to_ct=user_ct, to_id=self.me.id),
+                    then=True
+                ),
+                default=False,
+                output_field=BooleanField()
+            ),
+            decrease=Case(
+                When(
+                    Q(from_ct=user_ct, from_id=self.me.id),
+                    then=True
+                ),
+                default=False,
+                output_field=BooleanField()
+            )
+        )
+
+    def get_grouped_stats(self, kwargs, paginator=None, order_by: list = None):
+        transactions = self.base_query.all()
+
+        return transactions
