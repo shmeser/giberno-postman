@@ -209,7 +209,7 @@ class TestMoneyPay(APIView):
                     from_ct=user_ct,
                     from_ct_name=user_ct.model,
                     from_id=request.user.id,
-                    comment='Тестовое списание средств на страховку',
+                    comment='Тестовое списание средств за страховку',
                     **{
                         'status': TransactionStatus.COMPLETED.value,
                         'from_currency': Currency.RUB.value,
@@ -222,6 +222,138 @@ class TestMoneyPay(APIView):
 
             title = 'Начислены деньги'
             message = f'Начисление {amount} рублей на Ваш счет.'
+            action = NotificationAction.USER.value
+            subject_id = request.user.id
+            notification_type = NotificationType.SYSTEM.value
+            icon_type = NotificationIcon.DEFAULT.value
+
+            # uuid для массовой рассылки оповещений,
+            # у пользователей в бд будут созданы оповещения с одинаковым uuid
+            # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+            common_uuid = uuid.uuid4()
+
+            PushController().send_notification(
+                users_to_send=[request.user],
+                title=title,
+                message=message,
+                common_uuid=common_uuid,
+                action=action,
+                subject_id=subject_id,
+                notification_type=notification_type,
+                icon_type=icon_type,
+            )
+
+            # Отправка уведомления по сокетам
+            SocketController(request.user, version='1.0').send_notification_to_my_connection({
+                'title': title,
+                'message': message,
+                'uuid': str(common_uuid),
+                'action': action,
+                'subjectId': subject_id,
+                'notificationType': notification_type,
+                'iconType': icon_type,
+            })
+
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class TestMoneyReward(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        body = get_request_body(request)
+        validator = MoneyValidator(data=body)
+
+        if validator.is_valid(raise_exception=True):
+            user_ct = ContentType.objects.get_for_model(request.user)
+
+            amount = validator.validated_data.get('amount')
+
+            pay = OrdersRepository.create_transaction(
+                amount=amount,
+                t_type=TransactionType.TEST.value,
+                to_ct=user_ct,
+                to_ct_name=user_ct.model,
+                to_id=request.user.id,
+                comment='Тестовое начисление вознаграждения за друга',
+                **{
+                    'status': TransactionStatus.COMPLETED.value,
+                    'from_currency': Currency.RUB.value,
+                    'to_currency': Currency.RUB.value,
+                    'kind': TransactionKind.FRIEND_REWARD.value,
+                }
+            )
+            pay.created_at = validator.validated_data.get('date')
+            pay.save()
+
+            title = 'Начислены деньги'
+            message = f'Начисление вознаграждения за друга в размере {amount} рублей.'
+            action = NotificationAction.USER.value
+            subject_id = request.user.id
+            notification_type = NotificationType.SYSTEM.value
+            icon_type = NotificationIcon.DEFAULT.value
+
+            # uuid для массовой рассылки оповещений,
+            # у пользователей в бд будут созданы оповещения с одинаковым uuid
+            # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+            common_uuid = uuid.uuid4()
+
+            PushController().send_notification(
+                users_to_send=[request.user],
+                title=title,
+                message=message,
+                common_uuid=common_uuid,
+                action=action,
+                subject_id=subject_id,
+                notification_type=notification_type,
+                icon_type=icon_type,
+            )
+
+            # Отправка уведомления по сокетам
+            SocketController(request.user, version='1.0').send_notification_to_my_connection({
+                'title': title,
+                'message': message,
+                'uuid': str(common_uuid),
+                'action': action,
+                'subjectId': subject_id,
+                'notificationType': notification_type,
+                'iconType': icon_type,
+            })
+
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class TestMoneyPenalty(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        body = get_request_body(request)
+        validator = MoneyValidator(data=body)
+
+        if validator.is_valid(raise_exception=True):
+            user_ct = ContentType.objects.get_for_model(request.user)
+
+            amount = validator.validated_data.get('amount')
+
+            pay = OrdersRepository.create_transaction(
+                amount=amount,
+                t_type=TransactionType.TEST.value,
+                from_ct=user_ct,
+                from_ct_name=user_ct.model,
+                from_id=request.user.id,
+                comment='Тестовый штраф',
+                **{
+                    'status': TransactionStatus.COMPLETED.value,
+                    'from_currency': Currency.RUB.value,
+                    'to_currency': Currency.RUB.value,
+                    'kind': TransactionKind.PENALTY.value,
+                }
+            )
+            pay.created_at = validator.validated_data.get('date')
+            pay.save()
+
+            title = 'Списаны деньги'
+            message = f'Вам выписан штраф и списаны средства в размере {amount} рублей.'
             action = NotificationAction.USER.value
             subject_id = request.user.id
             notification_type = NotificationType.SYSTEM.value
