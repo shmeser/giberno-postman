@@ -10,10 +10,12 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_market.enums import TransactionType, TransactionStatus, Currency, TransactionKind
-from app_market.versions.v1_0.repositories import OrdersRepository
+from app_market.versions.v1_0.repositories import OrdersRepository, TransactionsRepository
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationIcon, NotificationType
 from app_users.models import UserProfile
+from app_users.versions.v1_0.repositories import CardsRepository
+from app_users.versions.v1_0.serializers import CardsValidator, CardsSerializer
 from backend.controllers import PushController
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exceptions import HttpException
@@ -108,6 +110,8 @@ class TestBonusesDeposit(APIView):
 
         request.user.bonus_balance += amount
         request.user.save()
+
+        TransactionsRepository(request.user).recalculate_money(currency=Currency.BONUS.value)
 
         title = 'Начислены бонусы'
         message = f'Начисление {amount} очков славы'
@@ -220,6 +224,8 @@ class TestMoneyPay(APIView):
                 ins.created_at = validator.validated_data.get('date')
                 ins.save()
 
+            TransactionsRepository(request.user).recalculate_money(currency=Currency.RUB.value)
+
             title = 'Начислены деньги'
             message = f'Начисление {amount} рублей на Ваш счет.'
             action = NotificationAction.USER.value
@@ -285,6 +291,8 @@ class TestMoneyReward(APIView):
             )
             pay.created_at = validator.validated_data.get('date')
             pay.save()
+
+            TransactionsRepository(request.user).recalculate_money(currency=Currency.RUB.value)
 
             title = 'Начислены деньги'
             message = f'Начисление вознаграждения за друга в размере {amount} рублей.'
@@ -352,6 +360,8 @@ class TestMoneyPenalty(APIView):
             pay.created_at = validator.validated_data.get('date')
             pay.save()
 
+            TransactionsRepository(request.user).recalculate_money(currency=Currency.RUB.value)
+
             title = 'Списаны деньги'
             message = f'Вам выписан штраф и списаны средства в размере {amount} рублей.'
             action = NotificationAction.USER.value
@@ -387,3 +397,16 @@ class TestMoneyPenalty(APIView):
             })
 
             return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class TestCards(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        body = get_request_body(request)
+        validator = CardsValidator(data=body)
+
+        if validator.is_valid(raise_exception=True):
+            card = CardsRepository(me=request.user).add_card(real_pan=body.get('pan'), data=validator.validated_data)
+            serializer = CardsSerializer(card, many=False)
+            return Response(camelize(serializer.data), status=status.HTTP_200_OK)

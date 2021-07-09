@@ -367,3 +367,17 @@ class UserCareer(APIView):
         if request.version in ['users_1_0']:
             return v1_0.UserCareer().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class MyProfileCards(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileCards().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileCards().delete(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
