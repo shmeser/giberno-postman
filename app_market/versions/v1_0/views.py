@@ -16,7 +16,7 @@ from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
     MarketDocumentsRepository, PartnersRepository, AchievementsRepository, AdvertisementsRepository, OrdersRepository, \
-    CouponsRepository, FinancesRepository
+    CouponsRepository, TransactionsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
@@ -31,7 +31,8 @@ from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSe
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
-from app_users.versions.v1_0.repositories import ProfileRepository
+from app_users.versions.v1_0.repositories import ProfileRepository, MoneyRepository
+from app_users.versions.v1_0.serializers import MoneySerializer
 from backend.api_views import BaseAPIView
 from backend.controllers import PushController
 from backend.entity import Error
@@ -1747,7 +1748,7 @@ class Coupons(CRUDAPIView):
 
 class Finances(CRUDAPIView):
     serializer_class = FinancesSerializer
-    repository_class = FinancesRepository
+    repository_class = TransactionsRepository
     allowed_http_methods = ['get']
 
     order_params = {
@@ -1761,7 +1762,9 @@ class Finances(CRUDAPIView):
         validator = FinancesValiadator(data=request.query_params)
         if validator.is_valid(raise_exception=True):
             dataset = self.repository_class(me=request.user).get_grouped_stats(
-                interval=validator.validated_data.get('interval'), paginator=pagination,
+                interval=validator.validated_data.get('interval'),
+                currency=validator.validated_data.get('currency'),
+                paginator=pagination,
                 timezone_name=get_timezone_name_by_geo(point.x, point.y) if point else 'UTC'
             )
 
@@ -1772,3 +1775,10 @@ class Finances(CRUDAPIView):
                 'headers': get_request_headers(request),
             })
             return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def get_my_money(request):
+    money_balances = MoneyRepository(me=request.user).get_my_money()
+    serializer = MoneySerializer(money_balances, many=True, context={'me': request.user})
+    return Response(camelize(serializer.data), status=status.HTTP_200_OK)

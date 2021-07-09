@@ -667,3 +667,11 @@ class Finances(APIView):
             return v1_0.Finances().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+@api_view(['GET'])
+def get_my_money(request):
+    if request.version in ['market_1_0']:
+        return v1_0.get_my_money(request._request)
+
+    raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)

@@ -19,7 +19,7 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType, NotificationType
 from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification, UserCareer, \
-    Document, Card
+    Document, Card, UserMoney
 from app_users.utils import validate_username, generate_username, generate_password, EmailSender
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -755,3 +755,14 @@ class CardsRepository(MasterRepository):
             self.me.cards.exclude(pk=card.id).update(deleted=True, updated_at=now())
 
         return card
+
+
+class MoneyRepository(MasterRepository):
+    model = UserMoney
+
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    def get_my_money(self):
+        return UserMoney.objects.filter(user=self.me)

@@ -20,7 +20,7 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import LanguageProficiency, CardType, CardPaymentNetwork
 from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
-    NotificationsSettings, UserCity, UserCareer, Document, Card
+    NotificationsSettings, UserCity, UserCareer, Document, Card, UserMoney
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository, \
     CareerRepository, DocumentsRepository
 from backend.entity import Error
@@ -775,4 +775,14 @@ class CardsSerializer(serializers.ModelSerializer):
             'type',
             'payment_network',
             'issuer',
+        ]
+
+
+class MoneySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserMoney
+        fields = [
+            'id',
+            'currency',
+            'amount',
         ]

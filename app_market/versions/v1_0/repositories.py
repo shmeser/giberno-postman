@@ -32,7 +32,7 @@ from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_users.enums import AccountType, DocumentType
-from app_users.models import UserProfile, Document
+from app_users.models import UserProfile, Document, UserMoney
 from app_users.utils import EmailSender
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -2896,7 +2896,7 @@ class CouponsRepository(MasterRepository):
         )
 
 
-class FinancesRepository(MasterRepository):
+class TransactionsRepository(MasterRepository):
     model = Transaction
 
     def __init__(self, me=None):
@@ -2914,12 +2914,10 @@ class FinancesRepository(MasterRepository):
                 Q(  # Уменьшение средств на счете пользователя (куда уходят - неважно)
                     from_ct=user_ct,
                     from_id=self.me.id,
-                    from_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value]
                 ) |
                 Q(  # Поступление средств на счет пользователя
                     to_ct=user_ct,
                     to_id=self.me.id,
-                    to_currency__in=[Currency.RUB.value, Currency.EUR.value, Currency.USD.value]
                 )
             ) &
             ~Q(  # Исключаем транзакции со своего счета на свой в одной валюте (если вдруг появятся)
@@ -2951,12 +2949,15 @@ class FinancesRepository(MasterRepository):
             ),
         )
 
-    def get_grouped_stats(self, interval, paginator=None, timezone_name='UTC'):
+    def get_grouped_stats(self, interval, currency, paginator=None, timezone_name='UTC'):
         interval_name = FinancesInterval(interval).name.lower()
 
         utc_offset = pytz.timezone(timezone_name).utcoffset(datetime.utcnow()).total_seconds()
 
-        transactions = self.base_query.annotate(
+        transactions = self.base_query.filter(
+            Q(from_currency=currency) |
+            Q(to_currency=currency)
+        ).annotate(
             # Сокращаем дату до дня в указанной timezone
             day=TruncDay('created_at', tzinfo=timezone(timezone_name)),
             # Сокращаем дату до начала недели в указанной timezone
@@ -2991,3 +2992,66 @@ class FinancesRepository(MasterRepository):
         if paginator:
             return transactions[paginator.offset:paginator.limit]
         return transactions
+
+    def recalculate_money(self, currency=Currency.RUB.value):
+        user_ct = ContentType.objects.get_for_model(self.me)
+        # TODO учитывать exchange_rate в транзакциях на конвертацию (из бонусов в рубли например)
+        transactions = self.model.objects.filter(
+            Q(
+                status=TransactionStatus.COMPLETED.value,  # Только успешные транзакции
+                kind__isnull=False  # Вид не должен быть пустым
+            ) &
+            Q(
+                Q(  # Уменьшение средств на счете пользователя (куда уходят - неважно)
+                    from_ct=user_ct,
+                    from_id=self.me.id,
+                    from_currency=currency
+                ) |
+                Q(  # Поступление средств на счет пользователя
+                    to_ct=user_ct,
+                    to_id=self.me.id,
+                    to_currency=currency
+                )
+            ) &
+            ~Q(  # Исключаем транзакции со своего счета на свой в одной валюте (если вдруг появятся)
+                from_ct=user_ct,
+                from_id=self.me.id,
+                from_currency=F('to_currency'),
+                to_ct=user_ct,
+                to_id=self.me.id
+            )
+        ).annotate(
+            # Величина транзакции со знаком (со знаком '-' если на уменьшение баланса)
+            signed_amount=Case(
+                When(
+                    # Входящая транзакция на счет
+                    Q(to_ct=user_ct, to_id=self.me.id),
+                    then=F('amount')  # Оставляем само значение
+                ),
+                When(
+                    # Исходящая со счета транзакция
+                    Q(from_ct=user_ct, from_id=self.me.id),
+                    then=ExpressionWrapper(
+                        # Меняем знак величины транзакции (0-amount)
+                        Value(0, output_field=IntegerField()) - F('amount'),
+                        output_field=IntegerField()
+                    )
+                ),
+                default=0,
+                output_field=IntegerField()
+            ),
+        )
+
+        money_balance = transactions.aggregate(
+            total=Coalesce(Sum('signed_amount'), 0),
+        )['total']
+
+        money, created = UserMoney.objects.get_or_create(
+            user=self.me,
+            currency=currency
+        )
+
+        money.amount = money_balance
+        money.save()
+
+

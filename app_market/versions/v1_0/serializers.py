@@ -10,7 +10,7 @@ from pytz import timezone
 from rest_framework import serializers
 
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
-    FireByManagerReason, AppealCompleteReason, FinancesInterval
+    FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
     Achievement, Advertisement, Order, Coupon, Transaction
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
@@ -1140,6 +1140,7 @@ class CouponsSerializer(serializers.ModelSerializer):
 
 class FinancesValiadator(serializers.Serializer):
     interval = serializers.ChoiceField(choices=choices(FinancesInterval))
+    currency = serializers.ChoiceField(choices=choices(Currency))
     interval_name = serializers.SerializerMethodField()
 
     def get_interval_name(self, data):

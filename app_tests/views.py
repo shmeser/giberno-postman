@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from app_market.enums import TransactionType, TransactionStatus, Currency, TransactionKind
-from app_market.versions.v1_0.repositories import OrdersRepository
+from app_market.versions.v1_0.repositories import OrdersRepository, TransactionsRepository
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationIcon, NotificationType
 from app_users.models import UserProfile
@@ -222,6 +222,8 @@ class TestMoneyPay(APIView):
                 ins.created_at = validator.validated_data.get('date')
                 ins.save()
 
+            TransactionsRepository(request.user).recalculate_money(currency=Currency.RUB.value)
+
             title = 'Начислены деньги'
             message = f'Начисление {amount} рублей на Ваш счет.'
             action = NotificationAction.USER.value
@@ -288,6 +290,8 @@ class TestMoneyReward(APIView):
             pay.created_at = validator.validated_data.get('date')
             pay.save()
 
+            TransactionsRepository(request.user).recalculate_money(currency=Currency.RUB.value)
+
             title = 'Начислены деньги'
             message = f'Начисление вознаграждения за друга в размере {amount} рублей.'
             action = NotificationAction.USER.value
@@ -353,6 +357,8 @@ class TestMoneyPenalty(APIView):
             )
             pay.created_at = validator.validated_data.get('date')
             pay.save()
+
+            TransactionsRepository(request.user).recalculate_money(currency=Currency.RUB.value)
 
             title = 'Списаны деньги'
             message = f'Вам выписан штраф и списаны средства в размере {amount} рублей.'
