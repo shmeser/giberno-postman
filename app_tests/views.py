@@ -111,6 +111,8 @@ class TestBonusesDeposit(APIView):
         request.user.bonus_balance += amount
         request.user.save()
 
+        TransactionsRepository(request.user).recalculate_money(currency=Currency.BONUS.value)
+
         title = 'Начислены бонусы'
         message = f'Начисление {amount} очков славы'
         action = NotificationAction.USER.value

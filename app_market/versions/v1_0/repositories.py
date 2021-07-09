@@ -2995,11 +2995,17 @@ class TransactionsRepository(MasterRepository):
 
     def recalculate_money(self, currency=Currency.RUB.value):
         user_ct = ContentType.objects.get_for_model(self.me)
+        # TODO kind для бонусов
+
+        kind_is_null = False
+        if currency == Currency.BONUS.value:
+            kind_is_null = True
+
         # TODO учитывать exchange_rate в транзакциях на конвертацию (из бонусов в рубли например)
         transactions = self.model.objects.filter(
             Q(
                 status=TransactionStatus.COMPLETED.value,  # Только успешные транзакции
-                kind__isnull=False  # Вид не должен быть пустым
+                kind__isnull=kind_is_null  # Вид не должен быть пустым (не для бонусов)
             ) &
             Q(
                 Q(  # Уменьшение средств на счете пользователя (куда уходят - неважно)
@@ -3053,5 +3059,3 @@ class TransactionsRepository(MasterRepository):
 
         money.amount = money_balance
         money.save()
-
-
