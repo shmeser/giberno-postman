@@ -1,8 +1,9 @@
+import re
 import string
 
+import luhn
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
-from django.db.models import Avg, Count
 from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -17,9 +18,9 @@ from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
-from app_users.enums import LanguageProficiency
+from app_users.enums import LanguageProficiency, CardType, CardPaymentNetwork
 from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
-    NotificationsSettings, UserCity, UserCareer, Document
+    NotificationsSettings, UserCity, UserCareer, Document, Card
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository, \
     CareerRepository, DocumentsRepository
 from backend.entity import Error
@@ -27,6 +28,7 @@ from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exceptions import CustomException
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
+from backend.utils import choices, credit_regex
 
 
 class RefreshTokenSerializer(serializers.Serializer):
@@ -741,4 +743,36 @@ class RatingSerializer(serializers.ModelSerializer):
             'place',
             'rating',
             'user'
+        ]
+
+
+class CardsValidator(serializers.Serializer):
+    pan = serializers.CharField(max_length=19, min_length=14)
+    valid_through = serializers.CharField(min_length=5, max_length=5)
+    type = serializers.ChoiceField(choices=choices(CardType))
+    payment_network = serializers.ChoiceField(choices=choices(CardPaymentNetwork))
+    issuer = serializers.CharField(required=False, min_length=3)
+
+    def validate_pan(self, value):
+        if not luhn.verify(value):
+            raise serializers.ValidationError("Invalid PAN")
+
+        return credit_regex().sub(r'****\8', value)  # r'\2********\8'
+
+    def validate_valid_through(self, value):
+        if not re.match(r"(0[1-9]|1[0-2])\/?([0-9]{4}|[0-9]{2})", value):
+            raise serializers.ValidationError("Invalid date for validThrough")
+        return value
+
+
+class CardsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Card
+        fields = [
+            'id',
+            'pan',
+            'valid_through',
+            'type',
+            'payment_network',
+            'issuer',
         ]

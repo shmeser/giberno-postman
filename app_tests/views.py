@@ -14,6 +14,8 @@ from app_market.versions.v1_0.repositories import OrdersRepository
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationIcon, NotificationType
 from app_users.models import UserProfile
+from app_users.versions.v1_0.repositories import CardsRepository
+from app_users.versions.v1_0.serializers import CardsValidator, CardsSerializer
 from backend.controllers import PushController
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exceptions import HttpException
@@ -387,3 +389,16 @@ class TestMoneyPenalty(APIView):
             })
 
             return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class TestCards(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        body = get_request_body(request)
+        validator = CardsValidator(data=body)
+
+        if validator.is_valid(raise_exception=True):
+            card = CardsRepository(me=request.user).add_card(real_pan=body.get('pan'), data=validator.validated_data)
+            serializer = CardsSerializer(card, many=False)
+            return Response(camelize(serializer.data), status=status.HTTP_200_OK)

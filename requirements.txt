@@ -61,6 +61,7 @@ joblib==1.0.1
 kombu==5.1.0
 llvmlite==0.36.0
 loguru==0.5.3
+luhn==0.2.0
 maxminddb==2.0.3
 msgpack==1.0.2
 multidict==5.1.0

@@ -285,12 +285,15 @@ class Card(BaseModel):
         verbose_name='Платежная сеть'
     )
 
-    number = models.CharField(max_length=128, blank=True, null=True, verbose_name='Маскированный номер карты')
-    valid_through = models.CharField(max_length=128, blank=True, null=True, verbose_name='Действительна до')
+    pan = models.CharField(max_length=19, blank=True, null=True, verbose_name='Маскированный номер карты')
+    valid_through = models.CharField(max_length=5, blank=True, null=True, verbose_name='Действительна до')
 
     issuer = models.CharField(max_length=128, blank=True, null=True, verbose_name='Эмитент карты')
 
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
+    hash = models.CharField(max_length=128)
+    salt = models.CharField(max_length=128)
 
     def __str__(self):
         return f'{self.user.username}'

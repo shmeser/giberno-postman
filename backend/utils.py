@@ -1,9 +1,10 @@
 import csv
 import datetime
-import importlib
+import hashlib
 import json
 import os
 import re
+import uuid
 from functools import reduce
 from io import BytesIO
 from json import JSONDecodeError
@@ -584,3 +585,16 @@ def get_timezone_name_by_geo(lon, lat):
     except Exception as e:
         logger.error(e)
         return 'UTC'
+
+
+def credit_regex():
+    return re.compile(r'((\d{4})(\s*|\-*)(\d{4})(\s*|\-*)(\d{4})(\s*|\-*)(\d{4}))', re.VERBOSE)
+
+
+def make_hash_and_salt(value, salt_base):
+    digest = hashlib.md5(salt_base.encode()).digest()  # переводим в хэш маскированный номер карты
+    salt = uuid.UUID(bytes=digest).hex  # Создаем соль на базе uuid, сгенерированного из хэша salt_base
+    encoded_value = (value + salt).encode('utf-8')
+    hashed = hashlib.sha512(encoded_value).hexdigest()
+
+    return hashed, salt

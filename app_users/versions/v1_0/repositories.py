@@ -1,7 +1,7 @@
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.db import connection
-from django.db.models import Q, Prefetch, Subquery, OuterRef, ExpressionWrapper, Sum, Count, FloatField, Window, Avg, F, \
+from django.db.models import Q, Prefetch, Subquery, OuterRef, FloatField, Window, Avg, F, \
     Value
 from django.db.models.functions import DenseRank
 from django.utils.timezone import now
@@ -19,7 +19,7 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_users.entities import JwtTokenEntity, SocialEntity
 from app_users.enums import AccountType, NotificationType
 from app_users.models import SocialModel, UserProfile, JwtToken, NotificationsSettings, Notification, UserCareer, \
-    Document
+    Document, Card
 from app_users.utils import validate_username, generate_username, generate_password, EmailSender
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -28,7 +28,7 @@ from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mappers import DataMapper
 from backend.mixins import MasterRepository
 from backend.repositories import BaseRepository
-from backend.utils import is_valid_uuid
+from backend.utils import is_valid_uuid, make_hash_and_salt
 
 
 class UsersRepository:
@@ -701,3 +701,57 @@ class RatingRepository(MasterRepository):
             ).first()
 
         return my_profile
+
+
+class CardsRepository(MasterRepository):
+    model = Card
+
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+        self.base_query = self.model.objects.filter(user=self.me)
+
+    def inited_get_by_id(self, record_id):
+        try:
+            return self.model.objects.get(id=record_id, user=self.me, deleted=False)
+        except self.model.DoesNotExist:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
+            )
+
+    def get_my_cards(self, paginator=None, order_by: list = None):
+        records = self.base_query.filter(deleted=False)
+        if order_by:
+            records = records.order_by(*order_by)
+        if paginator:
+            return records[paginator.offset:paginator.limit]
+        return records
+
+    def add_card(self, real_pan, data):
+        hashed_pan, salt = make_hash_and_salt(value=real_pan, salt_base=data.get('pan'))
+        card, created = self.model.objects.get_or_create(
+            hash=hashed_pan,
+            deleted=False,
+            defaults={
+                'user': self.me,
+                'pan': data.get('pan'),
+                'valid_through': data.get('valid_through'),
+                'type': data.get('type'),
+                'payment_network': data.get('payment_network'),
+                'issuer': data.get('issuer'),
+                'salt': salt
+            }
+        )
+
+        if not created and card.user != self.me:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.CARD_ALREADY_USED_IN_OTHER_ACCOUNT))
+            ])
+
+        # TODO возможно будет только 1 карта
+        if created:
+            # Удаляем все остальные карты
+            self.me.cards.exclude(pk=card.id).update(deleted=True, updated_at=now())
+
+        return card
