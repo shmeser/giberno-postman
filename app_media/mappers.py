@@ -12,6 +12,14 @@ from backend.utils import get_media_format, resize_image, convert_video
 class MediaMapper:
     @staticmethod
     def combine(file_data, owner, file_title=None, file_type=MediaType.OTHER):
+        """
+        Связываем файл с его владельцем
+        :param file_data: UploadedFile
+        :param owner: instance владельца файла
+        :param file_title: название файла
+        :param file_type: тип из MediaType
+        :return:
+        """
 
         file_entity = File()
         file_entity.uuid = uuid.uuid4()

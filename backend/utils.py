@@ -127,6 +127,9 @@ def rotate_image(img):
                 break
         exif = dict(img._getexif().items())
 
+        logger.debug(orientation_tag)
+        logger.debug(exif)
+
         if exif[orientation_tag] == 2:
             img = img.transpose(Image.FLIP_LEFT_RIGHT)
         elif exif[orientation_tag] == 3:
@@ -363,7 +366,8 @@ def chained_get(obj, *args, default=None):
     try:
         result = reduce(get_value, args, obj)
         return result
-    except Exception:
+    except Exception as e:
+        logger.error(e)
         return default
 
 
@@ -391,6 +395,7 @@ def get_remote_file(remote_url):
     except HTTPError as e:
         if e.code == RESTErrors.NOT_FOUND.value:
             status = FileDownloadStatus.NOT_EXIST.value
+        logger.error(e)
     except Exception as e:
         logger.error(e)
     return downloaded_file, content_type, size, status

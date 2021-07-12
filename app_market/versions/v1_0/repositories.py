@@ -2483,7 +2483,7 @@ class PartnersRepository(MasterRepository):
 
         return queryset
 
-    def get_by_id(self, record_id):
+    def inited_get_by_id(self, record_id):
         # если будет self.base_query.filter() то manager ничего не сможет увидеть
         records = self.base_query.filter(pk=record_id).exclude(deleted=True)
         record = self.fast_related_loading(records).first()
@@ -2493,7 +2493,7 @@ class PartnersRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
         return record
 
-    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         if order_by:
             records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs).distinct()
         else:
@@ -2502,8 +2502,13 @@ class PartnersRepository(MasterRepository):
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
 
-    def get_all_categories(self):
-        return Category.objects.filter(distributorcategory__distributor__partner__isnull=False)
+    def get_all_categories(self, kwargs, paginator=None, order_by: list = None):
+        records = Category.objects.filter(distributorcategory__distributor__partner__isnull=False)
+        if order_by:
+            records = records.exclude(deleted=True).filter(**kwargs).order_by(*order_by).distinct()
+        else:
+            records = records.exclude(deleted=True).filter(**kwargs).distinct()
+        return records[paginator.offset:paginator.limit] if paginator else records
 
 
 class AchievementsRepository(MasterRepository):

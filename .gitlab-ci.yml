@@ -60,6 +60,7 @@ deploy:
     - echo EMAIL_HOST_PASSWORD="$EMAIL_HOST_PASSWORD" | tr -d '\r' >> .env
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
+    - echo GOOGLE_CLOUD_API_KEY="$GOOGLE_CLOUD_API_KEY" | tr -d '\r' >> .env
     - echo SECRET_KEY="$SECRET_KEY" | tr -d '\r' >> .env
     - echo DEBUG="DEBUG" | tr -d '\r' >> .env
 
@@ -120,6 +121,7 @@ deploy_stage:
     - echo EMAIL_HOST_PASSWORD="$EMAIL_HOST_PASSWORD" | tr -d '\r' >> .env
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
+    - echo GOOGLE_CLOUD_API_KEY="$GOOGLE_CLOUD_API_KEY" | tr -d '\r' >> .env
     - echo ST_SECRET_KEY="$ST_SECRET_KEY" | tr -d '\r' >> .env
     - echo DEBUG="DEBUG" | tr -d '\r' >> .env
 
@@ -178,6 +180,7 @@ deploy_release:
     - echo EMAIL_HOST_PASSWORD="$EMAIL_HOST_PASSWORD" | tr -d '\r' >> .env
 
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
+    - echo GOOGLE_CLOUD_API_KEY="$GOOGLE_CLOUD_API_KEY" | tr -d '\r' >> .env
     - echo RL_SECRET_KEY="$RL_SECRET_KEY" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml
