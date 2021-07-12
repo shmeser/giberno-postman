@@ -1520,6 +1520,10 @@ class Partners(CRUDAPIView):
     repository_class = PartnersRepository
     allowed_http_methods = ['get']
 
+    filter_params = {
+        'search': 'distributor__title__istartswith',
+    }
+
     array_filter_params = {
         'category': 'distributor__categories__id__in',
     }
@@ -1537,9 +1541,9 @@ class Partners(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class().inited_get_by_id(record_id)
         else:
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class().inited_filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
@@ -1552,12 +1556,30 @@ class Partners(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class PartnersCategories(APIView):
+class PartnersCategories(CRUDAPIView):
     serializer_class = CategoriesSerializer
     repository_class = PartnersRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'search': 'distributorcategory__distributor__title__istartswith',
+    }
+
+    order_params = {
+        'id': 'id',
+    }
+
+    default_order_params = ['id']
 
     def get(self, request, **kwargs):
-        dataset = self.repository_class().get_all_categories()
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        dataset = self.repository_class().get_all_categories(
+            kwargs=filters, order_by=order_params, paginator=pagination
+        )
+
         serialized = self.serializer_class(dataset, many=True, context={
             'me': request.user,
             'headers': get_request_headers(request),
@@ -1570,7 +1592,7 @@ class GetDocumentsForPartner(CRUDAPIView):
 
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        partner = self.repository_class().get_by_id(record_id)
+        partner = self.repository_class().inited_get_by_id(record_id)
         conditions = MarketDocumentsRepository(me=request.user).get_conditions_for_user_on_partner(partner)
         return Response(camelize(PartnerConditionsSerializer(conditions, many=False).data), status=status.HTTP_200_OK)
 

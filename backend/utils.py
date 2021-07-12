@@ -127,6 +127,9 @@ def rotate_image(img):
                 break
         exif = dict(img._getexif().items())
 
+        logger.debug(orientation_tag)
+        logger.debug(exif)
+
         if exif[orientation_tag] == 2:
             img = img.transpose(Image.FLIP_LEFT_RIGHT)
         elif exif[orientation_tag] == 3:
