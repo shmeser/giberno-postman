@@ -1,9 +1,10 @@
 import csv
 import datetime
-import importlib
+import hashlib
 import json
 import os
 import re
+import uuid
 from functools import reduce
 from io import BytesIO
 from json import JSONDecodeError
@@ -22,6 +23,7 @@ from django.utils.timezone import make_aware, get_current_timezone, localtime
 from djangorestframework_camel_case.util import underscoreize
 from ffmpy import FFmpeg
 from loguru import logger
+from timezonefinder import TimezoneFinder
 
 from app_media.enums import MediaFormat, FileDownloadStatus, MimeTypes
 from backend.entity import File as FileEntity
@@ -124,6 +126,9 @@ def rotate_image(img):
                 orientation_tag = tag
                 break
         exif = dict(img._getexif().items())
+
+        logger.debug(orientation_tag)
+        logger.debug(exif)
 
         if exif[orientation_tag] == 2:
             img = img.transpose(Image.FLIP_LEFT_RIGHT)
@@ -361,7 +366,8 @@ def chained_get(obj, *args, default=None):
     try:
         result = reduce(get_value, args, obj)
         return result
-    except Exception:
+    except Exception as e:
+        logger.error(e)
         return default
 
 
@@ -389,6 +395,7 @@ def get_remote_file(remote_url):
     except HTTPError as e:
         if e.code == RESTErrors.NOT_FOUND.value:
             status = FileDownloadStatus.NOT_EXIST.value
+        logger.error(e)
     except Exception as e:
         logger.error(e)
     return downloaded_file, content_type, size, status
@@ -562,3 +569,37 @@ class MSGteContains(CustomLookupBase):
     # Кастомный lookup для фильтрации DateTime по миллисекундам (в бд записи с точностью до МИКРОсекунд)
     lookup_name = 'ms_gte'
     parametric_string = "DATE_TRUNC('millisecond', %s)::TIMESTAMPTZ >= %s"
+
+
+def get_timezone_name_from_utcoffset(seconds):
+    utc_offset = datetime.timedelta(seconds=seconds)
+    utc_now = datetime.datetime.now(pytz.utc)  # current time UTC
+    tz_list = [tz for tz in map(pytz.timezone, pytz.common_timezones_set) if
+               utc_now.astimezone(tz).utcoffset() == -utc_offset]
+    if tz_list:
+        return tz_list[0]
+
+    return 'UTC'
+
+
+def get_timezone_name_by_geo(lon, lat):
+    try:
+        tf = TimezoneFinder()
+        timezone_name = tf.timezone_at(lng=lon, lat=lat)  # возвращает tz вида 'Europe/Moscow'
+        return timezone_name
+    except Exception as e:
+        logger.error(e)
+        return 'UTC'
+
+
+def credit_regex():
+    return re.compile(r'((\d{4})(\s*|\-*)(\d{4})(\s*|\-*)(\d{4})(\s*|\-*)(\d{4}))', re.VERBOSE)
+
+
+def make_hash_and_salt(value, salt_base):
+    digest = hashlib.md5(salt_base.encode()).digest()  # переводим в хэш маскированный номер карты
+    salt = uuid.UUID(bytes=digest).hex  # Создаем соль на базе uuid, сгенерированного из хэша salt_base
+    encoded_value = (value + salt).encode('utf-8')
+    hashed = hashlib.sha512(encoded_value).hexdigest()
+
+    return hashed, salt

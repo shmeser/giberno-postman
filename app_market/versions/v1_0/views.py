@@ -16,7 +16,7 @@ from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
     MarketDocumentsRepository, PartnersRepository, AchievementsRepository, AdvertisementsRepository, OrdersRepository, \
-    CouponsRepository
+    CouponsRepository, TransactionsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
@@ -25,12 +25,14 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ManagerAppealCancelReasonSerializer, SecurityPassRefuseReasonSerializer, FireByManagerReasonSerializer, \
     ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
     ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer, AchievementsSerializer, \
-    AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer
+    AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer, FinancesSerializer, \
+    FinancesValiadator
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
-from app_users.versions.v1_0.repositories import ProfileRepository
+from app_users.versions.v1_0.repositories import ProfileRepository, MoneyRepository
+from app_users.versions.v1_0.serializers import MoneySerializer
 from backend.api_views import BaseAPIView
 from backend.controllers import PushController
 from backend.entity import Error
@@ -38,7 +40,8 @@ from backend.errors.enums import ErrorsCodes, RESTErrors
 from backend.errors.http_exceptions import CustomException, HttpException
 from backend.mappers import RequestMapper, DataMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_body, chained_get, get_request_headers, timestamp_to_datetime
+from backend.utils import get_request_body, chained_get, get_request_headers, timestamp_to_datetime, \
+    get_timezone_name_by_geo
 
 
 class Distributors(CRUDAPIView):
@@ -1517,6 +1520,10 @@ class Partners(CRUDAPIView):
     repository_class = PartnersRepository
     allowed_http_methods = ['get']
 
+    filter_params = {
+        'search': 'distributor__title__istartswith',
+    }
+
     array_filter_params = {
         'category': 'distributor__categories__id__in',
     }
@@ -1534,9 +1541,9 @@ class Partners(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class().inited_get_by_id(record_id)
         else:
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class().inited_filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
@@ -1549,12 +1556,30 @@ class Partners(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class PartnersCategories(APIView):
+class PartnersCategories(CRUDAPIView):
     serializer_class = CategoriesSerializer
     repository_class = PartnersRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'search': 'distributorcategory__distributor__title__istartswith',
+    }
+
+    order_params = {
+        'id': 'id',
+    }
+
+    default_order_params = ['id']
 
     def get(self, request, **kwargs):
-        dataset = self.repository_class().get_all_categories()
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        dataset = self.repository_class().get_all_categories(
+            kwargs=filters, order_by=order_params, paginator=pagination
+        )
+
         serialized = self.serializer_class(dataset, many=True, context={
             'me': request.user,
             'headers': get_request_headers(request),
@@ -1567,7 +1592,7 @@ class GetDocumentsForPartner(CRUDAPIView):
 
     def get(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        partner = self.repository_class().get_by_id(record_id)
+        partner = self.repository_class().inited_get_by_id(record_id)
         conditions = MarketDocumentsRepository(me=request.user).get_conditions_for_user_on_partner(partner)
         return Response(camelize(PartnerConditionsSerializer(conditions, many=False).data), status=status.HTTP_200_OK)
 
@@ -1741,3 +1766,41 @@ class Coupons(CRUDAPIView):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class Finances(CRUDAPIView):
+    serializer_class = FinancesSerializer
+    repository_class = TransactionsRepository
+    allowed_http_methods = ['get']
+
+    order_params = {
+        'date': 'date'
+    }
+
+    def get(self, request, **kwargs):
+        pagination = RequestMapper.pagination(request)
+        point, *_ = RequestMapper().geo(request)  # *_  - все ненужные распакованные переменные
+
+        validator = FinancesValiadator(data=request.query_params)
+        if validator.is_valid(raise_exception=True):
+            dataset = self.repository_class(me=request.user).get_grouped_stats(
+                interval=validator.validated_data.get('interval'),
+                currency=validator.validated_data.get('currency'),
+                paginator=pagination,
+                timezone_name=get_timezone_name_by_geo(point.x, point.y) if point else 'UTC'
+            )
+
+            self.many = True
+
+            serialized = self.serializer_class(dataset, many=self.many, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            })
+            return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def get_my_money(request):
+    money_balances = MoneyRepository(me=request.user).get_my_money()
+    serializer = MoneySerializer(money_balances, many=True, context={'me': request.user})
+    return Response(camelize(serializer.data), status=status.HTTP_200_OK)

@@ -12,7 +12,8 @@ from django.contrib.postgres.search import TrigramSimilarity
 from django.db import transaction
 from django.db.models import Value, IntegerField, Case, When, BooleanField, Q, Count, Prefetch, F, Func, \
     DateTimeField, DateField, Sum, ExpressionWrapper, Subquery, OuterRef, TimeField, Exists, Avg
-from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce
+from django.db.models.functions import Cast, Concat, Extract, Round, Coalesce, TruncDay, TruncWeek, TruncMonth, \
+    TruncYear
 from django.utils.timezone import now, localtime
 from loguru import logger
 from pytz import timezone
@@ -22,7 +23,8 @@ from app_chats.models import ChatUser, Chat
 from app_feedback.models import Review, Like
 from app_geo.models import Region
 from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, VacancyEmployment, \
-    JobStatus, JobStatusForClient, AchievementType, OrderType, TransactionStatus, OrderStatus, Currency, TransactionType
+    JobStatus, JobStatusForClient, AchievementType, OrderType, TransactionStatus, OrderStatus, Currency, \
+    TransactionType, TransactionKind, FinancesInterval
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
     Advertisement, Order, Coupon, UserCoupon, Transaction, PartnerDocument
@@ -30,7 +32,7 @@ from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from app_users.enums import AccountType, DocumentType
-from app_users.models import UserProfile, Document
+from app_users.models import UserProfile, Document, UserMoney
 from app_users.utils import EmailSender
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
@@ -2481,7 +2483,7 @@ class PartnersRepository(MasterRepository):
 
         return queryset
 
-    def get_by_id(self, record_id):
+    def inited_get_by_id(self, record_id):
         # если будет self.base_query.filter() то manager ничего не сможет увидеть
         records = self.base_query.filter(pk=record_id).exclude(deleted=True)
         record = self.fast_related_loading(records).first()
@@ -2491,7 +2493,7 @@ class PartnersRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
         return record
 
-    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         if order_by:
             records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs).distinct()
         else:
@@ -2500,8 +2502,13 @@ class PartnersRepository(MasterRepository):
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
 
-    def get_all_categories(self):
-        return Category.objects.filter(distributorcategory__distributor__partner__isnull=False)
+    def get_all_categories(self, kwargs, paginator=None, order_by: list = None):
+        records = Category.objects.filter(distributorcategory__distributor__partner__isnull=False)
+        if order_by:
+            records = records.exclude(deleted=True).filter(**kwargs).order_by(*order_by).distinct()
+        else:
+            records = records.exclude(deleted=True).filter(**kwargs).distinct()
+        return records[paginator.offset:paginator.limit] if paginator else records
 
 
 class AchievementsRepository(MasterRepository):
@@ -2521,10 +2528,16 @@ class AchievementsRepository(MasterRepository):
                 achievement=OuterRef('pk'), user=self.me, completed_at__isnull=False
             )
         )
+        self.achieved_count_expression = Subquery(
+            AchievementProgress.objects.filter(
+                achievement=OuterRef('pk'), user=self.me
+            ).values('achieved_count')[:1]
+        )
 
         self.base_query = self.model.objects.annotate(
             completed_at=self.completed_at_expression,
-            completed=self.completed_expression
+            completed=self.completed_expression,
+            achieved_count=self.achieved_count_expression,
         )
 
     @staticmethod
@@ -2673,7 +2686,8 @@ class OrdersRepository(MasterRepository):
 
     @staticmethod
     def create_transaction(
-            amount, t_type, to_id, to_ct, to_ct_name, from_id=None, from_ct=None, from_ct_name=None, order=None,
+            amount, t_type, to_id=None, to_ct=None, to_ct_name=None, from_id=None, from_ct=None, from_ct_name=None,
+            order=None,
             comment=None, **kwargs
     ):
         return Transaction.objects.create(
@@ -2753,10 +2767,9 @@ class OrdersRepository(MasterRepository):
             ~Q(  # Исключаем транзакции со своего счета на свой (если вдруг появятся)
                 from_ct=user_ct,
                 from_id=self.me.id,
-                from_currency=Currency.BONUS.value,
+                from_currency=F('to_currency'),
                 to_ct=user_ct,
                 to_id=self.me.id,
-                to_currency=Currency.BONUS.value
             )
         ).annotate(
             # Поступление, если транзакция на счет
@@ -2765,22 +2778,18 @@ class OrdersRepository(MasterRepository):
                     Q(to_ct=user_ct, to_id=self.me.id),
                     then=True
                 ),
-                default=False,
-                output_field=BooleanField()
-            ),
-            decrease=Case(
                 When(
                     Q(from_ct=user_ct, from_id=self.me.id),
-                    then=True
+                    then=False
                 ),
                 default=False,
                 output_field=BooleanField()
-            )
+            ),
         )
 
         amounts = bonus_transactions.aggregate(
             increase_amount=Coalesce(Sum('amount', filter=Q(increase=True)), 0),
-            decrease_amount=Coalesce(Sum('amount', filter=Q(decrease=True)), 0)
+            decrease_amount=Coalesce(Sum('amount', filter=Q(increase=False)), 0)
         )
 
         bonus_balance = amounts['increase_amount'] - amounts['decrease_amount']
@@ -2890,3 +2899,168 @@ class CouponsRepository(MasterRepository):
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
+
+
+class TransactionsRepository(MasterRepository):
+    model = Transaction
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        user_ct = ContentType.objects.get_for_model(self.me)
+        # TODO учитывать exchange_rate в транзакциях на конвертацию (из бонусов в рубли например)
+        self.base_query = self.model.objects.filter(
+            Q(
+                status=TransactionStatus.COMPLETED.value,  # Только успешные транзакции
+                kind__isnull=False  # Вид не должен быть пустым
+            ) &
+            Q(
+                Q(  # Уменьшение средств на счете пользователя (куда уходят - неважно)
+                    from_ct=user_ct,
+                    from_id=self.me.id,
+                ) |
+                Q(  # Поступление средств на счет пользователя
+                    to_ct=user_ct,
+                    to_id=self.me.id,
+                )
+            ) &
+            ~Q(  # Исключаем транзакции со своего счета на свой в одной валюте (если вдруг появятся)
+                from_ct=user_ct,
+                from_id=self.me.id,
+                from_currency=F('to_currency'),
+                to_ct=user_ct,
+                to_id=self.me.id
+            )
+        ).annotate(
+            # Величина транзакции со знаком (со знаком '-' если на уменьшение баланса)
+            signed_amount=Case(
+                When(
+                    # Входящая транзакция на счет
+                    Q(to_ct=user_ct, to_id=self.me.id),
+                    then=F('amount')  # Оставляем само значение
+                ),
+                When(
+                    # Исходящая со счета транзакция
+                    Q(from_ct=user_ct, from_id=self.me.id),
+                    then=ExpressionWrapper(
+                        # Меняем знак величины транзакции (0-amount)
+                        Value(0, output_field=IntegerField()) - F('amount'),
+                        output_field=IntegerField()
+                    )
+                ),
+                default=0,
+                output_field=IntegerField()
+            ),
+        )
+
+    def get_grouped_stats(self, interval, currency, paginator=None, timezone_name='UTC'):
+        interval_name = FinancesInterval(interval).name.lower()
+
+        utc_offset = pytz.timezone(timezone_name).utcoffset(datetime.utcnow()).total_seconds()
+
+        transactions = self.base_query.filter(
+            Q(from_currency=currency) |
+            Q(to_currency=currency)
+        ).annotate(
+            # Сокращаем дату до дня в указанной timezone
+            day=TruncDay('created_at', tzinfo=timezone(timezone_name)),
+            # Сокращаем дату до начала недели в указанной timezone
+            week=TruncWeek('created_at', tzinfo=timezone(timezone_name)),
+            # Сокращаем дату до начала месяца в указанной timezone
+            month=TruncMonth('created_at', tzinfo=timezone(timezone_name)),
+            # Сокращаем дату до начала года в указанной timezone
+            year=TruncYear('created_at', tzinfo=timezone(timezone_name)),
+        ).values(
+            # Группируем (GROUP BY) по нужному интервалу
+            interval_name
+        ).annotate(
+            # Общая итоговая сумма со всеми вычетами
+            total=Coalesce(Sum('signed_amount'), 0),
+            # Сумма всех платежей - вознаграждений за работу
+            pay_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.PAY.value)), 0),
+            # Сумма всех налогов
+            taxes_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.TAXES.value)), 0),
+            # Сумма всех страховок
+            insurance_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.INSURANCE.value)), 0),
+            # Сумма всех штрафов
+            penalty_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.PENALTY.value)), 0),
+            # Сумма всех вознаграждений за друзей
+            friend_reward_amount=Coalesce(Sum('signed_amount', filter=Q(kind=TransactionKind.FRIEND_REWARD.value)), 0),
+            interval=Value(interval, output_field=IntegerField()),  # Добавляем тип интервала, переданного с клиента
+            interval_date=F(interval_name),  # Обозначаем выбранный интервал как поле interval_date,
+            utc_offset=Value(utc_offset, output_field=IntegerField())  # utc offset для времени
+        ).order_by(
+            '-interval_date'
+        )
+
+        if paginator:
+            return transactions[paginator.offset:paginator.limit]
+        return transactions
+
+    def recalculate_money(self, currency=Currency.RUB.value):
+        user_ct = ContentType.objects.get_for_model(self.me)
+        # TODO kind для бонусов
+
+        kind_is_null = False
+        if currency == Currency.BONUS.value:
+            kind_is_null = True
+
+        # TODO учитывать exchange_rate в транзакциях на конвертацию (из бонусов в рубли например)
+        transactions = self.model.objects.filter(
+            Q(
+                status=TransactionStatus.COMPLETED.value,  # Только успешные транзакции
+                kind__isnull=kind_is_null  # Вид не должен быть пустым (не для бонусов)
+            ) &
+            Q(
+                Q(  # Уменьшение средств на счете пользователя (куда уходят - неважно)
+                    from_ct=user_ct,
+                    from_id=self.me.id,
+                    from_currency=currency
+                ) |
+                Q(  # Поступление средств на счет пользователя
+                    to_ct=user_ct,
+                    to_id=self.me.id,
+                    to_currency=currency
+                )
+            ) &
+            ~Q(  # Исключаем транзакции со своего счета на свой в одной валюте (если вдруг появятся)
+                from_ct=user_ct,
+                from_id=self.me.id,
+                from_currency=F('to_currency'),
+                to_ct=user_ct,
+                to_id=self.me.id
+            )
+        ).annotate(
+            # Величина транзакции со знаком (со знаком '-' если на уменьшение баланса)
+            signed_amount=Case(
+                When(
+                    # Входящая транзакция на счет
+                    Q(to_ct=user_ct, to_id=self.me.id),
+                    then=F('amount')  # Оставляем само значение
+                ),
+                When(
+                    # Исходящая со счета транзакция
+                    Q(from_ct=user_ct, from_id=self.me.id),
+                    then=ExpressionWrapper(
+                        # Меняем знак величины транзакции (0-amount)
+                        Value(0, output_field=IntegerField()) - F('amount'),
+                        output_field=IntegerField()
+                    )
+                ),
+                default=0,
+                output_field=IntegerField()
+            ),
+        )
+
+        money_balance = transactions.aggregate(
+            total=Coalesce(Sum('signed_amount'), 0),
+        )['total']
+
+        money, created = UserMoney.objects.get_or_create(
+            user=self.me,
+            currency=currency
+        )
+
+        money.amount = money_balance
+        money.save()

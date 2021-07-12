@@ -12,7 +12,8 @@ from app_feedback.models import Review, Like
 from app_geo.models import Country, City
 from app_market.enums import Currency, TransactionType, TransactionStatus, VacancyEmployment, WorkExperience, \
     ShiftAppealStatus, AppealCancelReason, ManagerAppealCancelReason, JobStatus, SecurityPassRefuseReason, \
-    FireByManagerReason, ManagerAppealRefuseReason, AppealCompleteReason, AchievementType, OrderType, OrderStatus
+    FireByManagerReason, ManagerAppealRefuseReason, AppealCompleteReason, AchievementType, OrderType, OrderStatus, \
+    TransactionKind
 from app_media.models import MediaModel
 from app_users.enums import REQUIRED_DOCS_FOR_CHOICES
 from app_users.models import UserProfile
@@ -382,6 +383,10 @@ class Transaction(BaseModel):
     _to = GenericForeignKey(ct_field='to_ct', fk_field='to_id')
 
     comment = models.CharField(max_length=1024)
+
+    kind = models.PositiveIntegerField(
+        null=True, blank=True, choices=choices(TransactionKind), verbose_name='Вид транзакции'
+    )
 
     def __str__(self):
         return f'{self.uuid}'

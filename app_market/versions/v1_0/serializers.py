@@ -10,9 +10,9 @@ from pytz import timezone
 from rest_framework import serializers
 
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
-    FireByManagerReason, AppealCompleteReason
+    FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
-    Achievement, Advertisement, Order, Coupon
+    Achievement, Advertisement, Order, Coupon, Transaction
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -1067,12 +1067,16 @@ class PartnersSerializer(serializers.ModelSerializer):
 class AchievementsSerializer(serializers.ModelSerializer):
     icon = serializers.SerializerMethodField()
     completed_at = serializers.SerializerMethodField()
+    achieved_count = serializers.SerializerMethodField()
 
     def get_icon(self, prefetched_data):
         return MediaController(self.instance).get_related_images(prefetched_data, MediaType.ACHIEVEMENT_ICON.value)
 
     def get_completed_at(self, data):
         return datetime_to_timestamp(data.completed_at) if data.completed_at else None
+
+    def get_achieved_count(self, data):
+        return data.achieved_count
 
     class Meta:
         model = Achievement
@@ -1081,6 +1085,7 @@ class AchievementsSerializer(serializers.ModelSerializer):
             'name',
             'description',
             'completed_at',
+            'achieved_count',
             'icon'
         ]
 
@@ -1130,4 +1135,63 @@ class CouponsSerializer(serializers.ModelSerializer):
             'discount_terms',
             'discount_description',
             'created_at',
+        ]
+
+
+class FinancesValiadator(serializers.Serializer):
+    interval = serializers.ChoiceField(choices=choices(FinancesInterval))
+    currency = serializers.ChoiceField(choices=choices(Currency))
+    interval_name = serializers.SerializerMethodField()
+
+    def get_interval_name(self, data):
+        return FinancesInterval(data.interval).name.lower()
+
+
+class FinancesSerializer(serializers.ModelSerializer):
+    total = serializers.SerializerMethodField()
+    pay_amount = serializers.SerializerMethodField()
+    taxes_amount = serializers.SerializerMethodField()
+    insurance_amount = serializers.SerializerMethodField()
+    penalty_amount = serializers.SerializerMethodField()
+    friend_reward_amount = serializers.SerializerMethodField()
+    interval = serializers.SerializerMethodField()
+    interval_date = DateTimeField()
+    utc_offset = serializers.SerializerMethodField()
+
+    def get_total(self, data):
+        return data['total']
+
+    def get_pay_amount(self, data):
+        return data['pay_amount']
+
+    def get_taxes_amount(self, data):
+        return data['taxes_amount']
+
+    def get_insurance_amount(self, data):
+        return data['insurance_amount']
+
+    def get_penalty_amount(self, data):
+        return data['penalty_amount']
+
+    def get_friend_reward_amount(self, data):
+        return data['friend_reward_amount']
+
+    def get_interval(self, data):
+        return data['interval']
+
+    def get_utc_offset(self, data):
+        return data['utc_offset']
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'total',
+            'pay_amount',
+            'taxes_amount',
+            'insurance_amount',
+            'penalty_amount',
+            'friend_reward_amount',
+            'interval',
+            'interval_date',
+            'utc_offset',
         ]

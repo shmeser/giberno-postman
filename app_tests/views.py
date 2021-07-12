@@ -1,25 +1,25 @@
-import random
 import uuid
 from datetime import timedelta
 
 from django.contrib.contenttypes.models import ContentType
-from django.db import transaction
 from djangorestframework_camel_case.util import camelize
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app_market.enums import TransactionType, TransactionStatus
-from app_market.models import Distributor, Shop, Vacancy, Shift
-from app_market.versions.v1_0.repositories import OrdersRepository
+from app_market.enums import TransactionType, TransactionStatus, Currency, TransactionKind
+from app_market.versions.v1_0.repositories import OrdersRepository, TransactionsRepository
 from app_sockets.controllers import SocketController
-from app_users.enums import AccountType, NotificationAction, NotificationIcon, NotificationType
+from app_users.enums import NotificationAction, NotificationIcon, NotificationType
 from app_users.models import UserProfile
+from app_users.versions.v1_0.repositories import CardsRepository
+from app_users.versions.v1_0.serializers import CardsValidator, CardsSerializer
 from backend.controllers import PushController
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exceptions import HttpException
+from backend.fields import DateTimeField
 from backend.utils import get_request_body
 
 
@@ -111,6 +111,8 @@ class TestBonusesDeposit(APIView):
         request.user.bonus_balance += amount
         request.user.save()
 
+        TransactionsRepository(request.user).recalculate_money(currency=Currency.BONUS.value)
+
         title = 'Начислены бонусы'
         message = f'Начисление {amount} очков славы'
         action = NotificationAction.USER.value
@@ -148,96 +150,263 @@ class TestBonusesDeposit(APIView):
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
-class SeedDataForMarketAppAPIView(APIView):
-    permission_classes = []
-
-    def get(self, request, *args, **kwargs):
-        limit = 5
-        multiply = 10
-
-        with transaction.atomic():
-            # USERS SEED
-            if UserProfile.objects.count() < limit * multiply:
-                for item in range(limit * multiply):
-                    UserProfile.objects.create(account_type=random.choice([1, 2, 3]))
-
-            users = UserProfile.objects.all()
-
-            print('Users seed complete')
-
-            # DISTRIBUTORS SEED
-            if Distributor.objects.count() < limit:
-                for item in range(limit):
-                    Distributor.objects.create(title=f"""Distributor {item}""")
-
-            print('Distributors seed complete')
-            distributors = Distributor.objects.all()
-
-            # SHOPS SEED
-            if Shop.objects.count() < limit * limit:
-                for item in range(limit * limit):
-                    Shop.objects.create(
-                        distributor=random.choice(distributors),
-                        title=f"""Shop {item + 1}"""
-                    )
-
-            print('Shops seed complete')
-            shops = Shop.objects.all()
-
-            # SET SHOPS FOR MANAGERS
-            for user in users.filter(account_type=AccountType.MANAGER):
-                shop = random.choice(shops)
-                user.shops.add(shop)
-                user.distributors.add(shop.distributor)
-                user.save()
-
-            # SET SHOPS FOR SECURITY
-            for user in users.filter(account_type=AccountType.SECURITY):
-                user.shops.add(random.choice(shops))
-                user.save()
-
-            # VACANCIES SEED
-            if Vacancy.objects.count() < limit * limit:
-                for item in range(limit * limit):
-                    Vacancy.objects.create(
-                        shop=random.choice(shops),
-                        title=f"""Vacancy {item + 1}"""
-                    )
-
-            print('Vacancies seed complete')
-            vacancies = Vacancy.objects.all()
-
-            # SHIFTS SEED
-            if Shift.objects.count() < limit * multiply:
-                for item in range(limit * multiply):
-                    vacancy = random.choice(vacancies)
-                    shop = vacancy.shop
-                    Shift.objects.create(vacancy=vacancy, shop=shop)
-
-            print('Shifts seed complete')
-            shifts = Shift.objects.all()
-
-            # SET APPEALS FOR SELF EMPLOYED USERS
-            # ShiftAppeal.objects.all().delete()
-            # for user in users.filter(account_type=AccountType.SELF_EMPLOYED):
-            #     ShiftAppeal.objects.create(applier=user, shift=random.choice(shifts))
-            print('ShiftAppeal seed complete')
-
-            # USER SHIFTS SEED
-            # shift_appeals = ShiftAppeal.objects.all()
-            # for shift_appeal in shift_appeals:
-            #     UserShift.objects.create(
-            #         user=shift_appeal.applier,
-            #         shift=shift_appeal.shift
-            #     )
-            #
-            # print('UserShifts seed complete')
-
-        return Response('seed complete')
+class MoneyValidator(serializers.Serializer):
+    amount = serializers.IntegerField(min_value=1, max_value=1000000)
+    date = DateTimeField()
+    taxes = serializers.IntegerField(required=False, min_value=1, max_value=1000000)
+    insurance = serializers.IntegerField(required=False, min_value=1, max_value=1000000)
 
 
-class GetUsersIdListByTypeAPIView(APIView):
-    permission_classes = []
+class TestMoneyPay(APIView):
+    permission_classes = [IsAuthenticated]
 
-    def get(self, request, *args, **kwargs):
-        return Response(UserProfile.objects.filter(account_type=self.kwargs.get('type')).values('id'))
+    def post(self, request, *args, **kwargs):
+        body = get_request_body(request)
+        validator = MoneyValidator(data=body)
+
+        if validator.is_valid(raise_exception=True):
+            user_ct = ContentType.objects.get_for_model(request.user)
+
+            amount = validator.validated_data.get('amount')
+
+            pay = OrdersRepository.create_transaction(
+                amount=amount,
+                t_type=TransactionType.TEST.value,
+                to_ct=user_ct,
+                to_ct_name=user_ct.model,
+                to_id=request.user.id,
+                comment='Тестовое начисление зарплаты',
+                **{
+                    'status': TransactionStatus.COMPLETED.value,
+                    'from_currency': Currency.RUB.value,
+                    'to_currency': Currency.RUB.value,
+                    'kind': TransactionKind.PAY.value,
+                }
+            )
+            pay.created_at = validator.validated_data.get('date')
+            pay.save()
+
+            # Налоги
+            if validator.validated_data.get('taxes'):
+                tax = OrdersRepository.create_transaction(
+                    amount=validator.validated_data.get('taxes'),
+                    t_type=TransactionType.TEST.value,
+                    from_ct=user_ct,
+                    from_ct_name=user_ct.model,
+                    from_id=request.user.id,
+                    comment='Тестовое списание налогов',
+                    **{
+                        'status': TransactionStatus.COMPLETED.value,
+                        'from_currency': Currency.RUB.value,
+                        'to_currency': Currency.RUB.value,
+                        'kind': TransactionKind.TAXES.value,
+                    }
+                )
+                tax.created_at = validator.validated_data.get('date')
+                tax.save()
+
+            # Страховка
+            if validator.validated_data.get('insurance'):
+                ins = OrdersRepository.create_transaction(
+                    amount=validator.validated_data.get('insurance'),
+                    t_type=TransactionType.TEST.value,
+                    from_ct=user_ct,
+                    from_ct_name=user_ct.model,
+                    from_id=request.user.id,
+                    comment='Тестовое списание средств за страховку',
+                    **{
+                        'status': TransactionStatus.COMPLETED.value,
+                        'from_currency': Currency.RUB.value,
+                        'to_currency': Currency.RUB.value,
+                        'kind': TransactionKind.INSURANCE.value,
+                    }
+                )
+                ins.created_at = validator.validated_data.get('date')
+                ins.save()
+
+            TransactionsRepository(request.user).recalculate_money(currency=Currency.RUB.value)
+
+            title = 'Начислены деньги'
+            message = f'Начисление {amount} рублей на Ваш счет.'
+            action = NotificationAction.USER.value
+            subject_id = request.user.id
+            notification_type = NotificationType.SYSTEM.value
+            icon_type = NotificationIcon.DEFAULT.value
+
+            # uuid для массовой рассылки оповещений,
+            # у пользователей в бд будут созданы оповещения с одинаковым uuid
+            # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+            common_uuid = uuid.uuid4()
+
+            PushController().send_notification(
+                users_to_send=[request.user],
+                title=title,
+                message=message,
+                common_uuid=common_uuid,
+                action=action,
+                subject_id=subject_id,
+                notification_type=notification_type,
+                icon_type=icon_type,
+            )
+
+            # Отправка уведомления по сокетам
+            SocketController(request.user, version='1.0').send_notification_to_my_connection({
+                'title': title,
+                'message': message,
+                'uuid': str(common_uuid),
+                'action': action,
+                'subjectId': subject_id,
+                'notificationType': notification_type,
+                'iconType': icon_type,
+            })
+
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class TestMoneyReward(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        body = get_request_body(request)
+        validator = MoneyValidator(data=body)
+
+        if validator.is_valid(raise_exception=True):
+            user_ct = ContentType.objects.get_for_model(request.user)
+
+            amount = validator.validated_data.get('amount')
+
+            pay = OrdersRepository.create_transaction(
+                amount=amount,
+                t_type=TransactionType.TEST.value,
+                to_ct=user_ct,
+                to_ct_name=user_ct.model,
+                to_id=request.user.id,
+                comment='Тестовое начисление вознаграждения за друга',
+                **{
+                    'status': TransactionStatus.COMPLETED.value,
+                    'from_currency': Currency.RUB.value,
+                    'to_currency': Currency.RUB.value,
+                    'kind': TransactionKind.FRIEND_REWARD.value,
+                }
+            )
+            pay.created_at = validator.validated_data.get('date')
+            pay.save()
+
+            TransactionsRepository(request.user).recalculate_money(currency=Currency.RUB.value)
+
+            title = 'Начислены деньги'
+            message = f'Начисление вознаграждения за друга в размере {amount} рублей.'
+            action = NotificationAction.USER.value
+            subject_id = request.user.id
+            notification_type = NotificationType.SYSTEM.value
+            icon_type = NotificationIcon.DEFAULT.value
+
+            # uuid для массовой рассылки оповещений,
+            # у пользователей в бд будут созданы оповещения с одинаковым uuid
+            # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+            common_uuid = uuid.uuid4()
+
+            PushController().send_notification(
+                users_to_send=[request.user],
+                title=title,
+                message=message,
+                common_uuid=common_uuid,
+                action=action,
+                subject_id=subject_id,
+                notification_type=notification_type,
+                icon_type=icon_type,
+            )
+
+            # Отправка уведомления по сокетам
+            SocketController(request.user, version='1.0').send_notification_to_my_connection({
+                'title': title,
+                'message': message,
+                'uuid': str(common_uuid),
+                'action': action,
+                'subjectId': subject_id,
+                'notificationType': notification_type,
+                'iconType': icon_type,
+            })
+
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class TestMoneyPenalty(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        body = get_request_body(request)
+        validator = MoneyValidator(data=body)
+
+        if validator.is_valid(raise_exception=True):
+            user_ct = ContentType.objects.get_for_model(request.user)
+
+            amount = validator.validated_data.get('amount')
+
+            pay = OrdersRepository.create_transaction(
+                amount=amount,
+                t_type=TransactionType.TEST.value,
+                from_ct=user_ct,
+                from_ct_name=user_ct.model,
+                from_id=request.user.id,
+                comment='Тестовый штраф',
+                **{
+                    'status': TransactionStatus.COMPLETED.value,
+                    'from_currency': Currency.RUB.value,
+                    'to_currency': Currency.RUB.value,
+                    'kind': TransactionKind.PENALTY.value,
+                }
+            )
+            pay.created_at = validator.validated_data.get('date')
+            pay.save()
+
+            TransactionsRepository(request.user).recalculate_money(currency=Currency.RUB.value)
+
+            title = 'Списаны деньги'
+            message = f'Вам выписан штраф и списаны средства в размере {amount} рублей.'
+            action = NotificationAction.USER.value
+            subject_id = request.user.id
+            notification_type = NotificationType.SYSTEM.value
+            icon_type = NotificationIcon.DEFAULT.value
+
+            # uuid для массовой рассылки оповещений,
+            # у пользователей в бд будут созданы оповещения с одинаковым uuid
+            # uuid необходим на клиенте для фильтрации одинаковых данных, полученных по 2 каналам - сокеты и пуши
+            common_uuid = uuid.uuid4()
+
+            PushController().send_notification(
+                users_to_send=[request.user],
+                title=title,
+                message=message,
+                common_uuid=common_uuid,
+                action=action,
+                subject_id=subject_id,
+                notification_type=notification_type,
+                icon_type=icon_type,
+            )
+
+            # Отправка уведомления по сокетам
+            SocketController(request.user, version='1.0').send_notification_to_my_connection({
+                'title': title,
+                'message': message,
+                'uuid': str(common_uuid),
+                'action': action,
+                'subjectId': subject_id,
+                'notificationType': notification_type,
+                'iconType': icon_type,
+            })
+
+            return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class TestCards(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        body = get_request_body(request)
+        validator = CardsValidator(data=body)
+
+        if validator.is_valid(raise_exception=True):
+            card = CardsRepository(me=request.user).add_card(real_pan=body.get('pan'), data=validator.validated_data)
+            serializer = CardsSerializer(card, many=False)
+            return Response(camelize(serializer.data), status=status.HTTP_200_OK)

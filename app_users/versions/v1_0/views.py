@@ -29,11 +29,11 @@ from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
     SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository, FCMDeviceRepository, \
-    RatingRepository
+    RatingRepository, CardsRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
     NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer, \
     CreateManagerByAdminSerializer, UsernameSerializer, UsernameWithPasswordSerializer, \
-    PasswordSerializer, EditManagerProfileSerializer, CreateSecurityByAdminSerializer, RatingSerializer
+    PasswordSerializer, EditManagerProfileSerializer, CreateSecurityByAdminSerializer, RatingSerializer, CardsSerializer
 from backend.api_views import BaseAPIView
 from backend.entity import Error
 from backend.enums import Platform
@@ -832,3 +832,42 @@ class UserCareer(CRUDAPIView):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class MyProfileCards(CRUDAPIView):
+    serializer_class = CardsSerializer
+    repository_class = CardsRepository
+
+    allowed_http_methods = ['get', 'delete']
+
+    default_order_params = ['-created_at']
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class(me=request.user).get_my_cards(paginator=pagination, order_by=order_params)
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        if record_id:
+            record = self.repository_class(me=request.user).inited_get_by_id(record_id)
+            record.deleted = True
+            record.save()
+        else:
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
+
+        return Response(None, status=status.HTTP_204_NO_CONTENT)

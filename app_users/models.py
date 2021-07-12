@@ -7,9 +7,10 @@ from django.contrib.postgres.fields import ArrayField
 
 from app_feedback.models import Review
 from app_geo.models import Language, Country, City
+from app_market.enums import Currency
 from app_media.models import MediaModel
 from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction, \
-    Education, DocumentType, NotificationIcon
+    Education, DocumentType, NotificationIcon, CardType, CardPaymentNetwork
 from backend.models import BaseModel
 from backend.utils import choices
 from giberno import settings
@@ -274,3 +275,45 @@ class Document(BaseModel):
         db_table = 'app_users__documents'
         verbose_name = 'Документ'
         verbose_name_plural = 'Документы'
+
+
+class Card(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='cards')
+    type = models.IntegerField(choices=choices(CardType), default=CardType.DEBIT)
+    payment_network = models.IntegerField(
+        choices=choices(CardPaymentNetwork),
+        default=CardPaymentNetwork.UNKNOWN,
+        verbose_name='Платежная сеть'
+    )
+
+    pan = models.CharField(max_length=19, blank=True, null=True, verbose_name='Маскированный номер карты')
+    valid_through = models.CharField(max_length=5, blank=True, null=True, verbose_name='Действительна до')
+
+    issuer = models.CharField(max_length=128, blank=True, null=True, verbose_name='Эмитент карты')
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
+    hash = models.CharField(max_length=128)
+    salt = models.CharField(max_length=128)
+
+    def __str__(self):
+        return f'{self.user.username}'
+
+    class Meta:
+        db_table = 'app_users__cards'
+        verbose_name = 'Банковская Карта'
+        verbose_name_plural = 'Банковские Карты'
+
+
+class UserMoney(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    currency = models.PositiveIntegerField(choices=choices(Currency), default=Currency.RUB.value)
+    amount = models.CharField(max_length=128, blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.currency} {self.amount}'
+
+    class Meta:
+        db_table = 'app_users__profile_money'
+        verbose_name = 'Деньги пользователя'
+        verbose_name_plural = 'Деньги пользователей'

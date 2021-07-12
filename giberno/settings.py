@@ -22,7 +22,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'fcm_django',
-    'drf_yasg',
     'celery',
     'constance',
     'social_django',
@@ -359,6 +358,8 @@ EMAIL_PORT = os.getenv('EMAIL_PORT', 587)
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'test@gmail.com')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'test')
 
+GOOGLE_CLOUD_API_KEY = os.getenv('GOOGLE_CLOUD_API_KEY', '')
+
 try:
     from giberno.environment.local_settings import \
         TELEGRAM_BOT_TOKEN, \
@@ -373,6 +374,7 @@ try:
         LOGGING, \
         SOCIAL_AUTH_VK_OAUTH2_KEY, \
         EMAIL_HOST_USER, \
+        GOOGLE_CLOUD_API_KEY, \
         EMAIL_HOST_PASSWORD
 except ImportError as e:
     pass

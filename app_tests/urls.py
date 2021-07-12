@@ -1,12 +1,19 @@
 from django.urls import path
 
-from app_tests.views import GetUserTokenTestAPIView, SendTestPush, SeedDataForMarketAppAPIView, \
-    GetUsersIdListByTypeAPIView, TestBonusesDeposit
+from app_tests.views import GetUserTokenTestAPIView, SendTestPush, TestBonusesDeposit, TestMoneyPay, TestMoneyReward, \
+    TestMoneyPenalty, TestCards
 
 urlpatterns = [
     path('get_access_token_by_user_id/<int:pk>', GetUserTokenTestAPIView.as_view()),
+
     path('notifications/send', SendTestPush.as_view()),
-    path('deposit/bonus', TestBonusesDeposit.as_view()),
-    path('seed_data_for_market_app', SeedDataForMarketAppAPIView.as_view()),
-    path('get_users_id_list_by_type/<int:type>', GetUsersIdListByTypeAPIView.as_view())
+
+    path('bonus/deposit', TestBonusesDeposit.as_view()),
+    path('bonus/withdraw', TestBonusesDeposit.as_view()),
+
+    # Finances
+    path('money/pay', TestMoneyPay.as_view()),
+    path('money/reward', TestMoneyReward.as_view()),
+    path('money/penalty', TestMoneyPenalty.as_view()),
+    path('cards', TestCards.as_view()),
 ]

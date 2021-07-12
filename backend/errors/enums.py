@@ -51,6 +51,8 @@ class ErrorsCodes(EnumM):
 
     NOT_ENOUGH_BONUS_BALANCE = 'Недостаточно бонусов для данной операции'
 
+    CARD_ALREADY_USED_IN_OTHER_ACCOUNT = 'Карта уже используется в другом аккаунте'
+
 
 class SocketErrors(IntEnumM):
     # Диапазон 3000-4999
