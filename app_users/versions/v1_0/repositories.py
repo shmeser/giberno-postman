@@ -352,11 +352,11 @@ class ProfileRepository(MasterRepository):
     @staticmethod
     def recalculate_rating_place_for_users():
         user_ct = ContentType.objects.get_for_model(UserProfile)
-        updated_ratings = UserProfile.objects.filter(  # Фильтруем смз по нужным параметрам (регион оценки, смена, дата)
+        updated_ratings = UserProfile.objects.filter(  # Фильтруем смз, только с оценками
             reviews__isnull=False,
         ).annotate(
             total_rating=Subquery(
-                Review.objects.filter(  # Собираем рейтинг по тем же парамерам
+                Review.objects.filter(  # Собираем общий рейтинг
                     target_id=OuterRef('id'),
                     target_ct=user_ct,
                 ).annotate(
@@ -383,7 +383,8 @@ class ProfileRepository(MasterRepository):
             joined_ratings AS (
                 SELECT 
                     p.id, 
-                    ur.place 
+                    ur.place,
+                    ur.total_rating
                 FROM app_users__profiles p 
                 LEFT JOIN updated_rating ur ON p.id=ur.id
                 WHERE 
@@ -392,7 +393,8 @@ class ProfileRepository(MasterRepository):
 
             UPDATE app_users__profiles p 
             SET 
-                rating_place=jr.place 
+                rating_place=jr.place,
+                rating_value=jr.total_rating
             FROM joined_ratings jr
             WHERE 
                 p.id=jr.id
