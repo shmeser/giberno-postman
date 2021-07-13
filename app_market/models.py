@@ -284,11 +284,6 @@ class ShiftAppeal(BaseModel):
 
 class Partner(BaseModel):
     distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE)
-
-    discount = models.PositiveIntegerField(null=True, blank=True, verbose_name='Базовый размер скидки')
-    discount_multiplier = models.PositiveIntegerField(null=True, blank=True, verbose_name='Множитель размера скидки')
-    discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
-    discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
     color = models.CharField(null=True, blank=True, verbose_name='Цвет', max_length=7)
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
@@ -303,10 +298,11 @@ class Partner(BaseModel):
 
 class Coupon(BaseModel):
     code = models.CharField(max_length=64, null=True, blank=True, unique=True)
-
-    discount_amount = models.PositiveIntegerField(null=True, blank=True, verbose_name='Размер скидки')
+    description = models.CharField(max_length=128, null=True, blank=True, verbose_name='Описание')
+    bonus_price = models.PositiveIntegerField(null=True, blank=True)
+    discount = models.PositiveIntegerField(null=True, blank=True, verbose_name='Размер скидки')
     discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
-    discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
+    service_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
 
     partner = models.ForeignKey(Partner, on_delete=models.SET_NULL, null=True, blank=True)
 

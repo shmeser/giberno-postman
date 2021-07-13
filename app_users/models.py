@@ -309,7 +309,7 @@ class Card(BaseModel):
 class UserMoney(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     currency = models.PositiveIntegerField(choices=choices(Currency), default=Currency.RUB.value)
-    amount = models.CharField(max_length=128, blank=True, null=True)
+    amount = models.PositiveIntegerField(blank=True, null=True)
 
     def __str__(self):
         return f'{self.user.first_name} {self.user.last_name} - {self.currency} {self.amount}'

@@ -14,7 +14,7 @@ class DistributorAdmin(FormattedAdmin):
 
 @admin.register(Partner)
 class PartnerAdmin(FormattedAdmin):
-    list_display = ['id', 'distributor', 'discount']
+    list_display = ['id', 'distributor']
     raw_id_fields = ['distributor']
 
 
@@ -55,9 +55,11 @@ class CouponAdmin(FormattedAdmin):
     list_display = [
         'id',
         'code',
-        'discount_amount',
+        'description',
+        'bonus_price',
+        'discount',
         'discount_terms',
-        'discount_description'
+        'service_description'
     ]
     raw_id_fields = ['partner', ]
 

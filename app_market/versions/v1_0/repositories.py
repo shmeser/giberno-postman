@@ -2932,7 +2932,26 @@ class CouponsRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-        self.base_query = self.model.objects.filter(usercoupon__user=self.me)
+        self.bonus_balance_expression = ExpressionWrapper(
+            Case(
+                When(Exists(
+                    UserMoney.objects.filter(
+                        user=self.me, currency=Currency.BONUS.value
+                    )
+                ),
+                    then=Subquery(
+                        UserMoney.objects.filter(user=self.me, currency=Currency.BONUS.value).values('amount')[:1]
+                    )
+                ),
+                default=0,
+                output_field=IntegerField()
+            ),
+            output_field=IntegerField()
+        )
+
+        self.base_query = self.model.objects.annotate(
+            bonus_balance=self.bonus_balance_expression
+        )
 
     @staticmethod
     def fast_related_loading(queryset):
@@ -2940,12 +2959,22 @@ class CouponsRepository(MasterRepository):
 
     def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         if order_by:
-            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs).distinct()
         else:
-            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+            records = self.base_query.exclude(deleted=True).filter(**kwargs).distinct()
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
+
+    def inited_get_by_id(self, record_id):
+        # если будет self.base_query.filter() то manager ничего не сможет увидеть
+        records = self.base_query.filter(pk=record_id).exclude(deleted=True)
+        record = self.fast_related_loading(records).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
 
 
 class TransactionsRepository(MasterRepository):
