@@ -297,7 +297,6 @@ class Partner(BaseModel):
 
 
 class Coupon(BaseModel):
-    code = models.CharField(max_length=64, null=True, blank=True, unique=True)
     description = models.CharField(max_length=128, null=True, blank=True, verbose_name='Описание')
     bonus_price = models.PositiveIntegerField(null=True, blank=True)
     discount = models.PositiveIntegerField(null=True, blank=True, verbose_name='Размер скидки')
@@ -307,12 +306,25 @@ class Coupon(BaseModel):
     partner = models.ForeignKey(Partner, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return f'{self.code}'
+        return f'{self.id}'
 
     class Meta:
         db_table = 'app_market__coupons'
         verbose_name = 'Купон'
         verbose_name_plural = 'Купоны'
+
+
+class Code(BaseModel):
+    value = models.CharField(max_length=64, null=True, blank=True, unique=True)
+    coupon = models.ForeignKey(Partner, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.id}'
+
+    class Meta:
+        db_table = 'app_market__codes'
+        verbose_name = 'Код купона'
+        verbose_name_plural = 'Коды Купонов'
 
 
 class Order(BaseModel):
@@ -333,18 +345,18 @@ class Order(BaseModel):
         verbose_name_plural = 'Заказы'
 
 
-class UserCoupon(BaseModel):
+class UserCode(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True)
-    coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True)
+    code = models.ForeignKey(Code, on_delete=models.SET_NULL, null=True, blank=True)
 
     activated_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата активации')
     order = models.ForeignKey(Order, blank=True, null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
-        return f'User{self.user_id} Coupon{self.coupon_id}'
+        return f'User{self.user_id} Coupon{self.code.coupon_id}'
 
     class Meta:
-        db_table = 'app_market__coupon_user'
+        db_table = 'app_market__code_user'
         verbose_name = 'Купон пользователя'
         verbose_name_plural = 'Купоны пользователей'
 

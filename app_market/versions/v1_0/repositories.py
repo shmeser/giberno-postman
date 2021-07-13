@@ -27,7 +27,7 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
     TransactionType, TransactionKind, FinancesInterval
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
-    Advertisement, Order, Coupon, UserCoupon, Transaction, PartnerDocument
+    Advertisement, Order, Coupon, Transaction, PartnerDocument, UserCode
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -2706,8 +2706,8 @@ class OrdersRepository(MasterRepository):
         self.base_query = self.model.objects.all()
 
     @staticmethod
-    def get_coupon_by_partner(partner_id, amount):
-        coupon = Coupon.objects.filter(partner_id=partner_id, discount_amount=amount, deleted=False).first()
+    def get_coupon_by_partner(coupon_id):
+        coupon = Coupon.objects.filter(id=coupon_id, deleted=False).first()
         if not coupon:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.NO_SUITABLE_COUPON)),
@@ -2716,7 +2716,7 @@ class OrdersRepository(MasterRepository):
         return coupon
 
     def acquire_coupon(self, coupon, order):
-        user_coupon, created = UserCoupon.objects.get_or_create(user=self.me, coupon=coupon, defaults={
+        user_coupon, created = UserCode.objects.get_or_create(user=self.me, coupon=coupon, defaults={
             'order': order
         })
 
@@ -2756,7 +2756,7 @@ class OrdersRepository(MasterRepository):
         t.status = TransactionStatus.HOLD.value
         t.save()
 
-    def complete_decreasing_transaction(self, t):
+    def complete_decrease_bonus_transaction(self, t):
         if t.from_currency == Currency.BONUS.value:
             self.check_bonus_balance_for_decreasing(t.amount)
 
@@ -2849,12 +2849,12 @@ class OrdersRepository(MasterRepository):
                 dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
             ])
 
-    def purchase_coupon(self, partner_id, order_type, amount, terms_accepted, email):
-        coupon = self.get_coupon_by_partner(partner_id=partner_id, amount=amount)
+    def purchase_coupon(self, coupon_id, coupons_count, terms_accepted, email):
+        coupon = self.get_coupon_by_partner(coupon_id=coupon_id)
 
         order = self.create_order(
             email=email,
-            order_type=order_type,
+            order_type=OrderType.GET_COUPON.value,
             terms_accepted=terms_accepted,
         )
 
@@ -2862,7 +2862,7 @@ class OrdersRepository(MasterRepository):
         to_ct = ContentType.objects.get_for_model(coupon)
         t = self.create_transaction(
             order=order,
-            amount=amount,
+            amount=coupons_count * coupon.bonus_price,
             t_type=TransactionType.PURCHASE.value,
             from_id=self.me.id,
             from_ct=from_ct,
@@ -2875,8 +2875,9 @@ class OrdersRepository(MasterRepository):
 
         try:
             with transaction.atomic():
+                # Все функции должны успешно выполниться
                 self.acquire_coupon(coupon, order)
-                self.complete_decreasing_transaction(t)
+                self.complete_decrease_bonus_transaction(t)
                 self.complete_order(order)
         except ForbiddenException:
             self.cancel_transaction(t)
@@ -2909,9 +2910,10 @@ class OrdersRepository(MasterRepository):
         email = data.get('email')
         terms_accepted = data.get('terms_accepted')
         partner_id = data.get('partner')
+        coupon_id = data.get('coupon')
 
         if order_type == OrderType.GET_COUPON.value:
-            return self.purchase_coupon(partner_id, order_type, amount, terms_accepted, email)
+            return self.purchase_coupon(coupon_id, amount, terms_accepted, email)
         if order_type == OrderType.WITHDRAW_BONUS_BY_VOUCHER.value:
             pass
 
@@ -2955,6 +2957,21 @@ class CouponsRepository(MasterRepository):
 
     @staticmethod
     def fast_related_loading(queryset):
+        # TODO префетчить медиа и т.д.
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа
+            Prefetch(
+                'partner__distributor__media',
+                queryset=MediaModel.objects.filter(
+                    deleted=False,
+                    type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
+                    owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+            )
+        )
+
         return queryset
 
     def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
