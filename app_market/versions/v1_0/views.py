@@ -1676,6 +1676,14 @@ class Coupons(CRUDAPIView):
     repository_class = CouponsRepository
     allowed_http_methods = ['get']
 
+    filter_params = {
+        'search': 'partner__distributor__title__istartswith',
+    }
+
+    array_filter_params = {
+        'category': 'partner__distributor__categories__id__in',
+    }
+
     order_params = {
         'id': 'id',
         'created_at': 'created_at'

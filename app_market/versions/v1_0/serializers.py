@@ -1056,10 +1056,6 @@ class PartnersSerializer(serializers.ModelSerializer):
         model = Partner
         fields = [
             'id',
-            'discount',
-            'discount_multiplier',
-            'discount_terms',
-            'discount_description',
             'color',
             'distributor'
         ]
@@ -1126,16 +1122,31 @@ class OrdersSerializer(serializers.ModelSerializer):
 
 class CouponsSerializer(serializers.ModelSerializer):
     created_at = DateTimeField()
+    partner = serializers.SerializerMethodField()
+    max_multiplier = serializers.SerializerMethodField()
+
+    def get_partner(self, data):
+        if data.partner:
+            return PartnersSerializer(data.partner).data
+        return None
+
+    def get_max_multiplier(self, data):
+        if data.bonus_balance:
+            return int(data.bonus_balance / data.bonus_price)
+        return 0
 
     class Meta:
         model = Coupon
         fields = [
             'id',
-            'code',
-            'discount_amount',
+            'description',
+            'discount',
+            'bonus_price',
+            'max_multiplier',
             'discount_terms',
-            'discount_description',
+            'service_description',
             'created_at',
+            'partner'
         ]
 
 
