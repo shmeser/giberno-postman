@@ -545,7 +545,12 @@ class ShiftsRepository(MasterRepository):
                 F('max_employees_count') - F('employees_count'),
                 output_field=IntegerField()
             )
-        ).filter(active_today=True)
+        ).filter(
+            active_today=True,  # активные сегодня
+            free_places__gt=0,  # Есть свободные места
+            min_employee_rating__isnull=False,  # Установлен минимальный рейтинг
+
+        )
 
         return shifts
 
@@ -624,7 +629,12 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
 
         # Количество свободных мест в вакансии
         self.free_count_expression = ExpressionWrapper(
-            Sum('shift__max_employees_count') - Sum('shift__employees_count'),
+            Sum('shift__max_employees_count') - Coalesce(
+                Count('shift__appeals', filter=Q(
+                    shift__appeals__shift_active_date__gte=now(),
+                    shift__appeals__status=ShiftAppealStatus.CONFIRMED.value,
+                )), 0
+            ),
             output_field=IntegerField()
         )
 
