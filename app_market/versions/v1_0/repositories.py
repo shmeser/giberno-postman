@@ -2718,7 +2718,7 @@ class OrdersRepository(MasterRepository):
         ).filter(
             id=coupon_id,
             deleted=False,
-            codes_count__gt=F('receivers_count') + codes_count
+            codes_count__gte=F('receivers_count') + codes_count
         ).first()
 
         if not coupon:
@@ -2904,6 +2904,7 @@ class OrdersRepository(MasterRepository):
                     self.acquire_coupon_code(code, order)
                 self.complete_decrease_bonus_transaction(t)
                 self.complete_order(order)
+                EmailSender.send_coupon_codes(order.email, coupon.discount, codes, coupon.partner.distributor.title)
         except ForbiddenException:
             self.cancel_transaction(t)
             self.cancel_order(order)
@@ -2918,7 +2919,6 @@ class OrdersRepository(MasterRepository):
                 dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
             ])
 
-        EmailSender.send_coupon_code(order.email, coupon.discount, codes, coupon.partner.distributor.title)
         return order
 
     def place_order(self, data):
