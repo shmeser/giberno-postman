@@ -2706,17 +2706,43 @@ class OrdersRepository(MasterRepository):
         self.base_query = self.model.objects.all()
 
     @staticmethod
-    def get_coupon_by_partner(coupon_id):
-        coupon = Coupon.objects.filter(id=coupon_id, deleted=False).first()
+    def get_coupon_and_codes(coupon_id, codes_count):
+        coupon = Coupon.objects.annotate(
+            codes_count=Coalesce(Count(  # Общее количество кодов для купона
+                'codes', filter=Q(deleted=False)
+            ), 0),
+            receivers_count=Coalesce(Count(  # Количество получателей кодов
+                'codes__receivers', filter=Q(deleted=False)
+            ), 0)
+
+        ).filter(
+            id=coupon_id,
+            deleted=False,
+            codes_count__gt=F('receivers_count') + codes_count
+        ).first()
+
         if not coupon:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.NO_SUITABLE_COUPON)),
             ])
 
-        return coupon
+        # Получаем коды для купона
+        codes = Code.objects.filter(
+            deleted=False,
+            coupon=coupon,
+            receivers__isnull=True  # не полученные никем
+        )[:codes_count]  # Нужное количество кодов
 
-    def acquire_coupon(self, coupon, order):
-        user_coupon, created = UserCode.objects.get_or_create(user=self.me, coupon=coupon, defaults={
+        if len(codes) != codes_count:
+            # Если количество не соответствует запрошенному
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NO_SUITABLE_COUPON)),
+            ])
+
+        return coupon, codes
+
+    def acquire_coupon_code(self, code, order):
+        user_coupon, created = UserCode.objects.get_or_create(user=self.me, code=code, defaults={
             'order': order
         })
 
@@ -2759,9 +2785,7 @@ class OrdersRepository(MasterRepository):
     def complete_decrease_bonus_transaction(self, t):
         if t.from_currency == Currency.BONUS.value:
             self.check_bonus_balance_for_decreasing(t.amount)
-
-            self.me.bonus_balance -= t.amount
-            self.me.save()
+            TransactionsRepository(me=self.me).recalculate_money(Currency.BONUS.value)
         t.status = TransactionStatus.COMPLETED.value
         t.save()
 
@@ -2850,7 +2874,7 @@ class OrdersRepository(MasterRepository):
             ])
 
     def purchase_coupon(self, coupon_id, coupons_count, terms_accepted, email):
-        coupon = self.get_coupon_by_partner(coupon_id=coupon_id)
+        coupon, codes = self.get_coupon_and_codes(coupon_id=coupon_id, codes_count=coupons_count)
 
         order = self.create_order(
             email=email,
@@ -2876,7 +2900,8 @@ class OrdersRepository(MasterRepository):
         try:
             with transaction.atomic():
                 # Все функции должны успешно выполниться
-                self.acquire_coupon(coupon, order)
+                for code in codes:
+                    self.acquire_coupon_code(code, order)
                 self.complete_decrease_bonus_transaction(t)
                 self.complete_order(order)
         except ForbiddenException:
@@ -2893,7 +2918,7 @@ class OrdersRepository(MasterRepository):
                 dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
             ])
 
-        EmailSender.send_coupon_code(order.email, coupon.discount_amount, coupon.code, coupon.partner.distributor.title)
+        EmailSender.send_coupon_code(order.email, coupon.discount, codes, coupon.partner.distributor.title)
         return order
 
     def place_order(self, data):
