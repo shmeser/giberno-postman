@@ -1060,6 +1060,7 @@ class PartnersSerializer(serializers.ModelSerializer):
             'discount_multiplier',
             'discount_terms',
             'discount_description',
+            'color',
             'distributor'
         ]
 

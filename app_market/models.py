@@ -182,8 +182,14 @@ class Shift(BaseModel):
     price = models.PositiveIntegerField(null=True, blank=True, verbose_name='Ставка за час')
     currency = models.PositiveIntegerField(choices=choices(Currency), default=Currency.RUB, verbose_name='Валюта')
 
-    employees_count = models.PositiveIntegerField(default=0, verbose_name='Число работников сейчас')
     max_employees_count = models.PositiveIntegerField(default=1, verbose_name='Максимальное число работников')
+
+    min_employee_rating = models.FloatField(
+        null=True, blank=True, verbose_name='Минимальный рейтинг работника для автоконтроля'
+    )
+    auto_control_threshold_minutes = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name='Минут до начала смены для автоконтроля'
+    )
 
     time_start = models.TimeField(null=True, blank=True, verbose_name='Время начала смены')
     time_end = models.TimeField(null=True, blank=True, verbose_name='Время окончания смены')
@@ -283,7 +289,7 @@ class Partner(BaseModel):
     discount_multiplier = models.PositiveIntegerField(null=True, blank=True, verbose_name='Множитель размера скидки')
     discount_terms = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Условия получения')
     discount_description = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Описание услуги')
-
+    color = models.CharField(null=True, blank=True, verbose_name='Цвет', max_length=7)
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
