@@ -27,7 +27,7 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
     TransactionType, TransactionKind, FinancesInterval
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
-    Advertisement, Order, Coupon, Transaction, PartnerDocument, UserCode
+    Advertisement, Order, Coupon, Transaction, PartnerDocument, UserCode, Code
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -2951,13 +2951,25 @@ class CouponsRepository(MasterRepository):
             output_field=IntegerField()
         )
 
+        self.codes_count_expression = Coalesce(Count(  # Общее количество кодов для купона
+            'codes', filter=Q(deleted=False)
+        ), 0)
+
+        self.receivers_count_expression = Coalesce(Count(  # Количество получателей кодов
+            'codes__receivers', filter=Q(deleted=False)
+        ), 0)
+
         self.base_query = self.model.objects.annotate(
-            bonus_balance=self.bonus_balance_expression
+            bonus_balance=self.bonus_balance_expression,
+            codes_count=self.codes_count_expression,
+            receivers_count=self.receivers_count_expression,
+        ).filter(
+            Q(codes_count__gt=0) &  # Только если есть коды
+            Q(codes_count__gt=F('receivers_count'))  # Есть не использованные коды
         )
 
     @staticmethod
     def fast_related_loading(queryset):
-        # TODO префетчить медиа и т.д.
         queryset = queryset.prefetch_related(
             # Подгрузка медиа
             Prefetch(

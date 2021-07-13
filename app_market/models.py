@@ -316,7 +316,7 @@ class Coupon(BaseModel):
 
 class Code(BaseModel):
     value = models.CharField(max_length=64, null=True, blank=True, unique=True)
-    coupon = models.ForeignKey(Partner, on_delete=models.SET_NULL, null=True, blank=True)
+    coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, related_name='codes')
 
     def __str__(self):
         return f'{self.id}'
@@ -347,7 +347,7 @@ class Order(BaseModel):
 
 class UserCode(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True)
-    code = models.ForeignKey(Code, on_delete=models.SET_NULL, null=True, blank=True)
+    code = models.ForeignKey(Code, on_delete=models.SET_NULL, null=True, blank=True, related_name='receivers')
 
     activated_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата активации')
     order = models.ForeignKey(Order, blank=True, null=True, on_delete=models.SET_NULL)
