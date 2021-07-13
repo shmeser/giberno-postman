@@ -27,7 +27,7 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
     TransactionType, TransactionKind, FinancesInterval
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
-    Advertisement, Order, Coupon, UserCoupon, Transaction, PartnerDocument
+    Advertisement, Order, Coupon, Transaction, PartnerDocument, UserCode, Code
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -2706,17 +2706,43 @@ class OrdersRepository(MasterRepository):
         self.base_query = self.model.objects.all()
 
     @staticmethod
-    def get_coupon_by_partner(partner_id, amount):
-        coupon = Coupon.objects.filter(partner_id=partner_id, discount_amount=amount, deleted=False).first()
+    def get_coupon_and_codes(coupon_id, codes_count):
+        coupon = Coupon.objects.annotate(
+            codes_count=Coalesce(Count(  # Общее количество кодов для купона
+                'codes', filter=Q(deleted=False)
+            ), 0),
+            receivers_count=Coalesce(Count(  # Количество получателей кодов
+                'codes__receivers', filter=Q(deleted=False)
+            ), 0)
+
+        ).filter(
+            id=coupon_id,
+            deleted=False,
+            codes_count__gte=F('receivers_count') + codes_count
+        ).first()
+
         if not coupon:
             raise CustomException(errors=[
                 dict(Error(ErrorsCodes.NO_SUITABLE_COUPON)),
             ])
 
-        return coupon
+        # Получаем коды для купона
+        codes = Code.objects.filter(
+            deleted=False,
+            coupon=coupon,
+            receivers__isnull=True  # не полученные никем
+        )[:codes_count]  # Нужное количество кодов
 
-    def acquire_coupon(self, coupon, order):
-        user_coupon, created = UserCoupon.objects.get_or_create(user=self.me, coupon=coupon, defaults={
+        if len(codes) != codes_count:
+            # Если количество не соответствует запрошенному
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NO_SUITABLE_COUPON)),
+            ])
+
+        return coupon, codes
+
+    def acquire_coupon_code(self, code, order):
+        user_coupon, created = UserCode.objects.get_or_create(user=self.me, code=code, defaults={
             'order': order
         })
 
@@ -2756,12 +2782,10 @@ class OrdersRepository(MasterRepository):
         t.status = TransactionStatus.HOLD.value
         t.save()
 
-    def complete_decreasing_transaction(self, t):
+    def complete_decrease_bonus_transaction(self, t):
         if t.from_currency == Currency.BONUS.value:
             self.check_bonus_balance_for_decreasing(t.amount)
-
-            self.me.bonus_balance -= t.amount
-            self.me.save()
+            TransactionsRepository(me=self.me).recalculate_money(Currency.BONUS.value)
         t.status = TransactionStatus.COMPLETED.value
         t.save()
 
@@ -2849,12 +2873,12 @@ class OrdersRepository(MasterRepository):
                 dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
             ])
 
-    def purchase_coupon(self, partner_id, order_type, amount, terms_accepted, email):
-        coupon = self.get_coupon_by_partner(partner_id=partner_id, amount=amount)
+    def purchase_coupon(self, coupon_id, coupons_count, terms_accepted, email):
+        coupon, codes = self.get_coupon_and_codes(coupon_id=coupon_id, codes_count=coupons_count)
 
         order = self.create_order(
             email=email,
-            order_type=order_type,
+            order_type=OrderType.GET_COUPON.value,
             terms_accepted=terms_accepted,
         )
 
@@ -2862,7 +2886,7 @@ class OrdersRepository(MasterRepository):
         to_ct = ContentType.objects.get_for_model(coupon)
         t = self.create_transaction(
             order=order,
-            amount=amount,
+            amount=coupons_count * coupon.bonus_price,
             t_type=TransactionType.PURCHASE.value,
             from_id=self.me.id,
             from_ct=from_ct,
@@ -2875,9 +2899,12 @@ class OrdersRepository(MasterRepository):
 
         try:
             with transaction.atomic():
-                self.acquire_coupon(coupon, order)
-                self.complete_decreasing_transaction(t)
+                # Все функции должны успешно выполниться
+                for code in codes:
+                    self.acquire_coupon_code(code, order)
+                self.complete_decrease_bonus_transaction(t)
                 self.complete_order(order)
+                EmailSender.send_coupon_codes(order.email, coupon.discount, codes, coupon.partner.distributor.title)
         except ForbiddenException:
             self.cancel_transaction(t)
             self.cancel_order(order)
@@ -2892,7 +2919,6 @@ class OrdersRepository(MasterRepository):
                 dict(Error(ErrorsCodes.NOT_ENOUGH_BONUS_BALANCE))
             ])
 
-        EmailSender.send_coupon_code(order.email, coupon.discount_amount, coupon.code, coupon.partner.distributor.title)
         return order
 
     def place_order(self, data):
@@ -2909,9 +2935,10 @@ class OrdersRepository(MasterRepository):
         email = data.get('email')
         terms_accepted = data.get('terms_accepted')
         partner_id = data.get('partner')
+        coupon_id = data.get('coupon')
 
         if order_type == OrderType.GET_COUPON.value:
-            return self.purchase_coupon(partner_id, order_type, amount, terms_accepted, email)
+            return self.purchase_coupon(coupon_id, amount, terms_accepted, email)
         if order_type == OrderType.WITHDRAW_BONUS_BY_VOUCHER.value:
             pass
 
@@ -2949,12 +2976,39 @@ class CouponsRepository(MasterRepository):
             output_field=IntegerField()
         )
 
+        self.codes_count_expression = Coalesce(Count(  # Общее количество кодов для купона
+            'codes', filter=Q(deleted=False)
+        ), 0)
+
+        self.receivers_count_expression = Coalesce(Count(  # Количество получателей кодов
+            'codes__receivers', filter=Q(deleted=False)
+        ), 0)
+
         self.base_query = self.model.objects.annotate(
-            bonus_balance=self.bonus_balance_expression
+            bonus_balance=self.bonus_balance_expression,
+            codes_count=self.codes_count_expression,
+            receivers_count=self.receivers_count_expression,
+        ).filter(
+            Q(codes_count__gt=0) &  # Только если есть коды
+            Q(codes_count__gt=F('receivers_count'))  # Есть не использованные коды
         )
 
     @staticmethod
     def fast_related_loading(queryset):
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа
+            Prefetch(
+                'partner__distributor__media',
+                queryset=MediaModel.objects.filter(
+                    deleted=False,
+                    type__in=[MediaType.LOGO.value, MediaType.BANNER.value],
+                    owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
+            )
+        )
+
         return queryset
 
     def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):

@@ -30,11 +30,17 @@ class EmailSender:
             logger.error(e)
 
     @staticmethod
-    def send_coupon_code(email, amount=0, code='', partner_name=''):
+    def send_coupon_codes(email, amount=0, codes=[], partner_name=''):
         try:
+            message = f'Количество купленных купонов: {len(codes)}\n' \
+                'Коды купонов:\n'
+            for code in codes:
+                message += f'{code.value}\n'
+
+            message += f'\nМагазин-Партнер: {partner_name} \nСкидка: {amount}'
             send_mail(
-                subject='Ваш купон на скидку',
-                message=f"Код купона: {code} \nМагазин-Партнер: {partner_name} \nСкидка: {amount}",
+                subject='Ваши купоны на скидку',
+                message=message,
                 from_email=f'GIBERNO Admin {settings.EMAIL_HOST_USER}',
                 recipient_list=[email],
                 auth_user=settings.EMAIL_HOST_USER,

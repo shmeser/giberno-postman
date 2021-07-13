@@ -1,7 +1,8 @@
 from django.contrib.gis import admin
 
 from app_market.models import Distributor, Shop, Vacancy, Shift, Order, Transaction, Coupon, Profession, \
-    UserProfession, DistributorCategory, Category, ShiftAppeal, Partner, Achievement, AchievementProgress, Advertisement
+    UserProfession, DistributorCategory, Category, ShiftAppeal, Partner, Achievement, AchievementProgress, \
+    Advertisement, UserCode, Code
 from backend.mixins import FormattedAdmin
 
 _ITEMS_PER_ITERATION = 5
@@ -54,7 +55,6 @@ class ShiftAdmin(FormattedAdmin):
 class CouponAdmin(FormattedAdmin):
     list_display = [
         'id',
-        'code',
         'description',
         'bonus_price',
         'discount',
@@ -62,6 +62,27 @@ class CouponAdmin(FormattedAdmin):
         'service_description'
     ]
     raw_id_fields = ['partner', ]
+
+
+@admin.register(Code)
+class CodeAdmin(FormattedAdmin):
+    list_display = [
+        'id',
+        'value',
+        'coupon_id'
+    ]
+    raw_id_fields = ['coupon', ]
+
+
+@admin.register(UserCode)
+class UserCodeAdmin(FormattedAdmin):
+    list_display = [
+        'id',
+        'code_id',
+        'activated_at',
+        'order_id'
+    ]
+    raw_id_fields = ['code', 'order']
 
 
 @admin.register(Order)

@@ -26,7 +26,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
     ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer, AchievementsSerializer, \
     AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer, FinancesSerializer, \
-    FinancesValiadator
+    FinancesValiadator, OrdersValiadator
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -1660,15 +1660,17 @@ class Orders(CRUDAPIView):
 
     def post(self, request, **kwargs):
         body = get_request_body(request)
-        dataset = self.repository_class(me=request.user).place_order(body)
+        validator = OrdersValiadator(data=body)
+        if validator.is_valid(raise_exception=True):
+            dataset = self.repository_class(me=request.user).place_order(validator.validated_data)
 
-        self.many = False
+            self.many = False
 
-        serialized = self.serializer_class(dataset, many=self.many, context={
-            'me': request.user,
-            'headers': get_request_headers(request),
-        })
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+            serialized = self.serializer_class(dataset, many=self.many, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            })
+            return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class Coupons(CRUDAPIView):
