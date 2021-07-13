@@ -512,6 +512,43 @@ class ShiftsRepository(MasterRepository):
 
         return should_notify_managers, managers, managers_sockets, chat_id
 
+    @staticmethod
+    def get_shifts_for_auto_control():
+        shifts = Shift.objects.annotate(
+            timezone=F('vacancy__timezone'),  # Добавляем timezone для кастомного лукапа dacontainsdatetz
+            employees_count=Count(
+                'appeals',
+                filter=Q(
+                    appeals__status=ShiftAppealStatus.CONFIRMED.value,
+                    appeals__shift_active_date__datetz2=now()
+                )
+            ),
+            active_dates=Func(
+                F('frequency'),
+                F('by_month'),
+                F('by_monthday'),
+                F('by_weekday'),
+                function='rrule_list_occurences',  # Кастомная postgres функция (возвращает массив дат вида TIMESTAMPTZ)
+                output_field=ArrayField(DateTimeField())
+            )
+
+        ).annotate(
+            active_today=Case(
+                When(
+                    active_dates__dacontainsdatetz=now(),
+                    then=True
+                ),
+                default=False,
+                output_field=BooleanField()
+            ),
+            free_places=ExpressionWrapper(
+                F('max_employees_count') - F('employees_count'),
+                output_field=IntegerField()
+            )
+        ).filter(active_today=True)
+
+        return shifts
+
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
     model = Vacancy

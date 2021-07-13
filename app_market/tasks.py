@@ -6,7 +6,7 @@ from loguru import logger
 
 from app_market.enums import AchievementType
 from app_market.utils import send_socket_event_on_appeal_statuses
-from app_market.versions.v1_0.repositories import ShiftAppealsRepository, AchievementsRepository
+from app_market.versions.v1_0.repositories import ShiftAppealsRepository, AchievementsRepository, ShiftsRepository
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
 from backend.controllers import PushController
@@ -253,3 +253,10 @@ def check_shift_achievement(appeal_real_date_end, applier_id):
         # TODO отправить пуш о достижении
 
         logger.debug(f'========= НОВОЕ ДОСТИЖЕНИЕ {achievement.name} для USER {applier_id} ==========')
+
+def auto_control_timed_shifts():
+    #  Ищем все смены, у которых стоит мин рейтинг для работников, есть свободные места, и наступило время контроля
+    #  Берем все неодобренные отклики,сортируем их по рейтингу заявителя, берем нужное количество
+    #  Одобряем выбранные отклики
+    shifts = ShiftsRepository.get_shifts_for_auto_control()
+

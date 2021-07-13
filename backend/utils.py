@@ -481,6 +481,13 @@ class DatesArrayContains(CustomLookupBase):
 
 
 @Field.register_lookup
+class DatesArrayContainsDateTZ(CustomLookupBase):
+    # Кастомный lookup с приведением типов для массива дат
+    lookup_name = 'dacontainsdatetz'
+    parametric_string = "%s::DATE[] @> ARRAY[(%s AT TIME ZONE timezone)]::DATE[]"
+
+
+@Field.register_lookup
 class LTTimeTZ(CustomLookupBase):
     # Кастомный lookup для сравнения времени с учетом временной зоны из поля timezone
     lookup_name = 'lttimetz'
@@ -541,6 +548,12 @@ class DateTZ(CustomLookupBase):
     # Кастомный lookup с приведением типов для даты во временной зоне из поля timezone
     lookup_name = 'datetz'
     parametric_string = "(%s AT TIME ZONE timezone)::DATE = %s :: DATE"
+
+@Field.register_lookup
+class DateTZ2(CustomLookupBase):
+    # Кастомный lookup с приведением типов для даты во временной зоне из поля timezone
+    lookup_name = 'datetz2'
+    parametric_string = "(%s AT TIME ZONE timezone)::DATE = (%s AT TIME ZONE timezone) :: DATE"
 
 
 @Field.register_lookup
