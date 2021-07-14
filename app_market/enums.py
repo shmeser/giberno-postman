@@ -1,4 +1,4 @@
-from backend.enums import IntEnumM
+from backend.enums import IntEnumM, EnumM
 
 
 class Currency(IntEnumM):
@@ -155,3 +155,7 @@ class FinancesInterval(IntEnumM):
     WEEK = 2
     MONTH = 3
     YEAR = 4
+
+
+class NotificationTitle(EnumM):
+    MANAGER_ACCEPTED_APPEAL_TITLE = 'Отклик одобрен'

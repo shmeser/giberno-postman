@@ -1,10 +1,10 @@
 from celery.schedules import crontab
 
 celery_beat_schedule = {
-    # 'check_subscription': {
-    #     'task': 'subscriptions.tasks.check_subscription',
-    #     'schedule': crontab(hour='*', minute='0', day_of_week='*')
-    # },
+    'auto_control_timed_shifts': {
+        'task': 'app_market.tasks.auto_control_timed_shifts',
+        'schedule': crontab(minute='*')
+    },
     'update_appeals': {
         'task': 'app_market.tasks.update_appeals',
         'schedule': crontab(minute='*')

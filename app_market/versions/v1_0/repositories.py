@@ -516,7 +516,7 @@ class ShiftsRepository(MasterRepository):
     def get_shifts_for_auto_control():
         shifts = Shift.objects.annotate(
             timezone=F('vacancy__timezone'),  # Добавляем timezone для кастомного лукапа dacontainsdatetz
-            employees_count=Count(
+            employees_count=Count(  # Количество рабочих в этот день для смены
                 'appeals',
                 filter=Q(
                     appeals__status=ShiftAppealStatus.CONFIRMED.value,
@@ -549,10 +549,19 @@ class ShiftsRepository(MasterRepository):
             active_today=True,  # активные сегодня
             free_places__gt=0,  # Есть свободные места
             min_employee_rating__isnull=False,  # Установлен минимальный рейтинг
-
         )
 
         return shifts
+
+    @classmethod
+    def get_shifts_with_threshold(cls):
+        queryset = cls.get_shifts_for_auto_control()
+        queryset = queryset.filter(
+            auto_control_threshold_minutes__isnull=False,  # Установлен временной порог
+            # передаем значение порога в лукап, который сравнивает его с time_start
+            time_start__now_plus_minutes_tz=F('auto_control_threshold_minutes')
+        )
+        return queryset
 
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
@@ -2225,6 +2234,33 @@ class ShiftAppealsRepository(MasterRepository):
 
         return achieved_count
 
+    @classmethod
+    def confirm_appeals_for_this_day(cls, shift_id, count, min_rating, date):
+        # Переводим в list ид откликов, чтобы они не перетерлись после .update()
+        appeals_ids = list(ShiftAppeal.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            shift_id=shift_id,
+            shift_active_date__datetz2=date,  # сравниваем только даты (а не datetime) через datetz2 в нужной timezone
+            status=ShiftAppealStatus.INITIAL.value,  # Новые заявки
+            deleted=False,
+            applier__rating_value__gte=min_rating  # общий рейтинг заявителя должен быть выше минимального указанного
+        ).order_by('-applier__rating_value').distinct().values_list('id', flat=True))[:count]
+
+        ShiftAppeal.objects.filter(
+            id__in=appeals_ids
+        ).update(
+            status=ShiftAppealStatus.CONFIRMED.value,
+            updated_at=now()
+        )
+
+        confirmed_appeals = ShiftAppeal.objects.filter(
+            id__in=appeals_ids
+        )
+        confirmed_appeals = cls.prefetch_applier_and_managers(confirmed_appeals)
+
+        return confirmed_appeals
+
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
     def __init__(self, me=None, point=None):
@@ -2945,7 +2981,7 @@ class OrdersRepository(MasterRepository):
         if order_type == OrderType.GET_COUPON.value:
             return self.purchase_coupon(coupon_id, amount, terms_accepted, email)
         if order_type == OrderType.WITHDRAW_BONUS_BY_VOUCHER.value:
-            pass
+            return None
 
     @classmethod
     def deposit_bonuses(cls, amount, to_id, to_ct, to_ct_name):

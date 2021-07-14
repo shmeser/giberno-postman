@@ -2,9 +2,10 @@ import uuid
 
 from celery import group
 from celery import shared_task
+from django.utils.timezone import now
 from loguru import logger
 
-from app_market.enums import AchievementType
+from app_market.enums import AchievementType, NotificationTitle
 from app_market.utils import send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import ShiftAppealsRepository, AchievementsRepository, ShiftsRepository
 from app_sockets.controllers import SocketController
@@ -254,9 +255,41 @@ def check_shift_achievement(appeal_real_date_end, applier_id):
 
         logger.debug(f'========= НОВОЕ ДОСТИЖЕНИЕ {achievement.name} для USER {applier_id} ==========')
 
+
+@app.task
 def auto_control_timed_shifts():
     #  Ищем все смены, у которых стоит мин рейтинг для работников, есть свободные места, и наступило время контроля
     #  Берем все неодобренные отклики,сортируем их по рейтингу заявителя, берем нужное количество
     #  Одобряем выбранные отклики
-    shifts = ShiftsRepository.get_shifts_for_auto_control()
+    shifts = ShiftsRepository.get_shifts_with_threshold()
+    date = now()
 
+    for shift in shifts:
+        # Получить все отклики со статусом INITIAL на текущий день для смены,
+        # отсортированные по убыванию рейтинга заявителя, взять из них shift.free_places штук
+        confirmed_appeals = ShiftAppealsRepository.confirm_appeals_for_this_day(
+            shift_id=shift.id,
+            count=shift.free_places,
+            min_rating=shift.min_employee_rating,
+            date=date
+        )
+
+        for a in confirmed_appeals:
+            applier_sockets, managers_sockets, users_to_send = ShiftAppealsRepository.get_self_employed_and_managers_with_sockets(
+                appeal=a
+            )
+            send_socket_event_on_appeal_statuses(
+                appeal=a, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
+
+            icon_type = NotificationIcon.WORKER_CANCELED_VACANCY.value
+            title = NotificationTitle.MANAGER_ACCEPTED_APPEAL_TITLE.value
+            message = f'Ваш отклик на вакансию {a.shift.vacancy.title} одобрен'
+            send_notification_on_appeal(
+                appeal=a,
+                users_to_send=[a.applier],
+                sockets=applier_sockets,
+                title=title,
+                message=message,
+                icon_type=icon_type
+            )
