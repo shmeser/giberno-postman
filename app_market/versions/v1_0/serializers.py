@@ -553,14 +553,13 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
     def get_employees_count(self, instance):
         queryset = self.active_shifts(instance=instance)
         if queryset.count():
-            # TODO удалить поле employees_count т.к. в разные дни на одной смене разное к-во людей
             return queryset.annotate(
                 timezone=F('vacancy__timezone')
             ).aggregate(
                 count=Coalesce(
                     Count(
                         'appeals',
-                        filter=Q(  # TODO нужно перепроверить, тут сравнение с datetime а не date
+                        filter=Q(
                             appeals__shift_active_date__datetz=localtime(
                                 self.context.get('current_date'), timezone=timezone(instance.timezone)
                             ).date(),
@@ -1161,10 +1160,15 @@ class FinancesValiadator(serializers.Serializer):
 
 class OrdersValiadator(serializers.Serializer):
     type = serializers.ChoiceField(choices=choices(OrderType))
+    amount = serializers.IntegerField(min_value=0)
+
+
+class BuyCouponsValidator(serializers.Serializer):
+    type = serializers.ChoiceField(choices=choices(OrderType))
+    amount = serializers.IntegerField(min_value=0)
+    coupon = serializers.IntegerField()
     email = serializers.EmailField()
     partner = serializers.IntegerField(required=False)
-    coupon = serializers.IntegerField(required=False)
-    amount = serializers.IntegerField(min_value=0)
     terms_accepted = serializers.BooleanField()
 
 

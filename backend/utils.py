@@ -549,6 +549,7 @@ class DateTZ(CustomLookupBase):
     lookup_name = 'datetz'
     parametric_string = "(%s AT TIME ZONE timezone)::DATE = %s :: DATE"
 
+
 @Field.register_lookup
 class DateTZ2(CustomLookupBase):
     # Кастомный lookup с приведением типов для даты во временной зоне из поля timezone
@@ -582,6 +583,15 @@ class MSGteContains(CustomLookupBase):
     # Кастомный lookup для фильтрации DateTime по миллисекундам (в бд записи с точностью до МИКРОсекунд)
     lookup_name = 'ms_gte'
     parametric_string = "DATE_TRUNC('millisecond', %s)::TIMESTAMPTZ >= %s"
+
+
+@Field.register_lookup
+class NowPlusMinutesTZ(CustomLookupBase):
+    # Кастомный lookup для сравнения TIME field c текущим временем с учетом timezone плюс интервал в минутах
+    # Для проверки что TIME %s наступит ровно через %s минут
+    lookup_name = 'now_plus_minutes_tz'
+    parametric_string = "%s = " \
+                        "DATE_TRUNC('minute',((now() + interval '1 minute' * %s) AT TIME ZONE timezone))::TIME"
 
 
 def get_timezone_name_from_utcoffset(seconds):

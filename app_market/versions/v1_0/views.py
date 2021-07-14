@@ -11,7 +11,7 @@ from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer, POSTShopReviewSerializer, DistributorReviewsSerializer, \
     VacancyReviewsSerializer, ShopVacanciesReviewsSerializer
-from app_market.enums import AppealCancelReason, ShiftAppealStatus
+from app_market.enums import AppealCancelReason, ShiftAppealStatus, NotificationTitle, OrderType
 from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
@@ -26,7 +26,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
     ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer, AchievementsSerializer, \
     AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer, FinancesSerializer, \
-    FinancesValiadator, OrdersValiadator
+    FinancesValiadator, OrdersValiadator, BuyCouponsValidator
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -614,7 +614,7 @@ class VacanciesStats(Vacancies):
             kwargs=filters, order_by=order_params
         )
 
-        stats = self.repository_class().aggregate_stats(dataset)
+        stats = self.repository_class.aggregate_stats(dataset)
 
         return Response(camelize({
             'all_prices': chained_get(stats, 'all_prices'),
@@ -786,8 +786,6 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
         status_changed, appeal = ShiftAppealsRepository(me=request.user).confirm_by_manager(
             record_id=record_id)
 
-        _MANAGER_ACCEPTED_APPEAL_TITLE = 'Отклик одобрен'
-
         if status_changed:
             # Отправляем по сокетам смену status и job_status смз и менеджерам
             applier_sockets, managers_sockets, users_and_managers = self.repository_class \
@@ -797,7 +795,7 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
                 appeal=appeal, applier_sockets=applier_sockets, managers_sockets=managers_sockets
             )
 
-            title = _MANAGER_ACCEPTED_APPEAL_TITLE
+            title = NotificationTitle.MANAGER_ACCEPTED_APPEAL_TITLE.value
             message = f'Ваш отклик на вакансию {appeal.shift.vacancy.title} одобрен'
             action = NotificationAction.VACANCY.value
             subject_id = appeal.shift.vacancy_id
@@ -1660,7 +1658,13 @@ class Orders(CRUDAPIView):
 
     def post(self, request, **kwargs):
         body = get_request_body(request)
-        validator = OrdersValiadator(data=body)
+        order_validator = OrdersValiadator(data=body)
+        validator = order_validator
+        order_validator.is_valid(raise_exception=True)
+
+        if order_validator.validated_data.get('type') == OrderType.GET_COUPON.value:
+            validator = BuyCouponsValidator(data=body)
+
         if validator.is_valid(raise_exception=True):
             dataset = self.repository_class(me=request.user).place_order(validator.validated_data)
 
