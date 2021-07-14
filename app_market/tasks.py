@@ -283,7 +283,7 @@ def auto_control_timed_shifts():
             )
 
             icon_type = NotificationIcon.WORKER_CANCELED_VACANCY.value
-            title = NotificationTitle.MANAGER_ACCEPTED_APPEAL_TITLE.value
+            title = NotificationTitle.AUTO_ACCEPTED_APPEAL_TITLE.value
             message = f'Ваш отклик на вакансию {a.shift.vacancy.title} одобрен'
             send_notification_on_appeal(
                 appeal=a,

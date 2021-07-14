@@ -159,3 +159,4 @@ class FinancesInterval(IntEnumM):
 
 class NotificationTitle(EnumM):
     MANAGER_ACCEPTED_APPEAL_TITLE = 'Отклик одобрен'
+    AUTO_ACCEPTED_APPEAL_TITLE = 'Отклик одобрен автоматически'
