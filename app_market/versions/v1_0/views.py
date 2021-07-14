@@ -11,7 +11,7 @@ from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer, POSTShopReviewSerializer, DistributorReviewsSerializer, \
     VacancyReviewsSerializer, ShopVacanciesReviewsSerializer
-from app_market.enums import AppealCancelReason, ShiftAppealStatus
+from app_market.enums import AppealCancelReason, ShiftAppealStatus, NotificationTitle, OrderType
 from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
@@ -26,7 +26,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
     ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer, AchievementsSerializer, \
     AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer, FinancesSerializer, \
-    FinancesValiadator
+    FinancesValiadator, OrdersValiadator, BuyCouponsValidator
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_sockets.controllers import SocketController
@@ -322,10 +322,8 @@ class ShiftAppealCancel(CRUDAPIView):
             managers_sockets=sockets
         )
 
-        _WORKER_CANCELED_APPEAL_TITLE = 'Самозанятый отказался от вакансии'
-
         if is_confirmed_appeal_canceled and managers:
-            title = _WORKER_CANCELED_APPEAL_TITLE
+            title = NotificationTitle.WORKER_CANCELED_APPEAL_TITLE.value
             message = f'К сожалению, работник {request.user.first_name} {request.user.last_name} отказался от вакансии {appeal.shift.vacancy.title}'
             action = NotificationAction.VACANCY.value
             subject_id = appeal.shift.vacancy_id
@@ -602,66 +600,6 @@ class Shifts(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-# class UserShiftsListAPIView(CRUDAPIView):
-#     serializer_class = UserShiftSerializer
-#     repository_class = UserShiftRepository
-#     allowed_http_methods = ['get']
-#
-#     filter_params = {
-#         'status': 'status'
-#     }
-#
-#     bool_filter_params = {
-#
-#     }
-#
-#     array_filter_params = {
-#     }
-#
-#     default_order_params = [
-#         '-created_at'
-#     ]
-#
-#     default_filters = {}
-#
-#     order_params = {
-#         'id': 'id'
-#     }
-#
-#     def get(self, request, **kwargs):
-#         filters = RequestMapper(self).filters(request) or dict()
-#         filters.update({'user': request.user})
-#         pagination = RequestMapper.pagination(request)
-#         order_params = RequestMapper(self).order(request)
-#
-#         dataset = self.repository_class().filter_by_kwargs(
-#             kwargs=filters, order_by=order_params, paginator=pagination
-#         )
-#
-#         serialized = self.serializer_class(dataset, many=True, context={
-#             'me': request.user,
-#             'headers': get_request_headers(request),
-#         })
-#
-#         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
-#
-#
-# class UserShiftsRetrieveAPIView(CRUDAPIView):
-#     serializer_class = UserShiftSerializer
-#     repository_class = UserShiftRepository
-#     allowed_http_methods = ['get']
-#
-#     def get(self, request, **kwargs):
-#         user_shift = self.repository_class().get_by_id(kwargs.get('record_id'))
-#
-#         serialized = self.serializer_class(user_shift, many=False, context={
-#             'me': request.user,
-#             'headers': get_request_headers(request),
-#         })
-#
-#         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
-
-
 class VacanciesStats(Vacancies):
     def get(self, request, **kwargs):
         filters = RequestMapper(self).filters(request) or dict()
@@ -674,7 +612,7 @@ class VacanciesStats(Vacancies):
             kwargs=filters, order_by=order_params
         )
 
-        stats = self.repository_class().aggregate_stats(dataset)
+        stats = self.repository_class.aggregate_stats(dataset)
 
         return Response(camelize({
             'all_prices': chained_get(stats, 'all_prices'),
@@ -846,8 +784,6 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
         status_changed, appeal = ShiftAppealsRepository(me=request.user).confirm_by_manager(
             record_id=record_id)
 
-        _MANAGER_ACCEPTED_APPEAL_TITLE = 'Отклик одобрен'
-
         if status_changed:
             # Отправляем по сокетам смену status и job_status смз и менеджерам
             applier_sockets, managers_sockets, users_and_managers = self.repository_class \
@@ -857,7 +793,7 @@ class ConfirmAppealByManagerAPIView(CRUDAPIView):
                 appeal=appeal, applier_sockets=applier_sockets, managers_sockets=managers_sockets
             )
 
-            title = _MANAGER_ACCEPTED_APPEAL_TITLE
+            title = NotificationTitle.MANAGER_ACCEPTED_APPEAL_TITLE.value
             message = f'Ваш отклик на вакансию {appeal.shift.vacancy.title} одобрен'
             action = NotificationAction.VACANCY.value
             subject_id = appeal.shift.vacancy_id
@@ -908,8 +844,6 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
             text=data.get('text')
         )
 
-        _MANAGER_REJECTED_APPEAL_TITLE = 'Отклик отклонён'
-
         if status_changed:
             # Отправляем по сокетам смену status и job_status смз и менеджерам
             applier_sockets, managers_sockets, users_and_managers = self.repository_class \
@@ -919,7 +853,7 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
                 appeal=appeal, applier_sockets=applier_sockets, managers_sockets=managers_sockets
             )
 
-            title = _MANAGER_REJECTED_APPEAL_TITLE
+            title = NotificationTitle.MANAGER_REJECTED_APPEAL_TITLE.value
             message = f'Ваш отклик на вакансию {appeal.shift.vacancy.title} отклонён'
             action = NotificationAction.VACANCY.value
             subject_id = appeal.shift.vacancy_id
@@ -1313,9 +1247,7 @@ class RefusePassBySecurityAPIView(APIView):
                 managers_sockets=sockets
             )
 
-            _SECURITY_REFUSED_APPEAL_TITLE = 'Охрана не пропустила работника'
-
-            title = _SECURITY_REFUSED_APPEAL_TITLE
+            title = NotificationTitle.SECURITY_REFUSED_APPEAL_TITLE.value
             message = f'Сотрудники охраны не пропустили работника {request.user.first_name} {request.user.last_name} по вакансии {appeal.shift.vacancy.title}'
             action = NotificationAction.VACANCY.value
             subject_id = appeal.shift.vacancy_id
@@ -1476,9 +1408,8 @@ def work_location(request, **kwargs):
         shift_id=body.get('shift')
     )
 
-    _WORKER_LEFT_SHOP_AREA_TITLE = 'Покидание территории магазина во время смены'
     if should_notify_managers:
-        title = _WORKER_LEFT_SHOP_AREA_TITLE
+        title = NotificationTitle.WORKER_LEFT_SHOP_AREA_TITLE.value
         message = f'Работник {request.user.first_name} {request.user.last_name} удалился на большое расстояние'
         action = NotificationAction.CHAT.value
         subject_id = chat_id
@@ -1720,21 +1651,37 @@ class Orders(CRUDAPIView):
 
     def post(self, request, **kwargs):
         body = get_request_body(request)
-        dataset = self.repository_class(me=request.user).place_order(body)
+        order_validator = OrdersValiadator(data=body)
+        validator = order_validator
+        order_validator.is_valid(raise_exception=True)
 
-        self.many = False
+        if order_validator.validated_data.get('type') == OrderType.GET_COUPON.value:
+            validator = BuyCouponsValidator(data=body)
 
-        serialized = self.serializer_class(dataset, many=self.many, context={
-            'me': request.user,
-            'headers': get_request_headers(request),
-        })
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+        if validator.is_valid(raise_exception=True):
+            dataset = self.repository_class(me=request.user).place_order(validator.validated_data)
+
+            self.many = False
+
+            serialized = self.serializer_class(dataset, many=self.many, context={
+                'me': request.user,
+                'headers': get_request_headers(request),
+            })
+            return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class Coupons(CRUDAPIView):
     serializer_class = CouponsSerializer
     repository_class = CouponsRepository
     allowed_http_methods = ['get']
+
+    filter_params = {
+        'search': 'partner__distributor__title__istartswith',
+    }
+
+    array_filter_params = {
+        'category': 'partner__distributor__categories__id__in',
+    }
 
     order_params = {
         'id': 'id',

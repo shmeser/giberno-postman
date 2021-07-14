@@ -1,4 +1,4 @@
-from backend.enums import IntEnumM
+from backend.enums import IntEnumM, EnumM
 
 
 class Currency(IntEnumM):
@@ -155,3 +155,17 @@ class FinancesInterval(IntEnumM):
     WEEK = 2
     MONTH = 3
     YEAR = 4
+
+
+class NotificationTitle(EnumM):
+    MANAGER_ACCEPTED_APPEAL_TITLE = 'Отклик одобрен'
+    AUTO_ACCEPTED_APPEAL_TITLE = 'Отклик одобрен автоматически'
+    AUTO_REJECTED_APPEAL_TITLE = 'Отклик отклонён автоматически'
+    CANCELED_APPEAL_TITLE = 'Отклик отменён'
+    JOB_SOON_TITLE = 'Смена скоро начнётся'
+    WAITING_COMPLETION_TITLE = 'Смена ожидает завершения'
+    COMPLETED_APPEAL_TITLE = 'Смена успешно завершена'
+    SECURITY_REFUSED_APPEAL_TITLE = 'Охрана не пропустила работника'
+    WORKER_LEFT_SHOP_AREA_TITLE = 'Покидание территории магазина во время смены'
+    WORKER_CANCELED_APPEAL_TITLE = 'Самозанятый отказался от вакансии'
+    MANAGER_REJECTED_APPEAL_TITLE = 'Отклик отклонён'

@@ -61,6 +61,7 @@ class UserProfile(AbstractUser, BaseModel):
     verified = models.BooleanField(default=False, verbose_name='Профиль проверен')
     bonus_balance = models.PositiveIntegerField(default=0, verbose_name='Очки славы')
     rating_place = models.PositiveIntegerField(null=True, blank=True, verbose_name='Место в общем рейтинге')
+    rating_value = models.FloatField(null=True, blank=True, verbose_name='Общий рейтинг')
     favourite_vacancies_count = models.PositiveIntegerField(default=0, verbose_name='Количество избранных вакансий')
 
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
@@ -308,7 +309,7 @@ class Card(BaseModel):
 class UserMoney(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     currency = models.PositiveIntegerField(choices=choices(Currency), default=Currency.RUB.value)
-    amount = models.CharField(max_length=128, blank=True, null=True)
+    amount = models.PositiveIntegerField(blank=True, null=True)
 
     def __str__(self):
         return f'{self.user.first_name} {self.user.last_name} - {self.currency} {self.amount}'

@@ -2,20 +2,16 @@ import uuid
 
 from celery import group
 from celery import shared_task
+from django.utils.timezone import now
 from loguru import logger
 
-from app_market.enums import AchievementType
+from app_market.enums import AchievementType, NotificationTitle
 from app_market.utils import send_socket_event_on_appeal_statuses
-from app_market.versions.v1_0.repositories import ShiftAppealsRepository, AchievementsRepository
+from app_market.versions.v1_0.repositories import ShiftAppealsRepository, AchievementsRepository, ShiftsRepository
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
 from backend.controllers import PushController
 from giberno.celery import app
-
-_CANCELED_APPEAL_TITLE = 'Отклик на смену отменен'
-_JOB_SOON_TITLE = 'Смена скоро начнется'
-_WAITING_COMPLETION_TITLE = 'Смена ожидает завершения'
-_COMPLETED_APPEAL_TITLE = 'Смена успешно завершена'
 
 
 @shared_task
@@ -32,8 +28,8 @@ def update_appeals():
             appeal=a, applier_sockets=applier_sockets, managers_sockets=managers_sockets
         )
 
-        icon_type = NotificationIcon.WORKER_CANCELED_VACANCY.value
-        title = _CANCELED_APPEAL_TITLE
+        icon_type = NotificationIcon.VACANCY_DECLINED.value
+        title = NotificationTitle.CANCELED_APPEAL_TITLE.value
         message = f'К сожалению, ваш отклик на вакансию {a.shift.vacancy.title} был отменен автоматически, так как не был подтвержден до начала смены.'
         send_notification_on_appeal(
             appeal=a,
@@ -55,7 +51,7 @@ def update_appeals():
         )
 
         icon_type = NotificationIcon.WORKER_CANCELED_VACANCY.value
-        title = _CANCELED_APPEAL_TITLE
+        title = NotificationTitle.CANCELED_APPEAL_TITLE.value
         message = f'К сожалению, ваш отклик на вакансию {a.shift.vacancy.title} был отменен автоматически, так как не был отсканирован код.'
         send_notification_on_appeal(
             appeal=a,
@@ -77,7 +73,7 @@ def update_appeals():
         )
 
         icon_type = NotificationIcon.SHIFT_START_SOON.value
-        title = _JOB_SOON_TITLE
+        title = NotificationTitle.JOB_SOON_TITLE.value
         message = f'Скоро начало смены по вакансии {a.shift.vacancy.title}.'
         send_notification_on_appeal(
             appeal=a,
@@ -99,7 +95,7 @@ def update_appeals():
         )
 
         icon_type = NotificationIcon.DEFAULT.value
-        title = _WAITING_COMPLETION_TITLE
+        title = NotificationTitle.WAITING_COMPLETION_TITLE.value
         message = f'Смена по вакансии {a.shift.vacancy.title} ожидает завершения.'
 
         sockets = applier_sockets + managers_sockets
@@ -124,7 +120,7 @@ def update_appeals():
         )
 
         icon_type = NotificationIcon.DEFAULT.value
-        title = _COMPLETED_APPEAL_TITLE
+        title = NotificationTitle.COMPLETED_APPEAL_TITLE.value
         message = f'Смена по вакансии {a.shift.vacancy.title} успешно завершена.'
 
         sockets = applier_sockets + managers_sockets
@@ -253,3 +249,115 @@ def check_shift_achievement(appeal_real_date_end, applier_id):
         # TODO отправить пуш о достижении
 
         logger.debug(f'========= НОВОЕ ДОСТИЖЕНИЕ {achievement.name} для USER {applier_id} ==========')
+
+
+@app.task
+def auto_control_timed_shifts():
+    """
+        Подтверждаем отклики на смены, у которых стоит минимальный рейтинг для работников и время,
+        за которое нужно одобрить отклики перед началом смены
+    """
+    #  Ищем все смены, у которых стоит мин рейтинг для работников, есть свободные места, и наступило время контроля
+    #  Берем все неодобренные отклики,сортируем их по рейтингу заявителя, берем нужное количество
+    #  Одобряем выбранные отклики
+    shifts = ShiftsRepository.get_shifts_with_threshold()
+    date = now()
+
+    for shift in shifts:
+        # Получить все отклики со статусом INITIAL на текущий день для смены,
+        # отсортированные по убыванию рейтинга заявителя, взять из них shift.free_places штук
+        confirmed_appeals = ShiftAppealsRepository.confirm_appeals_for_this_day(
+            shift_id=shift.id,
+            count=shift.free_places,
+            min_rating=shift.min_employee_rating,
+            date=date
+        )
+
+        for a in confirmed_appeals:
+            applier_sockets, managers_sockets, users_to_send = ShiftAppealsRepository.get_self_employed_and_managers_with_sockets(
+                appeal=a
+            )
+            send_socket_event_on_appeal_statuses(
+                appeal=a, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
+
+            icon_type = NotificationIcon.VACANCY_APPROVED.value
+            title = NotificationTitle.AUTO_ACCEPTED_APPEAL_TITLE.value
+            message = f'Ваш отклик на вакансию {a.shift.vacancy.title} одобрен'
+            send_notification_on_appeal(
+                appeal=a,
+                users_to_send=[a.applier],
+                sockets=applier_sockets,
+                title=title,
+                message=message,
+                icon_type=icon_type
+            )
+
+
+@app.task
+def auto_control_shifts():
+    """
+        Подтверждаем или отклоняем отклики на смены, у которых стоит минимальный рейтинг для работников и
+        НЕ УКАЗАНО время, за которое нужно одобрить отклики перед началом смены
+    """
+    #  Ищем все смены, у которых стоит мин рейтинг для работников, есть свободные места, и наступило время контроля
+    #  Берем все неодобренные отклики,сортируем их по рейтингу заявителя, берем нужное количество
+    #  Одобряем выбранные отклики
+    shifts = ShiftsRepository.get_shifts_without_threshold()
+    date = now()
+
+    for shift in shifts:
+        # Получить все отклики со статусом INITIAL на текущий день для смены,
+        # отсортированные по убыванию рейтинга заявителя, взять из них shift.free_places штук
+        confirmed_appeals = ShiftAppealsRepository.confirm_appeals_for_this_day(
+            shift_id=shift.id,
+            count=shift.free_places,
+            min_rating=shift.min_employee_rating,
+            date=date
+        )
+
+        rejected_appeals = ShiftAppealsRepository.reject_appeals_for_this_day(
+            shift_id=shift.id,
+            min_rating=shift.min_employee_rating,
+            date=date
+        )
+
+        for a in confirmed_appeals:
+            applier_sockets, managers_sockets, users_to_send = ShiftAppealsRepository.get_self_employed_and_managers_with_sockets(
+                appeal=a
+            )
+            send_socket_event_on_appeal_statuses(
+                appeal=a, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
+
+            icon_type = NotificationIcon.VACANCY_APPROVED.value
+            title = NotificationTitle.AUTO_ACCEPTED_APPEAL_TITLE.value
+            message = f'Ваш отклик на вакансию {a.shift.vacancy.title} одобрен'
+            send_notification_on_appeal(
+                appeal=a,
+                users_to_send=[a.applier],
+                sockets=applier_sockets,
+                title=title,
+                message=message,
+                icon_type=icon_type
+            )
+
+        for ra in rejected_appeals:
+            applier_sockets, managers_sockets, users_to_send = ShiftAppealsRepository.get_self_employed_and_managers_with_sockets(
+                appeal=ra
+            )
+            send_socket_event_on_appeal_statuses(
+                appeal=ra, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
+
+            icon_type = NotificationIcon.VACANCY_DECLINED.value
+            title = NotificationTitle.AUTO_REJECTED_APPEAL_TITLE.value
+            message = f'Ваш отклик на вакансию {ra.shift.vacancy.title} отклонён, так как Ваш рейтинг слишком низкий для этой смены'
+            send_notification_on_appeal(
+                appeal=ra,
+                users_to_send=[ra.applier],
+                sockets=applier_sockets,
+                title=title,
+                message=message,
+                icon_type=icon_type
+            )

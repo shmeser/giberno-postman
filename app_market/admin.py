@@ -1,7 +1,8 @@
 from django.contrib.gis import admin
 
 from app_market.models import Distributor, Shop, Vacancy, Shift, Order, Transaction, Coupon, Profession, \
-    UserProfession, DistributorCategory, Category, ShiftAppeal, Partner, Achievement, AchievementProgress, Advertisement
+    UserProfession, DistributorCategory, Category, ShiftAppeal, Partner, Achievement, AchievementProgress, \
+    Advertisement, UserCode, Code
 from backend.mixins import FormattedAdmin
 
 _ITEMS_PER_ITERATION = 5
@@ -14,7 +15,7 @@ class DistributorAdmin(FormattedAdmin):
 
 @admin.register(Partner)
 class PartnerAdmin(FormattedAdmin):
-    list_display = ['id', 'distributor', 'discount']
+    list_display = ['id', 'distributor']
     raw_id_fields = ['distributor']
 
 
@@ -44,8 +45,8 @@ class ShiftAppealAdmin(FormattedAdmin):
 @admin.register(Shift)
 class ShiftAdmin(FormattedAdmin):
     list_display = [
-        'id', 'vacancy', 'vacancy_id', 'shop_id', 'price', 'currency', 'employees_count', 'max_employees_count',
-        'time_start', 'time_end', 'date_start', 'date_end', 'frequency'
+        'id', 'vacancy', 'vacancy_id', 'shop_id', 'price', 'currency', 'max_employees_count', 'min_employee_rating',
+        'auto_control_threshold_minutes', 'time_start', 'time_end', 'date_start', 'date_end', 'frequency'
     ]
     raw_id_fields = ['vacancy', 'shop']
 
@@ -54,12 +55,34 @@ class ShiftAdmin(FormattedAdmin):
 class CouponAdmin(FormattedAdmin):
     list_display = [
         'id',
-        'code',
-        'discount_amount',
+        'description',
+        'bonus_price',
+        'discount',
         'discount_terms',
-        'discount_description'
+        'service_description'
     ]
     raw_id_fields = ['partner', ]
+
+
+@admin.register(Code)
+class CodeAdmin(FormattedAdmin):
+    list_display = [
+        'id',
+        'value',
+        'coupon_id'
+    ]
+    raw_id_fields = ['coupon', ]
+
+
+@admin.register(UserCode)
+class UserCodeAdmin(FormattedAdmin):
+    list_display = [
+        'id',
+        'code_id',
+        'activated_at',
+        'order_id'
+    ]
+    raw_id_fields = ['code', 'order']
 
 
 @admin.register(Order)

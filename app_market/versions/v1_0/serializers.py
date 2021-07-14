@@ -10,7 +10,7 @@ from pytz import timezone
 from rest_framework import serializers
 
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
-    FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency
+    FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency, OrderType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
     Achievement, Advertisement, Order, Coupon, Transaction
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
@@ -553,14 +553,13 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
     def get_employees_count(self, instance):
         queryset = self.active_shifts(instance=instance)
         if queryset.count():
-            # TODO удалить поле employees_count т.к. в разные дни на одной смене разное к-во людей
             return queryset.annotate(
                 timezone=F('vacancy__timezone')
             ).aggregate(
                 count=Coalesce(
                     Count(
                         'appeals',
-                        filter=Q(  # TODO нужно перепроверить, тут сравнение с datetime а не date
+                        filter=Q(
                             appeals__shift_active_date__datetz=localtime(
                                 self.context.get('current_date'), timezone=timezone(instance.timezone)
                             ).date(),
@@ -1056,10 +1055,7 @@ class PartnersSerializer(serializers.ModelSerializer):
         model = Partner
         fields = [
             'id',
-            'discount',
-            'discount_multiplier',
-            'discount_terms',
-            'discount_description',
+            'color',
             'distributor'
         ]
 
@@ -1125,16 +1121,31 @@ class OrdersSerializer(serializers.ModelSerializer):
 
 class CouponsSerializer(serializers.ModelSerializer):
     created_at = DateTimeField()
+    partner = serializers.SerializerMethodField()
+    max_multiplier = serializers.SerializerMethodField()
+
+    def get_partner(self, data):
+        if data.partner:
+            return PartnersSerializer(data.partner).data
+        return None
+
+    def get_max_multiplier(self, data):
+        if data.bonus_balance:
+            return int(data.bonus_balance / data.bonus_price)
+        return 0
 
     class Meta:
         model = Coupon
         fields = [
             'id',
-            'code',
-            'discount_amount',
+            'description',
+            'discount',
+            'bonus_price',
+            'max_multiplier',
             'discount_terms',
-            'discount_description',
+            'service_description',
             'created_at',
+            'partner'
         ]
 
 
@@ -1145,6 +1156,20 @@ class FinancesValiadator(serializers.Serializer):
 
     def get_interval_name(self, data):
         return FinancesInterval(data.interval).name.lower()
+
+
+class OrdersValiadator(serializers.Serializer):
+    type = serializers.ChoiceField(choices=choices(OrderType))
+    amount = serializers.IntegerField(min_value=0)
+
+
+class BuyCouponsValidator(serializers.Serializer):
+    type = serializers.ChoiceField(choices=choices(OrderType))
+    amount = serializers.IntegerField(min_value=0)
+    coupon = serializers.IntegerField()
+    email = serializers.EmailField()
+    partner = serializers.IntegerField(required=False)
+    terms_accepted = serializers.BooleanField()
 
 
 class FinancesSerializer(serializers.ModelSerializer):
