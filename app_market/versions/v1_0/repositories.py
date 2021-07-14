@@ -563,6 +563,16 @@ class ShiftsRepository(MasterRepository):
         )
         return queryset
 
+    @classmethod
+    def get_shifts_without_threshold(cls):
+        queryset = cls.get_shifts_for_auto_control()
+        queryset = queryset.filter(
+            # Не установлен временной порог
+            Q(auto_control_threshold_minutes__isnull=True) |
+            Q(auto_control_threshold_minutes=0),  # Или равен нулю на всякий случай
+        )
+        return queryset
+
 
 class VacanciesRepository(MakeReviewMethodProviderRepository):
     model = Vacancy
@@ -2260,6 +2270,36 @@ class ShiftAppealsRepository(MasterRepository):
         confirmed_appeals = cls.prefetch_applier_and_managers(confirmed_appeals)
 
         return confirmed_appeals
+
+    @classmethod
+    def reject_appeals_for_this_day(cls, shift_id, min_rating, date):
+        # Переводим в list ид откликов, чтобы они не перетерлись после .update()
+        appeals_ids = list(ShiftAppeal.objects.annotate(
+            timezone=F('shift__vacancy__timezone')
+        ).filter(
+            shift_id=shift_id,
+            shift_active_date__datetz2=date,  # сравниваем только даты (а не datetime) через datetz2 в нужной timezone
+            status=ShiftAppealStatus.INITIAL.value,  # Новые заявки
+            deleted=False,
+            applier__rating_value__lt=min_rating  # общий рейтинг заявителя должен быть меньше минимального указанного
+        ).order_by('-applier__rating_value').distinct().values_list('id', flat=True))
+
+        reason_text = 'Рейтинг пользователя слишком низкий для этой смены'
+        ShiftAppeal.objects.filter(
+            id__in=appeals_ids
+        ).update(
+            status=ShiftAppealStatus.REJECTED.value,
+            refuse_reason_text=reason_text,
+            cancel_reason_text=reason_text,
+            updated_at=now()
+        )
+
+        rejected_appeals = ShiftAppeal.objects.filter(
+            id__in=appeals_ids
+        )
+        rejected_appeals = cls.prefetch_applier_and_managers(rejected_appeals)
+
+        return rejected_appeals
 
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
