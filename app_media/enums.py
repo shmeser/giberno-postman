@@ -25,6 +25,7 @@ class MediaType(IntEnumM):
     ATTACHMENT = 12
     RULES_AND_ARTICLES = 13  # Уставы, правила, техники безопасности эксплуатации и т.д.
     ACHIEVEMENT_ICON = 14
+    PROMO_TERMS = 15  # Условия акций
 
 
 class FileDownloadStatus(IntEnumM):
