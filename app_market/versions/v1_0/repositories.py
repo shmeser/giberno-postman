@@ -2332,7 +2332,11 @@ class MarketDocumentsRepository(MasterRepository):
         partner_ct = ContentType.objects.get_for_model(Partner)
         # Media
         conditions.documents = MediaModel.objects.filter(
-            Q(type=MediaType.RULES_AND_ARTICLES.value, deleted=False) &  # Только с типом документы, правила
+            Q(
+                # Только с типом правила и условия акций
+                type__in=[MediaType.RULES_AND_ARTICLES.value, MediaType.PROMO_TERMS.value],
+                deleted=False
+            ) &
             Q(
                 Q(owner_ct=partner_ct, owner_id=partner.id)  # Партнер
             )
@@ -2843,13 +2847,14 @@ class OrdersRepository(MasterRepository):
                 to_id=self.me.id,
             )
         ).annotate(
-            # Поступление, если транзакция на счет
             increase=Case(
                 When(
+                    # Увеличение средств, если транзакция на счет
                     Q(to_ct=user_ct, to_id=self.me.id),
                     then=True
                 ),
                 When(
+                    # Уменьшение средств, если транзакция со счета
                     Q(from_ct=user_ct, from_id=self.me.id),
                     then=False
                 ),
