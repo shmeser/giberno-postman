@@ -322,10 +322,8 @@ class ShiftAppealCancel(CRUDAPIView):
             managers_sockets=sockets
         )
 
-        _WORKER_CANCELED_APPEAL_TITLE = 'Самозанятый отказался от вакансии'
-
         if is_confirmed_appeal_canceled and managers:
-            title = _WORKER_CANCELED_APPEAL_TITLE
+            title = NotificationTitle.WORKER_CANCELED_APPEAL_TITLE.value
             message = f'К сожалению, работник {request.user.first_name} {request.user.last_name} отказался от вакансии {appeal.shift.vacancy.title}'
             action = NotificationAction.VACANCY.value
             subject_id = appeal.shift.vacancy_id
@@ -846,8 +844,6 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
             text=data.get('text')
         )
 
-        _MANAGER_REJECTED_APPEAL_TITLE = 'Отклик отклонён'
-
         if status_changed:
             # Отправляем по сокетам смену status и job_status смз и менеджерам
             applier_sockets, managers_sockets, users_and_managers = self.repository_class \
@@ -857,7 +853,7 @@ class RejectAppealByManagerAPIView(CRUDAPIView):
                 appeal=appeal, applier_sockets=applier_sockets, managers_sockets=managers_sockets
             )
 
-            title = _MANAGER_REJECTED_APPEAL_TITLE
+            title = NotificationTitle.MANAGER_REJECTED_APPEAL_TITLE.value
             message = f'Ваш отклик на вакансию {appeal.shift.vacancy.title} отклонён'
             action = NotificationAction.VACANCY.value
             subject_id = appeal.shift.vacancy_id
@@ -1251,9 +1247,7 @@ class RefusePassBySecurityAPIView(APIView):
                 managers_sockets=sockets
             )
 
-            _SECURITY_REFUSED_APPEAL_TITLE = 'Охрана не пропустила работника'
-
-            title = _SECURITY_REFUSED_APPEAL_TITLE
+            title = NotificationTitle.SECURITY_REFUSED_APPEAL_TITLE.value
             message = f'Сотрудники охраны не пропустили работника {request.user.first_name} {request.user.last_name} по вакансии {appeal.shift.vacancy.title}'
             action = NotificationAction.VACANCY.value
             subject_id = appeal.shift.vacancy_id
@@ -1414,9 +1408,8 @@ def work_location(request, **kwargs):
         shift_id=body.get('shift')
     )
 
-    _WORKER_LEFT_SHOP_AREA_TITLE = 'Покидание территории магазина во время смены'
     if should_notify_managers:
-        title = _WORKER_LEFT_SHOP_AREA_TITLE
+        title = NotificationTitle.WORKER_LEFT_SHOP_AREA_TITLE.value
         message = f'Работник {request.user.first_name} {request.user.last_name} удалился на большое расстояние'
         action = NotificationAction.CHAT.value
         subject_id = chat_id

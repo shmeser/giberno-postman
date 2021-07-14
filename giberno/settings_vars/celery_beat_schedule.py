@@ -5,6 +5,10 @@ celery_beat_schedule = {
         'task': 'app_market.tasks.auto_control_timed_shifts',
         'schedule': crontab(minute='*')
     },
+    'auto_control_shifts': {
+        'task': 'app_market.tasks.auto_control_shifts',
+        'schedule': crontab(minute='*/2')  # каждые 2 минуты
+    },
     'update_appeals': {
         'task': 'app_market.tasks.update_appeals',
         'schedule': crontab(minute='*')
