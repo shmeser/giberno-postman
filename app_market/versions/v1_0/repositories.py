@@ -2277,12 +2277,23 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(ShiftAppeal.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
-            shift_id=shift_id,
-            shift_active_date__datetz2=date,  # сравниваем только даты (а не datetime) через datetz2 в нужной timezone
-            status=ShiftAppealStatus.INITIAL.value,  # Новые заявки
-            deleted=False,
-            applier__rating_value__lt=min_rating  # общий рейтинг заявителя должен быть меньше минимального указанного
-        ).order_by('-applier__rating_value').distinct().values_list('id', flat=True))
+            Q(
+                shift_id=shift_id,
+                shift_active_date__datetz2=date,
+                # сравниваем только даты (а не datetime) через datetz2 в нужной timezone
+                status=ShiftAppealStatus.INITIAL.value,  # Новые заявки
+                deleted=False,
+            ) & Q(
+                Q(
+                    # общий рейтинг заявителя должен быть меньше минимального указанного
+                    applier__rating_value__lt=min_rating
+                ) |  # или
+                Q(
+                    # должен отсутствовать
+                    applier__rating_value__isnull=True
+                )
+            )
+        ).distinct().values_list('id', flat=True))
 
         reason_text = 'Рейтинг пользователя слишком низкий для этой смены'
         ShiftAppeal.objects.filter(
