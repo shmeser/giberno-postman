@@ -28,7 +28,7 @@ class JwtTokenAdmin(FormattedAdmin):
 @admin.register(UserProfile)
 class UserProfileAdmin(FormattedAdmin):
     list_display = (
-        "id", "username", "birth_date", "phone", "email", "created_at"
+        "id", "account_type", "username", "birth_date", "phone", "email", "created_at"
     )
 
 
