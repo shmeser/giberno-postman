@@ -2344,7 +2344,7 @@ class MarketDocumentsRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-    _SERVICE_TAX_RATE = 0.3
+    _SERVICE_TAX_RATE = 0.06
     _SERVICE_INSURANCE_AMOUNT = 100
 
     def get_conditions_for_user_on_shift(self, shift, active_date):
@@ -2584,6 +2584,14 @@ class MarketDocumentsRepository(MasterRepository):
         # Подтверждение конкретного документа
         if document_uuid:
             self.accept_document(document_uuid)
+
+    @staticmethod
+    def get_conditions_for_partners_shop():
+        partner_shop_documents = MediaModel.objects.filter(
+            owner_id=None, type=MediaType.PARTNERS_SHOP_TERMS.value, deleted=False
+        )
+
+        return partner_shop_documents
 
 
 class PartnersRepository(MasterRepository):

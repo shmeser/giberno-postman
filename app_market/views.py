@@ -202,6 +202,14 @@ class GetDocumentsForPartner(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
+class PartnersShopDocuments(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.PartnersShopDocuments().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
 class GetDocumentsForShift(APIView):
     @staticmethod
     def get(request, **kwargs):
