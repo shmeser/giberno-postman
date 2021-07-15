@@ -119,9 +119,9 @@ class UserTask(BaseModel):
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f'{self.name}'
+        return f'{self.id}'
 
     class Meta:
         db_table = 'app_games__task_user'
         verbose_name = 'Задание пользователя'
-        verbose_name_plural = 'Задания'
+        verbose_name_plural = 'Задания пользователей'
