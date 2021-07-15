@@ -13,7 +13,7 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     ShiftAppealCompleteByManager, \
     RefusePassByManagerAPIView, CheckPassBySecurityAPIView, RefusePassBySecurityAPIView, FireByManagerAPIView, \
     ProlongByManager, CancelFiringByManager, PushSettingsForConfirmedWorkers, Partners, PartnersCategories, \
-    Achievements, Advertisements, Orders, Coupons, GetDocumentsForPartner, Finances, get_my_money
+    Achievements, Advertisements, Orders, Coupons, GetDocumentsForPartner, Finances, get_my_money, PartnersShopDocuments
 
 urlpatterns = [
     # Торговые сети
@@ -65,6 +65,7 @@ urlpatterns = [
     path('market/documents', MarketDocuments.as_view()),
 
     # Партнеры
+    path('market/partners/documents', PartnersShopDocuments.as_view()),
     path('market/partners', Partners.as_view()),
     path('market/partners/<int:record_id>', Partners.as_view()),
     path('market/partners/<int:record_id>/documents', GetDocumentsForPartner.as_view()),

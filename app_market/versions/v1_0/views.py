@@ -29,6 +29,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     FinancesValiadator, OrdersValiadator, BuyCouponsValidator
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
+from app_media.versions.v1_0.serializers import MediaSerializer
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
 from app_users.versions.v1_0.repositories import ProfileRepository, MoneyRepository
@@ -1526,6 +1527,14 @@ class GetDocumentsForPartner(CRUDAPIView):
         partner = self.repository_class().inited_get_by_id(record_id)
         conditions = MarketDocumentsRepository(me=request.user).get_conditions_for_user_on_partner(partner)
         return Response(camelize(PartnerConditionsSerializer(conditions, many=False).data), status=status.HTTP_200_OK)
+
+
+class PartnersShopDocuments(CRUDAPIView):
+    repository_class = MarketDocumentsRepository
+
+    def get(self, request, **kwargs):
+        documents = self.repository_class.get_conditions_for_partners_shop()
+        return Response(camelize(MediaSerializer(documents, many=True).data), status=status.HTTP_200_OK)
 
 
 class Achievements(CRUDAPIView):
