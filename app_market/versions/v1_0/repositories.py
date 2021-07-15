@@ -2344,7 +2344,7 @@ class MarketDocumentsRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-    _SERVICE_TAX_RATE = 0.3
+    _SERVICE_TAX_RATE = 0.06
     _SERVICE_INSURANCE_AMOUNT = 100
 
     def get_conditions_for_user_on_shift(self, shift, active_date):
