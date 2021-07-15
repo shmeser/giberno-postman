@@ -2585,6 +2585,14 @@ class MarketDocumentsRepository(MasterRepository):
         if document_uuid:
             self.accept_document(document_uuid)
 
+    @staticmethod
+    def get_conditions_for_partners_shop():
+        partner_shop_documents = MediaModel.objects.filter(
+            owner_id=None, type=MediaType.PARTNERS_SHOP_TERMS.value, deleted=False
+        )
+
+        return partner_shop_documents
+
 
 class PartnersRepository(MasterRepository):
     model = Partner

@@ -26,6 +26,8 @@ class MediaType(IntEnumM):
     RULES_AND_ARTICLES = 13  # Уставы, правила, техники безопасности эксплуатации и т.д.
     ACHIEVEMENT_ICON = 14
     PROMO_TERMS = 15  # Условия акций
+    PARTNERS_SHOP_TERMS = 16  # Документ для "магазина репутация"
+    MARKETING_POLICY = 17  # Маркетинговая политика
 
 
 class FileDownloadStatus(IntEnumM):
