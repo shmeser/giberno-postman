@@ -102,7 +102,7 @@ class ChatsRepository(MasterRepository):
             })
 
     def check_conditions_for_manager(self, user_id, vacancy_id, appeal_id):
-        is_relevant_manager = True
+        is_relevant_manager = False
         need_to_create = False
         users = []
         target_id = None
@@ -129,8 +129,8 @@ class ChatsRepository(MasterRepository):
             if appeal_exists:
                 # Если есть заявка, и я - релевантный менеджер для этой вакансии, добавляем в чат себя
                 managers = VacanciesRepository(me=self.me).get_vacancy_managers(vacancy_id)
-                if self.me not in managers:
-                    is_relevant_manager = False
+                if self.me in managers:
+                    is_relevant_manager = True
 
         # Запрашивается чат с пользователем по отклику на вакансию, если тот откликнулся на нее
         if appeal_id:
@@ -139,6 +139,7 @@ class ChatsRepository(MasterRepository):
             try:
                 target_ct = ContentType.objects.get_for_model(Vacancy)
                 appeal = ShiftAppealsRepository(me=self.me).get_by_id_for_manager(appeal_id)
+                is_relevant_manager = True
                 # Цель обсуждения в чате - вакансия
                 target_id = appeal.shift.vacancy.id
                 # Основной пользователь в чате - самозанятый
@@ -151,7 +152,6 @@ class ChatsRepository(MasterRepository):
             except Exception:
                 # Если нет заявки или не являюсь релевантным менеджером
                 need_to_create = False
-                is_relevant_manager = False
 
         return need_to_create, users, target_ct, target_id, subject_user, is_relevant_manager
 
