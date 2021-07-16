@@ -41,18 +41,16 @@ class Prizes(CRUDAPIView):
 
         if record_id:
             dataset = self.repository_class(request.user).inited_get_by_id(record_id)
-            serialized = self.serializer_class(dataset, context={
-                'me': request.user,
-                'headers': get_request_headers(request),
-            })
         else:
             dataset = self.repository_class(request.user).inited_filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
-            serialized = self.serializer_class(dataset, many=True, context={
-                'me': request.user,
-                'headers': get_request_headers(request),
-            })
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
 
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
@@ -98,7 +96,7 @@ class Tasks(CRUDAPIView):
     allowed_http_methods = ['get']
 
     filter_params = {
-        'name': 'name__istartswith',
+        'period': 'period',
     }
 
     default_order_params = []
@@ -112,12 +110,19 @@ class Tasks(CRUDAPIView):
     }
 
     def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
 
-        result = self.repository_class(request.me).get_tasks(
-            kwargs=filters, paginator=pagination, order_by=order_params
-        )
-        serialized = self.serializer_class(result, many=False)
+        if record_id:
+            result = self.repository_class(request.user).get_by_id(record_id)
+        else:
+            result = self.repository_class(request.user).filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params
+            )
+            self.many = True
+
+        serialized = self.serializer_class(result, many=self.many)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)

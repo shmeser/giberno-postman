@@ -126,7 +126,15 @@ class PrizesRepository(MasterRepository):
             user=self.me,
             deleted=False
         ).annotate(
-            max_bonuses_acquired=Max('bonuses_acquired')
+            max_bonuses_acquired=Subquery(
+                PrizeCardsHistory.objects.filter(
+                    user=self.me,
+                ).annotate(
+                    max=Window(
+                        expression=Max('bonuses_acquired')
+                    )
+                ).values('max')[:1]
+            )
         ).filter(bonuses_acquired=F('max_bonuses_acquired'))
 
         return PrizeCard.objects.filter(

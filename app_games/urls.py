@@ -18,4 +18,5 @@ urlpatterns = [
 
     # Задания
     path('games/tasks', Tasks.as_view()),
+    path('games/tasks/<int:record_id>', Tasks.as_view()),
 ]
