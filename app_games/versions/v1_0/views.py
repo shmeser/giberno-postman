@@ -1,9 +1,11 @@
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from app_games.versions.v1_0.repositories import PrizesRepository
-from app_games.versions.v1_0.serializers import PrizesSerializer
+from app_games.versions.v1_0.serializers import PrizesSerializer, PrizeCardsSerializer
+from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers
@@ -50,4 +52,39 @@ class Prizes(CRUDAPIView):
                 'headers': get_request_headers(request),
             })
 
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class LikePrize(APIView):
+    def post(self, request, **kwargs):
+        prize_id = kwargs.get('record_id')
+        result = PrizesRepository(request.user).set_like(prize_id)
+        serialized = PrizesSerializer(result, many=False)
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        prize_id = kwargs.get('record_id')
+        result = PrizesRepository(request.user).remove_like(prize_id)
+        serialized = PrizesSerializer(result, many=False)
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class PrizesDocuments(APIView):
+    def get(self, request):
+        result = PrizesRepository.get_conditions_for_promotion()
+        serialized = MediaSerializer(result, many=True)
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class PrizeCards(APIView):
+    def get(self, request, **kwargs):
+        result = PrizesRepository(request.user).get_get_cards()
+        serialized = PrizeCardsSerializer(result, many=False)
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class Tasks(CRUDAPIView):
+    def get(self, request, **kwargs):
+        result = PrizesRepository(request.me).get_tasks()
+        serialized = TasksSerializer(result, many=False)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)

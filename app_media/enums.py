@@ -28,6 +28,7 @@ class MediaType(IntEnumM):
     PROMO_TERMS = 15  # Условия акций
     PARTNERS_SHOP_TERMS = 16  # Документ для "магазина репутация"
     MARKETING_POLICY = 17  # Маркетинговая политика
+    PRIZE_IMAGE = 18  # Изображение приза
 
 
 class FileDownloadStatus(IntEnumM):

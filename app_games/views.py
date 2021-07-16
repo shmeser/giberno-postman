@@ -32,16 +32,16 @@ class LikePrize(APIView):
 
 class PrizesDocuments(APIView):
     @staticmethod
-    def post(request, **kwargs):
+    def get(request):
         if request.version in ['prizes_1_0']:
-            return v1_0.PrizesDocuments().get(request, **kwargs)
+            return v1_0.PrizesDocuments().get(request)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
 class PrizeCards(APIView):
     @staticmethod
-    def post(request, **kwargs):
+    def get(request, **kwargs):
         if request.version in ['prizes_1_0']:
             return v1_0.PrizeCards().get(request, **kwargs)
 
@@ -50,7 +50,7 @@ class PrizeCards(APIView):
 
 class Tasks(APIView):
     @staticmethod
-    def post(request, **kwargs):
+    def get(request, **kwargs):
         if request.version in ['prizes_1_0']:
             return v1_0.Tasks().get(request, **kwargs)
 
