@@ -142,7 +142,8 @@ class PrizesRepository(MasterRepository):
                     format=MediaFormat.IMAGE.value,
                 ).order_by('-created_at'),
                 to_attr='medias'  # Подгружаем файлы в поле medias
-            )
+            ),
+            'prize__categories'
         )
 
     @staticmethod
@@ -220,10 +221,12 @@ class PrizesRepository(MasterRepository):
             default_card = cls.get_random_card_for_prize(default_prize.id)
             if not default_card:
                 continue
-            PrizeCardsHistory(
-                card=default_card,
-                user_id=user_id,
-                bonuses_acquired=bonuses_acquired
+            history_data.append(
+                PrizeCardsHistory(
+                    card=default_card,
+                    user_id=user_id,
+                    bonuses_acquired=bonuses_acquired
+                )
             )
             # Пересчитываем прогресс по призу
             cls.recalc_prize_progress(user_id=user_id, prize_id=default_prize.id, value=default_card.value)
@@ -232,10 +235,12 @@ class PrizesRepository(MasterRepository):
         if epic_prize:
             epic_card = cls.get_random_card_for_prize(epic_prize.id)
             if epic_card:
-                PrizeCardsHistory(
-                    card=epic_card,
-                    user_id=user_id,
-                    bonuses_acquired=bonuses_acquired
+                history_data.append(
+                    PrizeCardsHistory(
+                        card=epic_card,
+                        user_id=user_id,
+                        bonuses_acquired=bonuses_acquired
+                    )
                 )
                 # Пересчитываем прогресс по призу
                 cls.recalc_prize_progress(user_id=user_id, prize_id=epic_prize.id, value=epic_card.value)
@@ -244,10 +249,12 @@ class PrizesRepository(MasterRepository):
         if legendary_prize:
             legendary_card = cls.get_random_card_for_prize(legendary_prize.id)
             if legendary_card:
-                PrizeCardsHistory(
-                    card=legendary_card,
-                    user_id=user_id,
-                    bonuses_acquired=bonuses_acquired
+                history_data.append(
+                    PrizeCardsHistory(
+                        card=legendary_card,
+                        user_id=user_id,
+                        bonuses_acquired=bonuses_acquired
+                    )
                 )
                 # Пересчитываем прогресс по призу
                 cls.recalc_prize_progress(user_id=user_id, prize_id=legendary_prize.id, value=legendary_card.value)
