@@ -20,19 +20,19 @@ class PrizesSerializer(serializers.ModelSerializer):
     categories = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
-    def get_price_progress(self, data):
-        return 0
+    def get_price_progress(self, instance):
+        return instance.price_progress
 
-    def get_is_favourite(self, data):
-        return False
+    def get_is_favourite(self, instance):
+        return instance.is_favourite
 
     def get_image(self, prefetched_data):
         return MediaController(self.instance).get_related_images(
             prefetched_data, MediaType.PRIZE_IMAGE.value, only_prefetched=True
         )
 
-    def get_categories(self, data):
-        return GoodsCategoriesSerializer(data.categories, many=True).data
+    def get_categories(self, instance):
+        return GoodsCategoriesSerializer(instance.categories, many=True).data
 
     class Meta:
         model = Prize

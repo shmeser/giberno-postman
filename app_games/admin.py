@@ -14,7 +14,7 @@ class GoodsCategoryAdmin(FormattedAdmin):
 
 @admin.register(Prize)
 class PrizeAdmin(FormattedAdmin):
-    list_display = ['id', 'name', 'price', 'price', 'grade']
+    list_display = ['id', 'name', 'price', 'real_price', 'grade']
 
 
 @admin.register(PrizeCard)

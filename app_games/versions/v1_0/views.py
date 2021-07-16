@@ -23,9 +23,8 @@ class Prizes(CRUDAPIView):
         'name': 'name__istartswith',
     }
 
-    default_order_params = []
-
-    default_filters = {
+    bool_filter_params = {
+        'is_favourite': 'is_favourite',
     }
 
     order_params = {
@@ -41,13 +40,13 @@ class Prizes(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class(request.user).inited_get_by_id(record_id)
             serialized = self.serializer_class(dataset, context={
                 'me': request.user,
                 'headers': get_request_headers(request),
             })
         else:
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class(request.user).inited_filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
             serialized = self.serializer_class(dataset, many=True, context={
@@ -91,12 +90,36 @@ class PrizesDocuments(APIView):
 class PrizeCards(APIView):
     def get(self, request, **kwargs):
         result = PrizesRepository(request.user).get_cards()
-        serialized = PrizeCardsSerializer(result, many=False)
+        serialized = PrizeCardsSerializer(result, many=True)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class Tasks(CRUDAPIView):
+    serializer_class = TasksSerializer
+    repository_class = TasksRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'name': 'name__istartswith',
+    }
+
+    default_order_params = []
+
+    default_filters = {
+    }
+
+    order_params = {
+        'name': 'name',
+        'id': 'id'
+    }
+
     def get(self, request, **kwargs):
-        result = TasksRepository(request.me).get_tasks()
-        serialized = TasksSerializer(result, many=False)
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        result = self.repository_class(request.me).get_tasks(
+            kwargs=filters, paginator=pagination, order_by=order_params
+        )
+        serialized = self.serializer_class(result, many=False)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
