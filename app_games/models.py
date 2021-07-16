@@ -31,7 +31,7 @@ class Prize(BaseModel):
         choices=choices(Grade), default=Grade.DEFAULT.value, verbose_name='Уровень товара'
     )
 
-    real_price_ = models.PositiveIntegerField(null=True, blank=True, verbose_name='Реальная цена')
+    real_price = models.PositiveIntegerField(null=True, blank=True, verbose_name='Реальная цена')
     real_price_currency = models.PositiveIntegerField(
         choices=choices(Currency), default=Currency.RUB.value, verbose_name='Валюта реальной цены'
     )
@@ -62,7 +62,8 @@ class PrizeCard(BaseModel):
 
 class PrizeCardsHistory(BaseModel):
     card = models.ForeignKey(PrizeCard, on_delete=models.CASCADE)
-    user = models.ForeignKey(PrizeCard, on_delete=models.CASCADE)
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    bonuses_acquired = models.PositiveIntegerField(default=0, verbose_name='Получено всего бонусов на момент выдачи')
 
     class Meta:
         db_table = 'app_games__prize_cards_history'
