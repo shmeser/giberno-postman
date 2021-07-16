@@ -76,7 +76,6 @@ class ProfileSerializer(CRUDSerializer):
     registration_completed = serializers.SerializerMethodField()
 
     notifications_count = serializers.SerializerMethodField(read_only=True)
-    # rating_by_vacancies = serializers.SerializerMethodField(read_only=True)
 
     distributors = serializers.SerializerMethodField(read_only=True)
 
@@ -295,6 +294,7 @@ class ProfileSerializer(CRUDSerializer):
         return profile.account_type
 
     def get_avatar(self, profile: UserProfile):
+        # TODO префетчить
         avatar = MediaRepository().filter_by_kwargs({
             'owner_id': profile.id,
             'owner_ct_id': ContentType.objects.get_for_model(profile).id,
@@ -306,6 +306,7 @@ class ProfileSerializer(CRUDSerializer):
         return None
 
     def get_documents(self, profile):
+        # TODO префетчить
         documents = MediaRepository().filter_by_kwargs({
             'owner_id': profile.id,
             'owner_ct_id': ContentType.objects.get_for_model(profile).id,
@@ -322,6 +323,7 @@ class ProfileSerializer(CRUDSerializer):
         return MediaSerializer(documents, many=True).data
 
     def get_socials(self, profile: UserProfile):
+        # TODO префетчить
         socials = SocialsRepository().filter_by_kwargs({
             'user': profile,
             'deleted': False
@@ -330,6 +332,7 @@ class ProfileSerializer(CRUDSerializer):
         return SocialSerializer(socials, many=True).data
 
     def get_languages(self, profile: UserProfile):
+        # TODO префетчить
         return LanguageSerializer(
             profile.languages.filter(userlanguage__deleted=False), many=True,
             context={
@@ -339,6 +342,7 @@ class ProfileSerializer(CRUDSerializer):
         ).data
 
     def get_nationalities(self, profile: UserProfile):
+        # TODO префетчить
         return CountrySerializer(
             CountriesRepository().fast_related_loading(
                 profile.nationalities.filter(usernationality__deleted=False),
@@ -350,6 +354,7 @@ class ProfileSerializer(CRUDSerializer):
         ).data
 
     def get_professions(self, profile: UserProfile):
+        # TODO префетчить
         return ProfessionSerializer(
             Profession.objects.filter(userprofession__user=profile, userprofession__deleted=False, deleted=False),
             many=True, context={
@@ -359,6 +364,7 @@ class ProfileSerializer(CRUDSerializer):
         ).data
 
     def get_skills(self, profile: UserProfile):
+        # TODO префетчить
         return SkillSerializer(
             Skill.objects.filter(userskill__user=profile, userskill__deleted=False, deleted=False),
             many=True, context={
@@ -368,12 +374,14 @@ class ProfileSerializer(CRUDSerializer):
         ).data
 
     def get_cities(self, profile: UserProfile):
+        # TODO префетчить
         return CitySerializer(profile.cities.filter(usercity__deleted=False), many=True, context={
             'me': self.me,
             'headers': self.headers
         }).data
 
     def get_notifications_count(self, profile: UserProfile):
+        # TODO переделать на вычисление в annotate для ускорения
         return profile.notification_set.filter(read_at__isnull=True, deleted=False).count()
 
     def get_registration_completed(self, profile: UserProfile):
@@ -385,22 +393,9 @@ class ProfileSerializer(CRUDSerializer):
             return True
         return False
 
-    # @staticmethod
-    # def get_rating_by_vacancies(instance):
-    #     reviews = instance.reviews.all().values('shift__vacancy').annotate(rating=Avg('value')).annotate(
-    #         rates_count=Count('shift__vacancy'))
-    #
-    #     return [
-    #         {
-    #             'vacancy': review.get('shift__vacancy'),
-    #             'rating': review.get('rating'),
-    #             'rates_count': review.get('rates_count')
-    #         }
-    #         for review in reviews
-    #     ]
-
     @staticmethod
     def get_distributors(instance):
+        # TODO префетчить
         return DistributorsSerializer(instance=instance.distributors.all(), many=True).data
 
     class Meta:
@@ -422,7 +417,6 @@ class ProfileSerializer(CRUDSerializer):
             'agreement_accepted',
             'registration_completed',
             'verified',
-            'bonus_balance',
             'rating_place',
             'notifications_count',
             'favourite_vacancies_count',
@@ -442,13 +436,12 @@ class ProfileSerializer(CRUDSerializer):
 
             'distributors',
             'shops',
-            # 'rating_by_vacancies'
         ]
 
         extra_kwargs = {
             'phone': {'read_only': True},
             'verified': {'read_only': True},
-            'bonus_balance': {'read_only': True},
+            'bonuses_acquired': {'read_only': True},
             'favourite_vacancies_count': {'read_only': True}
         }
 

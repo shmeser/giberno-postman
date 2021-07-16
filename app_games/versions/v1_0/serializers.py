@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from app_games.models import Prize, PrizeCard, GoodsCategory
+from app_games.models import Prize, PrizeCard, GoodsCategory, Task
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
 
@@ -73,4 +73,17 @@ class PrizeCardsSerializer(serializers.ModelSerializer):
             'id',
             'value',
             'prize'
+        ]
+
+
+class TasksSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = [
+            'id',
+            'name',
+            'description',
+            'bonus_value',
+            'period',
+            'type'
         ]

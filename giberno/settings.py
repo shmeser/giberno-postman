@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'app_feedback.apps.AppFeedbackConfig',
     'app_sockets.apps.AppSocketsConfig',
     'app_chats.apps.AppChatsConfig',
+    'app_games.apps.AppGamesConfig',
 ]
 
 CHANNEL_LAYERS = {
@@ -191,6 +192,8 @@ VIDEO_MIME_TYPES = [
     'video/mp4',
     'video/mpeg'
 ]
+
+BONUS_PROGRESS_STEP_VALUE = 500  # Шаг в накоплении бонусов для получения новых карточек с "осколками"
 
 # Устанавливаем единственный обработчик для загрузки файлов - через временные файлы на диске
 FILE_UPLOAD_HANDLERS = [

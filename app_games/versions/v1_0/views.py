@@ -1,14 +1,17 @@
+from django.http import JsonResponse
 from djangorestframework_camel_case.util import camelize
 from rest_framework import status
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app_games.versions.v1_0.repositories import PrizesRepository
-from app_games.versions.v1_0.serializers import PrizesSerializer, PrizeCardsSerializer
+from app_games.versions.v1_0.repositories import PrizesRepository, TasksRepository
+from app_games.versions.v1_0.serializers import PrizesSerializer, PrizeCardsSerializer, TasksSerializer
 from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers
+from giberno.settings import BONUS_PROGRESS_STEP_VALUE
 
 
 class Prizes(CRUDAPIView):
@@ -69,6 +72,15 @@ class LikePrize(APIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
+@api_view(['GET'])
+def bonus_progress_for_prizes(request):
+    return JsonResponse(camelize({
+        'value': request.user.bonuses_acquired % BONUS_PROGRESS_STEP_VALUE,
+        'min': 0,
+        'max': BONUS_PROGRESS_STEP_VALUE
+    }), status=status.HTTP_200_OK)
+
+
 class PrizesDocuments(APIView):
     def get(self, request):
         result = PrizesRepository.get_conditions_for_promotion()
@@ -78,13 +90,13 @@ class PrizesDocuments(APIView):
 
 class PrizeCards(APIView):
     def get(self, request, **kwargs):
-        result = PrizesRepository(request.user).get_get_cards()
+        result = PrizesRepository(request.user).get_cards()
         serialized = PrizeCardsSerializer(result, many=False)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class Tasks(CRUDAPIView):
     def get(self, request, **kwargs):
-        result = PrizesRepository(request.me).get_tasks()
+        result = TasksRepository(request.me).get_tasks()
         serialized = TasksSerializer(result, many=False)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)

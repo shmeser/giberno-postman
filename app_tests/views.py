@@ -108,7 +108,7 @@ class TestBonusesDeposit(APIView):
             }
         )
 
-        request.user.bonus_balance += amount
+        request.user.bonuses_acquired += amount
         request.user.save()
 
         TransactionsRepository(request.user).recalculate_money(currency=Currency.BONUS.value)
