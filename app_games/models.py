@@ -31,11 +31,14 @@ class Prize(BaseModel):
         choices=choices(Grade), default=Grade.DEFAULT.value, verbose_name='Уровень товара'
     )
 
-    real_price_ = models.PositiveIntegerField(null=True, blank=True, verbose_name='Реальная цена')
+    real_price = models.PositiveIntegerField(null=True, blank=True, verbose_name='Реальная цена')
     real_price_currency = models.PositiveIntegerField(
         choices=choices(Currency), default=Currency.RUB.value, verbose_name='Валюта реальной цены'
     )
-    categories = models.ManyToManyField(GoodsCategory, through='PrizeCategory', blank=True, related_name='prizes')
+    categories = models.ManyToManyField(
+        GoodsCategory, db_table='app_games__prize_category', blank=True, related_name='prizes'
+    )
+
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
@@ -47,29 +50,25 @@ class Prize(BaseModel):
         verbose_name_plural = 'Призы'
 
 
-class PrizeCategory(BaseModel):
-    prize = models.ForeignKey(Prize, on_delete=models.CASCADE)
-    category = models.ForeignKey(GoodsCategory, on_delete=models.CASCADE)
-
-    class Meta:
-        db_table = 'app_games__prize_category'
-        verbose_name = 'Категория приза'
-        verbose_name_plural = 'Категории призов'
-
-
 class PrizeCard(BaseModel):
     prize = models.ForeignKey(Prize, on_delete=models.CASCADE)
     value = models.PositiveIntegerField(null=True, blank=True, verbose_name='Номинал в осколках')
-    grade = models.PositiveIntegerField(
-        choices=choices(Grade), default=Grade.DEFAULT.value, verbose_name='Уровень карточки'
-    )
-
-    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     class Meta:
         db_table = 'app_games__prize_cards'
         verbose_name = 'Призовая карточка'
         verbose_name_plural = 'Призовые карточки'
+
+
+class PrizeCardsHistory(BaseModel):
+    card = models.ForeignKey(PrizeCard, on_delete=models.CASCADE, related_name='cards_history')
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='cards_history')
+    bonuses_acquired = models.PositiveIntegerField(default=0, verbose_name='Получено всего бонусов на момент выдачи')
+
+    class Meta:
+        db_table = 'app_games__prize_cards_history'
+        verbose_name = 'История выдачи призовой карточки'
+        verbose_name_plural = 'История выдачи призовых карточек'
 
 
 class UserFavouritePrize(BaseModel):
@@ -85,6 +84,8 @@ class UserFavouritePrize(BaseModel):
 class UserPrizeProgress(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     prize = models.ForeignKey(Prize, on_delete=models.CASCADE)
+    value = models.PositiveIntegerField(default=0, verbose_name='Накоплено осколков на приз')
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата полного накопления')
 
     class Meta:
         db_table = 'app_games__user_prize_progress'
@@ -119,9 +120,9 @@ class UserTask(BaseModel):
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f'{self.name}'
+        return f'{self.id}'
 
     class Meta:
         db_table = 'app_games__task_user'
         verbose_name = 'Задание пользователя'
-        verbose_name_plural = 'Задания'
+        verbose_name_plural = 'Задания пользователей'

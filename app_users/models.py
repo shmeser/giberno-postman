@@ -59,7 +59,7 @@ class UserProfile(AbstractUser, BaseModel):
     agreement_accepted = models.BooleanField(default=False, verbose_name='Пользовательское соглашение принято')
 
     verified = models.BooleanField(default=False, verbose_name='Профиль проверен')
-    bonus_balance = models.PositiveIntegerField(default=0, verbose_name='Очки славы')
+    bonuses_acquired = models.PositiveIntegerField(default=0, verbose_name='Всего получено очков славы')
     rating_place = models.PositiveIntegerField(null=True, blank=True, verbose_name='Место в общем рейтинге')
     rating_value = models.FloatField(null=True, blank=True, verbose_name='Общий рейтинг')
     favourite_vacancies_count = models.PositiveIntegerField(default=0, verbose_name='Количество избранных вакансий')

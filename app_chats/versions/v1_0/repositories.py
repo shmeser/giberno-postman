@@ -3,7 +3,7 @@ import uuid
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Prefetch, Count, Max, Lookup, Field, Q, Subquery, OuterRef, Case, When, F, IntegerField, \
+from django.db.models import Prefetch, Count, Max, Q, Subquery, OuterRef, Case, When, F, IntegerField, \
     Exists, Sum, Window, Value
 from django.db.models.functions import Coalesce
 from django.db.models.query import prefetch_related_objects

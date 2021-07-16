@@ -53,6 +53,8 @@ class ErrorsCodes(EnumM):
 
     CARD_ALREADY_USED_IN_OTHER_ACCOUNT = 'Карта уже используется в другом аккаунте'
 
+    MAX_PREFERRED_PRIZES_AMOUNT_EXCEEDED = 'Превышено число предпочитаемых товаров данного уровня'
+
 
 class SocketErrors(IntEnumM):
     # Диапазон 3000-4999

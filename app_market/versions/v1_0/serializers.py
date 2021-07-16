@@ -163,7 +163,6 @@ class ShopInVacancySerializer(ShopsSerializer):
     map = serializers.SerializerMethodField()
 
     def get_map(self, prefetched_data):
-        # TODO добавить загрузку файла карт с гугла после получения платного аккаунта
         return MediaController(self.instance).get_related_images(prefetched_data, MediaType.MAP.value)
 
     class Meta:
