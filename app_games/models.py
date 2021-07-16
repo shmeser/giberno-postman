@@ -61,8 +61,8 @@ class PrizeCard(BaseModel):
 
 
 class PrizeCardsHistory(BaseModel):
-    card = models.ForeignKey(PrizeCard, on_delete=models.CASCADE)
-    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    card = models.ForeignKey(PrizeCard, on_delete=models.CASCADE, related_name='cards_history')
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='cards_history')
     bonuses_acquired = models.PositiveIntegerField(default=0, verbose_name='Получено всего бонусов на момент выдачи')
 
     class Meta:

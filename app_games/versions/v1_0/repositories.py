@@ -1,10 +1,11 @@
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch, ExpressionWrapper, Exists, OuterRef, BooleanField, Subquery, Count, Window
+from django.db.models import Prefetch, ExpressionWrapper, Exists, OuterRef, BooleanField, Subquery, Count, Window, Max, \
+    F
 from django.db.models.functions import Coalesce
 from django.utils.timezone import now
 
 from app_games.enums import Grade
-from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress
+from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress, PrizeCardsHistory, PrizeCard
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from backend.entity import Error
@@ -119,7 +120,30 @@ class PrizesRepository(MasterRepository):
         return promo_documents
 
     def get_cards(self):
-        return self.model.objects.filter(deleted=False)
+        prize_ct = ContentType.objects.get_for_model(Prize).id
+
+        cards_history = PrizeCardsHistory.objects.filter(
+            user=self.me,
+            deleted=False
+        ).annotate(
+            max_bonuses_acquired=Max('bonuses_acquired')
+        ).filter(bonuses_acquired=F('max_bonuses_acquired'))
+
+        return PrizeCard.objects.filter(
+            deleted=False,
+            cards_history__in=cards_history
+        ).order_by('-prize__grade', '-prize__real_price').select_related('prize').prefetch_related(
+            Prefetch(
+                'prize__media',
+                queryset=MediaModel.objects.filter(
+                    deleted=False,
+                    owner_ct_id=prize_ct,
+                    type=MediaType.PRIZE_IMAGE.value,  # Подгружаем изображения призов
+                    format=MediaFormat.IMAGE.value,
+                ).order_by('-created_at'),
+                to_attr='medias'  # Подгружаем файлы в поле medias
+            )
+        )
 
     @staticmethod
     def fast_related_loading(queryset):
@@ -149,6 +173,87 @@ class PrizesRepository(MasterRepository):
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
+
+    @staticmethod
+    def get_random_card_for_prize(prize_id):
+        return PrizeCard.objects.filter(
+            deleted=False,
+            prize_id=prize_id
+        ).order_by('?').first()
+
+    @staticmethod
+    def recalc_prize_progress(user_id, prize_id, value):
+        progress, created = UserPrizeProgress.objects.get_or_create(
+            deleted=False,
+            user_id=user_id,
+            prize_id=prize_id,
+        )
+        if value:
+            progress.value += value
+            progress.save()
+
+    @classmethod
+    def open_prize_cards_for_user(cls, user_id, bonuses_acquired):
+        # Рандомно выбрать 3 обычных товара и по одному уровня EPIC и LEGENDARY
+        default_prizes = cls.model.objects.filter(
+            deleted=False,
+            grade=Grade.DEFAULT.value
+        ).order_by('?')[:MAX_AMOUNT_FOR_PREFERRED_DEFAULT_GRADE_PRIZES]
+
+        epic_prize = cls.model.objects.filter(
+            deleted=False,
+            grade=Grade.EPIC.value
+        ).first()
+
+        legendary_prize = cls.model.objects.filter(
+            deleted=False,
+            grade=Grade.LEGENDARY.value
+        ).first()
+
+        # TODO по формуле Пуассона распределить для каждого приза номинал карточки
+        # пока рандомно определяем номинал карточек для каждого приза
+
+        history_data = []  # Данные по истории
+
+        # Обрабатываем обычные призы
+        for default_prize in default_prizes:
+            default_card = cls.get_random_card_for_prize(default_prize.id)
+            if not default_card:
+                continue
+            PrizeCardsHistory(
+                card=default_card,
+                user_id=user_id,
+                bonuses_acquired=bonuses_acquired
+            )
+            # Пересчитываем прогресс по призу
+            cls.recalc_prize_progress(user_id=user_id, prize_id=default_prize.id, value=default_card.value)
+
+        # Обрабатываем эпичный приз
+        if epic_prize:
+            epic_card = cls.get_random_card_for_prize(epic_prize.id)
+            if epic_card:
+                PrizeCardsHistory(
+                    card=epic_card,
+                    user_id=user_id,
+                    bonuses_acquired=bonuses_acquired
+                )
+                # Пересчитываем прогресс по призу
+                cls.recalc_prize_progress(user_id=user_id, prize_id=epic_prize.id, value=epic_card.value)
+
+        # Обрабатываем легендарный приз
+        if legendary_prize:
+            legendary_card = cls.get_random_card_for_prize(legendary_prize.id)
+            if legendary_card:
+                PrizeCardsHistory(
+                    card=legendary_card,
+                    user_id=user_id,
+                    bonuses_acquired=bonuses_acquired
+                )
+                # Пересчитываем прогресс по призу
+                cls.recalc_prize_progress(user_id=user_id, prize_id=legendary_prize.id, value=legendary_card.value)
+
+        # Создаем записи для истории выдачи карточек
+        PrizeCardsHistory.objects.bulk_create(history_data)
 
 
 class TasksRepository(MasterRepository):

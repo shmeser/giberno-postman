@@ -65,7 +65,7 @@ class PrizeCardsSerializer(serializers.ModelSerializer):
     prize = serializers.SerializerMethodField()
 
     def get_prize(self, data):
-        return False
+        return PrizesInCardsSerializer(data.prize, many=False).data
 
     class Meta:
         model = PrizeCard

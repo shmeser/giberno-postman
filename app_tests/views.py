@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from app_games.versions.v1_0.repositories import PrizesRepository
 from app_market.enums import TransactionType, TransactionStatus, Currency, TransactionKind
 from app_market.versions.v1_0.repositories import OrdersRepository, TransactionsRepository
 from app_sockets.controllers import SocketController
@@ -21,6 +22,7 @@ from backend.errors.enums import RESTErrors
 from backend.errors.http_exceptions import HttpException
 from backend.fields import DateTimeField
 from backend.utils import get_request_body
+from giberno.settings import BONUS_PROGRESS_STEP_VALUE
 
 
 class GetUserTokenTestAPIView(APIView):
@@ -107,6 +109,15 @@ class TestBonusesDeposit(APIView):
                 'status': TransactionStatus.COMPLETED.value
             }
         )
+
+        new_bonus_acquired_value = request.user.bonuses_acquired + amount
+        old_level = request.user.bonuses_acquired // BONUS_PROGRESS_STEP_VALUE
+        new_level = new_bonus_acquired_value // BONUS_PROGRESS_STEP_VALUE
+
+        if new_level != old_level:
+            PrizesRepository.open_prize_cards_for_user(
+                user_id=request.user.id, bonuses_acquired=new_bonus_acquired_value
+            )
 
         request.user.bonuses_acquired += amount
         request.user.save()
