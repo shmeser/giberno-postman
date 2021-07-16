@@ -193,7 +193,10 @@ VIDEO_MIME_TYPES = [
     'video/mpeg'
 ]
 
+# PRIZES
 BONUS_PROGRESS_STEP_VALUE = 500  # Шаг в накоплении бонусов для получения новых карточек с "осколками"
+MAX_AMOUNT_FOR_PREFERRED_DEFAULT_GRADE_PRIZES = 3 # Макс количество приоритетных призов обычного уровня
+
 
 # Устанавливаем единственный обработчик для загрузки файлов - через временные файлы на диске
 FILE_UPLOAD_HANDLERS = [

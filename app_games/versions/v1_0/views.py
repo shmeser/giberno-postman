@@ -60,15 +60,13 @@ class Prizes(CRUDAPIView):
 class LikePrize(APIView):
     def post(self, request, **kwargs):
         prize_id = kwargs.get('record_id')
-        result = PrizesRepository(request.user).set_like(prize_id)
-        serialized = PrizesSerializer(result, many=False)
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+        PrizesRepository(request.user).set_like(prize_id)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
 
     def delete(self, request, **kwargs):
         prize_id = kwargs.get('record_id')
-        result = PrizesRepository(request.user).remove_like(prize_id)
-        serialized = PrizesSerializer(result, many=False)
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+        PrizesRepository(request.user).remove_like(prize_id)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['GET'])

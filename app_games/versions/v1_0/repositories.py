@@ -1,13 +1,17 @@
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch, ExpressionWrapper, Exists, OuterRef, BooleanField, Subquery
+from django.db.models import Prefetch, ExpressionWrapper, Exists, OuterRef, BooleanField, Subquery, Count, Window
 from django.db.models.functions import Coalesce
+from django.utils.timezone import now
 
+from app_games.enums import Grade
 from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
-from backend.errors.enums import RESTErrors
-from backend.errors.http_exceptions import HttpException
+from backend.entity import Error
+from backend.errors.enums import RESTErrors, ErrorsCodes
+from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mixins import MasterRepository
+from giberno.settings import MAX_AMOUNT_FOR_PREFERRED_DEFAULT_GRADE_PRIZES
 
 
 class PrizesRepository(MasterRepository):
@@ -51,11 +55,60 @@ class PrizesRepository(MasterRepository):
         return record
 
     def set_like(self, record_id):
-        prize = self.get_by_id(record_id)
-        # TODO проверка на уровень приза, если лайкается с тем же уровнем либо все уровни пролайканы, то ошибка
+        prize = self.model.objects.filter(pk=record_id, deleted=False).annotate(
+            # Считаем сколько лайков уже есть для призов такого же уровня, как у запрашиваемого приза
+            same_grade_likes_count=Coalesce(Subquery(
+                UserFavouritePrize.objects.filter(
+                    deleted=False,
+                    prize__grade=OuterRef('grade'),  # Берем такой же уровень
+                    user=self.me,  # Мои приоритетные товары
+                ).annotate(
+                    count=Window(
+                        expression=Count('id'),  # Считаем количество
+                    )
+                ).values('count')[:1]
+            ), 0)
+        ).first()
+
+        if not prize:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+
+        # проверка на уровень приза, если лайкается с тем же уровнем
+        if prize.grade == Grade.DEFAULT.value:
+            if prize.same_grade_likes_count >= MAX_AMOUNT_FOR_PREFERRED_DEFAULT_GRADE_PRIZES:
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.MAX_PREFERRED_PRIZES_AMOUNT_EXCEEDED))
+                ])
+        else:
+            if prize.same_grade_likes_count > 0:  # Не больше одного предпочитаемого товара более высокого уровня
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.MAX_PREFERRED_PRIZES_AMOUNT_EXCEEDED))
+                ])
+
+        like, created = UserFavouritePrize.objects.get_or_create(
+            user=self.me,
+            prize=prize
+        )
+
+        if not created:
+            like.deleted = False
+            like.updated_at = now()
+            like.save()
 
     def remove_like(self, record_id):
         prize = self.get_by_id(record_id)
+
+        like = UserFavouritePrize.objects.filter(
+            user=self.me,
+            prize=prize
+        ).first()
+
+        if like:
+            like.deleted = True
+            like.updated_at = now()
+            like.save()
 
     @staticmethod
     def get_conditions_for_promotion():
