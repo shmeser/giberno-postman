@@ -2345,7 +2345,7 @@ class MarketDocumentsRepository(MasterRepository):
         self.me = me
 
     _SERVICE_TAX_RATE = 0.06
-    _SERVICE_INSURANCE_AMOUNT = 100
+    _SERVICE_INSURANCE_AMOUNT = 50
 
     def get_conditions_for_user_on_shift(self, shift, active_date):
         # TODO проверка переданной active_date
@@ -2406,7 +2406,7 @@ class MarketDocumentsRepository(MasterRepository):
             )
         )
 
-        conditions.text = "Текст о цифровой подписи"
+        conditions.text = "Настоящим Исполнитель посредством простой электронной подписи подписывает Договор поручения на вышеизложенных условиях и в рамках Соглашения об электронном взаимодействии."
 
         return conditions
 
