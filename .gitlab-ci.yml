@@ -111,7 +111,7 @@ deploy_stage:
     - echo ST_SUPERUSER_PASS="$ST_SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo ST_ENVIRONMENT="$ST_ENVIRONMENT" | tr -d '\r' >> .env
 
-    - echo TELEGRAM_BOT_TOKEN="$DEV_TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
+    - echo ST_TELEGRAM_BOT_TOKEN="$DEV_TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
     - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
 
     - echo DEV_VK_APP_ID="$DEV_VK_APP_ID" | tr -d '\r' >> .env
@@ -171,7 +171,7 @@ deploy_release:
     - echo RL_SUPERUSER_PASS="$RL_SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo RL_ENVIRONMENT="$RL_ENVIRONMENT" | tr -d '\r' >> .env
 
-    - echo TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
+    - echo RL_TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
     - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
     - echo VK_APP_ID="$VK_APP_ID" | tr -d '\r' >> .env
     - echo VK_APP_SECRET="$VK_APP_SECRET" | tr -d '\r' >> .env
