@@ -34,6 +34,8 @@ urlpatterns = [
     path('users/profile/cards', MyProfileCards.as_view()),
     path('users/profile/cards/<int:record_id>', MyProfileCards.as_view()),
 
+    path('users/profile/insurance', MyProfileInsurance.as_view()),
+
     # Рейтинг пользователей
     path('users/rating', UsersRating.as_view()),
     path('users/rating/my', MyRating.as_view()),

@@ -870,3 +870,42 @@ class MyProfileCards(CRUDAPIView):
             raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
 
         return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class MyProfileInsurance(CRUDAPIView):
+    serializer_class = InsuranceSerializer
+    repository_class = InsuranceRepository
+
+    allowed_http_methods = ['get', 'patch']
+
+    default_order_params = ['-created_at']
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class(me=request.user).get_my_cards(paginator=pagination, order_by=order_params)
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def post(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        if record_id:
+            record = self.repository_class(me=request.user).inited_get_by_id(record_id)
+            record.deleted = True
+            record.save()
+        else:
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
+
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
