@@ -457,7 +457,8 @@ class MyProfileDocuments(CRUDAPIView):
 
     allowed_http_methods = ['get', 'post', 'patch', 'delete']
 
-    filter_params = {
+    array_filter_params = {
+        'type': 'type__in'
     }
 
     default_order_params = ['-created_at']
@@ -476,10 +477,10 @@ class MyProfileDocuments(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class(me=request.user).inited_filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
 
@@ -500,7 +501,7 @@ class MyProfileDocuments(CRUDAPIView):
         serialized.is_valid(raise_exception=True)
 
         document = serialized.save()
-        self.repository_class().update_media(document, body.pop('attach_files', None), request.user)
+        self.repository_class.update_media(document, body.pop('attach_files', None), request.user)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):
@@ -509,14 +510,14 @@ class MyProfileDocuments(CRUDAPIView):
         body['user_id'] = request.user.id
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
             serialized = self.serializer_class(dataset, data=body, context={
                 'me': request.user,
                 'headers': get_request_headers(request),
             })
             serialized.is_valid(raise_exception=True)
             document = serialized.save()
-            self.repository_class().update_media(document, body.pop('attach_files', None), request.user)
+            self.repository_class.update_media(document, body.pop('attach_files', None), request.user)
         else:
             raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
 
@@ -526,9 +527,7 @@ class MyProfileDocuments(CRUDAPIView):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         if record_id:
-            record = self.repository_class().filter_by_kwargs(
-                {'id': record_id, 'deleted': False, 'user_id': request.user.id}
-            ).first()
+            record = self.repository_class().inited_get_by_id(record_id)
             if record:
                 record.deleted = True
                 record.save()
