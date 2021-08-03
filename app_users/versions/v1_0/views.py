@@ -17,7 +17,8 @@ from social_core.exceptions import AuthTokenRevoked
 from social_django.utils import load_backend, load_strategy
 
 from app_chats.versions.v1_0.repositories import ChatsRepository
-from app_market.versions.v1_0.repositories import ShiftAppealsRepository
+from app_market.versions.v1_0.repositories import ShiftAppealsRepository, InsuranceRepository
+from app_market.versions.v1_0.serializers import InsuranceSerializer
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_sockets.controllers import SocketController
@@ -876,36 +877,38 @@ class MyProfileInsurance(CRUDAPIView):
     serializer_class = InsuranceSerializer
     repository_class = InsuranceRepository
 
-    allowed_http_methods = ['get', 'patch']
+    allowed_http_methods = ['get', ]
 
     default_order_params = ['-created_at']
 
     def get(self, request, **kwargs):
-        record_id = kwargs.get(self.urlpattern_record_id_name)
-
-        pagination = RequestMapper.pagination(request)
-        order_params = RequestMapper(self).order(request)
-
-        if record_id:
-            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
-        else:
-            self.many = True
-            dataset = self.repository_class(me=request.user).get_my_cards(paginator=pagination, order_by=order_params)
-
+        dataset = self.repository_class(me=request.user).get_nearest_active_insurance()
+        self.many = False
         serialized = self.serializer_class(dataset, many=self.many, context={
             'me': request.user,
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
-    def post(self, request, **kwargs):
+
+class ConfirmInsurance(CRUDAPIView):
+    serializer_class = InsuranceSerializer
+    repository_class = InsuranceRepository
+
+    allowed_http_methods = ['patch']
+
+    def patch(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         if record_id:
             record = self.repository_class(me=request.user).inited_get_by_id(record_id)
-            record.deleted = True
+            record.confirmed_at = now()
             record.save()
         else:
             raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
 
-        return Response(None, status=status.HTTP_204_NO_CONTENT)
+        serialized = self.serializer_class(record, many=False, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)

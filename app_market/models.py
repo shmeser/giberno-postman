@@ -316,7 +316,8 @@ class ShiftAppealInsurance(BaseModel):
     # Подпись страховщика
     insurer_proxy_number = models.CharField(max_length=255, null=True, blank=True,
                                             verbose_name='Номер доверенности представителя страховщика')
-    insurer_sign = models.CharField(max_length=255, null=True, blank=True)
+    insurer_sign = models.CharField(max_length=255, null=True, blank=True, verbose_name='Подпись страхователя')
+    confirmed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'app_market__shift_appeal_insurance'

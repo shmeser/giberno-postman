@@ -12,7 +12,7 @@ from rest_framework import serializers
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency, OrderType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
-    Achievement, Advertisement, Order, Coupon, Transaction
+    Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -1218,4 +1218,25 @@ class FinancesSerializer(serializers.ModelSerializer):
             'interval',
             'interval_date',
             'utc_offset',
+        ]
+
+
+class InsuranceSerializer(serializers.ModelSerializer):
+    time_start = DateTimeField()
+    time_end = DateTimeField()
+    insurance_payment_expiration = DateTimeField()
+    insured_birth_date = DateTimeField()
+    utc_offset = serializers.SerializerMethodField()
+    is_confirmed = serializers.SerializerMethodField()
+
+    def get_utc_offset(self, data):
+        return pytz.timezone(data.timezone).utcoffset(datetime.utcnow()).total_seconds()
+
+    def get_is_confirmed(self, data):
+        return data.confirmed_at is not None
+
+    class Meta:
+        model = ShiftAppealInsurance
+        exclude = [
+            'appeal',
         ]
