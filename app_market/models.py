@@ -282,6 +282,56 @@ class ShiftAppeal(BaseModel):
         verbose_name_plural = 'Отклики на рабочие смены'
 
 
+class ShiftAppealInsurance(BaseModel):
+    number = models.CharField(max_length=255, null=True, blank=True, verbose_name='Номер полиса')
+    appeal = models.ForeignKey(to=ShiftAppeal, on_delete=models.CASCADE, related_name='insurance')
+    # Страховщик
+    insurer = models.TextField(max_length=4096, null=True, blank=True, verbose_name='Страховщик')
+    # Страхователь
+    insured_birth_date = models.DateTimeField(null=True, blank=True)
+    insured_passport = models.CharField(max_length=255, null=True, blank=True)
+    insured_phone = models.CharField(max_length=255, null=True, blank=True)
+    insured_email = models.CharField(max_length=255, null=True, blank=True)
+    insured_reg_address = models.CharField(max_length=255, null=True, blank=True)
+    insured_address = models.CharField(max_length=255, null=True, blank=True)
+    # выгодоприобретатель
+    beneficiary = models.CharField(max_length=255, null=True, blank=True, verbose_name='Выгодоприобретатель')
+    # Период действия
+    time_start = models.DateTimeField(null=True, blank=True, verbose_name='Начало страхового периода')
+    time_end = models.DateTimeField(null=True, blank=True, verbose_name='Окончание страхового периода')
+    # Территория страхования
+    address = models.CharField(max_length=255, null=True, blank=True, verbose_name='Территория страхования')
+    # Валюта страхования
+    currency = models.PositiveIntegerField(choices=choices(Currency), default=Currency.RUB, verbose_name='Валюта')
+    # Страховая премия
+    insurance_premium = models.PositiveIntegerField(null=True, blank=True, verbose_name='Страховая премия')
+
+    insurance_payment_expiration = models.DateTimeField(null=True, blank=True,
+                                                        verbose_name='Срок оплаты страховой премии')
+    # Застрахованные лица
+    insured_description = models.TextField(max_length=4096, null=True, blank=True, verbose_name='Застрахованные лица')
+    # Виды покрываемых рисков
+    risks = ArrayField(models.JSONField(null=True, blank=True), size=10, null=True, blank=True, verbose_name='Риски')
+    risks_description = models.TextField(max_length=4096, null=True, blank=True, verbose_name='Доп. описание рисков')
+
+    # Особые условия
+    special_conditions = models.TextField(max_length=4096, null=True, blank=True, verbose_name='Особые условия')
+    # Номер доверенности
+    insurer_proxy_number = models.CharField(max_length=255, null=True, blank=True,
+                                            verbose_name='Номер доверенности представителя страховщика')
+    # Подпись страховщика
+    insurer_sign = models.CharField(max_length=255, null=True, blank=True, verbose_name='Подпись страховщика')
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.id}'
+
+    class Meta:
+        db_table = 'app_market__shift_appeal_insurance'
+        verbose_name = 'Страховка на период рабочей смены'
+        verbose_name_plural = 'Страховки на период рабочих смен'
+
+
 class Partner(BaseModel):
     distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE)
     color = models.CharField(null=True, blank=True, verbose_name='Цвет', max_length=7)

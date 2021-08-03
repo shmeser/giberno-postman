@@ -572,7 +572,16 @@ class CareerRepository(MasterRepository):
 class DocumentsRepository(MasterRepository):
     model = Document
 
-    def update_media(self, instance, files_uuid, me):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+        self.base_query = self.model.objects.filter(
+            user=self.me
+        )
+
+    @staticmethod
+    def update_media(instance, files_uuid, me):
         if files_uuid is not None and isinstance(files_uuid, list):  # Обрабатываем только массив
             try:
                 # Отфильтровываем невалидные uuid
@@ -607,6 +616,40 @@ class DocumentsRepository(MasterRepository):
                 raise CustomException(errors=[
                     dict(Error(ErrorsCodes.UNSUPPORTED_FILE_FORMAT, **{'detail': str(e)}))
                 ])
+
+    @staticmethod
+    def fast_related_loading(queryset):
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    deleted=False,
+                    owner_ct_id=ContentType.objects.get_for_model(Document).id,
+                ),
+                to_attr='medias'
+            )
+        )
+
+        return queryset
+
+    def inited_get_by_id(self, record_id):
+        records = self.base_query.filter(pk=record_id).exclude(deleted=True)
+        record = self.fast_related_loading(records).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs).distinct()
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs).distinct()
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
 
 
 class RatingRepository(MasterRepository):

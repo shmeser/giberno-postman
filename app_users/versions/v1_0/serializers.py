@@ -12,13 +12,14 @@ from app_feedback.models import Review
 from app_geo.models import City, Country
 from app_geo.versions.v1_0.repositories import CountriesRepository
 from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
-from app_market.models import UserProfession, Profession, UserSkill, Skill
+from app_market.enums import ShiftAppealStatus
+from app_market.models import UserProfession, Profession, UserSkill, Skill, ShiftAppealInsurance
 from app_market.versions.v1_0.serializers import ProfessionSerializer, SkillSerializer, DistributorsSerializer
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
-from app_users.enums import LanguageProficiency, CardType, CardPaymentNetwork
+from app_users.enums import LanguageProficiency, CardType, CardPaymentNetwork, DocumentType
 from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
     NotificationsSettings, UserCity, UserCareer, Document, Card, UserMoney
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository, \
@@ -59,6 +60,9 @@ class RefreshTokenSerializer(serializers.Serializer):
 
 class ProfileSerializer(CRUDSerializer):
     repository = ProfileRepository
+
+    has_insurance = serializers.SerializerMethodField(read_only=True)
+    has_vaccination = serializers.SerializerMethodField(read_only=True)
 
     account_type = serializers.SerializerMethodField(read_only=True)
     birth_date = DateTimeField(required=False)
@@ -398,6 +402,22 @@ class ProfileSerializer(CRUDSerializer):
         # TODO префетчить
         return DistributorsSerializer(instance=instance.distributors.all(), many=True).data
 
+    @staticmethod
+    def get_has_insurance(instance):
+        return ShiftAppealInsurance.objects.filter(
+            appeal__applier=instance,
+            appeal__status=ShiftAppealStatus.CONFIRMED.value,
+            deleted=False,
+        ).exists()
+
+    @staticmethod
+    def get_has_vaccination(instance):
+        return Document.objects.filter(
+            type=DocumentType.VACCINATION_CERTIFICATE.value,
+            user=instance,
+            deleted=False
+        ).exists()
+
     class Meta:
         model = UserProfile
         fields = [
@@ -424,6 +444,9 @@ class ProfileSerializer(CRUDSerializer):
             'vk_link',
             'instagram_link',
             'education',
+
+            'has_insurance',
+            'has_vaccination',
 
             'avatar',
             'documents',

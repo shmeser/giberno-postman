@@ -29,6 +29,10 @@ class MediaType(IntEnumM):
     PARTNERS_SHOP_TERMS = 16  # Документ для "магазина репутация"
     MARKETING_POLICY = 17  # Маркетинговая политика
     PRIZE_IMAGE = 18  # Изображение приза
+    VACCINATION_CERTIFICATE = 19  # Сертификат о вакцинации
+    VISA = 20  # Виза
+    RESIDENT_CARD = 21  # Вид на жительство
+    MIGRATION_CARD = 22  # Миграционная карта
 
 
 class FileDownloadStatus(IntEnumM):
