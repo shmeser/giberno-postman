@@ -61,7 +61,10 @@ class TelegramFormatter(logging.Formatter):
             headers = get_request_headers(record.request)
             s += f"\nHEADERS: {self.recursive_tab_str(headers)}"
 
-        if record.request.body:
+        if record.request.POST:
+            s += f"\nPOST: {self.recursive_tab_str(record.request.POST)}"
+
+        if not record.request.POST and record.request.body:
             body = get_request_body(record.request)
             s += f"\nBODY: {self.recursive_tab_str(body)}"
 

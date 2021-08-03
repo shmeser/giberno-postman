@@ -63,3 +63,11 @@ class Tasks(APIView):
             return v1_0.Tasks().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+class TasksCount(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.TasksCount().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

@@ -1,6 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Prefetch, ExpressionWrapper, Exists, OuterRef, BooleanField, Subquery, Count, Window, Max, \
-    F
+    F, IntegerField
 from django.db.models.functions import Coalesce
 from django.utils.timezone import now
 
@@ -39,10 +39,26 @@ class PrizesRepository(MasterRepository):
             ).values('value')[:1]
         ), 0)
 
+        # Количество доступных товаров
+        self.available_count_expression = ExpressionWrapper(
+            F('count') - Coalesce(Subquery(
+                UserPrizeProgress.objects.filter(
+                    # Количество завершенных записей прогресса по призу
+                    prize=OuterRef('pk'), user=self.me, completed_at__isnull=False
+                ).annotate(
+                    count=Window(
+                        expression=Count('id'),  # Считаем количество
+                    )
+                ).values('count')[:1]
+            ), 0),
+            output_field=IntegerField()
+        )
+
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(
             is_favourite=self.is_favourite_expression,
             price_progress=self.price_progress_expression,
+            available_count=self.available_count_expression,
         )
 
     def inited_get_by_id(self, record_id):

@@ -15,6 +15,7 @@ class GoodsCategoriesSerializer(serializers.ModelSerializer):
 
 
 class PrizesSerializer(serializers.ModelSerializer):
+    available_count = serializers.SerializerMethodField()
     price_progress = serializers.SerializerMethodField()
     is_favourite = serializers.SerializerMethodField()
     categories = serializers.SerializerMethodField()
@@ -22,6 +23,9 @@ class PrizesSerializer(serializers.ModelSerializer):
 
     def get_price_progress(self, instance):
         return instance.price_progress
+
+    def get_available_count(self, instance):
+        return instance.available_count
 
     def get_is_favourite(self, instance):
         return instance.is_favourite
@@ -43,6 +47,8 @@ class PrizesSerializer(serializers.ModelSerializer):
             'price',
             'price_progress',
             'grade',
+            'count',
+            'available_count',
             'is_favourite',
             'categories',
             'image'
