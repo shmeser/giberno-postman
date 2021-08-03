@@ -215,9 +215,9 @@ class ProfileSerializer(CRUDSerializer):
     def update_professions(self, data, errors):
         professions = data.pop('professions', None)
         if professions is not None and isinstance(professions, list):  # Обрабатываем только массив
-            # Удаляем языки
+            # Удаляем професии
             self.instance.userprofession_set.all().update(deleted=True)
-            # Добавляем или обновляем языки пользователя
+            # Добавляем или професии
             for p in professions:
                 profession_id = p.get('id', None) if isinstance(p, dict) else p
                 if profession_id is None:

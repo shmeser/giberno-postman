@@ -2341,6 +2341,16 @@ class ProfessionsRepository(MasterRepository):
     def add_suggested_profession(self, name):
         self.model.objects.create(name=name, is_suggested=True)
 
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.model.objects.exclude(deleted=True).filter(**kwargs)
+
+        return records.filter(
+            Q(is_suggested=False) | Q(is_suggested=True, approved_at__isnull=False)
+        )
+
 
 class SkillsRepository(MasterRepository):
     model = Skill
