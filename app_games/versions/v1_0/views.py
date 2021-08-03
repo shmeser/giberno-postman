@@ -126,3 +126,31 @@ class Tasks(CRUDAPIView):
 
         serialized = self.serializer_class(result, many=self.many)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class TasksCount(CRUDAPIView):
+    repository_class = TasksRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'period': 'period',
+    }
+
+    default_order_params = []
+
+    default_filters = {
+    }
+
+    order_params = {
+        'name': 'name',
+        'id': 'id'
+    }
+
+    def get(self, request, **kwargs):
+        filters = RequestMapper(self).filters(request) or dict()
+        result = self.repository_class(request.user).filter_by_kwargs(
+            kwargs=filters,
+        )
+        return Response(camelize({
+            'result_count': result.count()
+        }), status=status.HTTP_200_OK)
