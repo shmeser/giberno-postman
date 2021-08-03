@@ -283,6 +283,7 @@ class ShiftAppeal(BaseModel):
 
 
 class ShiftAppealInsurance(BaseModel):
+    number = models.CharField(max_length=255, null=True, blank=True, verbose_name='Номер полиса')
     appeal = models.ForeignKey(to=ShiftAppeal, on_delete=models.CASCADE, related_name='insurance')
     # Страховщик
     insurer = models.TextField(max_length=4096, null=True, blank=True, verbose_name='Страховщик')
@@ -290,6 +291,7 @@ class ShiftAppealInsurance(BaseModel):
     insured_birth_date = models.DateTimeField(null=True, blank=True)
     insured_passport = models.CharField(max_length=255, null=True, blank=True)
     insured_phone = models.CharField(max_length=255, null=True, blank=True)
+    insured_email = models.CharField(max_length=255, null=True, blank=True)
     insured_reg_address = models.CharField(max_length=255, null=True, blank=True)
     insured_address = models.CharField(max_length=255, null=True, blank=True)
     # выгодоприобретатель
@@ -310,9 +312,10 @@ class ShiftAppealInsurance(BaseModel):
     insured_description = models.TextField(max_length=4096, null=True, blank=True)
     # Виды покрываемых рисков
     risks = ArrayField(models.JSONField(null=True, blank=True), size=10, null=True, blank=True)
+    risks_description = models.TextField(max_length=4096, null=True, blank=True)
 
     # Особые условия
-    special_conditions = models.CharField(max_length=4096, null=True, blank=True)
+    special_conditions = models.TextField(max_length=4096, null=True, blank=True)
     # Подпись страховщика
     insurer_proxy_number = models.CharField(max_length=255, null=True, blank=True,
                                             verbose_name='Номер доверенности представителя страховщика')
