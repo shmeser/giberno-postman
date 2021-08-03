@@ -156,4 +156,7 @@ class AdvertisementAdmin(FormattedAdmin):
 
 @admin.register(ShiftAppealInsurance)
 class ShiftAppealInsuranceAdmin(FormattedAdmin):
+    list_display = [
+        'id', 'deleted', 'number'
+    ]
     raw_id_fields = ['appeal', ]

@@ -528,7 +528,7 @@ class MyProfileDocuments(CRUDAPIView):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         if record_id:
-            record = self.repository_class().inited_get_by_id(record_id)
+            record = self.repository_class(me=request.user).inited_get_by_id(record_id)
             if record:
                 record.deleted = True
                 record.save()
@@ -895,9 +895,9 @@ class ConfirmInsurance(CRUDAPIView):
     serializer_class = InsuranceSerializer
     repository_class = InsuranceRepository
 
-    allowed_http_methods = ['patch']
+    allowed_http_methods = ['post']
 
-    def patch(self, request, **kwargs):
+    def post(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         if record_id:

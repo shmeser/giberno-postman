@@ -295,32 +295,36 @@ class ShiftAppealInsurance(BaseModel):
     insured_reg_address = models.CharField(max_length=255, null=True, blank=True)
     insured_address = models.CharField(max_length=255, null=True, blank=True)
     # выгодоприобретатель
-    beneficiary = models.CharField(max_length=255, null=True, blank=True)
+    beneficiary = models.CharField(max_length=255, null=True, blank=True, verbose_name='Выгодоприобретатель')
     # Период действия
     time_start = models.DateTimeField(null=True, blank=True, verbose_name='Начало страхового периода')
     time_end = models.DateTimeField(null=True, blank=True, verbose_name='Окончание страхового периода')
     # Территория страхования
-    address = models.CharField(max_length=255, null=True, blank=True)
+    address = models.CharField(max_length=255, null=True, blank=True, verbose_name='Территория страхования')
     # Валюта страхования
     currency = models.PositiveIntegerField(choices=choices(Currency), default=Currency.RUB, verbose_name='Валюта')
     # Страховая премия
-    insurance_premium = models.PositiveIntegerField(null=True, blank=True)
+    insurance_premium = models.PositiveIntegerField(null=True, blank=True, verbose_name='Страховая премия')
 
     insurance_payment_expiration = models.DateTimeField(null=True, blank=True,
                                                         verbose_name='Срок оплаты страховой премии')
     # Застрахованные лица
-    insured_description = models.TextField(max_length=4096, null=True, blank=True)
+    insured_description = models.TextField(max_length=4096, null=True, blank=True, verbose_name='Застрахованные лица')
     # Виды покрываемых рисков
-    risks = ArrayField(models.JSONField(null=True, blank=True), size=10, null=True, blank=True)
-    risks_description = models.TextField(max_length=4096, null=True, blank=True)
+    risks = ArrayField(models.JSONField(null=True, blank=True), size=10, null=True, blank=True, verbose_name='Риски')
+    risks_description = models.TextField(max_length=4096, null=True, blank=True, verbose_name='Доп. описание рисков')
 
     # Особые условия
-    special_conditions = models.TextField(max_length=4096, null=True, blank=True)
-    # Подпись страховщика
+    special_conditions = models.TextField(max_length=4096, null=True, blank=True, verbose_name='Особые условия')
+    # Номер доверенности
     insurer_proxy_number = models.CharField(max_length=255, null=True, blank=True,
                                             verbose_name='Номер доверенности представителя страховщика')
-    insurer_sign = models.CharField(max_length=255, null=True, blank=True, verbose_name='Подпись страхователя')
+    # Подпись страховщика
+    insurer_sign = models.CharField(max_length=255, null=True, blank=True, verbose_name='Подпись страховщика')
     confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.id}'
 
     class Meta:
         db_table = 'app_market__shift_appeal_insurance'

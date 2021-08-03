@@ -1239,4 +1239,8 @@ class InsuranceSerializer(serializers.ModelSerializer):
         model = ShiftAppealInsurance
         exclude = [
             'appeal',
+            'confirmed_at',
+            'created_at',
+            'updated_at',
+            'deleted',
         ]

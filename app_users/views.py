@@ -393,7 +393,7 @@ class MyProfileInsurance(APIView):
 
 class ConfirmInsurance(APIView):
     @staticmethod
-    def patch(request, **kwargs):
+    def post(request, **kwargs):
         if request.version in ['users_1_0']:
-            return v1_0.ConfirmInsurance().patch(request, **kwargs)
+            return v1_0.ConfirmInsurance().post(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
