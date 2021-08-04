@@ -2687,31 +2687,35 @@ class PartnersRepository(MasterRepository):
 class AchievementsRepository(MasterRepository):
     model = Achievement
 
-    def __init__(self, me=None):
+    def __init__(self, me, user_id=None):
         super().__init__()
         self.me = me
+        self.user_id = me.id if user_id is None else user_id  # Для реинициализации добавляем user_id
 
         self.completed_at_expression = Subquery(
             AchievementProgress.objects.filter(
-                achievement=OuterRef('pk'), user=self.me, completed_at__isnull=False
+                achievement=OuterRef('pk'), user_id=self.user_id, completed_at__isnull=False
             ).values('completed_at')[:1]
         )
         self.completed_expression = Exists(
             AchievementProgress.objects.filter(
-                achievement=OuterRef('pk'), user=self.me, completed_at__isnull=False
+                achievement=OuterRef('pk'), user_id=self.user_id, completed_at__isnull=False
             )
         )
-        self.achieved_count_expression = Subquery(
+        self.achieved_count_expression = Coalesce(Subquery(
             AchievementProgress.objects.filter(
-                achievement=OuterRef('pk'), user=self.me
+                achievement=OuterRef('pk'), user_id=self.user_id
             ).values('achieved_count')[:1]
-        )
+        ), 0)
 
         self.base_query = self.model.objects.annotate(
             completed_at=self.completed_at_expression,
             completed=self.completed_expression,
             achieved_count=self.achieved_count_expression,
         )
+
+    def re_init_class(self, user_id):
+        self.__init__(self.me, user_id)
 
     @staticmethod
     def fast_related_loading(queryset):
@@ -2731,9 +2735,12 @@ class AchievementsRepository(MasterRepository):
 
         return queryset
 
-    @staticmethod
-    def modify_kwargs(kwargs, order_by):
+    def modify_kwargs(self, kwargs, order_by):
         completed_at = kwargs.pop('completed_at', None)
+        user_id = kwargs.pop('user_id', None)
+
+        if user_id:  # Если фильтрация по пользователю
+            self.re_init_class(user_id)  # Заново инициализируем класс, чтобы просчиталось всё для нужного юзера
 
         if '-completed_at' in order_by and completed_at:
             kwargs.update({
