@@ -1,6 +1,7 @@
 from django.urls import path
 
-from app_games.views import Prizes, LikePrize, PrizesDocuments, PrizeCards, Tasks, bonus_progress_for_prizes, TasksCount
+from app_games.views import Prizes, LikePrize, PrizesDocuments, PrizeCards, Tasks, bonus_progress_for_prizes, \
+    TasksCount, OpenPrizeCard
 
 urlpatterns = [
 
@@ -15,6 +16,7 @@ urlpatterns = [
 
     # Призовые карточки
     path('games/cards', PrizeCards.as_view()),
+    path('games/cards/<int:record_id>/open', OpenPrizeCard.as_view()),
 
     # Задания
     path('games/tasks', Tasks.as_view()),

@@ -69,6 +69,10 @@ class PrizesInCardsSerializer(PrizesSerializer):
 
 class PrizeCardsSerializer(serializers.ModelSerializer):
     prize = serializers.SerializerMethodField()
+    is_opened = serializers.SerializerMethodField()
+
+    def get_is_opened(self, data):
+        return data.opened_at is not None
 
     def get_prize(self, data):
         return PrizesInCardsSerializer(data.prize, many=False).data
@@ -78,6 +82,7 @@ class PrizeCardsSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'value',
+            'is_opened',
             'prize'
         ]
 

@@ -562,7 +562,8 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
                             appeals__shift_active_date__datetz=localtime(
                                 self.context.get('current_date'), timezone=timezone(instance.timezone)
                             ).date(),
-                            appeals__status=ShiftAppealStatus.CONFIRMED.value
+                            appeals__status=ShiftAppealStatus.CONFIRMED.value,
+                            deleted=False
                         )
                     ), 0
                 )
@@ -585,6 +586,7 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
         return ShiftAppeal.objects.annotate(
             timezone=F('shift__vacancy__timezone')  # Добавляем временную зону для отклика из вакансии
         ).filter(
+            deleted=False,
             shift__vacancy=instance,
             shift_active_date__datetz=localtime(  # должны совпадать даты в часовом поясе вакансии
                 self.context.get('current_date'), timezone=timezone(instance.timezone)
