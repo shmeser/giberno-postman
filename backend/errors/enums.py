@@ -57,8 +57,7 @@ class ErrorsCodes(EnumM):
 
     NO_ACTIVE_INSURANCE = 'Нет оформленной страховки'
 
-    PRIZE_CARD_IS_ALREADY_OPENED = 'Призовая карточка уже открывалась'
-    PRIZE_CARD_WAS_NOT_BEEN_ISSUED = 'Такая карточка Вам еще не выдавалась'
+    PRIZE_CARD_WAS_NOT_BEEN_ISSUED = 'Новая карточка Вам еще не выдавалась'
 
 
 class SocketErrors(IntEnumM):
