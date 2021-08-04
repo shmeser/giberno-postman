@@ -90,6 +90,13 @@ class PrizeCards(APIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
+class OpenPrizeCard(APIView):
+    def get(self, request, **kwargs):
+        result = PrizesRepository(request.user).open_issued_card(record_id=kwargs.get('record_id'))
+        serialized = PrizeCardsSerializer(result, many=False)
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
 class Tasks(CRUDAPIView):
     serializer_class = TasksSerializer
     repository_class = TasksRepository

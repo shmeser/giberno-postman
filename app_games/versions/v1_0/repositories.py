@@ -138,6 +138,7 @@ class PrizesRepository(MasterRepository):
     def get_cards(self):
         prize_ct = ContentType.objects.get_for_model(Prize).id
 
+        # История выдачи карточек пользователю
         cards_history = PrizeCardsHistory.objects.filter(
             user=self.me,
             deleted=False
@@ -151,7 +152,10 @@ class PrizesRepository(MasterRepository):
                     )
                 ).values('max')[:1]
             )
-        ).filter(bonuses_acquired=F('max_bonuses_acquired'))
+        ).filter(
+            # Выбираем те карточки, которые выпали на последнем начислении очков славы
+            bonuses_acquired=F('max_bonuses_acquired')
+        )
 
         return PrizeCard.objects.filter(
             deleted=False,
@@ -168,6 +172,49 @@ class PrizesRepository(MasterRepository):
                 to_attr='medias'  # Подгружаем файлы в поле medias
             ),
             'prize__categories'
+        ).annotate(
+            opened_at=Subquery(cards_history.filter(card=OuterRef('pk')).values('opened_at')[:1])
+        )
+
+    def open_issued_card(self, record_id):
+        prize_ct = ContentType.objects.get_for_model(Prize).id
+
+        # История выдачи карточек пользователю
+        cards_history = PrizeCardsHistory.objects.filter(
+            user=self.me,
+            deleted=False
+        ).annotate(
+            max_bonuses_acquired=Subquery(
+                PrizeCardsHistory.objects.filter(
+                    user=self.me,
+                ).annotate(
+                    max=Window(
+                        expression=Max('bonuses_acquired')
+                    )
+                ).values('max')[:1]
+            )
+        ).filter(
+            # Выбираем те карточки, которые выпали на последнем начислении очков славы
+            bonuses_acquired=F('max_bonuses_acquired')
+        )
+
+        return PrizeCard.objects.filter(
+            deleted=False,
+            cards_history__in=cards_history
+        ).order_by('-prize__grade', '-prize__real_price').select_related('prize').prefetch_related(
+            Prefetch(
+                'prize__media',
+                queryset=MediaModel.objects.filter(
+                    deleted=False,
+                    owner_ct_id=prize_ct,
+                    type=MediaType.PRIZE_IMAGE.value,  # Подгружаем изображения призов
+                    format=MediaFormat.IMAGE.value,
+                ).order_by('-created_at'),
+                to_attr='medias'  # Подгружаем файлы в поле medias
+            ),
+            'prize__categories'
+        ).annotate(
+            opened_at=Subquery(cards_history.filter(card=OuterRef('pk')).values('opened_at')[:1])
         )
 
     @staticmethod
@@ -218,8 +265,16 @@ class PrizesRepository(MasterRepository):
             progress.save()
 
     @classmethod
-    def open_prize_cards_for_user(cls, user_id, bonuses_acquired):
-        # Рандомно выбрать 3 обычных товара и по одному уровня EPIC и LEGENDARY
+    def issue_prize_cards_for_user(cls, user_id, bonuses_acquired):
+        """
+        Выдача карточек пользователю
+
+        :param user_id:
+        :param bonuses_acquired:
+        :return:
+        """
+
+        # Рандомно выбрать 3 обычных товара и по одному товару уровня EPIC и LEGENDARY
         default_prizes = cls.model.objects.filter(
             deleted=False,
             grade=Grade.DEFAULT.value
@@ -236,6 +291,10 @@ class PrizesRepository(MasterRepository):
         ).first()
 
         # TODO по формуле Пуассона распределить для каждого приза номинал карточки
+        # TODO учесть в выдаче, что карточки могут быть не открыты пользователем, причем их может быть выдано столько,
+        #  что хватит на приз
+        #  не нужно выдавать карточек больше чем есть призов в розыгрыше
+
         # пока рандомно определяем номинал карточек для каждого приза
 
         history_data = []  # Данные по истории

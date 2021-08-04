@@ -115,7 +115,7 @@ class TestBonusesDeposit(APIView):
         new_level = new_bonus_acquired_value // BONUS_PROGRESS_STEP_VALUE
 
         if new_level != old_level:
-            PrizesRepository.open_prize_cards_for_user(
+            PrizesRepository.issue_prize_cards_for_user(
                 user_id=request.user.id, bonuses_acquired=new_bonus_acquired_value
             )
 

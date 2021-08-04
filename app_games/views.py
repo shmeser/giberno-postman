@@ -56,6 +56,15 @@ class PrizeCards(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+class OpenPrizeCard(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.OpenPrizeCard().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class Tasks(APIView):
     @staticmethod
     def get(request, **kwargs):
@@ -63,6 +72,7 @@ class Tasks(APIView):
             return v1_0.Tasks().get(request, **kwargs)
 
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
 
 class TasksCount(APIView):
     @staticmethod
