@@ -214,9 +214,7 @@ class PrizesRepository(MasterRepository):
         card_history.opened_at = now()
         card_history.save()
 
-        # TODO перенести сюда начисление осколков на призы
-
-        return PrizeCard.objects.filter(
+        prize_card = PrizeCard.objects.filter(
             deleted=False,
             cards_history=card_history
         ).order_by('-prize__grade', '-prize__real_price').select_related('prize').prefetch_related(
@@ -237,6 +235,11 @@ class PrizesRepository(MasterRepository):
                     pk=card_history.id, card=OuterRef('pk')
                 ).values('opened_at')[:1])
         ).first()
+
+        # Пересчитываем прогресс по призу
+        self.recalc_prize_progress(user_id=self.me.id, prize_id=prize_card.prize_id, value=prize_card.value)
+
+        return prize_card
 
     @staticmethod
     def fast_related_loading(queryset):
@@ -333,7 +336,7 @@ class PrizesRepository(MasterRepository):
                 )
             )
             # Пересчитываем прогресс по призу
-            cls.recalc_prize_progress(user_id=user_id, prize_id=default_prize.id, value=default_card.value)
+            # cls.recalc_prize_progress(user_id=user_id, prize_id=default_prize.id, value=default_card.value)
 
         # Обрабатываем эпичный приз
         if epic_prize:
@@ -347,7 +350,7 @@ class PrizesRepository(MasterRepository):
                     )
                 )
                 # Пересчитываем прогресс по призу
-                cls.recalc_prize_progress(user_id=user_id, prize_id=epic_prize.id, value=epic_card.value)
+                # cls.recalc_prize_progress(user_id=user_id, prize_id=epic_prize.id, value=epic_card.value)
 
         # Обрабатываем легендарный приз
         if legendary_prize:
@@ -361,7 +364,7 @@ class PrizesRepository(MasterRepository):
                     )
                 )
                 # Пересчитываем прогресс по призу
-                cls.recalc_prize_progress(user_id=user_id, prize_id=legendary_prize.id, value=legendary_card.value)
+                # cls.recalc_prize_progress(user_id=user_id, prize_id=legendary_prize.id, value=legendary_card.value)
 
         # Создаем записи для истории выдачи карточек
         PrizeCardsHistory.objects.bulk_create(history_data)
