@@ -1552,6 +1552,10 @@ class Achievements(CRUDAPIView):
         'completed_at': 'completed_at'
     }
 
+    filter_params = {
+        'user': 'user_id'
+    }
+
     default_order_params = [
         '-completed_at'
     ]
