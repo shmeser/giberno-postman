@@ -84,7 +84,7 @@ class PrizesDocuments(APIView):
 
 
 class PrizeCards(APIView):
-    def get(self, request, **kwargs):
+    def get(self, request):
         result = PrizesRepository(request.user).get_cards()
         serialized = PrizeCardsSerializer(result, many=True)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
