@@ -445,17 +445,17 @@ class ShiftsRepository(MasterRepository):
 
     @staticmethod
     def get_appeals_with_appliers(instance: Shift, current_date, filters):
+        # TODO Нужно префетчить
         appeals = [
             appeal.applier for appeal in
             instance.appeals.annotate(  # Добавляем поле timezone для работы с кастомным лукапом datetz
                 timezone=F('shift__vacancy__timezone')
             ).filter(
-                # TODO Нужно префетчить
                 shift_active_date__datetz=localtime(  # в часовом поясе вакансии
                     current_date, timezone=timezone(instance.vacancy.timezone)
                 ).date(),
                 **filters
-            )
+            ).exclude(deleted=True)
         ]
 
         return appeals
@@ -1753,7 +1753,8 @@ class ShiftAppealsRepository(MasterRepository):
         appeal = None
         confirmed_appeals = self.model.objects.filter(
             applier=self.me,
-            status=ShiftAppealStatus.CONFIRMED.value
+            status=ShiftAppealStatus.CONFIRMED.value,
+            deleted=False
         )
 
         if confirmed_appeals.exists():
@@ -1960,6 +1961,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.INITIAL.value,
             time_start__ltedttz=now()  # сравнивается время вакансии в ее часовом поясе
         ).values_list('id', flat=True))
@@ -1987,6 +1989,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED,
             job_status=JobStatus.JOB_SOON.value,
             # qr_text__isnull=False,
@@ -2010,6 +2013,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED,
             job_status__isnull=True,
             time_start__ltdttz=soon,
@@ -2034,6 +2038,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED,
             job_status=JobStatus.JOB_IN_PROCESS.value,
             time_end__ltdttz=now()
@@ -2064,6 +2069,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED.value,
             job_status=JobStatus.WAITING_FOR_COMPLETION.value,
             time_end__ltdttz=now() - interval
@@ -2087,6 +2093,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED.value,
             job_status=JobStatus.COMPLETED.value,
             completed_real_time__ltdttz=now() - interval
@@ -2108,6 +2115,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED.value,
             fire_at__isnull=False,
             fire_at__lte=now()
@@ -2152,7 +2160,7 @@ class ShiftAppealsRepository(MasterRepository):
             **filters
         ).select_related(
             'shift__vacancy'
-        )
+        ).exclude(deleted=True)
         if current_date is not None:
             result = result.filter(
                 shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date()
@@ -2171,6 +2179,7 @@ class ShiftAppealsRepository(MasterRepository):
             timezone=F('shift__vacancy__timezone')
         ).filter(
             Q(
+                deleted=False,
                 shift__shop__in=self.me.shops.all(),
                 status=ShiftAppealStatus.CONFIRMED.value,
                 shift_active_date__datetz_gte=calendar_from.date(),
@@ -2198,6 +2207,7 @@ class ShiftAppealsRepository(MasterRepository):
             timezone=F('shift__vacancy__timezone')
         ).filter(
             Q(
+                deleted=False,
                 shift__shop__in=self.me.shops.all(),
                 status=ShiftAppealStatus.CONFIRMED.value,
                 shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date() if current_date else None) &
