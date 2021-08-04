@@ -608,8 +608,8 @@ class DocumentSerializer(CRUDSerializer):
     repository = DocumentsRepository
 
     media = serializers.SerializerMethodField()
-    expiration_date = DateTimeField()
-    issue_date = DateTimeField()
+    expiration_date = DateTimeField(required=False)
+    issue_date = DateTimeField(required=False)
     created_at = DateTimeField(read_only=True)
 
     def to_internal_value(self, data):
