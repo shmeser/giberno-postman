@@ -27,7 +27,7 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
     TransactionType, TransactionKind, FinancesInterval
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
-    Advertisement, Order, Coupon, Transaction, PartnerDocument, UserCode, Code
+    Advertisement, Order, Coupon, Transaction, PartnerDocument, UserCode, Code, ShiftAppealInsurance
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -445,17 +445,17 @@ class ShiftsRepository(MasterRepository):
 
     @staticmethod
     def get_appeals_with_appliers(instance: Shift, current_date, filters):
+        # TODO Нужно префетчить
         appeals = [
             appeal.applier for appeal in
             instance.appeals.annotate(  # Добавляем поле timezone для работы с кастомным лукапом datetz
                 timezone=F('shift__vacancy__timezone')
             ).filter(
-                # TODO Нужно префетчить
                 shift_active_date__datetz=localtime(  # в часовом поясе вакансии
                     current_date, timezone=timezone(instance.vacancy.timezone)
                 ).date(),
                 **filters
-            )
+            ).exclude(deleted=True)
         ]
 
         return appeals
@@ -1547,10 +1547,11 @@ class ShiftAppealsRepository(MasterRepository):
                 instance.job_status = JobStatusForClient.JOB_IN_PROCESS.value
                 instance.started_real_time = now()
 
-            instance.status = ShiftAppealStatus.CONFIRMED
+            instance.status = ShiftAppealStatus.CONFIRMED.value
             instance.save()
             # удаляем отклики, которые начинаются или заканчиваются в пределах одобренного отклика или
             # которые в очень удаленном магазине
+            # TODO что делать с одобренными откликами на то же время если одобряется другой отклик
             self.model.objects.filter(
                 applier=instance.applier
             ).filter(
@@ -1565,6 +1566,10 @@ class ShiftAppealsRepository(MasterRepository):
             ).update(
                 deleted=True
             )
+
+            # TODO Оформляем страховку
+            InsuranceRepository.issue_insurance_for_appeal(appeal=instance, manager=self.me)
+
             status_changed = True
 
         return status_changed, instance
@@ -1748,7 +1753,8 @@ class ShiftAppealsRepository(MasterRepository):
         appeal = None
         confirmed_appeals = self.model.objects.filter(
             applier=self.me,
-            status=ShiftAppealStatus.CONFIRMED.value
+            status=ShiftAppealStatus.CONFIRMED.value,
+            deleted=False
         )
 
         if confirmed_appeals.exists():
@@ -1955,6 +1961,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.INITIAL.value,
             time_start__ltedttz=now()  # сравнивается время вакансии в ее часовом поясе
         ).values_list('id', flat=True))
@@ -1982,6 +1989,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED,
             job_status=JobStatus.JOB_SOON.value,
             # qr_text__isnull=False,
@@ -2005,6 +2013,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED,
             job_status__isnull=True,
             time_start__ltdttz=soon,
@@ -2029,6 +2038,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED,
             job_status=JobStatus.JOB_IN_PROCESS.value,
             time_end__ltdttz=now()
@@ -2059,6 +2069,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED.value,
             job_status=JobStatus.WAITING_FOR_COMPLETION.value,
             time_end__ltdttz=now() - interval
@@ -2082,6 +2093,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED.value,
             job_status=JobStatus.COMPLETED.value,
             completed_real_time__ltdttz=now() - interval
@@ -2103,6 +2115,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeals_ids = list(self.model.objects.annotate(
             timezone=F('shift__vacancy__timezone')
         ).filter(
+            deleted=False,
             status=ShiftAppealStatus.CONFIRMED.value,
             fire_at__isnull=False,
             fire_at__lte=now()
@@ -2147,7 +2160,7 @@ class ShiftAppealsRepository(MasterRepository):
             **filters
         ).select_related(
             'shift__vacancy'
-        )
+        ).exclude(deleted=True)
         if current_date is not None:
             result = result.filter(
                 shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date()
@@ -2166,6 +2179,7 @@ class ShiftAppealsRepository(MasterRepository):
             timezone=F('shift__vacancy__timezone')
         ).filter(
             Q(
+                deleted=False,
                 shift__shop__in=self.me.shops.all(),
                 status=ShiftAppealStatus.CONFIRMED.value,
                 shift_active_date__datetz_gte=calendar_from.date(),
@@ -2193,6 +2207,7 @@ class ShiftAppealsRepository(MasterRepository):
             timezone=F('shift__vacancy__timezone')
         ).filter(
             Q(
+                deleted=False,
                 shift__shop__in=self.me.shops.all(),
                 status=ShiftAppealStatus.CONFIRMED.value,
                 shift_active_date__datetz=timestamp_to_datetime(int(current_date)).date() if current_date else None) &
@@ -2264,6 +2279,8 @@ class ShiftAppealsRepository(MasterRepository):
             updated_at=now()
         )
 
+        # TODO удалять другие отклики на то же время или слишком далекие
+
         confirmed_appeals = ShiftAppeal.objects.filter(
             id__in=appeals_ids
         )
@@ -2333,6 +2350,16 @@ class ProfessionsRepository(MasterRepository):
 
     def add_suggested_profession(self, name):
         self.model.objects.create(name=name, is_suggested=True)
+
+    def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.model.objects.exclude(deleted=True).filter(**kwargs)
+
+        return records.filter(
+            Q(is_suggested=False) | Q(is_suggested=True, approved_at__isnull=False)
+        )
 
 
 class SkillsRepository(MasterRepository):
@@ -3294,3 +3321,184 @@ class TransactionsRepository(MasterRepository):
 
         money.amount = money_balance
         money.save()
+
+
+class InsuranceRepository(MasterRepository):
+    model = ShiftAppealInsurance
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.base_query = self.model.objects.annotate(timezone=F('appeal__shift__vacancy__timezone')).filter(
+            appeal__applier=self.me,
+            deleted=False
+        )
+
+    def inited_get_by_id(self, record_id):
+        records = self.base_query.filter(pk=record_id)
+        record = records.first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def get_nearest_active_insurance(self):
+        insurance = self.base_query.filter(
+            appeal__status=ShiftAppealStatus.CONFIRMED.value  # Страховка для подтвержденной заявки
+        ).order_by('appeal__time_start').first()
+
+        if not insurance:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NO_ACTIVE_INSURANCE)),
+            ])
+
+        return insurance
+
+    @staticmethod
+    def issue_insurance_for_appeal(appeal, manager):
+
+        passport = Document.objects.filter(
+            type=DocumentType.PASSPORT.value, deleted=False, user_id=appeal.applier_id
+        ).first()
+
+        _NUMBER = str(int(now().timestamp()))
+
+        _INSURER = 'Акционерное общество Страховая компания «Альянс» (далее Альянс)\n' \
+                   '115184, г. Москва, Озерковская наб., д. 30; тел.: 8 495 232 3333; факс 8 495 232 0014; ' \
+                   'www.allianz.ru, info@allianz.ru, ' \
+                   'Лицензия СИ № 0290 от 10 ноября 2014 г. выдана Банком России бессрочно'
+        _INSURED_BIRTH_DATE = appeal.applier.birth_date
+        _INSURED_PASSPORT = passport.number if passport else ''
+        _INSURED_PHONE = appeal.applier.phone
+        _INSURED_EMAIL = appeal.applier.email
+        _INSURED_REG_ADDRESS = 'тестовый адрес'
+        _INSURED_ADDRESS = 'тестовый адрес'
+        _INSURED_DESCRIPTION = 'По Полису застрахован риск возникновения ответственности Страхователя, ' \
+                               'осуществляющего деятельность в качестве самозанятого,  на территории страхования в ' \
+                               'отведенные для такой деятельности периоды (часы), по обязательствам, возникшим ' \
+                               'вследствие причинения вреда имуществу заказчика работ в по договору оказания услуг.'
+        _BENEFICIARY = 'Акционерное общество Страховая компания «Альянс»'
+
+        current_day = localtime(
+            appeal.shift_active_date,
+            timezone=timezone(appeal.shift.vacancy.timezone)
+        )
+
+        current_day = current_day.replace(hour=0, minute=0, second=0)
+
+        next_day = current_day + timedelta(days=1)
+
+        _TIME_START = current_day
+        _TIME_END = next_day
+        _ADDRESS = appeal.shift.vacancy.shop.address
+        _CURRENCY = Currency.RUB.value
+        _INSURANCE_PREMIUM = 20000
+        _INSURANCE_PAYMENT_EXPIRATION = now() + timedelta(days=2 * 365)
+        _SPECIAL_CONDITIONS = 'Если несчастный случай Застрахованного лица обусловил наступление последовательности ' \
+                              'событий, указанных в разделе Страховые риски настоящего Полиса, признанных страховыми ' \
+                              'случаями, то размер страховой выплаты по каждому очередному страховому риску из этой ' \
+                              'последовательности уменьшается на сумму страховой выплаты, произведенной ранее ' \
+                              'Страховщиком в связи с данным несчастным случаем.\n' \
+                              'Не являются страховыми случаями любые события (убытки) и/или заявленные требования, ' \
+                              'произошедшие и/или предъявленные до даты вступления настоящего Полиса в силу; ' \
+                              'страховые выплаты по таким событиям по настоящему Полису не осуществляются.\n' \
+                              'Не являются страховыми случаями любые события (убытки) и/или заявленные требования, ' \
+                              'произошедшие и/или предъявленные до даты вступления настоящего Полиса в силу; ' \
+                              'страховые выплаты по таким событиям по настоящему Полису не осуществляются.'
+        _INSURER_PROXY_NUMBER = '000 000 000'
+        _INSURER_SIGN = f'Менеджер/{manager.last_name} {manager.first_name} {manager.middle_name}'
+        _RISKS = [
+            {
+                'insurance_risk': '10.1. Страхование Общей Гражданской Ответственности Страхователя. \n'
+                                  'Имущественные интересы Страхователя, связанные с риском наступления гражданской '
+                                  'ответственности за причинение вреда имуществу заказчика работ.',
+                'conditions': [
+                    {
+                        'text': 'Страхование Общей Гражданской Ответственности Страхователя в результате случаев, '
+                                'непреднамеренно возникших по вине Страхователя, осуществляющего деятельность в '
+                                'качестве самозанятого на оговоренной в Полисе территории:\n\n'
+                                'Бой алкогольной продукции стоимостью от 5000 рублей за один предмет '
+                                '(общий лимит ответственности не может превышать 20 000 (двадцати тысяч) рублей.',
+                        'amount': 20000
+                    },
+                    {
+                        'text': 'Уничтожение или Повреждение торгового/складского оборудования*, '
+                                'торговой/складской мебели*, находящихся в торговом зале или складском помещении.',
+                        'amount': 100000
+                    }
+                ],
+            },
+            {
+                'insurance_risk': '10.2. Смерть в результате несчастного случая',
+                'conditions': [
+                    {
+                        'text': '100% страховой суммы',
+                        'amount': 100000
+                    },
+                ],
+            },
+            {
+                'insurance_risk': '10.3. Инвалидность в результате несчастного случая (для застрахованных лиц, '
+                                  'являющихся резидентами РФ)',
+                'conditions': [
+                    {
+                        'text': '100 % страховой суммы – при установлении I группы инвалидности\n'
+                                '75 % от страховой суммы – при установлении II группы инвалидности \n'
+                                '50 % от страховой суммы – при установлении III группы инвалидности',
+                        'amount': 100000
+                    },
+                ],
+            },
+            {
+                'insurance_risk': '10.4. Полная утрата трудоспособности в результате несчастного случая * '
+                                  '(для застрахованных лиц, являющихся нерезидентами РФ)',
+                'conditions': [
+                    {
+                        'text': 'Страховая выплата производится в соответствии с «Таблицей выплат при полной утрате '
+                                'трудоспособности» \n'
+                                '(Приложение № 3 к Полису)',
+                        'amount': 100000
+                    },
+                ],
+            },
+        ]
+
+        _RISKS_DESCRIPTION = '* При наступлении случая, имеющего признаки страхового, страховой риск ' \
+                             '«Полная утрата трудоспособности в результате несчастного случая» входит в страховое ' \
+                             'покрытие только в случае если Застрахованное лицо является нерезидентом РФ и действует ' \
+                             'только в отношении таких лиц. Для Застрахованных лиц - резидентов РФ выплата ' \
+                             'страхового возмещения осуществляться только по риску «Инвалидность в результате ' \
+                             'несчастного случая».\n\n' \
+                             'Полный перечень страховых рисков, с наступлением которых возникает обязанность ' \
+                             'АО СК «Альянс» произвести страховую выплату, указан исключительно в Полисе. ' \
+                             'Перечень является поименованным, закрытым и исчерпывающим.'
+
+        ShiftAppealInsurance.objects.get_or_create(
+            appeal=appeal,
+            deleted=False,
+            defaults={
+                'number': _NUMBER,
+                'insurer': _INSURER,
+                'insured_birth_date': _INSURED_BIRTH_DATE,
+                'insured_passport': _INSURED_PASSPORT,
+                'insured_phone': _INSURED_PHONE,
+                'insured_email': _INSURED_EMAIL,
+                'insured_reg_address': _INSURED_REG_ADDRESS,
+                'insured_address': _INSURED_ADDRESS,
+                'insured_description': _INSURED_DESCRIPTION,
+                'beneficiary': _BENEFICIARY,
+                'time_start': _TIME_START,
+                'time_end': _TIME_END,
+                'address': _ADDRESS,
+                'currency': _CURRENCY,
+                'insurance_premium': _INSURANCE_PREMIUM,
+                'insurance_payment_expiration': _INSURANCE_PAYMENT_EXPIRATION,
+                'insurer_proxy_number': _INSURER_PROXY_NUMBER,
+                'insurer_sign': _INSURER_SIGN,
+                'risks': _RISKS,
+                'risks_description': _RISKS_DESCRIPTION,
+                'special_conditions': _SPECIAL_CONDITIONS
+            }
+        )

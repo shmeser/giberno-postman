@@ -17,7 +17,8 @@ from social_core.exceptions import AuthTokenRevoked
 from social_django.utils import load_backend, load_strategy
 
 from app_chats.versions.v1_0.repositories import ChatsRepository
-from app_market.versions.v1_0.repositories import ShiftAppealsRepository
+from app_market.versions.v1_0.repositories import ShiftAppealsRepository, InsuranceRepository
+from app_market.versions.v1_0.serializers import InsuranceSerializer
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_sockets.controllers import SocketController
@@ -457,7 +458,8 @@ class MyProfileDocuments(CRUDAPIView):
 
     allowed_http_methods = ['get', 'post', 'patch', 'delete']
 
-    filter_params = {
+    array_filter_params = {
+        'type': 'type__in'
     }
 
     default_order_params = ['-created_at']
@@ -476,10 +478,10 @@ class MyProfileDocuments(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class(me=request.user).inited_filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
 
@@ -500,7 +502,7 @@ class MyProfileDocuments(CRUDAPIView):
         serialized.is_valid(raise_exception=True)
 
         document = serialized.save()
-        self.repository_class().update_media(document, body.pop('attach_files', None), request.user)
+        self.repository_class.update_media(document, body.pop('attach_files', None), request.user)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):
@@ -509,14 +511,14 @@ class MyProfileDocuments(CRUDAPIView):
         body['user_id'] = request.user.id
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
             serialized = self.serializer_class(dataset, data=body, context={
                 'me': request.user,
                 'headers': get_request_headers(request),
             })
             serialized.is_valid(raise_exception=True)
             document = serialized.save()
-            self.repository_class().update_media(document, body.pop('attach_files', None), request.user)
+            self.repository_class.update_media(document, body.pop('attach_files', None), request.user)
         else:
             raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
 
@@ -526,9 +528,7 @@ class MyProfileDocuments(CRUDAPIView):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         if record_id:
-            record = self.repository_class().filter_by_kwargs(
-                {'id': record_id, 'deleted': False, 'user_id': request.user.id}
-            ).first()
+            record = self.repository_class(me=request.user).inited_get_by_id(record_id)
             if record:
                 record.deleted = True
                 record.save()
@@ -871,3 +871,44 @@ class MyProfileCards(CRUDAPIView):
             raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
 
         return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class MyProfileInsurance(CRUDAPIView):
+    serializer_class = InsuranceSerializer
+    repository_class = InsuranceRepository
+
+    allowed_http_methods = ['get', ]
+
+    default_order_params = ['-created_at']
+
+    def get(self, request, **kwargs):
+        dataset = self.repository_class(me=request.user).get_nearest_active_insurance()
+        self.many = False
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class ConfirmInsurance(CRUDAPIView):
+    serializer_class = InsuranceSerializer
+    repository_class = InsuranceRepository
+
+    allowed_http_methods = ['post']
+
+    def post(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        if record_id:
+            record = self.repository_class(me=request.user).inited_get_by_id(record_id)
+            record.confirmed_at = now()
+            record.save()
+        else:
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
+
+        serialized = self.serializer_class(record, many=False, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)

@@ -91,6 +91,10 @@ class DocumentType(IntEnumM):
     SNILS = 3
     MEDICAL_BOOK = 4
     DRIVER_LICENCE = 5
+    VACCINATION_CERTIFICATE = 6  # Сертификат о вакцинации
+    VISA = 7  # Виза
+    RESIDENT_CARD = 8  # Вид на жительство
+    MIGRATION_CARD = 9  # Миграционная карта
 
 
 REQUIRED_DOCS_FOR_CHOICES = [

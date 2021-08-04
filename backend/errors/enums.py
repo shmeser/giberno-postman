@@ -55,6 +55,8 @@ class ErrorsCodes(EnumM):
 
     MAX_PREFERRED_PRIZES_AMOUNT_EXCEEDED = 'Превышено число предпочитаемых товаров данного уровня'
 
+    NO_ACTIVE_INSURANCE = 'Нет оформленной страховки'
+
 
 class SocketErrors(IntEnumM):
     # Диапазон 3000-4999
