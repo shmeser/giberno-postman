@@ -563,7 +563,7 @@ class VacanciesWithAppliersForManagerSerializer(CRUDSerializer):
                                 self.context.get('current_date'), timezone=timezone(instance.timezone)
                             ).date(),
                             appeals__status=ShiftAppealStatus.CONFIRMED.value,
-                            deleted=False
+                            appeals__deleted=False
                         )
                     ), 0
                 )

@@ -141,11 +141,14 @@ class PrizesRepository(MasterRepository):
         # История выдачи карточек пользователю
         cards_history = PrizeCardsHistory.objects.filter(
             user=self.me,
-            deleted=False
+            deleted=False,
+            opened_at__isnull=True
         ).annotate(
             max_bonuses_acquired=Subquery(
                 PrizeCardsHistory.objects.filter(
                     user=self.me,
+                    deleted=False,
+                    opened_at__isnull=True
                 ).annotate(
                     max=Window(
                         expression=Max('bonuses_acquired')
@@ -174,19 +177,24 @@ class PrizesRepository(MasterRepository):
             'prize__categories'
         ).annotate(
             opened_at=Subquery(cards_history.filter(card=OuterRef('pk')).values('opened_at')[:1])
-        )
+        ).filter(opened_at__isnull=True)  # Не показываем открытые ранее карточки
 
     def open_issued_card(self, record_id):
         prize_ct = ContentType.objects.get_for_model(Prize).id
 
-        # История выдачи карточек пользователю
-        cards_history = PrizeCardsHistory.objects.filter(
+        # История выдачи конкретной карточки пользователю
+        card_history = PrizeCardsHistory.objects.filter(
             user=self.me,
-            deleted=False
+            deleted=False,
+            opened_at__isnull=True,
+            card_id=record_id
         ).annotate(
             max_bonuses_acquired=Subquery(
                 PrizeCardsHistory.objects.filter(
                     user=self.me,
+                    deleted=False,
+                    opened_at__isnull=True,
+                    card_id=record_id
                 ).annotate(
                     max=Window(
                         expression=Max('bonuses_acquired')
@@ -196,11 +204,21 @@ class PrizesRepository(MasterRepository):
         ).filter(
             # Выбираем те карточки, которые выпали на последнем начислении очков славы
             bonuses_acquired=F('max_bonuses_acquired')
-        )
+        ).first()
+
+        if not card_history:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.PRIZE_CARD_WAS_NOT_BEEN_ISSUED))
+            ])
+
+        card_history.opened_at = now()
+        card_history.save()
+
+        # TODO перенести сюда начисление осколков на призы
 
         return PrizeCard.objects.filter(
             deleted=False,
-            cards_history__in=cards_history
+            cards_history=card_history
         ).order_by('-prize__grade', '-prize__real_price').select_related('prize').prefetch_related(
             Prefetch(
                 'prize__media',
@@ -214,8 +232,11 @@ class PrizesRepository(MasterRepository):
             ),
             'prize__categories'
         ).annotate(
-            opened_at=Subquery(cards_history.filter(card=OuterRef('pk')).values('opened_at')[:1])
-        )
+            opened_at=Subquery(
+                PrizeCardsHistory.objects.filter(
+                    pk=card_history.id, card=OuterRef('pk')
+                ).values('opened_at')[:1])
+        ).first()
 
     @staticmethod
     def fast_related_loading(queryset):
