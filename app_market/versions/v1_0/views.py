@@ -1245,7 +1245,7 @@ class RefusePassBySecurityAPIView(APIView):
             )
 
             title = NotificationTitle.SECURITY_REFUSED_APPEAL_TITLE.value
-            message = f'Сотрудники охраны не пропустили работника {request.user.first_name} {request.user.last_name} по вакансии {appeal.shift.vacancy.title}'
+            message = f'Сотрудники охраны не пропустили работника {appeal.applier.first_name} {appeal.applier.last_name} по вакансии {appeal.shift.vacancy.title}'
             action = NotificationAction.VACANCY.value
             subject_id = appeal.shift.vacancy_id
             notification_type = NotificationType.SYSTEM.value

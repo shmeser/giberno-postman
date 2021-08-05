@@ -2,7 +2,7 @@ from django.contrib.gis import admin
 
 from app_market.models import Distributor, Shop, Vacancy, Shift, Order, Transaction, Coupon, Profession, \
     UserProfession, DistributorCategory, Category, ShiftAppeal, Partner, Achievement, AchievementProgress, \
-    Advertisement, UserCode, Code, ShiftAppealInsurance
+    Advertisement, UserCode, Code, ShiftAppealInsurance, Skill, UserSkill
 from backend.mixins import FormattedAdmin
 
 _ITEMS_PER_ITERATION = 5
@@ -160,3 +160,18 @@ class ShiftAppealInsuranceAdmin(FormattedAdmin):
         'id', 'deleted', 'number'
     ]
     raw_id_fields = ['appeal', ]
+
+
+@admin.register(Skill)
+class SkillAdmin(FormattedAdmin):
+    list_display = [
+        'id', 'name', 'description'
+    ]
+
+
+@admin.register(UserSkill)
+class UserSkillAdmin(FormattedAdmin):
+    list_display = [
+        'id', 'user', 'skill'
+    ]
+    raw_id_fields = ['user', 'skill']

@@ -624,9 +624,8 @@ class DocumentsRepository(MasterRepository):
             Prefetch(
                 'media',
                 queryset=MediaModel.objects.filter(
-                    deleted=False,
-                    owner_ct_id=ContentType.objects.get_for_model(Document).id,
-                ),
+                    owner_ct_id=ContentType.objects.get_for_model(Document).id
+                ).exclude(deleted=True),
                 to_attr='medias'
             )
         )
@@ -650,6 +649,11 @@ class DocumentsRepository(MasterRepository):
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
+
+    def get_my_docs_ids(self):
+        return ContentType.objects.get_for_model(Document).id, self.base_query.filter(
+            deleted=False
+        ).values_list('id', flat=True)
 
 
 class RatingRepository(MasterRepository):
