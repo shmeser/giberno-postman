@@ -1,9 +1,10 @@
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Q
 from django.utils.timezone import now
 
 from app_media.enums import MediaType
 from app_media.models import MediaModel
+from app_users.models import UserProfile
 from backend.entity import File
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exceptions import HttpException
@@ -55,32 +56,41 @@ class MediaRepository(MasterRepository):
         return self.model.objects.bulk_create(media_models)
 
     @staticmethod
-    def get_mime_cond(x, media_type, mime_type=None):
-        if mime_type:
-            # Сравниваем по media_type и mime_type
-            return x.type == media_type and x.mime_type == mime_type
-        else:
-            # Сравниваем только по media_type
-            return x.type == media_type
+    def get_mime_cond(x, media_types, mime_type=None):
+        if media_types and mime_type:
+            # Сравниваем по media_types и mime_type
+            return x.type in media_types and x.mime_type == mime_type
+        if media_types and not mime_type:
+            # Сравниваем только по media_types
+            return x.type in media_types
+
+        if not media_types and mime_type:
+            # Сравниваем только по mime_type
+            return x.mime_type == mime_type
+
+        return True  # В остальных случаях
 
     @classmethod
-    def get_related_media(cls, model_instance, prefetched_data, m_type, m_format=None, mime_type=None, multiple=False,
+    def get_related_media(cls, model_instance, prefetched_data, m_types, m_format=None, mime_type=None, multiple=False,
                           only_prefetched=False):
         """
-
         :param model_instance:
         :param prefetched_data: Данные модели с предзагруженными связями
-        :param m_type:  Тип медиа файла
+        :param m_types:  Типы медиа файла
         :param m_format: Формат (Изображение, документ, видео и т.д.)
         :param mime_type: MimeType
         :param multiple: Выдать несколько файлов
         :param only_prefetched:  Использовать только из предзагруженных данных
         :return:
         """
+
+        if m_types and m_types is not list:
+            m_types = [m_types]
+
         # Берем файлы из предзагруженного через prefetch_related поля medias
         medias_list = chained_get(prefetched_data, 'medias', default=list())
         iterated = filter(  # Отфильтровываем по mime_type и берем один элемент
-            lambda x: cls.get_mime_cond(x, m_type, mime_type), medias_list
+            lambda x: cls.get_mime_cond(x, m_types, mime_type), medias_list
         )
         if multiple:
             files = list(iterated)
@@ -95,9 +105,11 @@ class MediaRepository(MasterRepository):
         if not files and not only_prefetched:
             files = MediaModel.objects.filter(
                 deleted=False,
-                owner_id=prefetched_data.id, type=m_type,
+                owner_id=prefetched_data.id,
                 owner_ct_id=ContentType.objects.get_for_model(prefetched_data).id,
             )
+            if m_types:
+                files = files.filter(type__in=m_types)
             if m_format:  # Если указан формат
                 files = files.filter(format=m_format)
             if mime_type:  # Если указан mime_type
@@ -125,3 +137,38 @@ class MediaRepository(MasterRepository):
             owner_id=target_owner_id,
             updated_at=now()
         )
+
+    def delete_my_media(self, uuid_list, content_type_id, my_content_ids):
+        """
+        :param uuid_list:
+        :param content_type_id: content_type зависимой от меня сущности (документ, комментарий, отзыв и т.д.)
+        :param my_content_ids: ид принадлежащих мне сущностей для указанного content_type
+        :return:
+        """
+
+        user_ct = ContentType.objects.get_for_model(UserProfile)
+        if my_content_ids:
+            query = Q(
+                Q(
+                    owner_ct_id=user_ct,
+                    owner_id=self.me.id,
+                    uuid__in=uuid_list
+                ) |
+                Q(
+                    owner_ct_id=content_type_id,
+                    owner_id__in=my_content_ids,
+                    uuid__in=uuid_list
+                )
+            )
+        else:
+            query = Q(
+                owner_ct_id=user_ct,
+                owner_id=self.me.id,
+                uuid__in=uuid_list
+            )
+        MediaModel.objects.filter(
+            query
+        ).update(**{
+            'deleted': True,
+            'updated_at': now()
+        })

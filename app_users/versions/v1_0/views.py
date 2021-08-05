@@ -205,14 +205,8 @@ class MyProfileUploads(APIView):
         uuid_list = body.get('uuid', [])
         uuid_list = uuid_list if isinstance(uuid_list, list) else [uuid_list]
         if uuid_list:
-            MediaRepository().filter_by_kwargs({
-                'owner_id': request.user.id,
-                'owner_ct_id': ContentType.objects.get_for_model(request.user).id,
-                'uuid__in': uuid_list
-            }).update(**{
-                'deleted': True,
-                'updated_at': now()
-            })
+            doc_ct_id, my_docs_ids = DocumentsRepository(me=request.user).get_my_docs_ids()
+            MediaRepository(request.user).delete_my_media(uuid_list, doc_ct_id, my_docs_ids)
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 

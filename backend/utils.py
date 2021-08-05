@@ -47,8 +47,10 @@ def get_request_body(request):
         data = json.loads(request.body.decode('utf-8'))
         return underscoreize(data)
     except JSONDecodeError:
-        data = request.body.decode('utf-8')
-        return data
+        logger.debug(request.body)
+        raise HttpException(status_code=RESTErrors.BAD_REQUEST.value, detail='Невалидный JSON в body')
+        # data = request.body.decode('utf-8')
+        # return data
 
 
 def choices(em):

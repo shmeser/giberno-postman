@@ -622,8 +622,9 @@ class DocumentSerializer(CRUDSerializer):
 
         return ret
 
-    def get_media(self, document: Document):
-        return MediaSerializer(document.media.all(), many=True).data
+    def get_media(self, prefetched_data):
+        return MediaController(self.instance).get_related_media(prefetched_data, multiple=True)
+        # return MediaSerializer(prefetched_data.medias, many=True).data
 
     class Meta:
         model = Document
