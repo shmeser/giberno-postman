@@ -182,16 +182,24 @@ class MyProfileDocuments(APIView):
             return v1_0.MyProfileDocuments().post(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
+
+class MyProfileDocument(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.MyProfileDocument().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
     @staticmethod
     def patch(request, **kwargs):
         if request.version in ['users_1_0']:
-            return v1_0.MyProfileDocuments().patch(request, **kwargs)
+            return v1_0.MyProfileDocument().patch(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['users_1_0']:
-            return v1_0.MyProfileDocuments().delete(request, **kwargs)
+            return v1_0.MyProfileDocument().delete(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
