@@ -450,7 +450,7 @@ class MyProfileDocuments(CRUDAPIView):
     serializer_class = DocumentSerializer
     repository_class = DocumentsRepository
 
-    allowed_http_methods = ['get', 'post', 'patch', 'delete']
+    allowed_http_methods = ['get', 'post']
 
     array_filter_params = {
         'type': 'type__in'
@@ -498,6 +498,10 @@ class MyProfileDocuments(CRUDAPIView):
         document = serialized.save()
         self.repository_class.update_media(document, body.pop('attach_files', None), request.user)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class MyProfileDocument(MyProfileDocuments):
+    allowed_http_methods = ['get', 'patch', 'delete']
 
     def patch(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
