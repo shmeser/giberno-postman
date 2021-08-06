@@ -67,7 +67,6 @@ class ProfileSerializer(CRUDSerializer):
     account_type = serializers.SerializerMethodField(read_only=True)
     birth_date = DateTimeField(required=False)
     avatar = serializers.SerializerMethodField(read_only=True)
-    documents = serializers.SerializerMethodField(read_only=True)
     languages = serializers.SerializerMethodField()
     professions = serializers.SerializerMethodField()
     skills = serializers.SerializerMethodField()
@@ -309,23 +308,6 @@ class ProfileSerializer(CRUDSerializer):
             return MediaSerializer(avatar, many=False).data
         return None
 
-    def get_documents(self, profile):
-        # TODO префетчить
-        documents = MediaRepository().filter_by_kwargs({
-            'owner_id': profile.id,
-            'owner_ct_id': ContentType.objects.get_for_model(profile).id,
-            'type__in': [
-                MediaType.PASSPORT.value,
-                MediaType.INN.value,
-                MediaType.SNILS.value,
-                MediaType.MEDICAL_BOOK.value,
-                MediaType.DRIVER_LICENCE.value,
-            ],
-            'format__in': [MediaFormat.IMAGE.value, MediaFormat.DOCUMENT.value]
-        }, order_by=['-created_at'])
-
-        return MediaSerializer(documents, many=True).data
-
     def get_socials(self, profile: UserProfile):
         # TODO префетчить
         socials = SocialsRepository().filter_by_kwargs({
@@ -449,7 +431,6 @@ class ProfileSerializer(CRUDSerializer):
             'has_vaccination',
 
             'avatar',
-            'documents',
             'socials',
             'languages',
             'nationalities',
