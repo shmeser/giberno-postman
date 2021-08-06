@@ -618,6 +618,7 @@ class DocumentSerializer(CRUDSerializer):
             'department_code',
             'issue_place',
             'issue_date',
+            'is_foreign',
             'expiration_date',
             'created_at',
             'media'
