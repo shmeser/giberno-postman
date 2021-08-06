@@ -266,6 +266,7 @@ class Document(BaseModel):
     issue_place = models.CharField(max_length=128, blank=True, null=True, verbose_name='Место выдачи')
     issue_date = models.DateTimeField(null=True, blank=True, verbose_name='Дата выдачи')
     expiration_date = models.DateTimeField(null=True, blank=True, verbose_name='Действителен до')
+    is_foreign = models.BooleanField(default=False, verbose_name='Иностранный документ')
 
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
