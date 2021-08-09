@@ -1356,7 +1356,7 @@ class ShiftAppealsRepository(MasterRepository):
         appeal.save()
 
         # Провверка достижения
-        achievement = AchievementsRepository().filter_by_kwargs(
+        achievement = AchievementsRepository(me=self.me).filter_by_kwargs(
             {'type': AchievementType.SAME_DISTRIBUTOR_SHIFT.value}).first()
         if not achievement:
             return
