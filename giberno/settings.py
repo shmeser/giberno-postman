@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'fcm_django',
     'celery',
     'constance',
+    'corsheaders',
     'social_django',
     'backend.apps.BackendConfig',
     'app_seeds.apps.AppSeedsConfig',
@@ -57,11 +58,17 @@ WORKER_MAX_MEMORY_PER_CHILD = 200000
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "https://smz.giberno.ru",
+    "http://localhost:3000",
 ]
 
 INTERNAL_IPS = ("127.0.0.1",)  # DebugToolbar
