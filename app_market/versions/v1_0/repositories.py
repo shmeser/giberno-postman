@@ -1650,6 +1650,7 @@ class ShiftAppealsRepository(MasterRepository):
 
         filtered = self.model.objects.filter(**{**filters, **{'shift_id': shift_id}})
         appeals = filtered.filter(
+            deleted=False,
             shift_active_date__datetz=localtime(
                 date, timezone=timezone(vacancy_timezone_name)  # Даты высчитываем в часовых поясах вакансий
             ).date(),
