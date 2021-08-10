@@ -1267,7 +1267,7 @@ class ShiftAppealsRepository(MasterRepository):
 
     def get_by_qr_text(self, qr_text):
         try:
-            return self.model.objects.get(qr_text=qr_text)
+            return self.model.objects.get(qr_text=qr_text, deleted=False)
         except self.model.DoesNotExist:
             raise HttpException(detail='Appeal not found', status_code=RESTErrors.NOT_FOUND.value)
 
@@ -1427,7 +1427,8 @@ class ShiftAppealsRepository(MasterRepository):
             **data,
             **{
                 # Проверяем только отклики новые или подтвержденные
-                'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value]
+                'status__in': [ShiftAppealStatus.INITIAL.value, ShiftAppealStatus.CONFIRMED.value],
+                'deleted': False  # Поиск по НЕ удаленным
             }
         })
 
@@ -1508,6 +1509,7 @@ class ShiftAppealsRepository(MasterRepository):
     @staticmethod
     def check_if_active_appeal(vacancy_id, applier_id):
         return ShiftAppeal.objects.filter(
+            deleted=False,
             applier_id=applier_id,
             shift__vacancy__id=vacancy_id,
             # status__in=[ShiftAppealStatus.INITIAL.value] # TODO нужно ли учитывать все заявки при создании чата
@@ -1523,7 +1525,7 @@ class ShiftAppealsRepository(MasterRepository):
             raise PermissionDenied()
 
     def confirm_by_manager(self, record_id):
-        instances = self.model.objects.filter(id=record_id)
+        instances = self.model.objects.filter(id=record_id, deleted=False)
 
         if not instances:
             raise HttpException(detail=f'Отклик с ID={record_id} не найден', status_code=RESTErrors.NOT_FOUND.value)
@@ -1576,7 +1578,7 @@ class ShiftAppealsRepository(MasterRepository):
 
     def reject_by_manager(self, record_id, reason, text=None):
         status_changed = False
-        instances = self.model.objects.filter(id=record_id)
+        instances = self.model.objects.filter(id=record_id, deleted=False)
 
         if not instances:
             raise HttpException(detail=f'Отклик с ID={record_id} не найден', status_code=RESTErrors.NOT_FOUND.value)
