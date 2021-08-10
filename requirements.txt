@@ -30,6 +30,7 @@ daphne==3.0.1
 defusedxml==0.7.1
 Django==3.1.4
 django-constance==2.8.0
+django-cors-headers==3.7.0
 djangorestframework==3.12.4
 djangorestframework-camel-case==1.2.0
 djangorestframework-simplejwt==4.6.0
