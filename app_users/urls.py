@@ -5,7 +5,7 @@ from app_users.views import AuthFirebase, AuthRefreshToken, firebase_web_auth, R
     MyProfileDocuments, read_notification, CreateManagerByAdminAPIView, GetManagerByUsernameAPIView, \
     AuthenticateManagerAPIView, ChangeManagerPasswordAPIView, EditManagerProfileView, PushUnsubscribe, push_subscribe, \
     CreateSecurityByAdmin, AuthenticateSecurity, UsersRating, MyRating, UserCareer, MyProfileCards, MyProfileInsurance, \
-    ConfirmInsurance, MyProfileDocument
+    ConfirmInsurance, MyProfileDocument, AdminPanelAuth, AdminPanelProfile
 
 urlpatterns = [
     path('auth/firebase/web', firebase_web_auth),
@@ -51,12 +51,23 @@ urlpatterns = [
     path('notifications/unsubscribe', PushUnsubscribe.as_view()),
 
     # MANAGERS RELATED URLS
-    path('admin/managers', CreateManagerByAdminAPIView.as_view()),
     path('users/managers/username', GetManagerByUsernameAPIView.as_view()),
     path('users/managers/login', AuthenticateManagerAPIView.as_view()),
     path('users/managers/password/change', ChangeManagerPasswordAPIView.as_view()),
     path('users/managers/profile', EditManagerProfileView.as_view()),
 
+]
+
+admin_panel = [
+
+    path('admin/auth', AdminPanelAuth.as_view()),
+    path('admin/profile', AdminPanelProfile.as_view()),
+
+    # CREATE MANAGER
+    path('admin/managers', CreateManagerByAdminAPIView.as_view()),
     # CREATE SECURITY
     path('admin/security', CreateSecurityByAdmin.as_view()),
+
 ]
+
+urlpatterns += admin_panel
