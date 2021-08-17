@@ -708,7 +708,7 @@ class UserInReviewSerializer(serializers.ModelSerializer):
 
     def get_avatar(self, prefetched_data):
         return MediaController(self.instance).get_related_images(
-            prefetched_data, MediaType.AVATAR.value, only_prefetched=True
+            prefetched_data, MediaType.AVATAR.value, only_prefetched=False
         )
 
     class Meta:

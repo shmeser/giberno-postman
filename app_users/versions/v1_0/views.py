@@ -1,7 +1,6 @@
 import json
 from datetime import timedelta
 
-from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.timezone import now
@@ -646,6 +645,7 @@ class AuthenticateManagerAPIView(BaseAPIView):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             user = ProfileRepository().get_by_username_and_password(validated_data=serializer.validated_data)
+            JwtRepository.remove_old(user)
             headers = get_request_headers(request)
             jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
             response_data = {
@@ -910,3 +910,64 @@ class ConfirmInsurance(CRUDAPIView):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class AdminPanelAuth(APIView):
+    permission_classes = []
+    serializer_class = UsernameWithPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            user = ProfileRepository().get_by_username_and_password(validated_data=serializer.validated_data)
+            headers = get_request_headers(request)
+            JwtRepository.remove_old(user)
+            jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(
+                user,
+                lifetime=timedelta(days=3650)  # Token на 10 лет
+            )
+
+            role = 'selfEmployed'
+            if user.account_type == AccountType.ADMIN:
+                if user.is_superuser:
+                    role = 'superadmin'
+                else:
+                    role = 'admin'
+            if user.account_type == AccountType.MANAGER:
+                role = 'manager'
+            if user.account_type == AccountType.SECURITY:
+                role = 'security'
+
+            response_data = {
+                'accessToken': jwt_pair.access_token,
+                'refreshToken': jwt_pair.refresh_token,
+                'role': role
+            }
+            return Response(response_data)
+
+
+class AdminPanelProfile(APIView):
+    def get(self, request, *args, **kwargs):
+
+        role = 'selfEmployed'
+        if request.user.account_type == AccountType.ADMIN:
+            if request.user.is_superuser:
+                role = 'superadmin'
+            else:
+                role = 'admin'
+        if request.user.account_type == AccountType.MANAGER:
+            role = 'manager'
+        if request.user.account_type == AccountType.SECURITY:
+            role = 'security'
+
+        response_data = {
+            'id': request.user.id,
+            'role': role,
+            'username': request.user.username,
+            'first_name': request.user.first_name,
+            'middle_name': request.user.middle_name,
+            'last_name': request.user.last_name,
+            'email': request.user.email,
+            'phone': request.user.phone
+        }
+        return Response(camelize(response_data))

@@ -674,11 +674,29 @@ class RatingRepository(MasterRepository):
 
         return m_kwargs
 
+    @staticmethod
+    def fast_related_loading(queryset):
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    type=MediaType.AVATAR.value,
+                    owner_ct_id=ContentType.objects.get_for_model(UserProfile).id,
+                    format=MediaFormat.IMAGE.value
+                ).exclude(deleted=True),
+                to_attr='medias'
+            )
+        )
+
+        return queryset
+
     def get_users_rating(self, kwargs, paginator=None):
         user_ct = ContentType.objects.get_for_model(UserProfile)
         kwargs_for_reviews = self.get_kwargs_for_reviews(kwargs)
         records = self.model.objects.filter(  # Фильтруем смз по нужным параметрам (регион оценки, смена, дата)
             reviews__isnull=False,
+            deleted=False,
             **kwargs
         ).annotate(
             total_rating=Subquery(
@@ -698,14 +716,17 @@ class RatingRepository(MasterRepository):
                 expression=DenseRank(), order_by=F('total_rating').desc()
             )
         ).order_by('-total_rating')
-        # TODO префетчить аватарки
-        return records[paginator.offset:paginator.limit] if paginator else records
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
 
     def get_my_rating(self, kwargs):
         user_ct = ContentType.objects.get_for_model(UserProfile)
         kwargs_for_reviews = self.get_kwargs_for_reviews(kwargs)
         queryset = self.model.objects.filter(  # Фильтруем смз по нужным параметрам (регион оценки, смена, дата)
             reviews__isnull=False,
+            deleted=False,
             **kwargs
         ).annotate(
             total_rating=Subquery(
