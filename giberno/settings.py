@@ -64,11 +64,17 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'backend.middlewares.UpdateUserLastLoginDT',
+    'backend.middlewares.UpdateRequestGeoByIP',
 ]
 
 CORS_ALLOWED_ORIGINS = [
     "https://smz.giberno.ru",
     "http://localhost:3000",
+]
+
+CORS_EXPOSE_HEADERS = [
+    'Total-Count'
 ]
 
 INTERNAL_IPS = ("127.0.0.1",)  # DebugToolbar
@@ -202,8 +208,7 @@ VIDEO_MIME_TYPES = [
 
 # PRIZES
 BONUS_PROGRESS_STEP_VALUE = 500  # Шаг в накоплении бонусов для получения новых карточек с "осколками"
-MAX_AMOUNT_FOR_PREFERRED_DEFAULT_GRADE_PRIZES = 3 # Макс количество приоритетных призов обычного уровня
-
+MAX_AMOUNT_FOR_PREFERRED_DEFAULT_GRADE_PRIZES = 3  # Макс количество приоритетных призов обычного уровня
 
 # Устанавливаем единственный обработчик для загрузки файлов - через временные файлы на диске
 FILE_UPLOAD_HANDLERS = [

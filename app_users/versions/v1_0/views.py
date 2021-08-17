@@ -16,6 +16,7 @@ from social_core.exceptions import AuthTokenRevoked
 from social_django.utils import load_backend, load_strategy
 
 from app_chats.versions.v1_0.repositories import ChatsRepository
+from app_games.enums import TaskKind
 from app_market.versions.v1_0.repositories import ShiftAppealsRepository, InsuranceRepository
 from app_market.versions.v1_0.serializers import InsuranceSerializer
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -42,6 +43,7 @@ from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers, get_request_body, chained_get
+from app_games.tasks import check_everyday_tasks_for_user
 
 
 @api_view(['GET'])
@@ -176,6 +178,8 @@ class MyProfile(CRUDAPIView):
             'me': request.user,
             'headers': get_request_headers(request),
         })
+        if request.user.account_type == AccountType.SELF_EMPLOYED.value:
+            check_everyday_tasks_for_user.s(user_id=request.user.id, kind=TaskKind.OPEN_APP.value).apply_async()
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):

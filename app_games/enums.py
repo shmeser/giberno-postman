@@ -16,3 +16,9 @@ class TaskPeriod(IntEnumM):
 class TaskType(IntEnumM):
     COMMON = 1
     PROMOTION = 2
+
+
+class TaskKind(IntEnumM):
+    # Вид задачи
+    OPEN_APP = 1
+    COMPLETE_SHIFT_WITH_MIN_RATING = 2

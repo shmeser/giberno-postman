@@ -13,7 +13,9 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     ShiftAppealCompleteByManager, \
     RefusePassByManagerAPIView, CheckPassBySecurityAPIView, RefusePassBySecurityAPIView, FireByManagerAPIView, \
     ProlongByManager, CancelFiringByManager, PushSettingsForConfirmedWorkers, Partners, PartnersCategories, \
-    Achievements, Advertisements, Orders, Coupons, GetDocumentsForPartner, Finances, get_my_money, PartnersShopDocuments
+    Achievements, Advertisements, Orders, Coupons, GetDocumentsForPartner, Finances, get_my_money, \
+    PartnersShopDocuments, AdminShops, AdminVacancies, AdminAppeals, \
+    AdminShifts, AdminPositions, AdminProfessions
 
 urlpatterns = [
     # Торговые сети
@@ -138,5 +140,19 @@ security_urls = [
     path('market/security/appeals/<int:record_id>/pass/refuse', RefusePassBySecurityAPIView.as_view()),
 ]
 
+admin_panel = [
+
+    path('admin/market/shops', AdminShops.as_view()),
+    path('admin/market/vacancies', AdminVacancies.as_view()),
+    path('admin/market/appeals', AdminAppeals.as_view()),
+    path('admin/market/shifts', AdminShifts.as_view()),
+    path('admin/market/positions', AdminPositions.as_view()),
+    path('admin/market/professions', AdminProfessions.as_view()),
+
+]
+
+urlpatterns += admin_panel
+
 urlpatterns += managers_urls
 urlpatterns += security_urls
+urlpatterns += admin_panel

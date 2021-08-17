@@ -1,7 +1,7 @@
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 
-from app_games.enums import Grade, TaskPeriod, TaskType
+from app_games.enums import Grade, TaskPeriod, TaskType, TaskKind
 from app_market.enums import Currency
 from app_media.models import MediaModel
 from app_users.models import UserProfile
@@ -104,6 +104,11 @@ class Task(BaseModel):
     type = models.PositiveIntegerField(
         choices=choices(TaskType), default=TaskType.COMMON.value, verbose_name='Тип задачи'
     )
+    kind = models.PositiveIntegerField(
+        choices=choices(TaskKind), null=True, blank=True, verbose_name='Вид задачи'
+    )
+    actions_count = models.PositiveIntegerField(default=1, verbose_name='Количество действий для выполнения задачи')
+    actions_value = models.PositiveIntegerField(default=0, verbose_name='Дополнительное значение для действий')
 
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
