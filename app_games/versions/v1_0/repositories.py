@@ -5,7 +5,7 @@ from django.db.models.functions import Coalesce
 from django.utils.timezone import now
 
 from app_games.enums import Grade
-from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress, PrizeCardsHistory, PrizeCard
+from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress, PrizeCardsHistory, PrizeCard, UserTask
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from backend.entity import Error
@@ -388,3 +388,11 @@ class TasksRepository(MasterRepository):
 
     def get_tasks(self, kwargs, paginator, order_by):
         return []
+
+    @staticmethod
+    def get_user_last_task_completed(user_id, task_id):
+        return UserTask.objects.filter(user_id=user_id, task_id=task_id, deleted=False).last()
+
+    @staticmethod
+    def complete_task(user_id, task_id):
+        return UserTask.objects.create(user_id=user_id, task_id=task_id, deleted=False)

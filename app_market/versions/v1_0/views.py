@@ -1760,3 +1760,379 @@ def get_my_money(request):
     money_balances = MoneyRepository(me=request.user).get_my_money()
     serializer = MoneySerializer(money_balances, many=True, context={'me': request.user})
     return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+
+class AdminDistributors(CRUDAPIView):
+    serializer_class = DistributorsSerializer
+    repository_class = DistributorsRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'search': 'title__istartswith',
+    }
+
+    default_order_params = ['-vacancies_count']
+
+    default_filters = {}
+
+    order_params = {
+        'id': 'id',
+        'title': 'title',
+        'vacancies': 'vacancies_count',
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
+
+        if record_id:
+            dataset = self.repository_class(point=point, me=request.user).get_by_id(record_id)
+        else:
+            dataset = self.repository_class(point=point, me=request.user).filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class AdminShops(CRUDAPIView):
+    serializer_class = ShopSerializer
+    repository_class = ShopsRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'search': 'title__istartswith',
+        'distributor': 'distributor_id',
+    }
+
+    default_order_params = []
+
+    default_filters = {}
+
+    order_params = {
+        'id': 'id',
+        'title': 'title',
+        'distance': 'distance',
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
+
+        if record_id:
+            count = 1
+            dataset = self.repository_class(point=point).get_by_id(record_id)
+        else:
+            self.many = True
+            dataset, count = self.repository_class(point=point).admin_filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params
+            )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
+
+
+class AdminVacancies(CRUDAPIView):
+    serializer_class = VacanciesSerializer
+    repository_class = VacanciesRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'search': 'title__istartswith',
+        'country': 'city__country__id',
+        'city': 'city_id',
+        'shop': 'shop_id',
+        'price': 'price__gte',
+    }
+
+    bool_filter_params = {
+        'is_hot': 'is_hot',
+        'confirmed': 'appeals__confirmed'
+    }
+
+    array_filter_params = {
+        # overlap - пересечение множеств - если передано несколько, то нужно любое из имеющихся
+        'required_experience': 'required_experience__overlap',
+        'work_time': 'work_time__overlap',
+        'employment': 'employment__in',
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    default_filters = {}
+
+    order_params = {
+        'free_count': 'free_count',
+        'distance': 'distance',
+        'title': 'title',
+        'price': 'price',
+        'created_at': 'created_at',
+        'id': 'id'
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            self.serializer_class = VacancySerializer
+            dataset = self.repository_class(
+                me=request.user
+            ).get_by_id(record_id)
+            count = 1
+        else:
+            self.many = True
+            dataset, count = self.repository_class(
+                me=request.user
+            ).admin_filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
+
+
+class AdminShifts(CRUDAPIView):
+    serializer_class = ShiftsSerializer
+    repository_class = ShiftsRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'vacancy': 'vacancy_id',
+    }
+
+    bool_filter_params = {
+        'active_today': 'active_today',
+    }
+
+    array_filter_params = {
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    default_filters = {}
+
+    order_params = {
+        'id': 'id'
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+        calendar_from, calendar_to = RequestMapper().calendar_range(request)
+
+        if record_id:
+            self.serializer_class = ShiftsSerializer
+            dataset = self.repository_class(calendar_from=calendar_from, calendar_to=calendar_to).get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class(calendar_from=calendar_from, calendar_to=calendar_to).filter_by_kwargs(
+                kwargs=filters, order_by=order_params
+            )
+            dataset = dataset[pagination.offset:pagination.limit]
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class AdminAppeals(CRUDAPIView):
+    repository_class = ShiftAppealsRepository
+    serializer_class = ShiftAppealsSerializer
+
+    allowed_http_methods = ['get', 'post']
+
+    filter_params = {
+        'shift': 'shift_id',
+        'vacancy': 'shift__vacancy_id'
+    }
+
+    bool_filter_params = {
+    }
+
+    array_filter_params = {
+        'status': 'status__in'
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    default_filters = {}
+
+    order_params = {
+        'time_start': 'time_start',
+        'time_end': 'time_end',
+        'created_at': 'created_at',
+        'id': 'id'
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+        point, screen_diagonal_points, radius = RequestMapper().geo(request)
+
+        if record_id:
+            dataset = self.repository_class(me=request.user, point=point).get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class(me=request.user, point=point).filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        data = get_request_body(request)
+        if self.repository_class(me=request.user).check_permission_for_appeal(data.get('shift')):
+            serializer = ShiftAppealCreateSerializer(data=data)
+            if serializer.is_valid(raise_exception=True):
+                instance, created = self.repository_class(me=request.user).get_or_create(**serializer.validated_data)
+                # Отправляем по сокетам смену status и job_status смз и менеджерам
+                applier_sockets, managers_sockets, users_and_managers = self.repository_class \
+                    .get_self_employed_and_managers_with_sockets(appeal=instance)
+
+                send_socket_event_on_appeal_statuses(
+                    appeal=instance, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+                )
+
+                if created:
+                    instance.qr_text = QRHandler(instance).create_qr_data()
+                    instance.save()
+                return Response(camelize(ShiftAppealsSerializer(instance=instance, many=False).data))
+        else:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.VACANCY_OR_SHOP_CHAT_IS_BLOCKED)),
+            ])
+
+    def put(self, request, *args, **kwargs):
+        serializer = ShiftAppealCreateSerializer(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            record_id = kwargs.get(self.urlpattern_record_id_name)
+            instance = self.repository_class(me=request.user).update(record_id, **serializer.validated_data)
+
+            # Отправляем по сокетам смену status и job_status смз и менеджерам
+            applier_sockets, managers_sockets, users_and_managers = self.repository_class \
+                .get_self_employed_and_managers_with_sockets(appeal=instance)
+
+            send_socket_event_on_appeal_statuses(
+                appeal=instance, applier_sockets=applier_sockets, managers_sockets=managers_sockets
+            )
+
+            return Response(camelize(ShiftAppealsSerializer(instance=instance, many=False).data))
+
+
+class AdminProfessions(CRUDAPIView):
+    serializer_class = ProfessionSerializer
+    repository_class = ProfessionsRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'name': 'name__istartswith',
+    }
+
+    default_order_params = []
+
+    order_params = {
+        'name': 'name',
+        'id': 'id'
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params
+            )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class AdminPositions(CRUDAPIView):
+    serializer_class = ProfessionSerializer
+    repository_class = ProfessionsRepository
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'name': 'name__istartswith',
+    }
+
+    default_order_params = []
+
+    order_params = {
+        'name': 'name',
+        'id': 'id'
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, paginator=pagination, order_by=order_params
+            )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)

@@ -281,6 +281,24 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
             return [manager for manager in record.staff.filter(account_type=AccountType.MANAGER.value)]
         return []
 
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.base_query.filter(**kwargs)
+
+        count = records.count()
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        ), count
+
 
 class AsyncShopsRepository(ShopsRepository):
     def __init__(self, me=None) -> None:
@@ -1197,6 +1215,19 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             )['sockets']
 
         return managers, sockets
+
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+
+        count = records.count()
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        ), count
 
 
 class AsyncVacanciesRepository(VacanciesRepository):

@@ -248,7 +248,8 @@ class VacanciesSerializer(CRUDSerializer):
         return vacancy.is_favourite
 
     def get_utc_offset(self, vacancy):
-        return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
+        return pytz.timezone(vacancy.timezone).utcoffset(
+            datetime.utcnow()).total_seconds() if vacancy.timezone else None
 
     def get_is_hot(self, vacancy):
         return vacancy.is_hot
@@ -387,7 +388,8 @@ class VacancySerializer(VacanciesSerializer):
         )
 
     def get_utc_offset(self, vacancy):
-        return pytz.timezone(vacancy.timezone).utcoffset(datetime.utcnow()).total_seconds()
+        return pytz.timezone(vacancy.timezone).utcoffset(
+            datetime.utcnow()).total_seconds() if vacancy.timezone else None
 
     class Meta:
         model = Vacancy
