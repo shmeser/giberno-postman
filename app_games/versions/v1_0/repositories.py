@@ -4,8 +4,9 @@ from django.db.models import Prefetch, ExpressionWrapper, Exists, OuterRef, Bool
 from django.db.models.functions import Coalesce
 from django.utils.timezone import now
 
-from app_games.enums import Grade
+from app_games.enums import Grade, TaskKind
 from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress, PrizeCardsHistory, PrizeCard, UserTask
+from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from backend.entity import Error
@@ -396,3 +397,24 @@ class TasksRepository(MasterRepository):
     @staticmethod
     def complete_task(user_id, task_id):
         return UserTask.objects.create(user_id=user_id, task_id=task_id, deleted=False)
+
+    @staticmethod
+    def check_fulfilled_conditions(user_id, task, check_after_date=None):
+        if task.kind == TaskKind.OPEN_APP.value:
+            # Открытие приложения
+            return True
+
+        if task.kind == TaskKind.COMPLETE_SHIFT_WITH_MIN_RATING:
+            # завершение смены с минимальным рейтингом
+
+            # Найти завершенные смены после check_after_date
+            # Для каждой завершенной смены высчитать полученный рейтинг
+            # Сравнить рейтинг с величиной в задании
+            finished_shifts_with_rating_needed = ShiftAppealsRepository.get_rated_completed_appeals_after_date(
+                user_id=user_id, check_after_date=check_after_date, review_rating=task.actions_value
+            )
+
+            if finished_shifts_with_rating_needed:
+                return True
+
+        return False

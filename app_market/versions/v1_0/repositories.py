@@ -2363,6 +2363,45 @@ class ShiftAppealsRepository(MasterRepository):
 
         return rejected_appeals
 
+    @staticmethod
+    def get_rated_completed_appeals_after_date(user_id, review_rating, check_after_date=None):
+        user_ct = ContentType.objects.get_for_model(UserProfile)
+
+        review_q = Q(
+            target_id=OuterRef('applier'),
+            target_ct=user_ct,
+            shift_id=OuterRef('shift_id'),
+        )
+
+        appeals_q = Q(
+            status=ShiftAppealStatus.COMPLETED.value,  # Успешно завершенные
+            applier_id=user_id,  # для указанного смз
+            total_rating__gte=review_rating,  # с необходимым рейтингом
+        )
+
+        if check_after_date:
+            review_q = review_q & Q(
+                created_at__gt=check_after_date  # Оценки по смене после указанной даты
+            )
+
+            appeals_q = appeals_q & Q(
+                completed_real_time__gt=check_after_date,  # Завершенные после указанной даты,
+            )
+
+        return ShiftAppeal.objects.annotate(
+            total_rating=Subquery(
+                Review.objects.filter(  # Собираем общий рейтинг
+                    review_q
+                ).annotate(
+                    rating=Window(  # Приходится использовать оконные функции из-за сложной структуры оценок и задачи
+                        expression=Avg('value'), partition_by=[F('target_id')]
+                    )
+                ).values('rating')[:1]
+            )
+        ).filter(
+            appeals_q
+        ).exists()
+
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
     def __init__(self, me=None, point=None):

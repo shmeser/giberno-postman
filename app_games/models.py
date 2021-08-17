@@ -108,6 +108,7 @@ class Task(BaseModel):
         choices=choices(TaskKind), null=True, blank=True, verbose_name='Вид задачи'
     )
     actions_count = models.PositiveIntegerField(default=1, verbose_name='Количество действий для выполнения задачи')
+    actions_value = models.PositiveIntegerField(default=0, verbose_name='Дополнительное значение для действий')
 
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 

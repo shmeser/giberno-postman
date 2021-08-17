@@ -21,4 +21,4 @@ class TaskType(IntEnumM):
 class TaskKind(IntEnumM):
     # Вид задачи
     OPEN_APP = 1
-    COMPLETE_SHIFT = 2
+    COMPLETE_SHIFT_WITH_MIN_RATING = 2

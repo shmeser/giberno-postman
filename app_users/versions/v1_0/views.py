@@ -178,7 +178,8 @@ class MyProfile(CRUDAPIView):
             'me': request.user,
             'headers': get_request_headers(request),
         })
-        check_everyday_tasks_for_user.s(user_id=request.user.id, kind=TaskKind.OPEN_APP.value).apply_async()
+        if request.user.account_type == AccountType.SELF_EMPLOYED.value:
+            check_everyday_tasks_for_user.s(user_id=request.user.id, kind=TaskKind.OPEN_APP.value).apply_async()
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):

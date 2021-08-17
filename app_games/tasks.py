@@ -2,17 +2,25 @@ import uuid
 
 from django.contrib.contenttypes.models import ContentType
 from django.utils.timezone import now
-from loguru import logger
-
-from app_games.enums import TaskType, TaskPeriod
+from celery import group
+from app_games.enums import TaskType, TaskPeriod, TaskKind
 from app_games.versions.v1_0.repositories import TasksRepository, PrizesRepository
 from app_market.enums import TransactionType, TransactionStatus, Currency
 from app_market.versions.v1_0.repositories import OrdersRepository, TransactionsRepository
 from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
+from app_users.versions.v1_0.repositories import UsersRepository
 from backend.controllers import PushController
 from giberno.celery import app
 from giberno.settings import BONUS_PROGRESS_STEP_VALUE
+
+
+@app.task
+def check_users_daily_tasks_on_completed_shifts():
+    jobs = group(
+        [check_everyday_tasks_for_user.s(user_id, TaskKind.COMPLETE_SHIFT_WITH_MIN_RATING.value) for user_id in
+         UsersRepository.get_all_self_employed_ids()])
+    jobs.apply_async()
 
 
 @app.task
@@ -35,10 +43,19 @@ def check_everyday_tasks_for_user(user_id, kind):
         task_id=task.id, user_id=user_id
     )
 
+    check_after_date = None
     if last_same_task_completed:
         if last_same_task_completed.created_at.date() == now().date():
             # Если есть, но выполнена сегодня
             return
+        check_after_date = last_same_task_completed.created_at
+
+    # Проверяем возможность выполнения задания (ищем выполненные условия)
+    conditions_fulfilled = TasksRepository.check_fulfilled_conditions(
+        user_id=user_id, task=task, check_after_date=check_after_date
+    )
+    if not conditions_fulfilled:
+        return
 
     # Выполнить задание
     completed_task = TasksRepository.complete_task(
@@ -52,7 +69,7 @@ def check_everyday_tasks_for_user(user_id, kind):
         to_ct=user_ct,
         to_ct_name=user_ct.model,
         to_id=user_id,
-        comment=f'Начисление бонусов за выполненное задание {task.name}',
+        comment=f'Начисление бонусов за выполненное задание "{task.name}" - "{task.description}"',
         **{
             'status': TransactionStatus.COMPLETED.value
         }
