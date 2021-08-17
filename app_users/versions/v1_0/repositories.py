@@ -36,6 +36,12 @@ class UsersRepository:
     def get_reference_user(reference_code):
         return UserProfile.objects.filter(uuid__icontains=reference_code, deleted=False).first()
 
+    @staticmethod
+    def get_all_self_employed_ids():
+        return UserProfile.objects.filter(
+            deleted=False, account_type=AccountType.SELF_EMPLOYED.value
+        ).values_list('id', flat=True)
+
 
 class AuthRepository:
 

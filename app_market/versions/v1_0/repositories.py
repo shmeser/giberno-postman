@@ -281,6 +281,24 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
             return [manager for manager in record.staff.filter(account_type=AccountType.MANAGER.value)]
         return []
 
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.base_query.filter(**kwargs)
+
+        count = records.count()
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        ), count
+
 
 class AsyncShopsRepository(ShopsRepository):
     def __init__(self, me=None) -> None:
@@ -1197,6 +1215,19 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
             )['sockets']
 
         return managers, sockets
+
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        self.modify_kwargs(kwargs)  # Изменяем kwargs для работы с objects.filter(**kwargs)
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+
+        count = records.count()
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        ), count
 
 
 class AsyncVacanciesRepository(VacanciesRepository):
@@ -2331,6 +2362,45 @@ class ShiftAppealsRepository(MasterRepository):
         rejected_appeals = cls.prefetch_applier_and_managers(rejected_appeals)
 
         return rejected_appeals
+
+    @staticmethod
+    def get_rated_completed_appeals_after_date(user_id, review_rating, check_after_date=None):
+        user_ct = ContentType.objects.get_for_model(UserProfile)
+
+        review_q = Q(
+            target_id=OuterRef('applier'),
+            target_ct=user_ct,
+            shift_id=OuterRef('shift_id'),
+        )
+
+        appeals_q = Q(
+            status=ShiftAppealStatus.COMPLETED.value,  # Успешно завершенные
+            applier_id=user_id,  # для указанного смз
+            total_rating__gte=review_rating,  # с необходимым рейтингом
+        )
+
+        if check_after_date:
+            review_q = review_q & Q(
+                created_at__gt=check_after_date  # Оценки по смене после указанной даты
+            )
+
+            appeals_q = appeals_q & Q(
+                completed_real_time__gt=check_after_date,  # Завершенные после указанной даты,
+            )
+
+        return ShiftAppeal.objects.annotate(
+            total_rating=Subquery(
+                Review.objects.filter(  # Собираем общий рейтинг
+                    review_q
+                ).annotate(
+                    rating=Window(  # Приходится использовать оконные функции из-за сложной структуры оценок и задачи
+                        expression=Avg('value'), partition_by=[F('target_id')]
+                    )
+                ).values('rating')[:1]
+            )
+        ).filter(
+            appeals_q
+        ).exists()
 
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
