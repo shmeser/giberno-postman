@@ -646,6 +646,46 @@ class ShiftAppealsSerializer(CRUDSerializer):
         ]
 
 
+class UserProfileInAppealsSerializerAdmin(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField(read_only=True)
+
+    def get_avatar(self, prefetched_data):
+        return None
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            'id',
+            'username',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'avatar'
+        ]
+
+
+class ShiftAppealsSerializerAdmin(ShiftAppealsSerializer):
+    applier = serializers.SerializerMethodField()
+
+    def get_applier(self, data):
+        return UserProfileInAppealsSerializerAdmin(data.applier, many=False).data
+
+    class Meta:
+        model = ShiftAppeal
+        fields = [
+            'id',
+            'status',
+            'shift_active_date',
+            'time_start',
+            'time_end',
+            'created_at',
+            'fire_at',
+            'applier',
+            'shift',
+            'vacancy'
+        ]
+
+
 class ShiftsWithAppealsSerializer(CRUDSerializer):
     appliers = serializers.SerializerMethodField()
 
@@ -754,6 +794,30 @@ class ShiftsSerializer(CRUDSerializer):
         ]
 
 
+class ShiftsSerializerAdmin(ShiftsSerializer):
+    vacancy = serializers.SerializerMethodField()
+
+    def get_vacancy(self, data):
+        return VacancyInShiftSerializerAdmin(data.vacancy, many=False).data
+
+    class Meta:
+        model = Shift
+        fields = [
+            'id',
+            'time_start',
+            'time_end',
+            'active_today',
+            'active_dates',
+            'vacancy'
+        ]
+
+
+class VacancyInShiftSerializerAdmin(serializers.ModelSerializer):
+    class Meta:
+        model = Vacancy
+        fields = ['id', 'title', 'timezone']
+
+
 class ShiftForManagersSerializer(serializers.ModelSerializer):
     confirmed_appeals_count = serializers.SerializerMethodField()
     vacancy_title = serializers.SerializerMethodField()
@@ -798,12 +862,6 @@ class SkillSerializer(CRUDSerializer):
             'name',
             'description',
         ]
-
-
-# class VacancyInUserShiftSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Vacancy
-#         fields = ['id', 'title', 'timezone']
 
 
 # class UserShiftSerializer(serializers.ModelSerializer):

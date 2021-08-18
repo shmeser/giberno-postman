@@ -229,24 +229,44 @@ class PushController:
         devices_ids = []  # Список ID моделей пуш-токенов
         notifications_links = []  # Список объектов-связок для bulk_create
 
-        for u in users_with_divided_tokens:
-            devices_ids += u['devices']  # Добавляем список устройств пользователя в общий массив
+        if users_with_divided_tokens:
+            # Если есть живые токены у указанных пользователей
+            for u in users_with_divided_tokens:
+                devices_ids += u['devices']  # Добавляем список устройств пользователя в общий массив
 
-            notifications_links.append(
-                Notification(
-                    uuid=common_uuid,
-                    user_id=u['user_id'],
-                    subject_id=subject_id,
-                    title=title,
-                    message=message,
-                    type=notification_type,
-                    action=action,
-                    push_tokens_android=u['android'],
-                    push_tokens_ios=u['ios'],
-                    icon_type=icon_type,
-                    sound_enabled=is_sound_enabled,
+                notifications_links.append(
+                    Notification(
+                        uuid=common_uuid,
+                        user_id=u['user_id'],
+                        subject_id=subject_id,
+                        title=title,
+                        message=message,
+                        type=notification_type,
+                        action=action,
+                        push_tokens_android=u['android'],
+                        push_tokens_ios=u['ios'],
+                        icon_type=icon_type,
+                        sound_enabled=is_sound_enabled,
+                    )
                 )
-            )
+        else:
+            # Если нет живах токенов, то просто создаем записи уведомлений, но отпправки пушей уже не будет
+            for u in users_to_send_queryset:
+                notifications_links.append(
+                    Notification(
+                        uuid=common_uuid,
+                        user_id=u.id,
+                        subject_id=subject_id,
+                        title=title,
+                        message=message,
+                        type=notification_type,
+                        action=action,
+                        push_tokens_android=[],
+                        push_tokens_ios=[],
+                        icon_type=icon_type,
+                        sound_enabled=is_sound_enabled,
+                    )
+                )
 
         Notification.objects.bulk_create(notifications_links)  # Массовое создание уведомлений
 

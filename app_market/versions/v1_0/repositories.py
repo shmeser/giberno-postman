@@ -382,6 +382,22 @@ class ShiftsRepository(MasterRepository):
                 records = self.base_query.filter(**kwargs)
         return records[paginator.offset:paginator.limit] if paginator else records
 
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.base_query.filter(**kwargs)
+
+        count = records.count()
+        records = records[paginator.offset:paginator.limit] if paginator else records
+        return records, count
+
     def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
         try:
             if order_by:
@@ -2402,6 +2418,18 @@ class ShiftAppealsRepository(MasterRepository):
             appeals_q
         ).exists()
 
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.model.objects.exclude(deleted=True).filter(**kwargs)
+
+        count = records.count()
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        ), count
+
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
     def __init__(self, me=None, point=None):
@@ -3555,7 +3583,7 @@ class InsuranceRepository(MasterRepository):
                              'АО СК «Альянс» произвести страховую выплату, указан исключительно в Полисе. ' \
                              'Перечень является поименованным, закрытым и исчерпывающим.'
 
-        ShiftAppealInsurance.objects.get_or_create(
+        insurence, created = ShiftAppealInsurance.objects.get_or_create(
             appeal=appeal,
             deleted=False,
             defaults={
@@ -3582,3 +3610,7 @@ class InsuranceRepository(MasterRepository):
                 'special_conditions': _SPECIAL_CONDITIONS
             }
         )
+
+        if created:
+            pass
+            # TODO транзакция за страховку
