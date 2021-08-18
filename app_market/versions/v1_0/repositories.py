@@ -2418,6 +2418,18 @@ class ShiftAppealsRepository(MasterRepository):
             appeals_q
         ).exists()
 
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.model.objects.exclude(deleted=True).filter(**kwargs)
+
+        count = records.count()
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            point=self.point
+        ), count
+
 
 class AsyncShiftAppealsRepository(ShiftAppealsRepository):
     def __init__(self, me=None, point=None):

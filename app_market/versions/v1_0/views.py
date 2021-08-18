@@ -26,7 +26,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ProlongByManagerReasonSerializer, QRCodeCompleteSerializer, ShiftAppealCompleteSerializer, \
     ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer, AchievementsSerializer, \
     AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer, FinancesSerializer, \
-    FinancesValiadator, OrdersValiadator, BuyCouponsValidator, ShiftsSerializerAdmin
+    FinancesValiadator, OrdersValiadator, BuyCouponsValidator, ShiftsSerializerAdmin, ShiftAppealsSerializerAdmin
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -1974,7 +1974,7 @@ class AdminShifts(CRUDAPIView):
 
 class AdminAppeals(CRUDAPIView):
     repository_class = ShiftAppealsRepository
-    serializer_class = ShiftAppealsSerializer
+    serializer_class = ShiftAppealsSerializerAdmin
 
     allowed_http_methods = ['get', 'post']
 
@@ -2008,13 +2008,13 @@ class AdminAppeals(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
-        point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         if record_id:
-            dataset = self.repository_class(me=request.user, point=point).get_by_id(record_id)
+            count = 1
+            dataset = self.repository_class(me=request.user).get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class(me=request.user, point=point).filter_by_kwargs(
+            dataset, count = self.repository_class(me=request.user).admin_filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
@@ -2023,7 +2023,7 @@ class AdminAppeals(CRUDAPIView):
             'headers': get_request_headers(request),
         })
 
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+        return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         data = get_request_body(request)
