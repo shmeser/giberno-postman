@@ -69,7 +69,8 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "https://smz.giberno.ru",
+    "https://smz.giberno.ru:30002",
+    "https://smz.giberno.ru:20002",
     "http://localhost:3000",
 ]
 

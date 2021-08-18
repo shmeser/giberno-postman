@@ -88,6 +88,11 @@ class PrizeCardsSerializer(serializers.ModelSerializer):
 
 
 class TasksSerializer(serializers.ModelSerializer):
+    is_completed = serializers.SerializerMethodField()
+
+    def get_is_completed(self, data):
+        return False
+
     class Meta:
         model = Task
         fields = [
@@ -96,5 +101,6 @@ class TasksSerializer(serializers.ModelSerializer):
             'description',
             'bonus_value',
             'period',
-            'type'
+            'type',
+            'is_completed',
         ]
