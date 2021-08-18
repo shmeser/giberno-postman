@@ -3555,7 +3555,7 @@ class InsuranceRepository(MasterRepository):
                              'АО СК «Альянс» произвести страховую выплату, указан исключительно в Полисе. ' \
                              'Перечень является поименованным, закрытым и исчерпывающим.'
 
-        ShiftAppealInsurance.objects.get_or_create(
+        insurence, created = ShiftAppealInsurance.objects.get_or_create(
             appeal=appeal,
             deleted=False,
             defaults={
@@ -3582,3 +3582,7 @@ class InsuranceRepository(MasterRepository):
                 'special_conditions': _SPECIAL_CONDITIONS
             }
         )
+
+        if created:
+            pass
+            # TODO транзакция за страховку
