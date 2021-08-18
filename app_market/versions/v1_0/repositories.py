@@ -382,6 +382,22 @@ class ShiftsRepository(MasterRepository):
                 records = self.base_query.filter(**kwargs)
         return records[paginator.offset:paginator.limit] if paginator else records
 
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        try:
+            if order_by:
+                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            else:
+                records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        except Exception:  # no 'deleted' field
+            if order_by:
+                records = self.base_query.order_by(*order_by).filter(**kwargs)
+            else:
+                records = self.base_query.filter(**kwargs)
+
+        count = records.count()
+        records = records[paginator.offset:paginator.limit] if paginator else records
+        return records, count
+
     def filter(self, args: list = None, kwargs={}, paginator=None, order_by: list = None):
         try:
             if order_by:
