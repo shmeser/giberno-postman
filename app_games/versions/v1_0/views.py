@@ -126,7 +126,7 @@ class Tasks(CRUDAPIView):
         if record_id:
             result = self.repository_class(request.user).get_by_id(record_id)
         else:
-            result = self.repository_class(request.user).filter_by_kwargs(
+            result = self.repository_class(request.user).inited_filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
             self.many = True

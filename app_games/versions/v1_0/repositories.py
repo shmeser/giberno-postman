@@ -1,10 +1,12 @@
+from datetime import timedelta
+
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Prefetch, ExpressionWrapper, Exists, OuterRef, BooleanField, Subquery, Count, Window, Max, \
-    F, IntegerField
-from django.db.models.functions import Coalesce
+    F, IntegerField, Case, When, DateField
+from django.db.models.functions import Coalesce, Trunc
 from django.utils.timezone import now
 
-from app_games.enums import Grade, TaskKind
+from app_games.enums import Grade, TaskKind, TaskPeriod
 from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress, PrizeCardsHistory, PrizeCard, UserTask
 from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -387,8 +389,43 @@ class TasksRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
 
-    def get_tasks(self, kwargs, paginator, order_by):
-        return []
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        # является ли приоритетным призом
+        is_completed_expression = ExpressionWrapper(
+            Exists(UserTask.objects.annotate(
+                allow_since_date=Case(
+                    When(
+                        task__period=TaskPeriod.WEEKLY.value,
+                        then=ExpressionWrapper(
+                            Trunc('created_at', 'week', output_field=DateField()) + timedelta(weeks=1),
+                            output_field=DateField()
+                        )
+                    ),
+                    default=ExpressionWrapper(
+                        Trunc('created_at', 'day', output_field=DateField()) + timedelta(days=1),
+                        output_field=DateField()
+                    ),
+                    output_field=DateField()
+                )
+            ).filter(
+                deleted=False,
+                user_id=self.me.id,
+                task_id=OuterRef('pk'),
+                allow_since_date__lte=now().date()
+            )),
+            output_field=BooleanField()
+        )
+
+        # Основная часть запроса, содержащая вычисляемые поля
+        base_query = self.model.objects.annotate(
+            is_completed=is_completed_expression,
+        )
+
+        if order_by:
+            records = base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = base_query.objects.exclude(deleted=True).filter(**kwargs)
+        return records[paginator.offset:paginator.limit] if paginator else records  # [:100]
 
     @staticmethod
     def get_user_last_task_completed(user_id, task_id):
