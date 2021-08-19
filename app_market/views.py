@@ -739,3 +739,11 @@ class AdminDistributors(APIView):
         if request.version in ['market_1_0']:
             return v1_0.AdminDistributors().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminCoupons(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminCoupons().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

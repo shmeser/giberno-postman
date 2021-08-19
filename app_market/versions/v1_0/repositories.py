@@ -87,7 +87,7 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
             records = self.base_query.exclude(deleted=True).filter(**kwargs)
 
         count = records.count()
-        
+
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
             me=self.me
@@ -2469,6 +2469,16 @@ class ProfessionsRepository(MasterRepository):
             Q(is_suggested=False) | Q(is_suggested=True, approved_at__isnull=False)
         )
 
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.model.objects.exclude(deleted=True).filter(**kwargs)
+
+        count = records.count()
+        result = records[paginator.offset:paginator.limit] if paginator else records
+        return result, count
+
 
 class SkillsRepository(MasterRepository):
     model = Skill
@@ -3261,6 +3271,19 @@ class CouponsRepository(MasterRepository):
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
         )
+
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs).distinct()
+        else:
+            records = self.model.objects.exclude(deleted=True).filter(**kwargs).distinct()
+
+        count = records.count()
+        result = self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
+
+        return result, count
 
     def inited_get_by_id(self, record_id):
         # если будет self.base_query.filter() то manager ничего не сможет увидеть
