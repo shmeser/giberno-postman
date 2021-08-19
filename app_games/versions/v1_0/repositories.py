@@ -416,51 +416,54 @@ class TasksRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-    def get_by_id(self, record_id):
-        try:
-            return self.model.objects.get(id=record_id)
-        except self.model.DoesNotExist:
+        if self.me:
+            self.is_completed_expression = ExpressionWrapper(
+                Exists(UserTask.objects.annotate(
+                    allow_since_date=Case(
+                        When(
+                            task__period=TaskPeriod.WEEKLY.value,
+                            then=ExpressionWrapper(
+                                Trunc('created_at', 'week', output_field=DateField()) + timedelta(weeks=1),
+                                output_field=DateField()
+                            )
+                        ),
+                        default=ExpressionWrapper(
+                            Trunc('created_at', 'day', output_field=DateField()) + timedelta(days=1),
+                            output_field=DateField()
+                        ),
+                        output_field=DateField()
+                    )
+                ).filter(
+                    deleted=False,
+                    user_id=self.me.id,
+                    task_id=OuterRef('pk'),
+                    allow_since_date__gt=now().date()
+                )),
+                output_field=BooleanField()
+            )
+
+            # Основная часть запроса, содержащая вычисляемые поля
+            self.base_query = self.model.objects.annotate(
+                is_completed=self.is_completed_expression,
+            )
+        else:
+            self.base_query = self.model.objects
+
+    def inited_get_by_id(self, record_id):
+        records = self.base_query.filter(pk=record_id).exclude(deleted=True)
+        record = records.first()
+        if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
+        return record
 
     def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
-        # является ли приоритетным призом
-        is_completed_expression = ExpressionWrapper(
-            Exists(UserTask.objects.annotate(
-                allow_since_date=Case(
-                    When(
-                        task__period=TaskPeriod.WEEKLY.value,
-                        then=ExpressionWrapper(
-                            Trunc('created_at', 'week', output_field=DateField()) + timedelta(weeks=1),
-                            output_field=DateField()
-                        )
-                    ),
-                    default=ExpressionWrapper(
-                        Trunc('created_at', 'day', output_field=DateField()) + timedelta(days=1),
-                        output_field=DateField()
-                    ),
-                    output_field=DateField()
-                )
-            ).filter(
-                deleted=False,
-                user_id=self.me.id,
-                task_id=OuterRef('pk'),
-                allow_since_date__gt=now().date()
-            )),
-            output_field=BooleanField()
-        )
-
-        # Основная часть запроса, содержащая вычисляемые поля
-        base_query = self.model.objects.annotate(
-            is_completed=is_completed_expression,
-        )
-
         if order_by:
-            records = base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
         else:
-            records = base_query.objects.exclude(deleted=True).filter(**kwargs)
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
         return records[paginator.offset:paginator.limit] if paginator else records  # [:100]
 
     @staticmethod
