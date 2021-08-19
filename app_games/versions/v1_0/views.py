@@ -84,7 +84,7 @@ class PrizesDocuments(APIView):
 
 
 class PrizeCards(APIView):
-    def get(self, request):
+    def get(self, request, **kwargs):
         result = PrizesRepository(request.user).get_cards()
         serialized = PrizeCardsSerializer(result, many=True)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
@@ -105,6 +105,9 @@ class Tasks(CRUDAPIView):
     filter_params = {
         'period': 'period',
     }
+    bool_filter_params = {
+        'is_completed': 'is_completed'
+    }
 
     default_order_params = []
 
@@ -124,9 +127,9 @@ class Tasks(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            result = self.repository_class(request.user).get_by_id(record_id)
+            result = self.repository_class(request.user).inited_get_by_id(record_id)
         else:
-            result = self.repository_class(request.user).filter_by_kwargs(
+            result = self.repository_class(request.user).inited_filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
             self.many = True
@@ -143,6 +146,10 @@ class TasksCount(CRUDAPIView):
         'period': 'period',
     }
 
+    bool_filter_params = {
+        'is_completed': 'is_completed'
+    }
+
     default_order_params = []
 
     default_filters = {
@@ -155,7 +162,7 @@ class TasksCount(CRUDAPIView):
 
     def get(self, request, **kwargs):
         filters = RequestMapper(self).filters(request) or dict()
-        result = self.repository_class(request.user).filter_by_kwargs(
+        result = self.repository_class(request.user).inited_filter_by_kwargs(
             kwargs=filters,
         )
         return Response(camelize({

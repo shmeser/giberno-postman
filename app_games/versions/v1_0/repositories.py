@@ -1,10 +1,12 @@
+from datetime import timedelta
+
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Prefetch, ExpressionWrapper, Exists, OuterRef, BooleanField, Subquery, Count, Window, Max, \
-    F, IntegerField
-from django.db.models.functions import Coalesce
+    F, IntegerField, Case, When, DateField
+from django.db.models.functions import Coalesce, Trunc
 from django.utils.timezone import now
 
-from app_games.enums import Grade, TaskKind
+from app_games.enums import Grade, TaskKind, TaskPeriod
 from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress, PrizeCardsHistory, PrizeCard, UserTask
 from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -181,6 +183,11 @@ class PrizesRepository(MasterRepository):
         ).filter(opened_at__isnull=True)  # Не показываем открытые ранее карточки
 
     def open_issued_card(self, record_id):
+        """
+        Открыть выданную карточку
+        :param record_id:
+        :return: prize_card
+        """
         prize_ct = ContentType.objects.get_for_model(Prize).id
 
         # История выдачи конкретной карточки пользователю
@@ -370,6 +377,37 @@ class PrizesRepository(MasterRepository):
         # Создаем записи для истории выдачи карточек
         PrizeCardsHistory.objects.bulk_create(history_data)
 
+        # Автоматически открываем выданные ранее призовые карточки
+        cls.auto_open_previous_batch_of_issued_cards(user_id, bonuses_acquired)
+
+    @classmethod
+    def auto_open_previous_batch_of_issued_cards(cls, user_id, bonuses_acquired):
+        """
+        Автоматически открыть предыдущие карточки, если выдана новая партия
+        :param user_id:
+        :param bonuses_acquired: всего начислено бонусов на момент выдачи последнего набора карточек
+        :return:
+        """
+        previous_cards = PrizeCardsHistory.objects.filter(
+            user_id=user_id,
+            bonuses_acquired__lt=bonuses_acquired,  # Карточки из ранних пачек, когда полученных бонусов было меньше
+            opened_at__isnull=True,  # не открывавшиеся карточки
+            card__prize__deleted=False  # Приз не должен быть удален
+        ).select_related('card')
+
+        opened_cards_ids = []
+        for pch in previous_cards:
+            # Пересчитываем прогресс по призу
+            cls.recalc_prize_progress(user_id=user_id, prize_id=pch.card.prize_id, value=pch.card.value)
+            opened_cards_ids.append(pch.id)  # Добавляем ид истории для карточки
+
+        if opened_cards_ids:
+            # Обновляем историю карточек, ставим opened_at
+            PrizeCardsHistory.objects.filter(pk__in=opened_cards_ids).update(
+                updated_at=now(),
+                opened_at=now()
+            )
+
 
 class TasksRepository(MasterRepository):
     model = Task
@@ -378,17 +416,57 @@ class TasksRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-    def get_by_id(self, record_id):
-        try:
-            return self.model.objects.get(id=record_id)
-        except self.model.DoesNotExist:
+        if self.me:
+            self.is_completed_expression = ExpressionWrapper(
+                Exists(
+                    UserTask.objects.annotate(
+                        allow_since_date=Case(
+                            When(
+                                task__period=TaskPeriod.WEEKLY.value,
+                                then=ExpressionWrapper(
+                                    Trunc('created_at', 'week', output_field=DateField()) + timedelta(weeks=1),
+                                    output_field=DateField()
+                                )
+                            ),
+                            default=ExpressionWrapper(
+                                Trunc('created_at', 'day', output_field=DateField()) + timedelta(days=1),
+                                output_field=DateField()
+                            ),
+                            output_field=DateField()
+                        )
+                    ).filter(
+                        deleted=False,
+                        user_id=self.me.id,
+                        task_id=OuterRef('pk'),
+                        allow_since_date__gt=now().date()
+                    )
+                ),
+                output_field=BooleanField()
+            )
+
+            # Основная часть запроса, содержащая вычисляемые поля
+            self.base_query = self.model.objects.annotate(
+                is_completed=self.is_completed_expression,
+            )
+        else:
+            self.base_query = self.model.objects
+
+    def inited_get_by_id(self, record_id):
+        records = self.base_query.filter(pk=record_id).exclude(deleted=True)
+        record = records.first()
+        if not record:
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
             )
+        return record
 
-    def get_tasks(self, kwargs, paginator, order_by):
-        return []
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+        return records[paginator.offset:paginator.limit] if paginator else records  # [:100]
 
     @staticmethod
     def get_user_last_task_completed(user_id, task_id):
