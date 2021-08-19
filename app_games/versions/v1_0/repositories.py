@@ -418,27 +418,29 @@ class TasksRepository(MasterRepository):
 
         if self.me:
             self.is_completed_expression = ExpressionWrapper(
-                Exists(UserTask.objects.annotate(
-                    allow_since_date=Case(
-                        When(
-                            task__period=TaskPeriod.WEEKLY.value,
-                            then=ExpressionWrapper(
-                                Trunc('created_at', 'week', output_field=DateField()) + timedelta(weeks=1),
+                Exists(
+                    UserTask.objects.annotate(
+                        allow_since_date=Case(
+                            When(
+                                task__period=TaskPeriod.WEEKLY.value,
+                                then=ExpressionWrapper(
+                                    Trunc('created_at', 'week', output_field=DateField()) + timedelta(weeks=1),
+                                    output_field=DateField()
+                                )
+                            ),
+                            default=ExpressionWrapper(
+                                Trunc('created_at', 'day', output_field=DateField()) + timedelta(days=1),
                                 output_field=DateField()
-                            )
-                        ),
-                        default=ExpressionWrapper(
-                            Trunc('created_at', 'day', output_field=DateField()) + timedelta(days=1),
+                            ),
                             output_field=DateField()
-                        ),
-                        output_field=DateField()
+                        )
+                    ).filter(
+                        deleted=False,
+                        user_id=self.me.id,
+                        task_id=OuterRef('pk'),
+                        allow_since_date__gt=now().date()
                     )
-                ).filter(
-                    deleted=False,
-                    user_id=self.me.id,
-                    task_id=OuterRef('pk'),
-                    allow_since_date__gt=now().date()
-                )),
+                ),
                 output_field=BooleanField()
             )
 
