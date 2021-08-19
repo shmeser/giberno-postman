@@ -183,6 +183,11 @@ class PrizesRepository(MasterRepository):
         ).filter(opened_at__isnull=True)  # Не показываем открытые ранее карточки
 
     def open_issued_card(self, record_id):
+        """
+        Открыть выданную карточку
+        :param record_id:
+        :return: prize_card
+        """
         prize_ct = ContentType.objects.get_for_model(Prize).id
 
         # История выдачи конкретной карточки пользователю
@@ -372,6 +377,37 @@ class PrizesRepository(MasterRepository):
         # Создаем записи для истории выдачи карточек
         PrizeCardsHistory.objects.bulk_create(history_data)
 
+        # Автоматически открываем выданные ранее призовые карточки
+        cls.auto_open_previous_batch_of_issued_cards(user_id, bonuses_acquired)
+
+    @classmethod
+    def auto_open_previous_batch_of_issued_cards(cls, user_id, bonuses_acquired):
+        """
+        Автоматически открыть предыдущие карточки, если выдана новая партия
+        :param user_id:
+        :param bonuses_acquired: всего начислено бонусов на момент выдачи последнего набора карточек
+        :return:
+        """
+        previous_cards = PrizeCardsHistory.objects.filter(
+            user_id=user_id,
+            bonuses_acquired__lt=bonuses_acquired,  # Карточки из ранних пачек, когда полученных бонусов было меньше
+            opened_at__isnull=True,  # не открывавшиеся карточки
+            card__prize__deleted=False  # Приз не должен быть удален
+        ).select_related('card')
+
+        opened_cards_ids = []
+        for pch in previous_cards:
+            # Пересчитываем прогресс по призу
+            cls.recalc_prize_progress(user_id=user_id, prize_id=pch.card.prize_id, value=pch.card.value)
+            opened_cards_ids.append(pch.id)  # Добавляем ид истории для карточки
+
+        if opened_cards_ids:
+            # Обновляем историю карточек, ставим opened_at
+            PrizeCardsHistory.objects.filter(pk__in=opened_cards_ids).update(
+                updated_at=now(),
+                opened_at=now()
+            )
+
 
 class TasksRepository(MasterRepository):
     model = Task
@@ -411,7 +447,7 @@ class TasksRepository(MasterRepository):
                 deleted=False,
                 user_id=self.me.id,
                 task_id=OuterRef('pk'),
-                allow_since_date__lte=now().date()
+                allow_since_date__gt=now().date()
             )),
             output_field=BooleanField()
         )
