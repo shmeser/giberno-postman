@@ -91,7 +91,7 @@ class TasksSerializer(serializers.ModelSerializer):
     is_completed = serializers.SerializerMethodField()
 
     def get_is_completed(self, data):
-        return False
+        return data.is_completed
 
     class Meta:
         model = Task
