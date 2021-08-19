@@ -1787,12 +1787,12 @@ class AdminDistributors(CRUDAPIView):
         filters = RequestMapper(self).filters(request) or dict()
         pagination = RequestMapper.pagination(request)
         order_params = RequestMapper(self).order(request)
-        point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
         if record_id:
-            dataset = self.repository_class(point=point, me=request.user).get_by_id(record_id)
+            count = 1
+            dataset = self.repository_class(me=request.user).get_by_id(record_id)
         else:
-            dataset = self.repository_class(point=point, me=request.user).filter_by_kwargs(
+            dataset, count = self.repository_class(me=request.user).admin_filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
@@ -1802,7 +1802,7 @@ class AdminDistributors(CRUDAPIView):
             'me': request.user,
             'headers': get_request_headers(request),
         })
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+        return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
 
 
 class AdminShops(CRUDAPIView):

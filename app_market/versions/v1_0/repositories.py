@@ -70,21 +70,28 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
         return record
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
-        try:
-            if order_by:
-                records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
-            else:
-                records = self.base_query.exclude(deleted=True).filter(**kwargs)
-        except Exception:  # no 'deleted' field
-            if order_by:
-                records = self.base_query.order_by(*order_by).filter(**kwargs)
-            else:
-                records = self.base_query.filter(**kwargs)
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
 
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
             me=self.me
         )
+
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+
+        count = records.count()
+        
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+            me=self.me
+        ), count
 
     @staticmethod
     def fast_related_loading(queryset, me, point=None):
