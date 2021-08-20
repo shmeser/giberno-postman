@@ -852,6 +852,20 @@ class ProfessionSerializer(CRUDSerializer):
         ]
 
 
+class ProfessionSerializerAdmin(serializers.ModelSerializer):
+    approved_at = DateTimeField()
+
+    class Meta:
+        model = Profession
+        fields = [
+            'id',
+            'name',
+            'description',
+            'is_suggested',
+            'approved_at',
+        ]
+
+
 class SkillSerializer(CRUDSerializer):
     repository = SkillsRepository
 
@@ -1203,6 +1217,21 @@ class CouponsSerializer(serializers.ModelSerializer):
             'discount',
             'bonus_price',
             'max_multiplier',
+            'discount_terms',
+            'service_description',
+            'created_at',
+            'partner'
+        ]
+
+
+class CouponsSerializerAdmin(CouponsSerializer):
+    class Meta:
+        model = Coupon
+        fields = [
+            'id',
+            'description',
+            'discount',
+            'bonus_price',
             'discount_terms',
             'service_description',
             'created_at',

@@ -3,6 +3,7 @@ from rest_framework import serializers
 from app_games.models import Prize, PrizeCard, GoodsCategory, Task
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
+from app_users.models import UserProfile
 
 
 class GoodsCategoriesSerializer(serializers.ModelSerializer):
@@ -50,6 +51,22 @@ class PrizesSerializer(serializers.ModelSerializer):
             'count',
             'available_count',
             'is_favourite',
+            'categories',
+            'image'
+        ]
+
+
+class PrizesSerializerAdmin(PrizesSerializer):
+    class Meta:
+        model = Prize
+        fields = [
+            'id',
+            'name',
+            'description',
+            'price',
+            'grade',
+            'count',
+            'available_count',
             'categories',
             'image'
         ]
@@ -103,4 +120,37 @@ class TasksSerializer(serializers.ModelSerializer):
             'period',
             'type',
             'is_completed',
+        ]
+
+
+class TasksSerializerAdmin(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = [
+            'id',
+            'name',
+            'description',
+            'bonus_value',
+            'period',
+            'type',
+        ]
+
+
+class UserBonusesSerializerAdmin(serializers.ModelSerializer):
+    bonus_balance = serializers.SerializerMethodField()
+
+    def get_bonus_balance(self, data):
+        return data.bonus_balance
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            'id',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'username',
+            'email',
+            'phone',
+            'bonus_balance',
         ]
