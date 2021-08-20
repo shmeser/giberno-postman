@@ -8,9 +8,12 @@ from django.utils.timezone import now
 
 from app_games.enums import Grade, TaskKind, TaskPeriod
 from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress, PrizeCardsHistory, PrizeCard, UserTask
+from app_market.enums import Currency
 from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
+from app_users.enums import AccountType
+from app_users.models import UserMoney, UserProfile
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exceptions import HttpException, CustomException
@@ -408,6 +411,20 @@ class PrizesRepository(MasterRepository):
                 opened_at=now()
             )
 
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        base_query = self.model.objects.annotate(available_count=self.available_count_expression)
+        if order_by:
+            records = base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs).distinct()
+        else:
+            records = base_query.exclude(deleted=True).filter(**kwargs).distinct()
+
+        count = records.count()
+        result = self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records,
+        )
+
+        return result, count
+
 
 class TasksRepository(MasterRepository):
     model = Task
@@ -496,3 +513,57 @@ class TasksRepository(MasterRepository):
                 return True
 
         return False
+
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs).distinct()
+        else:
+            records = self.model.objects.exclude(deleted=True).filter(**kwargs).distinct()
+
+        count = records.count()
+        result = records[paginator.offset:paginator.limit] if paginator else records  # [:100]
+        return result, count
+
+
+class UserBonusesRepository(MasterRepository):
+    model = UserProfile
+
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.bonus_balance_expression = ExpressionWrapper(
+            Case(
+                When(
+                    Exists(
+                        UserMoney.objects.filter(
+                            user=OuterRef('id'), currency=Currency.BONUS.value
+                        )
+                    ),
+                    then=Subquery(
+                        UserMoney.objects.filter(
+                            user=OuterRef('id'),
+                            currency=Currency.BONUS.value
+                        ).values('amount')[:1]
+                    )
+                ),
+                default=0,
+                output_field=IntegerField()
+            ),
+            output_field=IntegerField()
+        )
+
+        # Основная часть запроса, содержащая вычисляемые поля
+        self.base_query = self.model.objects.annotate(
+            bonus_balance=self.bonus_balance_expression,
+        ).filter(
+            account_type=AccountType.SELF_EMPLOYED.value
+        )
+
+    def get_users_with_bonuses(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True)
+        else:
+            records = self.base_query.exclude(deleted=True)
+
+        count = records.count()
+        result = records[paginator.offset:paginator.limit] if paginator else records
+        return result, count

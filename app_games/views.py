@@ -86,7 +86,7 @@ class TasksCount(APIView):
 class AdminPrizes(APIView):
     @staticmethod
     def get(request, **kwargs):
-        if request.version in ['market_1_0']:
+        if request.version in ['games_1_0']:
             return v1_0.AdminPrizes().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
@@ -94,7 +94,7 @@ class AdminPrizes(APIView):
 class AdminTasks(APIView):
     @staticmethod
     def get(request, **kwargs):
-        if request.version in ['market_1_0']:
+        if request.version in ['games_1_0']:
             return v1_0.AdminTasks().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
@@ -102,6 +102,6 @@ class AdminTasks(APIView):
 class AdminUsersBonuses(APIView):
     @staticmethod
     def get(request, **kwargs):
-        if request.version in ['market_1_0']:
+        if request.version in ['games_1_0']:
             return v1_0.AdminUsersBonuses().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
