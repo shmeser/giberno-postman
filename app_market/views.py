@@ -740,6 +740,26 @@ class AdminDistributors(APIView):
             return v1_0.AdminDistributors().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminDistributors().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminDistributor(APIView):
+    @staticmethod
+    def put(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminDistributor().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminDistributor().post(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
 
 class AdminCoupons(APIView):
     @staticmethod

@@ -107,9 +107,9 @@ class TransactionAdmin(FormattedAdmin):
 @admin.register(Profession)
 class ProfessionAdmin(FormattedAdmin):
     list_display = [
-        'id', 'name', 'description', 'is_suggested', 'approved_at', 'created_at', 'updated_at',
+        'id', 'name', 'description', 'suggested_by', 'approved_at', 'created_at', 'updated_at',
     ]
-    list_filter = ["is_suggested"]
+    list_filter = []
 
 
 @admin.register(UserProfession)

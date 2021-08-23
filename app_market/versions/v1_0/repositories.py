@@ -2456,8 +2456,61 @@ class AsyncShiftAppealsRepository(ShiftAppealsRepository):
 class ProfessionsRepository(MasterRepository):
     model = Profession
 
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.base_query = self.model.objects
+        if self.me:
+            self.is_my_expression = Case(
+                When(suggested_by=self.me, then=True),
+                default=False,
+                output_field=BooleanField()
+            )
+
+            self.is_approved_expression = Case(
+                When(
+                    Q(
+                        suggested_by__isnull=False,  # Предложил пользователь
+                        approved_at__isnull=True  # Не одобрен пока
+                    ),
+                    then=False
+                ),
+                default=True,
+                output_field=BooleanField()
+
+            )
+
+            # Основная часть запроса, содержащая вычисляемые поля
+            self.base_query = self.model.objects.annotate(
+                is_my=self.is_my_expression,
+                is_approved=self.is_approved_expression,
+            )
+
     def add_suggested_profession(self, name):
-        self.model.objects.create(name=name, is_suggested=True)
+        self.model.objects.create(name=name, suggested_by=self.me)
+
+    def inited_get_by_id(self, record_id):
+        # если будет self.base_query.filter() то manager ничего не сможет увидеть
+        records = self.base_query.filter(pk=record_id).exclude(deleted=True)
+        record = records.first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def inited_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.base_query.exclude(deleted=True).filter(**kwargs)
+
+        # records = records.filter(
+        #     Q(is_suggested=False) | Q(is_suggested=True, approved_at__isnull=False)
+        # )
+
+        return records[paginator.offset:paginator.limit] if paginator else records
 
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         if order_by:
@@ -2465,9 +2518,7 @@ class ProfessionsRepository(MasterRepository):
         else:
             records = self.model.objects.exclude(deleted=True).filter(**kwargs)
 
-        return records.filter(
-            Q(is_suggested=False) | Q(is_suggested=True, approved_at__isnull=False)
-        )
+        return records[paginator.offset:paginator.limit] if paginator else records
 
     def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         if order_by:
