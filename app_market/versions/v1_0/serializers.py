@@ -842,6 +842,14 @@ class ShiftForManagersSerializer(serializers.ModelSerializer):
 
 class ProfessionSerializer(CRUDSerializer):
     repository = ProfessionsRepository
+    is_my = serializers.SerializerMethodField()
+    is_approved = serializers.SerializerMethodField()
+
+    def get_is_my(self, data):
+        return data.is_my
+
+    def get_is_approved(self, data):
+        return data.is_approved
 
     class Meta:
         model = Profession
@@ -849,6 +857,8 @@ class ProfessionSerializer(CRUDSerializer):
             'id',
             'name',
             'description',
+            'is_my',
+            'is_approved',
         ]
 
 
@@ -861,7 +871,7 @@ class ProfessionSerializerAdmin(serializers.ModelSerializer):
             'id',
             'name',
             'description',
-            'is_suggested',
+            'suggested_by',
             'approved_at',
         ]
 

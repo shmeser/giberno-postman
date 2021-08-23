@@ -465,7 +465,7 @@ class Profession(BaseModel):
     name = models.CharField(max_length=1024, null=True, blank=True)
     description = models.CharField(max_length=1024, null=True, blank=True)
 
-    is_suggested = models.BooleanField(default=False, verbose_name='Предложена пользователем')
+    suggested_by = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Предложена пользователем')
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name='Одобрена (для предложенных)')
 
     def __str__(self):
@@ -494,7 +494,7 @@ class Skill(BaseModel):
     name = models.CharField(max_length=1024, null=True, blank=True)
     description = models.CharField(max_length=1024, null=True, blank=True)
 
-    is_suggested = models.BooleanField(default=False, verbose_name='Предложена пользователем')
+    suggested_by = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Предложена пользователем')
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name='Одобрена (для предложенных)')
 
     def __str__(self):

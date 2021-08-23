@@ -5,7 +5,7 @@ from app_users.views import AuthFirebase, AuthRefreshToken, firebase_web_auth, R
     MyProfileDocuments, read_notification, CreateManagerByAdminAPIView, GetManagerByUsernameAPIView, \
     AuthenticateManagerAPIView, ChangeManagerPasswordAPIView, EditManagerProfileView, PushUnsubscribe, push_subscribe, \
     CreateSecurityByAdmin, AuthenticateSecurity, UsersRating, MyRating, UserCareer, MyProfileCards, MyProfileInsurance, \
-    ConfirmInsurance, MyProfileDocument, AdminPanelAuth, AdminPanelProfile
+    ConfirmInsurance, MyProfileDocument, AdminPanelAuth, AdminPanelProfile, AdminPanelProfilePassword
 
 urlpatterns = [
     path('auth/firebase/web', firebase_web_auth),
@@ -62,6 +62,7 @@ admin_panel = [
 
     path('admin/auth', AdminPanelAuth.as_view()),
     path('admin/profile', AdminPanelProfile.as_view()),
+    path('admin/profile/password', AdminPanelProfilePassword.as_view()),
 
     # CREATE MANAGER
     path('admin/managers', CreateManagerByAdminAPIView.as_view()),

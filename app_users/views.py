@@ -423,3 +423,12 @@ class AdminPanelProfile(APIView):
         if request.version in ['users_1_0']:
             return v1_0.AdminPanelProfile().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminPanelProfilePassword(APIView):
+    serializer_class = PasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        if request.version in ['users_1_0']:
+            return v1_0.AdminPanelProfilePassword().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
