@@ -15,7 +15,7 @@ from app_market.views import Vacancies, Professions, suggest_profession, Skills,
     ProlongByManager, CancelFiringByManager, PushSettingsForConfirmedWorkers, Partners, PartnersCategories, \
     Achievements, Advertisements, Orders, Coupons, GetDocumentsForPartner, Finances, get_my_money, \
     PartnersShopDocuments, AdminShops, AdminVacancies, AdminAppeals, \
-    AdminShifts, AdminPositions, AdminProfessions, AdminDistributors, AdminCoupons
+    AdminShifts, AdminPositions, AdminProfessions, AdminDistributors, AdminCoupons, AdminDistributor
 
 urlpatterns = [
     # Торговые сети
@@ -142,13 +142,15 @@ security_urls = [
 
 admin_panel = [
 
+    path('admin/market/distributors', AdminDistributors.as_view()),
+    path('admin/market/distributor/<int:record_id>', AdminDistributor.as_view()),
+
     path('admin/market/shops', AdminShops.as_view()),
     path('admin/market/vacancies', AdminVacancies.as_view()),
     path('admin/market/appeals', AdminAppeals.as_view()),
     path('admin/market/shifts', AdminShifts.as_view()),
     path('admin/market/positions', AdminPositions.as_view()),
     path('admin/market/professions', AdminProfessions.as_view()),
-    path('admin/market/distributors', AdminDistributors.as_view()),
     path('admin/market/coupons', AdminCoupons.as_view()),
 
 ]

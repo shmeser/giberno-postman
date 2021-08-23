@@ -975,3 +975,15 @@ class AdminPanelProfile(APIView):
             'phone': request.user.phone
         }
         return Response(camelize(response_data))
+
+
+class AdminPanelProfilePassword(BaseAPIView):
+    serializer_class = PasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            request.user.set_password(raw_password=serializer.validated_data['password'])
+            request.user.password_changed = True
+            request.user.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)

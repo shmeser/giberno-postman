@@ -912,7 +912,14 @@ class Professions(CRUDAPIView):
         'name': 'name__istartswith',
     }
 
-    default_order_params = []
+    bool_filter_params = {
+        'is_my': 'is_my',
+        'is_approved': 'is_approved',
+    }
+
+    default_order_params = [
+        'id'
+    ]
 
     order_params = {
         'name': 'name',
@@ -927,10 +934,10 @@ class Professions(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class(request.user).inited_get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class(request.user).inited_filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
 
@@ -952,7 +959,7 @@ def suggest_profession(request):
             }
         )
         if not dataset:
-            ProfessionsRepository().add_suggested_profession(name)
+            ProfessionsRepository(request.user).add_suggested_profession(name)
 
     return Response(None, status=status.HTTP_204_NO_CONTENT)
 
@@ -969,7 +976,7 @@ class Skills(CRUDAPIView):
     default_order_params = []
 
     default_filters = {
-        'is_suggested': False,
+        # 'is_suggested': False,
     }
 
     order_params = {
