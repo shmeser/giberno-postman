@@ -862,6 +862,16 @@ class ProfessionSerializer(CRUDSerializer):
         ]
 
 
+class ProfessionInProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profession
+        fields = [
+            'id',
+            'name',
+            'description',
+        ]
+
+
 class ProfessionSerializerAdmin(serializers.ModelSerializer):
     approved_at = DateTimeField()
 

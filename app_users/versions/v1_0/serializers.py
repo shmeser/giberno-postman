@@ -14,7 +14,8 @@ from app_geo.versions.v1_0.repositories import CountriesRepository
 from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
 from app_market.enums import ShiftAppealStatus
 from app_market.models import UserProfession, Profession, UserSkill, Skill, ShiftAppealInsurance
-from app_market.versions.v1_0.serializers import ProfessionSerializer, SkillSerializer, DistributorsSerializer
+from app_market.versions.v1_0.serializers import SkillSerializer, DistributorsSerializer, \
+    ProfessionInProfileSerializer
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -341,7 +342,7 @@ class ProfileSerializer(CRUDSerializer):
 
     def get_professions(self, profile: UserProfile):
         # TODO префетчить
-        return ProfessionSerializer(
+        return ProfessionInProfileSerializer(
             Profession.objects.filter(userprofession__user=profile, userprofession__deleted=False, deleted=False),
             many=True, context={
                 'me': self.me,
