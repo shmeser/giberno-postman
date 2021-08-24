@@ -27,7 +27,8 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
     TransactionType, TransactionKind, FinancesInterval
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
-    Advertisement, Order, Coupon, Transaction, PartnerDocument, UserCode, Code, ShiftAppealInsurance
+    Advertisement, Order, Coupon, Transaction, PartnerDocument, UserCode, Code, ShiftAppealInsurance, \
+    DistributorCategory
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -80,6 +81,15 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
             me=self.me
         )
 
+    def admin_get_by_id(self, record_id):
+        record = self.base_query.filter(id=record_id)
+        record = self.fast_related_loading(record, self.me, self.point).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
     def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         if order_by:
             records = self.base_query.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
@@ -106,6 +116,10 @@ class DistributorsRepository(MakeReviewMethodProviderRepository):
                     format=MediaFormat.IMAGE.value
                 ),
                 to_attr='medias'
+            ),
+            Prefetch(
+                'categories',
+                queryset=Category.objects.filter(distributorcategory__deleted=False).exclude(deleted=True),
             )
         )
 

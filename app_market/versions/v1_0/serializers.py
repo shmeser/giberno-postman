@@ -3,6 +3,7 @@ from datetime import datetime
 import pytz
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
+from django.db import IntegrityError
 from django.db.models import Avg, Sum, Count, Q, F
 from django.db.models.functions import Coalesce
 from django.utils.timezone import localtime
@@ -12,7 +13,7 @@ from rest_framework import serializers
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency, OrderType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
-    Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance
+    Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance, DistributorCategory
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -21,6 +22,9 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import REQUIRED_DOCS_DICT
 from app_users.models import UserProfile
+from backend.entity import Error
+from backend.errors.enums import ErrorsCodes
+from backend.errors.http_exceptions import CustomException
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime, ArrayRemove, choices
@@ -71,6 +75,102 @@ class DistributorsSerializer(CRUDSerializer):
 
     def get_rating(self, instance):
         return instance.reviews.all().aggregate(avg=Avg('value'))['avg']
+
+    class Meta:
+        model = Distributor
+        fields = [
+            'id',
+            'title',
+            'description',
+            'vacancies_count',
+            'rates_count',
+            'rating',
+            'categories',
+            'logo',
+            'banner'
+        ]
+
+
+class DistributorsSerializerAdmin(DistributorsSerializer):
+    def update_categories(self, data, errors):
+        categories = data.pop('categories', None)
+        if categories is not None and isinstance(categories, list):  # Обрабатываем только массив
+            # Удаляем категории
+            self.instance.distributorcategory_set.all().update(deleted=True)
+            # Добавляем или обновляем языки пользователя
+            for item in categories:
+                category_id = item.get('id', None) if isinstance(item, dict) else item
+                if category_id is None:
+                    errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail='Невалидные данные в поле categories'))
+                    )
+                else:
+                    try:
+                        DistributorCategory.objects.update_or_create(defaults={
+                            'category_id': category_id,
+                            'deleted': False
+                        },
+                            **{
+                                'distributor': self.instance,
+                                'category_id': category_id,
+                            }
+                        )
+                    except IntegrityError:
+                        errors.append(
+                            dict(Error(
+                                code=ErrorsCodes.VALIDATION_ERROR.name,
+                                detail='Указан неправильный id категории'))
+                        )
+
+    def add_categories(self, data):
+        categories = data.pop('categories', None)
+        categories_ids = []
+        result = []
+        if categories is not None and isinstance(categories, list):  # Обрабатываем только массив
+            for item in categories:
+                category_id = item.get('id', None) if isinstance(item, dict) else item
+                categories_ids.append(category_id)
+
+            # получаем ид категорий
+            result = Category.objects.filter(id__in=categories_ids, deleted=False).values_list('id', flat=True)
+        return result
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+
+        # Проверяем fk поля
+
+        # Проверяем m2m поля
+        if self.instance:
+            self.update_categories(data, errors)
+        else:
+            ret['categories'] = self.add_categories(data)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def create(self, validated_data):
+        categories_ids = validated_data.pop('categories')
+        instance = super().create(validated_data)
+        links = []
+        for category_id in categories_ids:
+            links.append(
+                DistributorCategory(
+                    category_id=category_id,
+                    distributor=instance,
+                    deleted=False
+                )
+            )
+
+        if links:
+            DistributorCategory.objects.bulk_create(links)
+
+        return instance
 
     class Meta:
         model = Distributor

@@ -143,7 +143,7 @@ security_urls = [
 admin_panel = [
 
     path('admin/market/distributors', AdminDistributors.as_view()),
-    path('admin/market/distributor/<int:record_id>', AdminDistributor.as_view()),
+    path('admin/market/distributors/<int:record_id>', AdminDistributor.as_view()),
 
     path('admin/market/shops', AdminShops.as_view()),
     path('admin/market/vacancies', AdminVacancies.as_view()),
