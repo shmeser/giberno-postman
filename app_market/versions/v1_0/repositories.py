@@ -318,7 +318,7 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
         return self.fast_related_loading(  # Предзагрузка связанных сущностей
             queryset=records[paginator.offset:paginator.limit] if paginator else records,
             point=self.point
-        ), count
+        ).select_related('distributor'), count
 
 
 class AsyncShopsRepository(ShopsRepository):

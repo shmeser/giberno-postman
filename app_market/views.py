@@ -687,15 +687,45 @@ def get_my_money(request):
 
 class AdminShops(APIView):
     permission_classes = [IsAdminOrManager]
+
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShops().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminShops().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminShop(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminShop().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def put(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminShop().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminShop().patch(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
 
 class AdminVacancies(APIView):
     permission_classes = [IsAdminOrManager]
+
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
@@ -705,6 +735,7 @@ class AdminVacancies(APIView):
 
 class AdminAppeals(APIView):
     permission_classes = [IsAdminOrManager]
+
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
@@ -714,6 +745,7 @@ class AdminAppeals(APIView):
 
 class AdminShifts(APIView):
     permission_classes = [IsAdminOrManager]
+
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
@@ -723,6 +755,7 @@ class AdminShifts(APIView):
 
 class AdminProfessions(APIView):
     permission_classes = [IsAdminOrManager]
+
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
@@ -732,6 +765,7 @@ class AdminProfessions(APIView):
 
 class AdminPositions(APIView):
     permission_classes = [IsAdminOrManager]
+
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
@@ -741,6 +775,7 @@ class AdminPositions(APIView):
 
 class AdminDistributors(APIView):
     permission_classes = [IsAdminOrManager]
+
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
@@ -778,6 +813,7 @@ class AdminDistributor(APIView):
 
 class AdminCoupons(APIView):
     permission_classes = [IsAdminOrManager]
+
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
