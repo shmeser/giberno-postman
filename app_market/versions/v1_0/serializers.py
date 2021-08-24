@@ -137,6 +137,17 @@ class DistributorsSerializerAdmin(DistributorsSerializer):
             result = Category.objects.filter(id__in=categories_ids, deleted=False).values_list('id', flat=True)
         return result
 
+    def reattach_files(self, data):
+        files = data.pop('files', None)
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me._meta.model,
+                current_owner_id=self.me.id,
+                target_model=self.instance._meta.model,
+                target_owner_id=self.instance.id
+            )
+
     def to_internal_value(self, data):
         ret = super().to_internal_value(data)
         errors = []
@@ -146,6 +157,7 @@ class DistributorsSerializerAdmin(DistributorsSerializer):
         # Проверяем m2m поля
         if self.instance:
             self.update_categories(data, errors)
+            self.reattach_files(data)
         else:
             ret['categories'] = self.add_categories(data)
 
@@ -155,7 +167,8 @@ class DistributorsSerializerAdmin(DistributorsSerializer):
         return ret
 
     def create(self, validated_data):
-        categories_ids = validated_data.pop('categories')
+        categories_ids = validated_data.pop('categories', [])
+        files = validated_data.pop('files', None)
         instance = super().create(validated_data)
         links = []
         for category_id in categories_ids:
@@ -169,6 +182,15 @@ class DistributorsSerializerAdmin(DistributorsSerializer):
 
         if links:
             DistributorCategory.objects.bulk_create(links)
+
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me.__meta.model,
+                current_owner_id=self.me.id,
+                target_model=instance.__meta.model,
+                target_owner_id=instance.id
+            )
 
         return instance
 
