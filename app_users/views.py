@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
-from app_users.permissions import IsAdmin
+from app_users.permissions import IsAdmin, IsAdminOrManager
 from app_users.versions.v1_0 import views as v1_0
 from app_users.versions.v1_0.serializers import FirebaseAuthRequestDescriptor, RefreshTokenSerializer, \
     CreateManagerByAdminSerializer, UsernameSerializer, \
@@ -407,28 +407,47 @@ class ConfirmInsurance(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class AdminPanelAuth(APIView):
+class AdminAuth(APIView):
     permission_classes = (AllowAny,)
+
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['users_1_0']:
-            return v1_0.AdminPanelAuth().post(request, **kwargs)
+            return v1_0.AdminAuth().post(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class AdminPanelProfile(APIView):
+class AdminProfile(APIView):
+    permission_classes = [IsAdminOrManager]
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
-            return v1_0.AdminPanelProfile().get(request, **kwargs)
+            return v1_0.AdminProfile().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class AdminPanelProfilePassword(APIView):
+class AdminProfilePassword(APIView):
+    permission_classes = [IsAdminOrManager]
+
     serializer_class = PasswordSerializer
 
     def post(self, request, *args, **kwargs):
         if request.version in ['users_1_0']:
-            return v1_0.AdminPanelProfilePassword().post(request)
+            return v1_0.AdminProfilePassword().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminUploads(APIView):
+    permission_classes = [IsAdminOrManager]
+    @staticmethod
+    def post(request):
+        if request.version in ['users_1_0']:
+            return v1_0.AdminUploads().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request):
+        if request.version in ['users_1_0']:
+            return v1_0.AdminUploads().delete(request)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
