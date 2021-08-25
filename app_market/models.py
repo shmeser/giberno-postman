@@ -40,7 +40,7 @@ class Distributor(BaseModel):
     description = models.CharField(max_length=2048, null=True, blank=True)
     required_docs = ArrayField(models.PositiveIntegerField(choices=REQUIRED_DOCS_FOR_CHOICES), null=True, blank=True)
 
-    categories = models.ManyToManyField(Category, through='DistributorCategory', related_name='categories')
+    categories = models.ManyToManyField(Category, through='DistributorCategory', related_name='distributors')
 
     rating = models.FloatField(default=0, verbose_name='Рейтинг торговой сети')
     rates_count = models.PositiveIntegerField(default=0, verbose_name='Количество оценок торговой сети')

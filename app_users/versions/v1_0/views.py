@@ -916,7 +916,7 @@ class ConfirmInsurance(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
-class AdminPanelAuth(APIView):
+class AdminAuth(APIView):
     permission_classes = []
     serializer_class = UsernameWithPasswordSerializer
 
@@ -950,7 +950,7 @@ class AdminPanelAuth(APIView):
             return Response(response_data)
 
 
-class AdminPanelProfile(APIView):
+class AdminProfile(APIView):
     def get(self, request, *args, **kwargs):
 
         role = 'selfEmployed'
@@ -977,7 +977,7 @@ class AdminPanelProfile(APIView):
         return Response(camelize(response_data))
 
 
-class AdminPanelProfilePassword(BaseAPIView):
+class AdminProfilePassword(BaseAPIView):
     serializer_class = PasswordSerializer
 
     def post(self, request, *args, **kwargs):
@@ -987,3 +987,23 @@ class AdminPanelProfilePassword(BaseAPIView):
             request.user.password_changed = True
             request.user.save()
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AdminUploads(APIView):
+    def post(self, request):
+        uploaded_files = RequestMapper.file_entities(request, request.user)
+        saved_files = MediaRepository(request.user).bulk_create(uploaded_files)
+        serializer = MediaSerializer(saved_files, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        body = get_request_body(request)
+        uuid_list = body.get('uuid', [])
+        uuid_list = uuid_list if isinstance(uuid_list, list) else [uuid_list]
+        if uuid_list:
+            doc_ct_id, my_docs_ids = DocumentsRepository(me=request.user).get_my_docs_ids()
+            MediaRepository(request.user).delete_my_media(uuid_list, doc_ct_id, my_docs_ids)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)

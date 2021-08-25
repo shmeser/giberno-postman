@@ -120,7 +120,7 @@ class MediaRepository(MasterRepository):
 
         return files
 
-    def reattach_files(self, uuids: [str], current_model, current_owner_id, target_model, target_owner_id):
+    def reattach_attachments(self, uuids: [str], current_model, current_owner_id, target_model, target_owner_id):
         """ Найти файлы с типом ATTACHMENT и установить нового владельца"""
 
         current_ct = ContentType.objects.get_for_model(current_model)
@@ -131,6 +131,21 @@ class MediaRepository(MasterRepository):
             owner_ct=current_ct,
             owner_id=current_owner_id,
             type=MediaType.ATTACHMENT.value  # Только с типом "прикрепленные файлы"
+        ).update(
+            owner_ct=target_ct,
+            owner_ct_name=target_ct.model,
+            owner_id=target_owner_id,
+            updated_at=now()
+        )
+
+    def reattach_files(self, uuids: [str], current_model, current_owner_id, target_model, target_owner_id):
+        current_ct = ContentType.objects.get_for_model(current_model)
+        target_ct = ContentType.objects.get_for_model(target_model)
+
+        self.model.objects.filter(
+            uuid__in=uuids,
+            owner_ct=current_ct,
+            owner_id=current_owner_id,
         ).update(
             owner_ct=target_ct,
             owner_ct_name=target_ct.model,

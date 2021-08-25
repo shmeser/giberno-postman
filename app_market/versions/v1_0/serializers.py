@@ -2,28 +2,35 @@ from datetime import datetime
 
 import pytz
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.gis.geos import GEOSGeometry
 from django.contrib.postgres.aggregates import ArrayAgg
+from django.db import IntegrityError
 from django.db.models import Avg, Sum, Count, Q, F
 from django.db.models.functions import Coalesce
 from django.utils.timezone import localtime
 from pytz import timezone
 from rest_framework import serializers
 
+from app_geo.models import City
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency, OrderType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
-    Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance
+    Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance, DistributorCategory
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShiftsRepository
+    DistributorsRepository, ShiftsRepository, ShopsRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import REQUIRED_DOCS_DICT
 from app_users.models import UserProfile
+from backend.entity import Error
+from backend.errors.enums import ErrorsCodes
+from backend.errors.http_exceptions import CustomException
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime, ArrayRemove, choices
+from giberno import settings
 
 
 def map_status_for_required_docs(required_docs, user_docs):
@@ -87,7 +94,126 @@ class DistributorsSerializer(CRUDSerializer):
         ]
 
 
+class DistributorsSerializerAdmin(DistributorsSerializer):
+    def update_categories(self, data, errors):
+        categories = data.pop('categories', None)
+        if categories is not None and isinstance(categories, list):  # Обрабатываем только массив
+            # Удаляем категории
+            self.instance.distributorcategory_set.all().update(deleted=True)
+            # Добавляем или обновляем языки пользователя
+            for item in categories:
+                category_id = item.get('id', None) if isinstance(item, dict) else item
+                if category_id is None:
+                    errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail='Невалидные данные в поле categories'))
+                    )
+                else:
+                    try:
+                        DistributorCategory.objects.update_or_create(defaults={
+                            'category_id': category_id,
+                            'deleted': False
+                        },
+                            **{
+                                'distributor': self.instance,
+                                'category_id': category_id,
+                            }
+                        )
+                    except IntegrityError:
+                        errors.append(
+                            dict(Error(
+                                code=ErrorsCodes.VALIDATION_ERROR.name,
+                                detail='Указан неправильный id категории'))
+                        )
+
+    def add_categories(self, data):
+        categories = data.pop('categories', None)
+        categories_ids = []
+        result = []
+        if categories is not None and isinstance(categories, list):  # Обрабатываем только массив
+            for item in categories:
+                category_id = item.get('id', None) if isinstance(item, dict) else item
+                categories_ids.append(category_id)
+
+            # получаем ид категорий
+            result = Category.objects.filter(id__in=categories_ids, deleted=False).values_list('id', flat=True)
+        return result
+
+    def reattach_files(self, data):
+        files = data.pop('files', None)
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me._meta.model,
+                current_owner_id=self.me.id,
+                target_model=self.instance._meta.model,
+                target_owner_id=self.instance.id
+            )
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+
+        # Проверяем fk поля
+
+        # Проверяем m2m поля
+        if self.instance:
+            self.update_categories(data, errors)
+            self.reattach_files(data)
+        else:
+            ret['categories'] = self.add_categories(data)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def create(self, validated_data):
+        categories_ids = validated_data.pop('categories', [])
+        files = validated_data.pop('files', None)
+        instance = super().create(validated_data)
+        links = []
+        for category_id in categories_ids:
+            links.append(
+                DistributorCategory(
+                    category_id=category_id,
+                    distributor=instance,
+                    deleted=False
+                )
+            )
+
+        if links:
+            DistributorCategory.objects.bulk_create(links)
+
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me.__meta.model,
+                current_owner_id=self.me.id,
+                target_model=instance.__meta.model,
+                target_owner_id=instance.id
+            )
+
+        return instance
+
+    class Meta:
+        model = Distributor
+        fields = [
+            'id',
+            'title',
+            'description',
+            'vacancies_count',
+            'rates_count',
+            'rating',
+            'categories',
+            'logo',
+            'banner'
+        ]
+
+
 class ShopsSerializer(CRUDSerializer):
+    repository = ShopsRepository
     """ Список магазинов """
     walk_time = serializers.SerializerMethodField()
     logo = serializers.SerializerMethodField()
@@ -154,6 +280,161 @@ class ShopSerializer(ShopsSerializer):
             'lat',
             'logo',
             'banner',
+        ]
+
+
+class ShopsSerializerAdmin(ShopsSerializer):
+    """ Магазин """
+    banner = serializers.SerializerMethodField()
+    vacancies_count = serializers.SerializerMethodField()
+    distributor = serializers.SerializerMethodField()
+
+    def get_vacancies_count(self, prefetched_data):
+        return chained_get(prefetched_data, 'vacancies_count')
+
+    def get_banner(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.BANNER.value)
+
+    def get_distributor(self, prefetched_data):
+        if prefetched_data.distributor:
+            return DistributorInShopSerializer(prefetched_data.distributor).data
+        return None
+
+    # ##
+    def geo_location(self, data, errors):
+        lon = float(data.pop('lon'))
+        lat = float(data.pop('lat'))
+        if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+            errors.append(
+                dict(Error(
+                    code=ErrorsCodes.INVALID_COORDS.name,
+                    detail='Указаны неправильные координаты'))
+            )
+            return None
+        return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID)
+
+    def reattach_files(self, data):
+        files = data.pop('files', None)
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me._meta.model,
+                current_owner_id=self.me.id,
+                target_model=self.instance._meta.model,
+                target_owner_id=self.instance.id
+            )
+
+    def update_city(self, ret, data, errors):
+        city_id = data.pop('city', None)
+        if city_id is not None:
+            city = City.objects.filter(pk=city_id, deleted=False).first()
+            if city is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+                )
+            else:
+                ret['city_id'] = city_id
+
+    def update_distributor(self, ret, data, errors):
+        distributor_id = data.pop('distributor', None)
+        if distributor_id is not None:
+            distributor = Distributor.objects.filter(pk=distributor_id, deleted=False).first()
+            if distributor is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {Distributor._meta.verbose_name} с ID={distributor_id} не найден'))
+                )
+            else:
+                ret['distributor_id'] = distributor_id
+
+    def add_city(self, instance, city_id):
+        city = City.objects.filter(pk=city_id, deleted=False).first()
+        if city is None:
+            raise CustomException(errors=dict(Error(
+                code=ErrorsCodes.VALIDATION_ERROR.name,
+                detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+            )
+        instance.city = city
+
+    def add_distributor(self, instance, distributor_id):
+        distributor = Distributor.objects.filter(pk=distributor_id, deleted=False).first()
+        if distributor is None:
+            raise CustomException(errors=dict(Error(
+                code=ErrorsCodes.VALIDATION_ERROR.name,
+                detail=f'Объект {Distributor._meta.verbose_name} с ID={distributor_id} не найден'))
+            )
+        instance.distributor = distributor
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+
+        if self.instance:
+            # Проверяем fk поля
+            self.update_city(ret, data, errors)
+            self.update_distributor(ret, data, errors)
+
+            # Проверяем m2m поля
+            self.reattach_files(data)
+
+        ret['location'] = self.geo_location(data, errors)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def create(self, validated_data):
+        files = validated_data.pop('files', None)
+        city = validated_data.pop('city', None)
+        distributor = validated_data.pop('distributor', None)
+
+        instance = super().create(validated_data)
+        if city:
+            self.add_city(instance, city)
+        if distributor:
+            self.add_distributor(instance, distributor)
+
+        instance.save()
+
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me.__meta.model,
+                current_owner_id=self.me.id,
+                target_model=instance.__meta.model,
+                target_owner_id=instance.id
+            )
+
+        return instance
+
+    class Meta:
+        model = Shop
+        fields = [
+            'id',
+            'title',
+            'description',
+            'address',
+            'vacancies_count',
+            'rating',
+            'rates_count',
+            'lon',
+            'lat',
+            'distributor',
+            'logo',
+            'banner',
+        ]
+
+
+class DistributorInShopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Distributor
+        fields = [
+            'id',
+            'title',
         ]
 
 

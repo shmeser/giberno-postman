@@ -937,7 +937,7 @@ class MessagesRepository(MasterRepository):
 
         attachments = content.get('attachments')
         if attachments:
-            MediaRepository().reattach_files(  # 1
+            MediaRepository().reattach_attachments(  # 1
                 uuids=attachments,
                 current_model=self.me,
                 current_owner_id=self.me.id,
