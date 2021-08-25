@@ -570,6 +570,123 @@ class VacanciesSerializer(CRUDSerializer):
         ]
 
 
+class VacanciesSerializerAdmin(VacanciesSerializer):
+    def reattach_files(self, data):
+        files = data.pop('files', None)
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me._meta.model,
+                current_owner_id=self.me.id,
+                target_model=self.instance._meta.model,
+                target_owner_id=self.instance.id
+            )
+
+    def update_city(self, ret, data, errors):
+        city_id = data.pop('city', None)
+        if city_id is not None:
+            city = City.objects.filter(pk=city_id, deleted=False).first()
+            if city is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+                )
+            else:
+                ret['city_id'] = city_id
+
+    def update_shop(self, ret, data, errors):
+        shop_id = data.pop('shop', None)
+        if shop_id is not None:
+            shop = Shop.objects.filter(pk=shop_id, deleted=False).first()
+            if shop is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {Shop._meta.verbose_name} с ID={shop_id} не найден'))
+                )
+            else:
+                ret['shop_id'] = shop_id
+
+    def add_city(self, instance, city_id):
+        city = City.objects.filter(pk=city_id, deleted=False).first()
+        if city is None:
+            raise CustomException(errors=dict(Error(
+                code=ErrorsCodes.VALIDATION_ERROR.name,
+                detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+            )
+        instance.city = city
+
+    def add_shop(self, instance, shop_id):
+        shop = Shop.objects.filter(pk=shop_id, deleted=False).first()
+        if shop is None:
+            raise CustomException(errors=dict(Error(
+                code=ErrorsCodes.VALIDATION_ERROR.name,
+                detail=f'Объект {Shop._meta.verbose_name} с ID={shop_id} не найден'))
+            )
+        instance.shop = shop
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+
+        if self.instance:
+            # Проверяем fk поля
+            self.update_shop(ret, data, errors)
+
+            # Проверяем m2m поля
+            self.reattach_files(data)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def create(self, validated_data):
+        files = validated_data.pop('files', None)
+        shop = validated_data.pop('shop', None)
+
+        instance = super().create(validated_data)
+        if shop:
+            self.add_shop(instance, shop)
+
+        instance.save()
+
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me.__meta.model,
+                current_owner_id=self.me.id,
+                target_model=instance.__meta.model,
+                target_owner_id=instance.id
+            )
+
+        return instance
+
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id',
+            'title',
+            'description',
+            'price',
+            'radius',
+            'features',
+            'utc_offset',
+            'free_count',
+            'rating',
+            'requirements',
+            'required_experience',
+            'required_docs',
+            'profession',
+            'employment',
+            'work_time',
+            'banner',
+            'shop',
+            'distributor',
+        ]
+
+
 class VacancyInCluster(serializers.Serializer):
     id = serializers.SerializerMethodField()
     title = serializers.SerializerMethodField()

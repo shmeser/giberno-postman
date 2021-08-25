@@ -1934,7 +1934,7 @@ class AdminShop(AdminShops):
 
 
 class AdminVacancies(CRUDAPIView):
-    serializer_class = VacanciesSerializer
+    serializer_class = VacanciesSerializerAdmin
     repository_class = VacanciesRepository
     allowed_http_methods = ['get', 'post']
 
