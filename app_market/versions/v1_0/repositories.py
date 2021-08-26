@@ -723,7 +723,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                 target_id=OuterRef('pk'), target_ct=self.like_target_ct
             )),
             output_field=BooleanField()
-        )
+        ) if self.me else Value(False, output_field=BooleanField())
 
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(
@@ -931,7 +931,7 @@ class VacanciesRepository(MakeReviewMethodProviderRepository):
                     )
                 )
             )
-        )
+        ).select_related('profession')
 
         return queryset
 

@@ -419,6 +419,10 @@ def is_valid_uuid(uuid_to_test, version=4):
         return False
 
 
+def filter_valid_uuids(uuids_list):
+    return list(filter(lambda x: is_valid_uuid(x), uuids_list)) if uuids_list and isinstance(uuids_list, list) else []
+
+
 class SimpleFunc(Func):
     def __init__(self, field, *values, **extra):
         if not isinstance(field, Expression):

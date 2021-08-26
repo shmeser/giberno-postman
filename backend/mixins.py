@@ -46,27 +46,49 @@ class CRUDSerializer(serializers.ModelSerializer):
     def process_validation_errors(self, errors):
         errors_processed = []
         for k, e in errors.items():
-            if ErrorsCodes.has_key(e[0].code):
-                errors_processed.append(dict(Error(ErrorsCodes[e[0].code])))
+            er = e[0]
+            if isinstance(er, list):
+                for e_val in er:
+                    code = ErrorsCodes.VALIDATION_ERROR.name
+                    detail = ErrorsCodes.VALIDATION_ERROR.value
+
+                    if e_val.code == 'unique':
+                        if k == 'email':  # Конкретная проверка на уникальность имейла в бд
+                            code = ErrorsCodes.EMAIL_IS_USED.name
+                        detail = e_val
+
+                    if e_val.code in ['required', 'invalid_choice']:
+                        detail = k + ' - ' + e_val
+
+                    # Добавляем в массив кастомных ошибок
+                    errors_processed.append(
+                        dict(Error(**{
+                            'code': code,
+                            'detail': detail
+                        }))
+                    )
             else:
-                code = ErrorsCodes.VALIDATION_ERROR.name
-                detail = ErrorsCodes.VALIDATION_ERROR.value
+                if ErrorsCodes.has_key(e[0].code):
+                    errors_processed.append(dict(Error(ErrorsCodes[e[0].code])))
+                else:
+                    code = ErrorsCodes.VALIDATION_ERROR.name
+                    detail = ErrorsCodes.VALIDATION_ERROR.value
 
-                if e[0].code == 'unique':
-                    if k == 'email':  # Конкретная проверка на уникальность имейла в бд
-                        code = ErrorsCodes.EMAIL_IS_USED.name
-                    detail = e[0]
+                    if er.code == 'unique':
+                        if k == 'email':  # Конкретная проверка на уникальность имейла в бд
+                            code = ErrorsCodes.EMAIL_IS_USED.name
+                        detail = er
 
-                if e[0].code == 'required':
-                    detail = k + ' - ' + e[0]
+                    if er.code in ['required', 'invalid_choice']:
+                        detail = k + ' - ' + er
 
-                # Добавляем в массив кастомных ошибок
-                errors_processed.append(
-                    dict(Error(**{
-                        'code': code,
-                        'detail': detail
-                    }))
-                )
+                    # Добавляем в массив кастомных ошибок
+                    errors_processed.append(
+                        dict(Error(**{
+                            'code': code,
+                            'detail': detail
+                        }))
+                    )
         return errors_processed
 
     def is_valid(self, raise_exception=False):

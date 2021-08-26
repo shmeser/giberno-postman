@@ -98,11 +98,11 @@ class DocumentType(IntEnumM):
 
 
 REQUIRED_DOCS_FOR_CHOICES = [
-    (DocumentType.PASSPORT, 'Паспорт'),
-    (DocumentType.INN, 'ИНН'),
-    (DocumentType.SNILS, 'СНИЛС'),
-    (DocumentType.MEDICAL_BOOK, 'Медкнижка'),
-    (DocumentType.DRIVER_LICENCE, 'Водительское удостоверение'),
+    (DocumentType.PASSPORT.value, 'Паспорт'),
+    (DocumentType.INN.value, 'ИНН'),
+    (DocumentType.SNILS.value, 'СНИЛС'),
+    (DocumentType.MEDICAL_BOOK.value, 'Медкнижка'),
+    (DocumentType.DRIVER_LICENCE.value, 'Водительское удостоверение'),
 ]
 
 REQUIRED_DOCS_DICT = {

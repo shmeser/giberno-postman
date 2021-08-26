@@ -27,7 +27,8 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     ConfirmedWorkerSettingsValidator, PartnersSerializer, CategoriesSerializer, AchievementsSerializer, \
     AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer, FinancesSerializer, \
     FinancesValiadator, OrdersValiadator, BuyCouponsValidator, ShiftsSerializerAdmin, ShiftAppealsSerializerAdmin, \
-    ProfessionSerializerAdmin, CouponsSerializerAdmin, DistributorsSerializerAdmin, ShopsSerializerAdmin
+    ProfessionSerializerAdmin, CouponsSerializerAdmin, DistributorsSerializerAdmin, ShopsSerializerAdmin, \
+    VacanciesSerializerAdmin
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -1934,7 +1935,7 @@ class AdminShop(AdminShops):
 
 
 class AdminVacancies(CRUDAPIView):
-    serializer_class = VacanciesSerializer
+    serializer_class = VacanciesSerializerAdmin
     repository_class = VacanciesRepository
     allowed_http_methods = ['get', 'post']
 
@@ -1980,16 +1981,11 @@ class AdminVacancies(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            self.serializer_class = VacancySerializer
-            dataset = self.repository_class(
-                me=request.user
-            ).get_by_id(record_id)
+            dataset = self.repository_class(me=request.user).get_by_id(record_id)
             count = 1
         else:
             self.many = True
-            dataset, count = self.repository_class(
-                me=request.user
-            ).admin_filter_by_kwargs(
+            dataset, count = self.repository_class(me=request.user).admin_filter_by_kwargs(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 
@@ -1999,6 +1995,16 @@ class AdminVacancies(CRUDAPIView):
         })
 
         return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
+
+    def post(self, request, **kwargs):
+        body = get_request_body(request)
+        serialized = self.serializer_class(data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class AdminVacancy(AdminVacancies):
@@ -2082,6 +2088,34 @@ class AdminShifts(CRUDAPIView):
         })
 
         return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
+
+
+class AdminShift(AdminShifts):
+    allowed_http_methods = ['get', 'put', 'delete']
+
+    def put(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        body = get_request_body(request)
+        serialized = self.serializer_class(instance, data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        instance.deleted = True
+        instance.save()
+
+        serialized = self.serializer_class(instance, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class AdminAppeals(CRUDAPIView):
@@ -2177,6 +2211,34 @@ class AdminAppeals(CRUDAPIView):
             return Response(camelize(ShiftAppealsSerializer(instance=instance, many=False).data))
 
 
+class AdminAppeal(AdminAppeals):
+    allowed_http_methods = ['get', 'put', 'delete']
+
+    def put(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        body = get_request_body(request)
+        serialized = self.serializer_class(instance, data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        instance.deleted = True
+        instance.save()
+
+        serialized = self.serializer_class(instance, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
 class AdminProfessions(CRUDAPIView):
     serializer_class = ProfessionSerializerAdmin
     repository_class = ProfessionsRepository
@@ -2216,6 +2278,34 @@ class AdminProfessions(CRUDAPIView):
         return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
 
 
+class AdminProfession(AdminProfessions):
+    allowed_http_methods = ['get', 'put', 'delete']
+
+    def put(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        body = get_request_body(request)
+        serialized = self.serializer_class(instance, data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        instance.deleted = True
+        instance.save()
+
+        serialized = self.serializer_class(instance, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
 class AdminPositions(CRUDAPIView):
     serializer_class = ProfessionSerializer
     repository_class = ProfessionsRepository
@@ -2248,6 +2338,34 @@ class AdminPositions(CRUDAPIView):
             )
 
         serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class AdminPosition(AdminPositions):
+    allowed_http_methods = ['get', 'put', 'delete']
+
+    def put(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        body = get_request_body(request)
+        serialized = self.serializer_class(instance, data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        instance.deleted = True
+        instance.save()
+
+        serialized = self.serializer_class(instance, many=self.many, context={
             'me': request.user,
             'headers': get_request_headers(request),
         })
@@ -2298,3 +2416,31 @@ class AdminCoupons(CRUDAPIView):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
+
+
+class AdminCoupon(AdminCoupons):
+    allowed_http_methods = ['get', 'put', 'delete']
+
+    def put(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        body = get_request_body(request)
+        serialized = self.serializer_class(instance, data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        instance.deleted = True
+        instance.save()
+
+        serialized = self.serializer_class(instance, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
