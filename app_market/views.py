@@ -133,7 +133,7 @@ class VacanciesActiveDatesForManagerListAPIView(BaseAPIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
-class SingleVacancyActiveDatesForManagerListAPIView(BaseAPIView):
+class SingleVacancyActiveDatesForManager(BaseAPIView):
     permission_classes = [IsAuthenticated, IsManager]
     """
     Запрос для получения активных дат (аналогичный /market/managers/vacancies/active_dates , 
@@ -770,6 +770,34 @@ class AdminAppeals(APIView):
             return v1_0.AdminAppeals().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminAppeals().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminAppeal(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminAppeal().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def put(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminAppeal().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminAppeal().delete(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
 
 class AdminShifts(APIView):
     permission_classes = [IsAdminOrManager]
@@ -778,6 +806,34 @@ class AdminShifts(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShifts().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminShifts().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminShift(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminShift().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def put(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminShift().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminShift().delete(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
@@ -790,6 +846,34 @@ class AdminProfessions(APIView):
             return v1_0.AdminProfessions().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminProfessions().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminProfession(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminProfession().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def put(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminProfession().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminProfession().delete(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
 
 class AdminPositions(APIView):
     permission_classes = [IsAdminOrManager]
@@ -798,6 +882,34 @@ class AdminPositions(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminPositions().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminPositions().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminPosition(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminPosition().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def put(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminPosition().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminPosition().delete(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
@@ -846,4 +958,32 @@ class AdminCoupons(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminCoupons().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminCoupons().post(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminCoupon(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminCoupon().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def put(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminCoupon().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminCoupon().delete(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

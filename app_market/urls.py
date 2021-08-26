@@ -1,162 +1,155 @@
 from django.urls import path
 
-from app_market.views import Vacancies, Professions, suggest_profession, Skills, Distributors, Shops, VacanciesStats, \
-    vacancies_suggestions, Shifts, similar_vacancies, ToggleLikeVacancy, \
-    VacancyReviewsAPIView, ShopReviewsAPIView, DistributorReviewsAPIView, VacanciesClusteredMap, \
-    ActiveVacanciesWithAppliersByDateForManagerListAPIView, VacancyByManagerRetrieveAPIView, ShiftAppeals, \
-    SelfEmployedUserReviewsByAdminOrManagerAPIView, \
-    ConfirmAppealByManagerAPIView, RejectAppealByManagerAPIView, \
-    VacanciesActiveDatesForManagerListAPIView, VacanciesDistributors, SingleVacancyActiveDatesForManagerListAPIView, \
-    ShiftAppealCancel, VacancyShiftsWithAppealsListForManagerAPIView, GetDocumentsForShift, MarketDocuments, \
-    ShiftForManagers, ShiftAppealsForManagers, ConfirmedWorkers, ConfirmedWorkersProfessions, ConfirmedWorkersDates, \
-    QRView, ShiftAppealComplete, CheckPassByManagerAPIView, AllowPassByManagerAPIView, work_location, \
-    ShiftAppealCompleteByManager, \
-    RefusePassByManagerAPIView, CheckPassBySecurityAPIView, RefusePassBySecurityAPIView, FireByManagerAPIView, \
-    ProlongByManager, CancelFiringByManager, PushSettingsForConfirmedWorkers, Partners, PartnersCategories, \
-    Achievements, Advertisements, Orders, Coupons, GetDocumentsForPartner, Finances, get_my_money, \
-    PartnersShopDocuments, AdminShops, AdminVacancies, AdminAppeals, \
-    AdminShifts, AdminPositions, AdminProfessions, AdminDistributors, AdminCoupons, AdminDistributor, AdminShop, \
-    AdminVacancy
+from app_market import views
 
 urlpatterns = [
     # Торговые сети
-    path('market/distributors', Distributors.as_view()),
-    path('market/distributors/<int:record_id>', Distributors.as_view()),
-    path('market/distributors/<int:record_id>/reviews', DistributorReviewsAPIView.as_view()),
+    path('market/distributors', views.Distributors.as_view()),
+    path('market/distributors/<int:record_id>', views.Distributors.as_view()),
+    path('market/distributors/<int:record_id>/reviews', views.DistributorReviewsAPIView.as_view()),
 
     # Магазины
-    path('market/shops', Shops.as_view()),
-    path('market/shops/<int:record_id>', Shops.as_view()),
-    path('market/shops/<int:record_id>/reviews', ShopReviewsAPIView.as_view()),
+    path('market/shops', views.Shops.as_view()),
+    path('market/shops/<int:record_id>', views.Shops.as_view()),
+    path('market/shops/<int:record_id>/reviews', views.ShopReviewsAPIView.as_view()),
 
     # Вакансии
-    path('market/vacancies', Vacancies.as_view()),
-    path('market/vacancies/<int:record_id>', Vacancies.as_view()),
-    path('market/vacancies/<int:record_id>/similar', similar_vacancies),
-    path('market/vacancies/<int:record_id>/reviews', VacancyReviewsAPIView.as_view()),
-    path('market/vacancies/<int:record_id>/toggle_like', ToggleLikeVacancy.as_view()),  # TODO переделать на like/dislk
+    path('market/vacancies', views.Vacancies.as_view()),
+    path('market/vacancies/<int:record_id>', views.Vacancies.as_view()),
+    path('market/vacancies/<int:record_id>/similar', views.similar_vacancies),
+    path('market/vacancies/<int:record_id>/reviews', views.VacancyReviewsAPIView.as_view()),
+    path('market/vacancies/<int:record_id>/toggle_like', views.ToggleLikeVacancy.as_view()),
+    # TODO переделать на like/dislk
 
-    path('market/vacancies/map', VacanciesClusteredMap.as_view()),
-    path('market/vacancies/stats', VacanciesStats.as_view()),
-    path('market/vacancies/distributors', VacanciesDistributors.as_view()),
-    path('market/vacancies/suggestions', vacancies_suggestions),
+    path('market/vacancies/map', views.VacanciesClusteredMap.as_view()),
+    path('market/vacancies/stats', views.VacanciesStats.as_view()),
+    path('market/vacancies/distributors', views.VacanciesDistributors.as_view()),
+    path('market/vacancies/suggestions', views.vacancies_suggestions),
 
     # Список своих откликов
-    path('market/appeals', ShiftAppeals.as_view()),
-    path('market/appeals/<int:record_id>', ShiftAppeals.as_view()),
-    path('market/appeals/<int:record_id>/cancel', ShiftAppealCancel.as_view()),
+    path('market/appeals', views.ShiftAppeals.as_view()),
+    path('market/appeals/<int:record_id>', views.ShiftAppeals.as_view()),
+    path('market/appeals/<int:record_id>/cancel', views.ShiftAppealCancel.as_view()),
 
     # Закрыть смену когда отображается таймер 15 мин после завершения
-    path('market/appeals/<int:record_id>/complete', ShiftAppealComplete.as_view()),
+    path('market/appeals/<int:record_id>/complete', views.ShiftAppealComplete.as_view()),
 
     # Смены
-    path('market/shifts', Shifts.as_view()),
-    path('market/shifts/<int:record_id>', Shifts.as_view()),
-    path('market/shifts/<int:record_id>/documents', GetDocumentsForShift.as_view()),
+    path('market/shifts', views.Shifts.as_view()),
+    path('market/shifts/<int:record_id>', views.Shifts.as_view()),
+    path('market/shifts/<int:record_id>/documents', views.GetDocumentsForShift.as_view()),
 
     # Geolocation
-    path('market/location', work_location),
+    path('market/location', views.work_location),
 
     # Профессии
-    path('market/professions', Professions.as_view()),
-    path('market/professions/suggest', suggest_profession),
+    path('market/professions', views.Professions.as_view()),
+    path('market/professions/suggest', views.suggest_profession),
 
     # Навыки
-    path('market/skills', Skills.as_view()),
+    path('market/skills', views.Skills.as_view()),
 
     # Документы
-    path('market/documents', MarketDocuments.as_view()),
+    path('market/documents', views.MarketDocuments.as_view()),
 
     # Партнеры
-    path('market/partners/documents', PartnersShopDocuments.as_view()),
-    path('market/partners', Partners.as_view()),
-    path('market/partners/<int:record_id>', Partners.as_view()),
-    path('market/partners/<int:record_id>/documents', GetDocumentsForPartner.as_view()),
-    path('market/partners/categories', PartnersCategories.as_view()),
+    path('market/partners/documents', views.PartnersShopDocuments.as_view()),
+    path('market/partners', views.Partners.as_view()),
+    path('market/partners/<int:record_id>', views.Partners.as_view()),
+    path('market/partners/<int:record_id>/documents', views.GetDocumentsForPartner.as_view()),
+    path('market/partners/categories', views.PartnersCategories.as_view()),
 
     # Достижения
-    path('market/achievements', Achievements.as_view()),
-    path('market/achievements/<int:record_id>', Achievements.as_view()),
+    path('market/achievements', views.Achievements.as_view()),
+    path('market/achievements/<int:record_id>', views.Achievements.as_view()),
 
     # Рекламные блоки
-    path('market/ads', Advertisements.as_view()),
-    path('market/ads/<int:record_id>', Advertisements.as_view()),
+    path('market/ads', views.Advertisements.as_view()),
+    path('market/ads/<int:record_id>', views.Advertisements.as_view()),
 
     # Заказы
-    path('market/orders', Orders.as_view()),
+    path('market/orders', views.Orders.as_view()),
 
     # Купоны
-    path('market/coupons', Coupons.as_view()),
+    path('market/coupons', views.Coupons.as_view()),
 
     # Финансы с группировками по дням, месяцам, годам
-    path('market/finances', Finances.as_view()),
+    path('market/finances', views.Finances.as_view()),
     # Баланс по разным счетам
-    path('market/finances/money', get_my_money),
+    path('market/finances/money', views.get_my_money),
 ]
 
 managers_urls = [
     # Список подтвержденных работников
-    path('market/managers/self_employed', ConfirmedWorkers.as_view()),
-    path('market/managers/self_employed/<int:record_id>', ConfirmedWorkers.as_view()),
-    path('market/managers/self_employed/<int:record_id>/settings', PushSettingsForConfirmedWorkers.as_view()),
+    path('market/managers/self_employed', views.ConfirmedWorkers.as_view()),
+    path('market/managers/self_employed/<int:record_id>', views.ConfirmedWorkers.as_view()),
+    path('market/managers/self_employed/<int:record_id>/settings', views.PushSettingsForConfirmedWorkers.as_view()),
 
-    path('market/managers/self_employed/dates', ConfirmedWorkersDates.as_view()),
-    path('market/managers/self_employed/professions', ConfirmedWorkersProfessions.as_view()),
+    path('market/managers/self_employed/dates', views.ConfirmedWorkersDates.as_view()),
+    path('market/managers/self_employed/professions', views.ConfirmedWorkersProfessions.as_view()),
 
     # Отзывы на самозанятых
     path('market/managers/self_employed/<int:user_id>/reviews',
-         SelfEmployedUserReviewsByAdminOrManagerAPIView.as_view()),
+         views.SelfEmployedUserReviewsByAdminOrManagerAPIView.as_view()),
 
     # Вакансии
-    path('market/managers/vacancies', ActiveVacanciesWithAppliersByDateForManagerListAPIView.as_view()),
-    path('market/managers/vacancies/active_dates', VacanciesActiveDatesForManagerListAPIView.as_view()),
-    path('market/managers/vacancies/<int:record_id>', VacancyByManagerRetrieveAPIView.as_view()),
-    path('market/managers/vacancies/<int:record_id>/active_dates',
-         SingleVacancyActiveDatesForManagerListAPIView.as_view()),
+    path('market/managers/vacancies', views.ActiveVacanciesWithAppliersByDateForManagerListAPIView.as_view()),
+    path('market/managers/vacancies/active_dates', views.VacanciesActiveDatesForManagerListAPIView.as_view()),
+    path('market/managers/vacancies/<int:record_id>', views.VacancyByManagerRetrieveAPIView.as_view()),
+    path('market/managers/vacancies/<int:record_id>/active_dates', views.SingleVacancyActiveDatesForManager.as_view()),
 
     # Проверки смен и пропусков
-    path('market/qr', QRView.as_view()),
+    path('market/qr', views.QRView.as_view()),
 
-    path('market/managers/appeals/pass', CheckPassByManagerAPIView.as_view()),
-    path('market/managers/appeals/<int:record_id>/pass/allow', AllowPassByManagerAPIView.as_view()),
-    path('market/managers/appeals/<int:record_id>/pass/refuse', RefusePassByManagerAPIView.as_view()),
+    path('market/managers/appeals/pass', views.CheckPassByManagerAPIView.as_view()),
+    path('market/managers/appeals/<int:record_id>/pass/allow', views.AllowPassByManagerAPIView.as_view()),
+    path('market/managers/appeals/<int:record_id>/pass/refuse', views.RefusePassByManagerAPIView.as_view()),
 
     # Управление откликами
-    path('market/managers/appeals', VacancyShiftsWithAppealsListForManagerAPIView.as_view()),
-    path('market/managers/appeals/complete', ShiftAppealCompleteByManager.as_view()),
-    path('market/managers/appeals/<int:record_id>/confirm', ConfirmAppealByManagerAPIView.as_view()),
-    path('market/managers/appeals/<int:record_id>/prolong', ProlongByManager.as_view()),
-    path('market/managers/appeals/<int:record_id>/reject', RejectAppealByManagerAPIView.as_view()),
-    path('market/managers/appeals/<int:record_id>/fire', FireByManagerAPIView.as_view()),
-    path('market/managers/appeals/<int:record_id>/fire/cancel', CancelFiringByManager.as_view()),
+    path('market/managers/appeals', views.VacancyShiftsWithAppealsListForManagerAPIView.as_view()),
+    path('market/managers/appeals/complete', views.ShiftAppealCompleteByManager.as_view()),
+    path('market/managers/appeals/<int:record_id>/confirm', views.ConfirmAppealByManagerAPIView.as_view()),
+    path('market/managers/appeals/<int:record_id>/prolong', views.ProlongByManager.as_view()),
+    path('market/managers/appeals/<int:record_id>/reject', views.RejectAppealByManagerAPIView.as_view()),
+    path('market/managers/appeals/<int:record_id>/fire', views.FireByManagerAPIView.as_view()),
+    path('market/managers/appeals/<int:record_id>/fire/cancel', views.CancelFiringByManager.as_view()),
 
     # Список смен
-    path('market/managers/shifts/<int:record_id>', ShiftForManagers.as_view()),
+    path('market/managers/shifts/<int:record_id>', views.ShiftForManagers.as_view()),
     # Отклики на смену
-    path('market/managers/shifts/<int:record_id>/appeals', ShiftAppealsForManagers.as_view()),
+    path('market/managers/shifts/<int:record_id>/appeals', views.ShiftAppealsForManagers.as_view()),
 ]
 
 security_urls = [
-    path('market/security/appeals/pass', CheckPassBySecurityAPIView.as_view()),
-    path('market/security/appeals/<int:record_id>/pass/refuse', RefusePassBySecurityAPIView.as_view()),
+    path('market/security/appeals/pass', views.CheckPassBySecurityAPIView.as_view()),
+    path('market/security/appeals/<int:record_id>/pass/refuse', views.RefusePassBySecurityAPIView.as_view()),
 ]
 
 admin_panel = [
 
-    path('admin/market/distributors', AdminDistributors.as_view()),
-    path('admin/market/distributors/<int:record_id>', AdminDistributor.as_view()),
+    path('admin/market/distributors', views.AdminDistributors.as_view()),
+    path('admin/market/distributors/<int:record_id>', views.AdminDistributor.as_view()),
 
-    path('admin/market/shops', AdminShops.as_view()),
-    path('admin/market/shops/<int:record_id>', AdminShop.as_view()),
+    path('admin/market/shops', views.AdminShops.as_view()),
+    path('admin/market/shops/<int:record_id>', views.AdminShop.as_view()),
 
-    path('admin/market/vacancies', AdminVacancies.as_view()),
-    path('admin/market/vacancies/<int:record_id>', AdminVacancy.as_view()),
+    path('admin/market/vacancies', views.AdminVacancies.as_view()),
+    path('admin/market/vacancies/<int:record_id>', views.AdminVacancy.as_view()),
 
-    path('admin/market/appeals', AdminAppeals.as_view()),
-    path('admin/market/shifts', AdminShifts.as_view()),
-    path('admin/market/positions', AdminPositions.as_view()),
-    path('admin/market/professions', AdminProfessions.as_view()),
-    path('admin/market/coupons', AdminCoupons.as_view()),
+    path('admin/market/professions', views.AdminProfessions.as_view()),
+    path('admin/market/professions/<int:record_id>', views.AdminProfession.as_view()),
+
+    path('admin/market/positions', views.AdminPositions.as_view()),
+    path('admin/market/positions/<int:record_id>', views.AdminPosition.as_view()),
+
+    path('admin/market/shifts', views.AdminShifts.as_view()),
+    path('admin/market/shifts/<int:record_id>', views.AdminShift.as_view()),
+
+    path('admin/market/appeals', views.AdminAppeals.as_view()),
+    path('admin/market/appeals/<int:record_id>', views.AdminAppeal.as_view()),
+
+    path('admin/market/coupons', views.AdminCoupons.as_view()),
+    path('admin/market/coupons/<int:record_id>', views.AdminCoupon.as_view()),
 
 ]
 
