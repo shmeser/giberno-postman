@@ -108,7 +108,7 @@ class Vacancy(BaseModel):
     requirements = models.CharField(max_length=1024, null=True, blank=True, verbose_name='Требования')
 
     required_experience = ArrayField(
-        models.PositiveIntegerField(choices(WorkExperience), default=WorkExperience.NO),
+        models.PositiveIntegerField(choices=choices(WorkExperience), default=WorkExperience.NO),
         null=True, blank=True, verbose_name='Требуемый опыт'
     )
 

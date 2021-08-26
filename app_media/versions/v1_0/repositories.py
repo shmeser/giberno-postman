@@ -9,7 +9,7 @@ from backend.entity import File
 from backend.errors.enums import RESTErrors
 from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
-from backend.utils import chained_get
+from backend.utils import chained_get, filter_valid_uuids
 
 
 class MediaRepository(MasterRepository):
@@ -122,7 +122,7 @@ class MediaRepository(MasterRepository):
 
     def reattach_attachments(self, uuids: [str], current_model, current_owner_id, target_model, target_owner_id):
         """ Найти файлы с типом ATTACHMENT и установить нового владельца"""
-
+        uuids = filter_valid_uuids(uuids_list=uuids)
         current_ct = ContentType.objects.get_for_model(current_model)
         target_ct = ContentType.objects.get_for_model(target_model)
 
@@ -141,6 +141,8 @@ class MediaRepository(MasterRepository):
     def reattach_files(self, uuids: [str], current_model, current_owner_id, target_model, target_owner_id):
         current_ct = ContentType.objects.get_for_model(current_model)
         target_ct = ContentType.objects.get_for_model(target_model)
+
+        uuids = filter_valid_uuids(uuids_list=uuids)
 
         self.model.objects.filter(
             uuid__in=uuids,
