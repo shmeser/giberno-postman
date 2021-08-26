@@ -29,7 +29,8 @@ from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exceptions import CustomException
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
-from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime, ArrayRemove, choices
+from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime, ArrayRemove, choices, \
+    is_valid_uuid, filter_valid_uuids
 from giberno import settings
 
 
@@ -152,6 +153,7 @@ class DistributorsSerializerAdmin(DistributorsSerializer):
             )
 
     def to_internal_value(self, data):
+        files = data.pop('files', None)
         ret = super().to_internal_value(data)
         errors = []
 
@@ -162,6 +164,7 @@ class DistributorsSerializerAdmin(DistributorsSerializer):
             self.update_categories(data, errors)
             self.reattach_files(data)
         else:
+            ret['files'] = filter_valid_uuids(uuids_list=files)
             ret['categories'] = self.add_categories(data)
 
         if errors:
@@ -369,6 +372,7 @@ class ShopsSerializerAdmin(ShopsSerializer):
         instance.distributor = distributor
 
     def to_internal_value(self, data):
+        files = data.pop('files', None)
         ret = super().to_internal_value(data)
         errors = []
 
@@ -379,6 +383,8 @@ class ShopsSerializerAdmin(ShopsSerializer):
 
             # Проверяем m2m поля
             self.reattach_files(data)
+        else:
+            ret['files'] = filter_valid_uuids(uuids_list=files)
 
         ret['location'] = self.geo_location(data, errors)
 
@@ -526,20 +532,20 @@ class VacanciesSerializer(CRUDSerializer):
         return MediaController(self.instance).get_related_images(prefetched_data, MediaType.BANNER.value)
 
     def get_is_favourite(self, vacancy):
-        return vacancy.is_favourite
+        return vacancy.is_favourite if hasattr(vacancy, 'is_favourite') else None
 
     def get_utc_offset(self, vacancy):
         return pytz.timezone(vacancy.timezone).utcoffset(
             datetime.utcnow()).total_seconds() if vacancy.timezone else None
 
     def get_is_hot(self, vacancy):
-        return vacancy.is_hot
+        return vacancy.is_hot if hasattr(vacancy, 'is_hot') else None
 
     def get_free_count(self, vacancy):
-        return vacancy.free_count
+        return vacancy.free_count if hasattr(vacancy, 'free_count') else None
 
     def get_work_time(self, vacancy):
-        return vacancy.work_time
+        return vacancy.work_time if hasattr(vacancy, 'work_time') else None
 
     def get_shop(self, vacancy):
         return ShopsSerializer(vacancy.shop).data
@@ -562,6 +568,125 @@ class VacanciesSerializer(CRUDSerializer):
             'free_count',
             'rating',
             'required_experience',
+            'employment',
+            'work_time',
+            'banner',
+            'shop',
+            'distributor',
+        ]
+
+
+class VacanciesSerializerAdmin(VacanciesSerializer):
+    profession = serializers.SerializerMethodField()
+
+    def get_profession(self, data):
+        return ProfessionSerializerAdmin(data.profession, many=False).data
+
+    def reattach_files(self, data):
+        files = data.pop('files', None)
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me._meta.model,
+                current_owner_id=self.me.id,
+                target_model=self.instance._meta.model,
+                target_owner_id=self.instance.id
+            )
+
+    def update_city(self, ret, data, errors):
+        city_id = data.pop('city', None)
+        if city_id is not None:
+            city = City.objects.filter(pk=city_id, deleted=False).first()
+            if city is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+                )
+            else:
+                ret['city_id'] = city_id
+
+    def update_shop(self, ret, data, errors):
+        shop_id = data.pop('shop', None)
+        if shop_id is not None:
+            shop = Shop.objects.filter(pk=shop_id, deleted=False).first()
+            if shop is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {Shop._meta.verbose_name} с ID={shop_id} не найден'))
+                )
+            else:
+                ret['shop_id'] = shop_id
+
+    def add_city(self, instance, city_id):
+        city = City.objects.filter(pk=city_id, deleted=False).first()
+        if city is None:
+            raise CustomException(errors=[dict(Error(
+                code=ErrorsCodes.VALIDATION_ERROR.name,
+                detail=f'Объект {City._meta.verbose_name} с ID={city_id} не найден'))
+            ])
+        instance.city = city
+
+    def check_shop(self, data):
+        shop_id = data.pop('shop', None)
+        shop = Shop.objects.filter(pk=shop_id, deleted=False).first()
+        if shop is None:
+            return None
+        return shop_id
+
+    def to_internal_value(self, data):
+        files = data.pop('files', None)
+        ret = super().to_internal_value(data)
+        errors = []
+
+        if self.instance:
+            # Проверяем fk поля
+            self.update_shop(ret, data, errors)
+
+            # Проверяем m2m поля
+            self.reattach_files(data)
+        else:
+            ret['shop_id'] = self.check_shop(data)
+            ret['files'] = filter_valid_uuids(uuids_list=files)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def create(self, validated_data):
+        files = validated_data.pop('files', None)
+
+        instance = super().create(validated_data)
+
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me.__meta.model,
+                current_owner_id=self.me.id,
+                target_model=instance.__meta.model,
+                target_owner_id=instance.id
+            )
+
+        return instance
+
+    class Meta:
+        model = Vacancy
+        fields = [
+            'id',
+            'title',
+            'description',
+            'price',
+            'radius',
+            'features',
+            'utc_offset',
+            'free_count',
+            'rating',
+            'requirements',
+            'required_experience',
+            'required_docs',
+            'profession',
             'employment',
             'work_time',
             'banner',
