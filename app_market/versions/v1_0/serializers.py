@@ -141,8 +141,7 @@ class DistributorsSerializerAdmin(DistributorsSerializer):
             result = Category.objects.filter(id__in=categories_ids, deleted=False).values_list('id', flat=True)
         return result
 
-    def reattach_files(self, data):
-        files = data.pop('files', None)
+    def reattach_files(self, files):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
@@ -162,7 +161,7 @@ class DistributorsSerializerAdmin(DistributorsSerializer):
         # Проверяем m2m поля
         if self.instance:
             self.update_categories(data, errors)
-            self.reattach_files(data)
+            self.reattach_files(files)
         else:
             ret['files'] = filter_valid_uuids(uuids_list=files)
             ret['categories'] = self.add_categories(data)
@@ -316,8 +315,7 @@ class ShopsSerializerAdmin(ShopsSerializer):
             return None
         return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID)
 
-    def reattach_files(self, data):
-        files = data.pop('files', None)
+    def reattach_files(self, files):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
@@ -382,7 +380,7 @@ class ShopsSerializerAdmin(ShopsSerializer):
             self.update_distributor(ret, data, errors)
 
             # Проверяем m2m поля
-            self.reattach_files(data)
+            self.reattach_files(files)
         else:
             ret['files'] = filter_valid_uuids(uuids_list=files)
 
@@ -582,8 +580,7 @@ class VacanciesSerializerAdmin(VacanciesSerializer):
     def get_profession(self, data):
         return ProfessionSerializerAdmin(data.profession, many=False).data
 
-    def reattach_files(self, data):
-        files = data.pop('files', None)
+    def reattach_files(self, files):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
@@ -645,7 +642,7 @@ class VacanciesSerializerAdmin(VacanciesSerializer):
             self.update_shop(ret, data, errors)
 
             # Проверяем m2m поля
-            self.reattach_files(data)
+            self.reattach_files(files)
         else:
             ret['shop_id'] = self.check_shop(data)
             ret['files'] = filter_valid_uuids(uuids_list=files)
