@@ -1005,5 +1005,5 @@ class AdminUploads(APIView):
         uuid_list = uuid_list if isinstance(uuid_list, list) else [uuid_list]
         if uuid_list:
             doc_ct_id, my_docs_ids = DocumentsRepository(me=request.user).get_my_docs_ids()
-            MediaRepository(request.user).delete_my_media(uuid_list, doc_ct_id, my_docs_ids)
+            MediaRepository(request.user).delete_media_by_admin(uuid_list)
         return Response(None, status=status.HTTP_204_NO_CONTENT)

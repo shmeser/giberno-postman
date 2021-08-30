@@ -189,3 +189,17 @@ class MediaRepository(MasterRepository):
             'deleted': True,
             'updated_at': now()
         })
+
+    def delete_media_by_admin(self, uuid_list):
+        """
+        :param uuid_list:
+        :return:
+        """
+
+        # TODO роли
+        MediaModel.objects.filter(
+            uuid__in=uuid_list
+        ).update(**{
+            'deleted': True,
+            'updated_at': now()
+        })

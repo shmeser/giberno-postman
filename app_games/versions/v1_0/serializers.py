@@ -64,6 +64,8 @@ class PrizesSerializerAdmin(PrizesSerializer):
             'name',
             'description',
             'price',
+            'real_price',
+            'real_price_currency',
             'grade',
             'count',
             'available_count',

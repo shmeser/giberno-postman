@@ -130,6 +130,9 @@ admin_panel = [
     path('admin/market/distributors', views.AdminDistributors.as_view()),
     path('admin/market/distributors/<int:record_id>', views.AdminDistributor.as_view()),
 
+    path('admin/market/structures', views.AdminStructures.as_view()),
+    path('admin/market/structures/<int:record_id>', views.AdminStructure.as_view()),
+
     path('admin/market/shops', views.AdminShops.as_view()),
     path('admin/market/shops/<int:record_id>', views.AdminShop.as_view()),
 
