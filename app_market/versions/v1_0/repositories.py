@@ -28,7 +28,7 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
     Advertisement, Order, Coupon, Transaction, PartnerDocument, UserCode, Code, ShiftAppealInsurance, \
-    DistributorCategory
+    DistributorCategory, Structure
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -42,6 +42,24 @@ from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
 from backend.utils import ArrayRemove, datetime_to_timestamp, timestamp_to_datetime
 from giberno import settings
+
+
+class StructuresRepository(MasterRepository):
+    model = Structure
+
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.model.objects.exclude(deleted=True).filter(**kwargs)
+
+        count = records.count()
+
+        return records[paginator.offset:paginator.limit] if paginator else records, count
 
 
 class DistributorsRepository(MakeReviewMethodProviderRepository):

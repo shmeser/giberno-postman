@@ -15,9 +15,9 @@ from app_geo.models import City
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency, OrderType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
-    Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance, DistributorCategory
+    Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance, DistributorCategory, Structure
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShiftsRepository, ShopsRepository
+    DistributorsRepository, ShiftsRepository, ShopsRepository, StructuresRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -30,7 +30,7 @@ from backend.errors.http_exceptions import CustomException
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime, ArrayRemove, choices, \
-    is_valid_uuid, filter_valid_uuids
+    filter_valid_uuids
 from giberno import settings
 
 
@@ -92,6 +92,18 @@ class DistributorsSerializer(CRUDSerializer):
             'categories',
             'logo',
             'banner'
+        ]
+
+
+class StructuresSerializerAdmin(CRUDSerializer):
+    repository = StructuresRepository
+
+    class Meta:
+        model = Structure
+        fields = [
+            'id',
+            'title',
+            'description',
         ]
 
 
