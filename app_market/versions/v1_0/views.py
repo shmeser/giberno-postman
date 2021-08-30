@@ -16,7 +16,7 @@ from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
     MarketDocumentsRepository, PartnersRepository, AchievementsRepository, AdvertisementsRepository, OrdersRepository, \
-    CouponsRepository, TransactionsRepository, StructuresRepository
+    CouponsRepository, TransactionsRepository, StructuresRepository, PositionsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
@@ -28,7 +28,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     AdvertisementsSerializer, OrdersSerializer, CouponsSerializer, PartnerConditionsSerializer, FinancesSerializer, \
     FinancesValiadator, OrdersValiadator, BuyCouponsValidator, ShiftsSerializerAdmin, ShiftAppealsSerializerAdmin, \
     ProfessionSerializerAdmin, CouponsSerializerAdmin, DistributorsSerializerAdmin, ShopsSerializerAdmin, \
-    VacanciesSerializerAdmin, StructuresSerializerAdmin
+    VacanciesSerializerAdmin, StructuresSerializerAdmin, PositionsSerializerAdmin
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -2387,18 +2387,18 @@ class AdminProfession(AdminProfessions):
 
 
 class AdminPositions(CRUDAPIView):
-    serializer_class = ProfessionSerializer
-    repository_class = ProfessionsRepository
-    allowed_http_methods = ['get']
+    serializer_class = PositionsSerializerAdmin
+    repository_class = PositionsRepository
+    allowed_http_methods = ['get', 'post']
 
     filter_params = {
-        'name': 'name__istartswith',
+        'title': 'title__istartswith',
     }
 
     default_order_params = []
 
     order_params = {
-        'name': 'name',
+        'title': 'title',
         'id': 'id'
     }
 
@@ -2410,10 +2410,11 @@ class AdminPositions(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            count = 1
+            dataset = self.repository_class().admin_get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset, count = self.repository_class().admin_filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
 
@@ -2421,7 +2422,7 @@ class AdminPositions(CRUDAPIView):
             'me': request.user,
             'headers': get_request_headers(request),
         })
-        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+        return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
 
 
 class AdminPosition(AdminPositions):
