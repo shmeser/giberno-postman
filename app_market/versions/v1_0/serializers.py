@@ -15,9 +15,9 @@ from app_geo.models import City
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency, OrderType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
-    Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance, DistributorCategory
+    Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance, DistributorCategory, Structure
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShiftsRepository, ShopsRepository
+    DistributorsRepository, ShiftsRepository, ShopsRepository, StructuresRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -30,7 +30,7 @@ from backend.errors.http_exceptions import CustomException
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
 from backend.utils import chained_get, datetime_to_timestamp, timestamp_to_datetime, ArrayRemove, choices, \
-    is_valid_uuid, filter_valid_uuids
+    filter_valid_uuids
 from giberno import settings
 
 
@@ -95,6 +95,18 @@ class DistributorsSerializer(CRUDSerializer):
         ]
 
 
+class StructuresSerializerAdmin(CRUDSerializer):
+    repository = StructuresRepository
+
+    class Meta:
+        model = Structure
+        fields = [
+            'id',
+            'title',
+            'description',
+        ]
+
+
 class DistributorsSerializerAdmin(DistributorsSerializer):
     def update_categories(self, data, errors):
         categories = data.pop('categories', None)
@@ -141,8 +153,7 @@ class DistributorsSerializerAdmin(DistributorsSerializer):
             result = Category.objects.filter(id__in=categories_ids, deleted=False).values_list('id', flat=True)
         return result
 
-    def reattach_files(self, data):
-        files = data.pop('files', None)
+    def reattach_files(self, files):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
@@ -162,7 +173,7 @@ class DistributorsSerializerAdmin(DistributorsSerializer):
         # Проверяем m2m поля
         if self.instance:
             self.update_categories(data, errors)
-            self.reattach_files(data)
+            self.reattach_files(files)
         else:
             ret['files'] = filter_valid_uuids(uuids_list=files)
             ret['categories'] = self.add_categories(data)
@@ -291,6 +302,10 @@ class ShopsSerializerAdmin(ShopsSerializer):
     banner = serializers.SerializerMethodField()
     vacancies_count = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
+    map = serializers.SerializerMethodField()
+
+    def get_map(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.MAP.value)
 
     def get_vacancies_count(self, prefetched_data):
         return chained_get(prefetched_data, 'vacancies_count')
@@ -316,8 +331,7 @@ class ShopsSerializerAdmin(ShopsSerializer):
             return None
         return GEOSGeometry(f'POINT({lon} {lat})', srid=settings.SRID)
 
-    def reattach_files(self, data):
-        files = data.pop('files', None)
+    def reattach_files(self, files):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
@@ -382,7 +396,7 @@ class ShopsSerializerAdmin(ShopsSerializer):
             self.update_distributor(ret, data, errors)
 
             # Проверяем m2m поля
-            self.reattach_files(data)
+            self.reattach_files(files)
         else:
             ret['files'] = filter_valid_uuids(uuids_list=files)
 
@@ -432,6 +446,7 @@ class ShopsSerializerAdmin(ShopsSerializer):
             'distributor',
             'logo',
             'banner',
+            'map'
         ]
 
 
@@ -582,8 +597,7 @@ class VacanciesSerializerAdmin(VacanciesSerializer):
     def get_profession(self, data):
         return ProfessionSerializerAdmin(data.profession, many=False).data
 
-    def reattach_files(self, data):
-        files = data.pop('files', None)
+    def reattach_files(self, files):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
@@ -645,7 +659,7 @@ class VacanciesSerializerAdmin(VacanciesSerializer):
             self.update_shop(ret, data, errors)
 
             # Проверяем m2m поля
-            self.reattach_files(data)
+            self.reattach_files(files)
         else:
             ret['shop_id'] = self.check_shop(data)
             ret['files'] = filter_valid_uuids(uuids_list=files)

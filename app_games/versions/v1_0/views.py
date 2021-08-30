@@ -11,7 +11,7 @@ from app_games.versions.v1_0.serializers import PrizesSerializer, PrizeCardsSeri
 from app_media.versions.v1_0.serializers import MediaSerializer
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
-from backend.utils import get_request_headers
+from backend.utils import get_request_headers, get_request_body
 from giberno.settings import BONUS_PROGRESS_STEP_VALUE
 
 
@@ -174,7 +174,7 @@ class TasksCount(CRUDAPIView):
 class AdminPrizes(CRUDAPIView):
     serializer_class = PrizesSerializerAdmin
     repository_class = PrizesRepository
-    allowed_http_methods = ['get']
+    allowed_http_methods = ['get', 'post']
 
     filter_params = {
         'name': 'name__istartswith',
@@ -198,7 +198,7 @@ class AdminPrizes(CRUDAPIView):
 
         if record_id:
             count = 1
-            dataset = self.repository_class(request.user).get_by_id(record_id)
+            dataset = self.repository_class(request.user).admin_get_by_id(record_id)
         else:
             dataset, count = self.repository_class(request.user).admin_filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
@@ -211,6 +211,44 @@ class AdminPrizes(CRUDAPIView):
         })
 
         return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
+
+    def post(self, request, **kwargs):
+        body = get_request_body(request)
+        serialized = self.serializer_class(data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class AdminPrize(AdminPrizes):
+    allowed_http_methods = ['get', 'put', 'delete']
+
+    def put(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        body = get_request_body(request)
+        serialized = self.serializer_class(instance, data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
+        instance.deleted = True
+        instance.save()
+
+        serialized = self.serializer_class(instance, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class AdminTasks(CRUDAPIView):

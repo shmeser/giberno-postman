@@ -28,7 +28,7 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
     Advertisement, Order, Coupon, Transaction, PartnerDocument, UserCode, Code, ShiftAppealInsurance, \
-    DistributorCategory
+    DistributorCategory, Structure
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -42,6 +42,24 @@ from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mixins import MasterRepository, MakeReviewMethodProviderRepository
 from backend.utils import ArrayRemove, datetime_to_timestamp, timestamp_to_datetime
 from giberno import settings
+
+
+class StructuresRepository(MasterRepository):
+    model = Structure
+
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.model.objects.exclude(deleted=True).filter(**kwargs)
+
+        count = records.count()
+
+        return records[paginator.offset:paginator.limit] if paginator else records, count
 
 
 class DistributorsRepository(MakeReviewMethodProviderRepository):
@@ -195,6 +213,15 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
         return record
 
+    def admin_get_by_id(self, record_id):
+        record = self.base_query.filter(id=record_id)
+        record = self.admin_fast_related_loading(record).first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
     def filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
         try:
             if order_by:
@@ -245,6 +272,24 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
                 ),
                 to_attr='medias'
 
+            )
+        )
+
+        return queryset
+
+    def admin_fast_related_loading(self, queryset):
+        """ Подгрузка зависимостей Media """
+        queryset = queryset.prefetch_related(
+            # Подгрузка медиа для магазинов
+            Prefetch(
+                'media',
+                queryset=MediaModel.objects.filter(
+                    deleted=False,
+                    type__in=[MediaType.LOGO.value, MediaType.BANNER.value, MediaType.MAP.value],
+                    owner_ct_id=ContentType.objects.get_for_model(Shop).id,
+                    format=MediaFormat.IMAGE.value
+                ),
+                to_attr='medias'
             )
         )
 
@@ -315,9 +360,8 @@ class ShopsRepository(MakeReviewMethodProviderRepository):
                 records = self.base_query.filter(**kwargs)
 
         count = records.count()
-        return self.fast_related_loading(  # Предзагрузка связанных сущностей
-            queryset=records[paginator.offset:paginator.limit] if paginator else records,
-            point=self.point
+        return self.admin_fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=records[paginator.offset:paginator.limit] if paginator else records
         ).select_related('distributor'), count
 
 

@@ -425,6 +425,17 @@ class PrizesRepository(MasterRepository):
 
         return result, count
 
+    def admin_get_by_id(self, record_id):
+        base_query = self.model.objects.annotate(available_count=self.available_count_expression)
+        records = self.fast_related_loading(base_query.filter(pk=record_id).exclude(deleted=True))
+        record = records.first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
+            )
+        return record
+
 
 class TasksRepository(MasterRepository):
     model = Task

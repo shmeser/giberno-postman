@@ -35,6 +35,19 @@ class Category(BaseModel):
         verbose_name_plural = 'Категории'
 
 
+class Structure(BaseModel):
+    title = models.CharField(max_length=128, null=True, blank=True)
+    description = models.CharField(max_length=2048, null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.title}'
+
+    class Meta:
+        db_table = 'app_market__structures'
+        verbose_name = 'Бизнес-регион'
+        verbose_name_plural = 'Бизнес-регионы'
+
+
 class Distributor(BaseModel):
     title = models.CharField(max_length=128, null=True, blank=True)
     description = models.CharField(max_length=2048, null=True, blank=True)
@@ -56,6 +69,19 @@ class Distributor(BaseModel):
         db_table = 'app_market__distributors'
         verbose_name = 'Торговая сеть'
         verbose_name_plural = 'Торговые сети'
+
+
+class DistributorStructure(BaseModel):
+    distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE)
+    structure = models.ForeignKey(Structure, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.distributor.title} - {self.structure.title}'
+
+    class Meta:
+        db_table = 'app_market__distributor_structure'
+        verbose_name = 'Бизнес-регион торговой сети'
+        verbose_name_plural = 'Бизнес-регионы торговых сетей'
 
 
 class DistributorCategory(BaseModel):
@@ -465,7 +491,8 @@ class Profession(BaseModel):
     name = models.CharField(max_length=1024, null=True, blank=True)
     description = models.CharField(max_length=1024, null=True, blank=True)
 
-    suggested_by = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Предложена пользователем')
+    suggested_by = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True,
+                                     verbose_name='Предложена пользователем')
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name='Одобрена (для предложенных)')
 
     def __str__(self):
@@ -494,7 +521,8 @@ class Skill(BaseModel):
     name = models.CharField(max_length=1024, null=True, blank=True)
     description = models.CharField(max_length=1024, null=True, blank=True)
 
-    suggested_by = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Предложена пользователем')
+    suggested_by = models.ForeignKey(UserProfile, on_delete=models.SET_NULL, null=True, blank=True,
+                                     verbose_name='Предложена пользователем')
     approved_at = models.DateTimeField(null=True, blank=True, verbose_name='Одобрена (для предложенных)')
 
     def __str__(self):
