@@ -1882,7 +1882,7 @@ class AdminShops(CRUDAPIView):
 
         if record_id:
             count = 1
-            dataset = self.repository_class(point=point).get_by_id(record_id)
+            dataset = self.repository_class(point=point).admin_get_by_id(record_id)
         else:
             self.many = True
             dataset, count = self.repository_class(point=point).admin_filter_by_kwargs(

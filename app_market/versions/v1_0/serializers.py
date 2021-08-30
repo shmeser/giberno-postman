@@ -290,6 +290,10 @@ class ShopsSerializerAdmin(ShopsSerializer):
     banner = serializers.SerializerMethodField()
     vacancies_count = serializers.SerializerMethodField()
     distributor = serializers.SerializerMethodField()
+    map = serializers.SerializerMethodField()
+
+    def get_map(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.MAP.value)
 
     def get_vacancies_count(self, prefetched_data):
         return chained_get(prefetched_data, 'vacancies_count')
@@ -430,6 +434,7 @@ class ShopsSerializerAdmin(ShopsSerializer):
             'distributor',
             'logo',
             'banner',
+            'map'
         ]
 
 
