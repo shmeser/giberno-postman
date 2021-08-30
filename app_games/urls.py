@@ -1,7 +1,7 @@
 from django.urls import path
 
 from app_games.views import Prizes, LikePrize, PrizesDocuments, PrizeCards, Tasks, bonus_progress_for_prizes, \
-    TasksCount, OpenPrizeCard, AdminTasks, AdminPrizes, AdminUsersBonuses
+    TasksCount, OpenPrizeCard, AdminTasks, AdminPrizes, AdminUsersBonuses, AdminPrize
 
 urlpatterns = [
 
@@ -27,6 +27,7 @@ urlpatterns = [
 admin_panel = [
     path('admin/games/tasks', AdminTasks.as_view()),
     path('admin/games/prizes', AdminPrizes.as_view()),
+    path('admin/games/prizes/<int:record_id>', AdminPrize.as_view()),
     path('admin/games/bonuses', AdminUsersBonuses.as_view()),
 ]
 

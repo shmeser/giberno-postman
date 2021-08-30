@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 
 from app_games.versions.v1_0 import views as v1_0
+from app_users.permissions import IsAdminOrManager
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exceptions import HttpException
 
@@ -84,14 +85,46 @@ class TasksCount(APIView):
 
 
 class AdminPrizes(APIView):
+    permission_classes = [IsAdminOrManager]
+
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['games_1_0']:
             return v1_0.AdminPrizes().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminPrizes().post(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminPrize(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminPrize().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def put(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminPrize().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminPrize().patch(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
 
 class AdminTasks(APIView):
+    permission_classes = [IsAdminOrManager]
+
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['games_1_0']:
@@ -100,6 +133,8 @@ class AdminTasks(APIView):
 
 
 class AdminUsersBonuses(APIView):
+    permission_classes = [IsAdminOrManager]
+
     @staticmethod
     def get(request, **kwargs):
         if request.version in ['games_1_0']:
