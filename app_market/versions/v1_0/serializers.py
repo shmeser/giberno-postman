@@ -1294,7 +1294,7 @@ class ProfessionInProfileSerializer(serializers.ModelSerializer):
 
 
 class ProfessionSerializerAdmin(serializers.ModelSerializer):
-    approved_at = DateTimeField()
+    approved_at = DateTimeField(required=False)
 
     class Meta:
         model = Profession
