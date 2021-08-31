@@ -583,3 +583,13 @@ class UserBonusesRepository(MasterRepository):
         count = records.count()
         result = records[paginator.offset:paginator.limit] if paginator else records
         return result, count
+
+    def get_user_with_bonuses(self, record_id):
+        records = self.base_query.filter(id=record_id).exclude(deleted=True)
+        record = records.first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
+            )
+        return record
