@@ -431,6 +431,9 @@ class ProfileSerializer(CRUDSerializer):
             'has_insurance',
             'has_vaccination',
 
+            'nalog_status',
+
+
             'avatar',
             'socials',
             'languages',
@@ -447,7 +450,8 @@ class ProfileSerializer(CRUDSerializer):
             'phone': {'read_only': True},
             'verified': {'read_only': True},
             'bonuses_acquired': {'read_only': True},
-            'favourite_vacancies_count': {'read_only': True}
+            'favourite_vacancies_count': {'read_only': True},
+            'nalog_status': {'read_only': True}
         }
 
 

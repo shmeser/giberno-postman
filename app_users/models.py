@@ -10,7 +10,7 @@ from app_geo.models import Language, Country, City
 from app_market.enums import Currency
 from app_media.models import MediaModel
 from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction, \
-    Education, DocumentType, NotificationIcon, CardType, CardPaymentNetwork
+    Education, DocumentType, NotificationIcon, CardType, CardPaymentNetwork, NalogUserStatus
 from backend.models import BaseModel
 from backend.utils import choices
 from giberno import settings
@@ -82,6 +82,10 @@ class UserProfile(AbstractUser, BaseModel):
     location = models.PointField(srid=settings.SRID, blank=True, null=True, verbose_name='Геопозиция')
 
     password_changed = models.BooleanField(default=False)
+
+    nalog_status = models.IntegerField(
+        choices=NalogUserStatus.choices, default=NalogUserStatus.UNKNOWN, verbose_name='Статус самозанятого'
+    )
 
     # конкретные магазины к которым прикреплен админ, менеджер или охранник
     shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины', related_name='staff')
