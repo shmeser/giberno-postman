@@ -28,23 +28,6 @@ class PrizesRepository(MasterRepository):
         super().__init__()
         self.me = me
 
-        # является ли приоритетным призом
-        self.is_favourite_expression = ExpressionWrapper(
-            Exists(UserFavouritePrize.objects.filter(
-                deleted=False,
-                user_id=self.me.id,
-                prize_id=OuterRef('pk'),
-            )),
-            output_field=BooleanField()
-        )
-
-        # прогресс по осколкам
-        self.price_progress_expression = Coalesce(Subquery(
-            UserPrizeProgress.objects.filter(
-                prize=OuterRef('pk'), user=self.me, completed_at__isnull=True
-            ).values('value')[:1]
-        ), 0)
-
         # Количество доступных товаров
         self.available_count_expression = ExpressionWrapper(
             F('count') - Coalesce(Subquery(
@@ -62,10 +45,32 @@ class PrizesRepository(MasterRepository):
 
         # Основная часть запроса, содержащая вычисляемые поля
         self.base_query = self.model.objects.annotate(
-            is_favourite=self.is_favourite_expression,
-            price_progress=self.price_progress_expression,
             available_count=self.available_count_expression,
         )
+
+        if self.me:
+            # является ли приоритетным призом
+            self.is_favourite_expression = ExpressionWrapper(
+                Exists(UserFavouritePrize.objects.filter(
+                    deleted=False,
+                    user_id=self.me.id,
+                    prize_id=OuterRef('pk'),
+                )),
+                output_field=BooleanField()
+            )
+
+            # прогресс по осколкам
+            self.price_progress_expression = Coalesce(Subquery(
+                UserPrizeProgress.objects.filter(
+                    prize=OuterRef('pk'), user=self.me, completed_at__isnull=True
+                ).values('value')[:1]
+            ), 0)
+
+            self.base_query = self.model.objects.annotate(
+                is_favourite=self.is_favourite_expression,
+                price_progress=self.price_progress_expression,
+                available_count=self.available_count_expression,
+            )
 
     def inited_get_by_id(self, record_id):
         # если будет self.base_query.filter() то manager ничего не сможет увидеть

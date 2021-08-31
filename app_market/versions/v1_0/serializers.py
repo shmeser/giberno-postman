@@ -18,7 +18,8 @@ from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shi
     Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance, DistributorCategory, Structure, \
     Position
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShiftsRepository, ShopsRepository, StructuresRepository, PositionsRepository
+    DistributorsRepository, ShiftsRepository, ShopsRepository, StructuresRepository, PositionsRepository, \
+    CouponsRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -1732,8 +1733,10 @@ class OrdersSerializer(serializers.ModelSerializer):
         ]
 
 
-class CouponsSerializer(serializers.ModelSerializer):
-    created_at = DateTimeField()
+class CouponsSerializer(CRUDSerializer):
+    repository = CouponsRepository
+
+    created_at = DateTimeField(read_only=True)
     partner = serializers.SerializerMethodField()
     max_multiplier = serializers.SerializerMethodField()
 
@@ -1760,6 +1763,9 @@ class CouponsSerializer(serializers.ModelSerializer):
             'created_at',
             'partner'
         ]
+        # extra_kwargs = {
+        #     'created_at': {'read_only': True, 'required': False},
+        # }
 
 
 class CouponsSerializerAdmin(CouponsSerializer):

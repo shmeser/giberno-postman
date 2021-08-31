@@ -1,9 +1,11 @@
 from rest_framework import serializers
 
 from app_games.models import Prize, PrizeCard, GoodsCategory, Task
+from app_games.versions.v1_0.repositories import PrizesRepository
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
 from app_users.models import UserProfile
+from backend.mixins import CRUDSerializer
 
 
 class GoodsCategoriesSerializer(serializers.ModelSerializer):
@@ -16,9 +18,9 @@ class GoodsCategoriesSerializer(serializers.ModelSerializer):
 
 
 class PrizesSerializer(serializers.ModelSerializer):
-    available_count = serializers.SerializerMethodField()
-    price_progress = serializers.SerializerMethodField()
-    is_favourite = serializers.SerializerMethodField()
+    available_count = serializers.SerializerMethodField(read_only=True)
+    price_progress = serializers.SerializerMethodField(read_only=True)
+    is_favourite = serializers.SerializerMethodField(read_only=True)
     categories = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
@@ -56,7 +58,24 @@ class PrizesSerializer(serializers.ModelSerializer):
         ]
 
 
-class PrizesSerializerAdmin(PrizesSerializer):
+class PrizesSerializerAdmin(CRUDSerializer):
+    repository = PrizesRepository
+
+    available_count = serializers.SerializerMethodField(read_only=True)
+    categories = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+
+    def get_available_count(self, instance):
+        return instance.available_count if hasattr(instance, 'available_count') else None
+
+    def get_image(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(
+            prefetched_data, MediaType.PRIZE_IMAGE.value, only_prefetched=True
+        )
+
+    def get_categories(self, instance):
+        return GoodsCategoriesSerializer(instance.categories, many=True).data
+
     class Meta:
         model = Prize
         fields = [

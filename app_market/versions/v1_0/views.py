@@ -2118,7 +2118,7 @@ class AdminVacancy(AdminVacancies):
 class AdminShifts(CRUDAPIView):
     serializer_class = ShiftsSerializerAdmin
     repository_class = ShiftsRepository
-    allowed_http_methods = ['get']
+    allowed_http_methods = ['get', 'post']
 
     filter_params = {
         'vacancy': 'vacancy_id',
@@ -2168,6 +2168,16 @@ class AdminShifts(CRUDAPIView):
         })
 
         return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
+
+    def post(self, request, **kwargs):
+        body = get_request_body(request)
+        serialized = self.serializer_class(data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class AdminShift(AdminShifts):
@@ -2322,7 +2332,7 @@ class AdminAppeal(AdminAppeals):
 class AdminProfessions(CRUDAPIView):
     serializer_class = ProfessionSerializerAdmin
     repository_class = ProfessionsRepository
-    allowed_http_methods = ['get']
+    allowed_http_methods = ['get', 'post']
 
     filter_params = {
         'name': 'name__istartswith',
@@ -2356,6 +2366,16 @@ class AdminProfessions(CRUDAPIView):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
+
+    def post(self, request, **kwargs):
+        body = get_request_body(request)
+        serialized = self.serializer_class(data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class AdminProfession(AdminProfessions):
@@ -2424,6 +2444,16 @@ class AdminPositions(CRUDAPIView):
         })
         return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
 
+    def post(self, request, **kwargs):
+        body = get_request_body(request)
+        serialized = self.serializer_class(data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
 
 class AdminPosition(AdminPositions):
     allowed_http_methods = ['get', 'put', 'delete']
@@ -2456,7 +2486,7 @@ class AdminPosition(AdminPositions):
 class AdminCoupons(CRUDAPIView):
     serializer_class = CouponsSerializerAdmin
     repository_class = CouponsRepository
-    allowed_http_methods = ['get']
+    allowed_http_methods = ['get', 'post']
 
     filter_params = {
         'search': 'partner__distributor__title__istartswith',
@@ -2497,6 +2527,16 @@ class AdminCoupons(CRUDAPIView):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)
+
+    def post(self, request, **kwargs):
+        body = get_request_body(request)
+        serialized = self.serializer_class(data=body, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        serialized.is_valid(raise_exception=True)
+        serialized.save()
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class AdminCoupon(AdminCoupons):
