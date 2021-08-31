@@ -28,7 +28,7 @@ from app_market.enums import ShiftWorkTime, ShiftAppealStatus, WorkExperience, V
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, ShiftAppeal, \
     GlobalDocument, VacancyDocument, DistributorDocument, Partner, Category, Achievement, AchievementProgress, \
     Advertisement, Order, Coupon, Transaction, PartnerDocument, UserCode, Code, ShiftAppealInsurance, \
-    DistributorCategory, Structure
+    DistributorCategory, Structure, Position
 from app_market.versions.v1_0.mappers import ShiftMapper
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
@@ -2586,6 +2586,37 @@ class ProfessionsRepository(MasterRepository):
 
         count = records.count()
         result = records[paginator.offset:paginator.limit] if paginator else records
+        return result, count
+
+
+class PositionsRepository(MasterRepository):
+    model = Position
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+    def fast_related_loading(self, queryset):
+        return queryset.prefetch_related('professions')
+
+    def admin_get_by_id(self, record_id):
+        # если будет self.base_query.filter() то manager ничего не сможет увидеть
+        records = self.fast_related_loading(self.model.objects.filter(pk=record_id).exclude(deleted=True))
+        record = records.first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs)
+        else:
+            records = self.model.objects.exclude(deleted=True).filter(**kwargs)
+
+        count = records.count()
+        result = self.fast_related_loading(records[paginator.offset:paginator.limit] if paginator else records)
         return result, count
 
 

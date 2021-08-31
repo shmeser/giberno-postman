@@ -131,6 +131,34 @@ class AdminTasks(APIView):
             return v1_0.AdminTasks().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminTasks().post(request)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminTask(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminTask().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def put(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminTask().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminTask().patch(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
 
 class AdminUsersBonuses(APIView):
     permission_classes = [IsAdminOrManager]
@@ -139,4 +167,32 @@ class AdminUsersBonuses(APIView):
     def get(request, **kwargs):
         if request.version in ['games_1_0']:
             return v1_0.AdminUsersBonuses().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminUsersBonuses().post(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminUserBonuses(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminUserBonuses().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def put(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminUserBonuses().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminUserBonuses().patch(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)

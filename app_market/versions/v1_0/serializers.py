@@ -15,9 +15,10 @@ from app_geo.models import City
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
     FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency, OrderType
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
-    Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance, DistributorCategory, Structure
+    Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance, DistributorCategory, Structure, \
+    Position
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
-    DistributorsRepository, ShiftsRepository, ShopsRepository, StructuresRepository
+    DistributorsRepository, ShiftsRepository, ShopsRepository, StructuresRepository, PositionsRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -1228,7 +1229,15 @@ class ShiftsSerializerAdmin(ShiftsSerializer):
             'time_end',
             'active_today',
             'active_dates',
-            'vacancy'
+            'max_employees_count',
+            'min_employee_rating',
+            'auto_control_threshold_minutes',
+            'frequency',
+            'by_weekday',
+            'by_monthday',
+            'by_month',
+            'vacancy',
+            'shop',
         ]
 
 
@@ -1293,7 +1302,7 @@ class ProfessionInProfileSerializer(serializers.ModelSerializer):
 
 
 class ProfessionSerializerAdmin(serializers.ModelSerializer):
-    approved_at = DateTimeField()
+    approved_at = DateTimeField(required=False)
 
     class Meta:
         model = Profession
@@ -1303,6 +1312,95 @@ class ProfessionSerializerAdmin(serializers.ModelSerializer):
             'description',
             'suggested_by',
             'approved_at',
+        ]
+
+
+class PositionsSerializerAdmin(CRUDSerializer):
+    repository = PositionsRepository
+
+    professions = serializers.SerializerMethodField()
+
+    def get_professions(self, prefetched_data):
+        return ProfessionInProfileSerializer(prefetched_data.professions, many=True).data
+
+    def update_professions(self, data, errors):
+        professions = data.pop('professions', None)
+        if professions is not None and isinstance(professions, list):  # Обрабатываем только массив
+            # Удаляем категории
+            self.instance.professions.clear()  # Очищаем стандартную промежуточную таблицу для m2m
+            # Добавляем или обновляем языки пользователя
+            for item in professions:
+                profession_id = item.get('id', None) if isinstance(item, dict) else item
+                if profession_id is None:
+                    errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail='Невалидные данные в поле professions'))
+                    )
+                else:
+                    try:
+                        self.instance.professions.add(profession_id)
+                    except IntegrityError:
+                        errors.append(
+                            dict(Error(
+                                code=ErrorsCodes.VALIDATION_ERROR.name,
+                                detail='Указан неправильный id профессии'))
+                        )
+
+    def add_professions(self, data):
+        professions = data.pop('professions', None)
+        professions_ids = []
+        result = []
+        if professions is not None and isinstance(professions, list):  # Обрабатываем только массив
+            for item in professions:
+                profession_id = item.get('id', None) if isinstance(item, dict) else item
+                professions_ids.append(profession_id)
+
+            # получаем ид профессий
+            result = Profession.objects.filter(id__in=professions_ids, deleted=False).values_list('id', flat=True)
+        return result
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+
+        # Проверяем fk поля
+
+        # Проверяем m2m поля
+        if self.instance:
+            self.update_professions(data, errors)
+        else:
+            ret['professions'] = self.add_professions(data)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def create(self, validated_data):
+        professions_ids = validated_data.pop('professions', [])
+        files = validated_data.pop('files', None)
+        instance = super().create(validated_data)
+        instance.professions.set(professions_ids)
+
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me.__meta.model,
+                current_owner_id=self.me.id,
+                target_model=instance.__meta.model,
+                target_owner_id=instance.id
+            )
+
+        return instance
+
+    class Meta:
+        model = Position
+        fields = [
+            'id',
+            'title',
+            'description',
+            'professions'
         ]
 
 

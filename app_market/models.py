@@ -504,6 +504,21 @@ class Profession(BaseModel):
         verbose_name_plural = 'Профессии'
 
 
+class Position(BaseModel):
+    title = models.CharField(max_length=1024, null=True, blank=True)
+    description = models.CharField(max_length=1024, null=True, blank=True)
+
+    professions = models.ManyToManyField(Profession, db_table='app_market__profession_position', null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.title}'
+
+    class Meta:
+        db_table = 'app_market__positions'
+        verbose_name = 'Должность'
+        verbose_name_plural = 'Должности'
+
+
 class UserProfession(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
     profession = models.ForeignKey(Profession, on_delete=models.CASCADE)
