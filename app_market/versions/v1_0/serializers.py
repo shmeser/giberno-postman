@@ -1229,7 +1229,15 @@ class ShiftsSerializerAdmin(ShiftsSerializer):
             'time_end',
             'active_today',
             'active_dates',
-            'vacancy'
+            'max_employees_count',
+            'min_employee_rating',
+            'auto_control_threshold_minutes',
+            'frequency',
+            'by_weekday',
+            'by_monthday',
+            'by_month',
+            'vacancy',
+            'shop',
         ]
 
 
