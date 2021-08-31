@@ -359,7 +359,7 @@ class AdminUsersBonuses(CRUDAPIView):
 
         if record_id:
             count = 1
-            result = self.repository_class(request.user).admin_get_by_id(record_id)
+            result = self.repository_class(request.user).get_user_with_bonuses(record_id)
         else:
             result, count = self.repository_class(request.user).get_users_with_bonuses(
                 kwargs=filters, paginator=pagination, order_by=order_params
