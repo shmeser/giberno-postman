@@ -205,9 +205,9 @@ class DistributorsSerializerAdmin(DistributorsSerializer):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
-                current_model=self.me.__meta.model,
+                current_model=self.me._meta.model,
                 current_owner_id=self.me.id,
-                target_model=instance.__meta.model,
+                target_model=instance._meta.model,
                 target_owner_id=instance.id
             )
 
@@ -315,12 +315,9 @@ class ShopsSerializerAdmin(ShopsSerializer):
     def get_banner(self, prefetched_data):
         return MediaController(self.instance).get_related_images(prefetched_data, MediaType.BANNER.value)
 
-    def get_distributor(self, prefetched_data):
-        if prefetched_data.distributor:
-            return DistributorInShopSerializer(prefetched_data.distributor).data
-        return None
+    def get_distributor(self, data):
+        return data.distributor_id
 
-    # ##
     def geo_location(self, data, errors):
         lon = float(data.pop('lon'))
         lat = float(data.pop('lat'))
@@ -400,9 +397,11 @@ class ShopsSerializerAdmin(ShopsSerializer):
             # Проверяем m2m поля
             self.reattach_files(files)
         else:
+            ret['distributor'] = data.pop('distributor', None)
+            ret['city'] = data.pop('city', None)
             ret['files'] = filter_valid_uuids(uuids_list=files)
 
-        ret['location'] = self.geo_location(data, errors)
+        ret['location'] = self.geo_location(data, errors) if data.get('lat') and data.get('lon') else None
 
         if errors:
             raise CustomException(errors=errors)
@@ -425,9 +424,9 @@ class ShopsSerializerAdmin(ShopsSerializer):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
-                current_model=self.me.__meta.model,
+                current_model=self.me._meta.model,
                 current_owner_id=self.me.id,
-                target_model=instance.__meta.model,
+                target_model=instance._meta.model,
                 target_owner_id=instance.id
             )
 
@@ -596,6 +595,9 @@ class VacanciesSerializer(CRUDSerializer):
 class VacanciesSerializerAdmin(VacanciesSerializer):
     profession = serializers.SerializerMethodField()
 
+    def get_shop(self, data):
+        return data.shop.id
+
     def get_profession(self, data):
         return ProfessionSerializerAdmin(data.profession, many=False).data
 
@@ -679,9 +681,9 @@ class VacanciesSerializerAdmin(VacanciesSerializer):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
-                current_model=self.me.__meta.model,
+                current_model=self.me._meta.model,
                 current_owner_id=self.me.id,
-                target_model=instance.__meta.model,
+                target_model=instance._meta.model,
                 target_owner_id=instance.id
             )
 
@@ -707,7 +709,7 @@ class VacanciesSerializerAdmin(VacanciesSerializer):
             'work_time',
             'banner',
             'shop',
-            'distributor',
+            # 'distributor',
         ]
 
 
@@ -1220,7 +1222,10 @@ class ShiftsSerializerAdmin(ShiftsSerializer):
     vacancy = serializers.SerializerMethodField()
 
     def get_vacancy(self, data):
-        return VacancyInShiftSerializerAdmin(data.vacancy, many=False).data
+        return data.vacancy_id
+
+    def get_shop(self, data):
+        return data.vacancy.shop_id
 
     class Meta:
         model = Shift
@@ -1387,9 +1392,9 @@ class PositionsSerializerAdmin(CRUDSerializer):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
-                current_model=self.me.__meta.model,
+                current_model=self.me._meta.model,
                 current_owner_id=self.me.id,
-                target_model=instance.__meta.model,
+                target_model=instance._meta.model,
                 target_owner_id=instance.id
             )
 

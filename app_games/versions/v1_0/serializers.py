@@ -4,8 +4,11 @@ from app_games.models import Prize, PrizeCard, GoodsCategory, Task
 from app_games.versions.v1_0.repositories import PrizesRepository
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
+from app_media.versions.v1_0.repositories import MediaRepository
 from app_users.models import UserProfile
+from backend.errors.http_exceptions import CustomException
 from backend.mixins import CRUDSerializer
+from backend.utils import filter_valid_uuids
 
 
 class GoodsCategoriesSerializer(serializers.ModelSerializer):
@@ -75,6 +78,50 @@ class PrizesSerializerAdmin(CRUDSerializer):
 
     def get_categories(self, instance):
         return GoodsCategoriesSerializer(instance.categories, many=True).data
+
+    def reattach_files(self, files):
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me._meta.model,
+                current_owner_id=self.me.id,
+                target_model=self.instance._meta.model,
+                target_owner_id=self.instance.id
+            )
+
+    def to_internal_value(self, data):
+        files = data.pop('files', None)
+        ret = super().to_internal_value(data)
+        errors = []
+
+        if self.instance:
+            # Проверяем fk поля
+
+            # Проверяем m2m поля
+            self.reattach_files(files)
+        else:
+            ret['files'] = filter_valid_uuids(uuids_list=files)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def create(self, validated_data):
+        files = validated_data.pop('files', None)
+
+        instance = super().create(validated_data)
+
+        if files:
+            MediaRepository().reattach_files(
+                uuids=files,
+                current_model=self.me._meta.model,
+                current_owner_id=self.me.id,
+                target_model=instance._meta.model,
+                target_owner_id=instance.id
+            )
+
+        return instance
 
     class Meta:
         model = Prize
