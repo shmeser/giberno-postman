@@ -1,4 +1,5 @@
 from backend.enums import IntEnumM, EnumM
+from django.db import models
 
 
 class Gender(IntEnumM):
@@ -31,12 +32,33 @@ class LanguageProficiency(IntEnumM):
 class NotificationType(IntEnumM):
     # Для настроек получения уведомлений
     SYSTEM = 0  # Системные уведомления
+    CHAT = 1  # Сообщения в чатах
+
+
+class NotificationChannelFromAndroid8(EnumM):
+    """
+        # Для каждого значения из NotificationType по 2 варианта
+        # Канал уведомлений для пушей на Android 8 и новее без звука и со звуком
+        # ВАЖНО ключ значения должен быть таким же для "звука", а "без звука" - + "_SOUNDLESS"
+    """
+    # Системные уведомления
+    SYSTEM = 'system_channel'
+    SYSTEM_SOUNDLESS = 'system_channel_soundless'  # без звука
+
+    # Сообщения в чатах
+    CHAT = 'chat_channel'
+    CHAT_SOUNDLESS = 'chat_channel_soundless'  # без звука
 
 
 class NotificationAction(IntEnumM):
     # Для открытия нужного экрана в приложении
     APP = 0  # Главный экран в приложении
     VACANCY = 1  # Вакансия
+    SHIFT = 2  # Смена
+    SHOP = 3  # Магазин
+    DISTRIBUTOR = 4  # Торговая сеть
+    USER = 5  # Пользователь
+    CHAT = 6  # Чат
 
 
 class NotificationIcon(IntEnumM):
@@ -49,7 +71,7 @@ class NotificationIcon(IntEnumM):
     DOCS_DECLINED = 6
     SHIFT_AVAILABLE = 7
     SHIFT_START_SOON = 8
-    LEAVED_SHOP_AREA = 9
+    LEFT_SHOP_AREA = 9
     VACANCY_APPROVED = 10
     VACANCY_DECLINED = 11
     WORKER_CANCELED_VACANCY = 12
@@ -70,3 +92,44 @@ class DocumentType(IntEnumM):
     SNILS = 3
     MEDICAL_BOOK = 4
     DRIVER_LICENCE = 5
+    VACCINATION_CERTIFICATE = 6  # Сертификат о вакцинации
+    VISA = 7  # Виза
+    RESIDENT_CARD = 8  # Вид на жительство
+    MIGRATION_CARD = 9  # Миграционная карта
+
+
+REQUIRED_DOCS_FOR_CHOICES = [
+    (DocumentType.PASSPORT.value, 'Паспорт'),
+    (DocumentType.INN.value, 'ИНН'),
+    (DocumentType.SNILS.value, 'СНИЛС'),
+    (DocumentType.MEDICAL_BOOK.value, 'Медкнижка'),
+    (DocumentType.DRIVER_LICENCE.value, 'Водительское удостоверение'),
+]
+
+REQUIRED_DOCS_DICT = {
+    DocumentType.PASSPORT: 'Паспорт',
+    DocumentType.INN: 'ИНН',
+    DocumentType.SNILS: 'СНИЛС',
+    DocumentType.MEDICAL_BOOK: 'Медкнижка',
+    DocumentType.DRIVER_LICENCE: 'Водительское удостоверение',
+}
+
+
+class CardType(IntEnumM):
+    DEBIT = 1  # Дебетовая
+    CREDIT = 2  # Кредитная
+    PREPAID = 3  # Предоплаченная (виртуальная и т.д.)
+
+
+class CardPaymentNetwork(IntEnumM):
+    UNKNOWN = 0
+    VISA = 1
+    MASTERCARD = 2
+    MIR = 3
+
+
+class NalogUserStatus(models.IntegerChoices):
+    NOT_SELF_EMPLOYED = 0, 'Пользователь не является самозанятым'
+    NOT_ATTACHED_TO_A_PARTNER = 1, 'Пользователь является самозанятым, но не привязан к партнеру'
+    ATTACHED_TO_A_PARTNER = 2, 'Пользователь самозанятый и привязан к партнеру'
+    UNKNOWN = 3, 'Неизвестный статус, возможна ошибка в данных'

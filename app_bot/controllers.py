@@ -40,9 +40,12 @@ class TelegramFormatter(logging.Formatter):
         return result + "\n" + brackets_ident + "}"
 
     meta_attrs = [
-        'REMOTE_ADDR',
-        'HOSTNAME',
-        'HTTP_REFERER'
+        'REMOTE_HOST',
+        'SERVER_NAME',
+        'SERVER_PORT',
+        'REQUEST_METHOD',
+        'PATH_INFO',
+        'QUERY_STRING',
     ]
     limit = -1  # default per logging.Formatter is None
 
@@ -58,7 +61,10 @@ class TelegramFormatter(logging.Formatter):
             headers = get_request_headers(record.request)
             s += f"\nHEADERS: {self.recursive_tab_str(headers)}"
 
-        if record.request.body:
+        if record.request.POST:
+            s += f"\nPOST: {self.recursive_tab_str(record.request.POST)}"
+
+        if not record.request.POST and record.request.body:
             body = get_request_body(record.request)
             s += f"\nBODY: {self.recursive_tab_str(body)}"
 
@@ -79,13 +85,13 @@ class TelegramFormatter(logging.Formatter):
         return s
 
 
-class BotSender:
+class TelegramBotSender:
     @staticmethod
     def send_message(message, notification_type):
-        from app_bot.repositories import BotRepository
+        from app_bot.versions.v1_0.repositories import TelegramBotRepository
 
         if notification_type == TelegramBotNotificationType.DEBUG.value:
-            chats = BotRepository.get_chats_by_notification_types(
+            chats = TelegramBotRepository.get_chats_by_notification_types(
                 TelegramBotNotificationType.DEBUG.value,
                 approved=True
             )
@@ -99,7 +105,7 @@ class BotSender:
                 "parse_mode": 'HTML',
             }
 
-            BotRepository.create_message(chat, **{
+            TelegramBotRepository.create_message(chat, **{
                 "is_bot": True,
                 "text": message,
                 "username": "GibernoBot",
@@ -111,11 +117,11 @@ class BotSender:
             )
 
 
-class BotLogger(logging.Handler):
+class TelegramBotLogger(logging.Handler):
     def __init__(self, *args, **kwargs):
         super().__init__()
 
         self.setFormatter(TelegramFormatter())
 
     def emit(self, record):
-        BotSender.send_message(self.format(record), TelegramBotNotificationType.DEBUG.value)
+        TelegramBotSender.send_message(self.format(record), TelegramBotNotificationType.DEBUG.value)

@@ -4,7 +4,7 @@ from app_users.enums import AccountType
 from app_users.models import UserProfile
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException, CustomException
+from backend.errors.http_exceptions import HttpException, CustomException
 
 
 class FilledProfilePermission(permissions.IsAuthenticated):
@@ -40,6 +40,23 @@ class IsManager(permissions.BasePermission):
         return request.user.account_type == AccountType.MANAGER
 
 
+class IsSecurity(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.account_type == AccountType.SECURITY
+
+
+class IsSelfEmployed(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.account_type == AccountType.SELF_EMPLOYED
+
+
+class IsAdminOrManager(permissions.BasePermission):
+    def has_permission(self, request, view):
+        allowed_account_types = [AccountType.ADMIN, AccountType.MANAGER]
+        return request.user.account_type in allowed_account_types
+
+
 class IsManagerOrSecurity(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.account_type == AccountType.MANAGER or request.user.account_type == AccountType.SECURITY
+        allowed_account_types = [AccountType.MANAGER, AccountType.SECURITY]
+        return request.user.account_type in allowed_account_types

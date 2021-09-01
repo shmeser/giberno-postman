@@ -5,13 +5,21 @@ from django.contrib.contenttypes.models import ContentType
 from app_media.enums import MediaType, MediaFormat, MimeTypes
 from backend.entity import File, Error
 from backend.errors.enums import ErrorsCodes
-from backend.errors.http_exception import CustomException
+from backend.errors.http_exceptions import CustomException
 from backend.utils import get_media_format, resize_image, convert_video
 
 
 class MediaMapper:
     @staticmethod
     def combine(file_data, owner, file_title=None, file_type=MediaType.OTHER):
+        """
+        Связываем файл с его владельцем
+        :param file_data: UploadedFile
+        :param owner: instance владельца файла
+        :param file_title: название файла
+        :param file_type: тип из MediaType
+        :return:
+        """
 
         file_entity = File()
         file_entity.uuid = uuid.uuid4()

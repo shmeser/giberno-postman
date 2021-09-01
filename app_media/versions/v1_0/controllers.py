@@ -1,6 +1,6 @@
 from app_media.enums import MediaFormat
 from app_media.versions.v1_0.repositories import MediaRepository
-from app_media.versions.v1_0.serializers import MediaSerializer
+from app_media.versions.v1_0.serializers import MediaSerializer, MediaUrlsSerializer
 
 
 class MediaController:
@@ -12,8 +12,44 @@ class MediaController:
         self.instance = model_instance
         self.mime_type = mime_type
 
-    def get_related_image(self, prefetched_data, media_type):
-        file = MediaRepository.get_related_media_file(
-            self.instance, prefetched_data, media_type, MediaFormat.IMAGE.value, mime_type=self.mime_type
+    def get_related_images(self, prefetched_data, media_type, multiple=False, only_prefetched=False):
+        """
+
+        :param prefetched_data:
+        :param media_type:  int или [int]
+        :param multiple:
+        :param only_prefetched:
+        :return:
+        """
+        empty = [] if multiple else None
+        files = MediaRepository().get_related_media(
+            self.instance, prefetched_data, media_type, MediaFormat.IMAGE.value, mime_type=self.mime_type,
+            multiple=multiple,
+            only_prefetched=only_prefetched,
         )
-        return MediaSerializer(file, many=False).data if file else None
+        return MediaSerializer(files, many=multiple).data if files else empty
+
+    def get_related_images_urls(self, prefetched_data, media_type, multiple=False, only_prefetched=False):
+        """ Облегченная версия изображения, только ссылка на превью """
+        empty = [] if multiple else None
+        file = MediaRepository().get_related_media(
+            self.instance, prefetched_data, media_type, MediaFormat.IMAGE.value, mime_type=self.mime_type,
+            multiple=multiple,
+            only_prefetched=only_prefetched,
+        )
+        return MediaUrlsSerializer(file, many=multiple).data if file else empty
+
+    def get_related_media(self, prefetched_data, media_type=None, multiple=False, only_prefetched=False):
+        empty = [] if multiple else None
+        file = MediaRepository().get_related_media(
+            self.instance, prefetched_data, media_type, multiple=multiple, only_prefetched=only_prefetched
+        )
+        return MediaSerializer(file, many=multiple).data if file else empty
+
+    def get_related_media_urls(self, prefetched_data, media_type, multiple=False, only_prefetched=False):
+        """ Облегченная версия файла только ссылка на файл """
+        empty = [] if multiple else None
+        file = MediaRepository().get_related_media(
+            self.instance, prefetched_data, media_type, multiple=multiple, only_prefetched=only_prefetched
+        )
+        return MediaUrlsSerializer(file, many=multiple).data if file else empty

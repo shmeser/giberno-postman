@@ -1,6 +1,6 @@
 import json
+from datetime import timedelta
 
-from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.timezone import now
@@ -15,28 +15,35 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from social_core.exceptions import AuthTokenRevoked
 from social_django.utils import load_backend, load_strategy
 
+from app_chats.versions.v1_0.repositories import ChatsRepository
+from app_games.enums import TaskKind
+from app_market.versions.v1_0.repositories import ShiftAppealsRepository, InsuranceRepository
+from app_market.versions.v1_0.serializers import InsuranceSerializer
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
+from app_sockets.controllers import SocketController
+from app_sockets.enums import AvailableVersion
 from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
-from app_users.enums import NotificationType
+from app_users.enums import NotificationType, AccountType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
-from app_users.utils import EmailSender, generate_password
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
-    SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository, FCMDeviceRepository
+    SocialsRepository, NotificationsRepository, CareerRepository, DocumentsRepository, FCMDeviceRepository, \
+    RatingRepository, CardsRepository
 from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileSerializer, SocialSerializer, \
     NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer, \
     CreateManagerByAdminSerializer, UsernameSerializer, UsernameWithPasswordSerializer, \
-    PasswordSerializer, EditManagerProfileSerializer
+    PasswordSerializer, EditManagerProfileSerializer, CreateSecurityByAdminSerializer, RatingSerializer, CardsSerializer
 from backend.api_views import BaseAPIView
 from backend.entity import Error
 from backend.enums import Platform
 from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException, CustomException
+from backend.errors.http_exceptions import HttpException, CustomException
 from backend.mappers import RequestMapper
 from backend.mixins import CRUDAPIView
 from backend.utils import get_request_headers, get_request_body, chained_get
+from app_games.tasks import check_everyday_tasks_for_user
 
 
 @api_view(['GET'])
@@ -171,6 +178,8 @@ class MyProfile(CRUDAPIView):
             'me': request.user,
             'headers': get_request_headers(request),
         })
+        if request.user.account_type == AccountType.SELF_EMPLOYED.value:
+            check_everyday_tasks_for_user.s(user_id=request.user.id, kind=TaskKind.OPEN_APP.value).apply_async()
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):
@@ -187,7 +196,7 @@ class MyProfile(CRUDAPIView):
 class MyProfileUploads(APIView):
     def post(self, request):
         uploaded_files = RequestMapper.file_entities(request, request.user)
-        saved_files = MediaRepository().bulk_create(uploaded_files)
+        saved_files = MediaRepository(request.user).bulk_create(uploaded_files)
         serializer = MediaSerializer(saved_files, many=True, context={
             'me': request.user,
             'headers': get_request_headers(request),
@@ -199,14 +208,8 @@ class MyProfileUploads(APIView):
         uuid_list = body.get('uuid', [])
         uuid_list = uuid_list if isinstance(uuid_list, list) else [uuid_list]
         if uuid_list:
-            MediaRepository().filter_by_kwargs({
-                'owner_id': request.user.id,
-                'owner_ct_id': ContentType.objects.get_for_model(request.user).id,
-                'uuid__in': uuid_list
-            }).update(**{
-                'deleted': True,
-                'updated_at': now()
-            })
+            doc_ct_id, my_docs_ids = DocumentsRepository(me=request.user).get_my_docs_ids()
+            MediaRepository(request.user).delete_my_media(uuid_list, doc_ct_id, my_docs_ids)
         return Response(None, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -222,7 +225,8 @@ class Users(CRUDAPIView):
     default_order_params = []
 
     default_filters = {
-        'is_staff': False
+        'is_staff': False,
+        'account_type': AccountType.SELF_EMPLOYED.value
     }
 
     order_params = {
@@ -315,7 +319,7 @@ class Notifications(CRUDAPIView):
             dataset = self.repository_class().get_by_id(record_id)
         else:
             dataset = self.repository_class().filter_by_kwargs(
-                kwargs=filters, paginator=pagination, order_by=order_params
+                kwargs={**filters, **{'user': request.user}}, paginator=pagination, order_by=order_params
             )
             self.many = True
 
@@ -337,10 +341,16 @@ class NotificationsSettings(APIView):
     def put(self, request):
         body = get_request_body(request)
         types_list = body.get('enabled_types', [])
+        sound_enabled = body.get('sound_enabled', None)
         types_list = types_list if isinstance(types_list, list) else [types_list]
         types_list = list(filter(lambda x: NotificationType.has_value(x), types_list))  # Фильтруем ненужные значения
 
         request.user.notificationssettings.enabled_types = types_list
+        if sound_enabled is not None:
+            request.user.notificationssettings.sound_enabled = sound_enabled in [
+                'true', 'TRUE', True
+            ]
+
         request.user.notificationssettings.save()
 
         serializer = NotificationsSettingsSerializer(
@@ -443,9 +453,10 @@ class MyProfileDocuments(CRUDAPIView):
     serializer_class = DocumentSerializer
     repository_class = DocumentsRepository
 
-    allowed_http_methods = ['get', 'post', 'patch', 'delete']
+    allowed_http_methods = ['get', 'post']
 
-    filter_params = {
+    array_filter_params = {
+        'type': 'type__in'
     }
 
     default_order_params = ['-created_at']
@@ -464,10 +475,10 @@ class MyProfileDocuments(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
         else:
             self.many = True
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class(me=request.user).inited_filter_by_kwargs(
                 kwargs=filters, paginator=pagination, order_by=order_params
             )
 
@@ -488,8 +499,12 @@ class MyProfileDocuments(CRUDAPIView):
         serialized.is_valid(raise_exception=True)
 
         document = serialized.save()
-        self.repository_class().update_media(document, body.pop('attach_files', None), request.user)
+        self.repository_class.update_media(document, body.pop('attach_files', None), request.user)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class MyProfileDocument(MyProfileDocuments):
+    allowed_http_methods = ['get', 'patch', 'delete']
 
     def patch(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
@@ -497,14 +512,14 @@ class MyProfileDocuments(CRUDAPIView):
         body['user_id'] = request.user.id
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
+            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
             serialized = self.serializer_class(dataset, data=body, context={
                 'me': request.user,
                 'headers': get_request_headers(request),
             })
             serialized.is_valid(raise_exception=True)
             document = serialized.save()
-            self.repository_class().update_media(document, body.pop('attach_files', None), request.user)
+            self.repository_class.update_media(document, body.pop('attach_files', None), request.user)
         else:
             raise HttpException(detail='Не указан ID', status_code=RESTErrors.BAD_REQUEST)
 
@@ -514,9 +529,7 @@ class MyProfileDocuments(CRUDAPIView):
         record_id = kwargs.get(self.urlpattern_record_id_name)
 
         if record_id:
-            record = self.repository_class().filter_by_kwargs(
-                {'id': record_id, 'deleted': False, 'user_id': request.user.id}
-            ).first()
+            record = self.repository_class(me=request.user).inited_get_by_id(record_id)
             if record:
                 record.deleted = True
                 record.save()
@@ -535,6 +548,23 @@ def read_notification(request, **kwargs):
         read_at=now(),
         updated_at=now(),
     )
+
+    indicators_dict = {
+        'newNotifications': NotificationsRepository(me=request.user).get_unread_notifications_count(),
+        'chatsUnreadMessages': ChatsRepository(me=request.user).get_all_chats_unread_count()
+    }
+    if request.user.account_type == AccountType.SELF_EMPLOYED.value:
+        indicators_dict['newConfirmedAppeals'] = ShiftAppealsRepository(
+            me=request.user).get_new_confirmed_count()
+
+    if request.user.account_type == AccountType.MANAGER.value:
+        indicators_dict['newAppeals'] = ShiftAppealsRepository(
+            me=request.user).get_new_appeals_count()
+
+    SocketController(me=request.user, version=AvailableVersion.V1_0.value).send_message_to_my_connections({
+        'type': 'counters_for_indicators',
+        'prepared_data': indicators_dict,
+    })
 
     return Response(None, status=status.HTTP_204_NO_CONTENT)
 
@@ -591,17 +621,13 @@ class PushUnsubscribe(APIView):
 # MANAGERS RELATED VIEWS
 class CreateManagerByAdminAPIView(BaseAPIView):
     serializer_class = CreateManagerByAdminSerializer
+    repository_class = ProfileRepository
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=get_request_body(request), context={'request': request})
+        serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
-            user = serializer.save()
-            password = generate_password()
-            user.set_password(password)
-            user.save()
-            EmailSender(user=user, password=password).send()
-            return Response(ProfileSerializer(instance=user).data)
-        return Response('ok')
+            user = self.repository_class(me=request.user).create_manager_by_admin(serializer.validated_data)
+            return Response(camelize(ProfileSerializer(instance=user).data))
 
 
 class GetManagerByUsernameAPIView(BaseAPIView):
@@ -623,6 +649,7 @@ class AuthenticateManagerAPIView(BaseAPIView):
         serializer = self.serializer_class(data=get_request_body(request))
         if serializer.is_valid(raise_exception=True):
             user = ProfileRepository().get_by_username_and_password(validated_data=serializer.validated_data)
+            JwtRepository.remove_old(user)
             headers = get_request_headers(request)
             jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(user)
             response_data = {
@@ -657,4 +684,326 @@ class EditManagerProfileView(BaseAPIView):
                 del serializer.validated_data['username']
 
             user = ProfileRepository().update(record_id=request.user.id, **serializer.validated_data)
-            return Response(ProfileSerializer(instance=user).data)
+            return Response(camelize(ProfileSerializer(instance=user).data))
+
+
+# SECURITY
+class CreateSecurityByAdmin(BaseAPIView):
+    serializer_class = CreateSecurityByAdminSerializer
+    repository_class = ProfileRepository
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            username, password = self.repository_class(
+                me=request.user
+            ).create_security_by_admin(serializer.validated_data)
+            return Response(camelize({
+                'username': username,
+                'password': password
+            }))
+
+
+class AuthenticateSecurity(BaseAPIView):
+    permission_classes = []
+    serializer_class = UsernameWithPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            user = ProfileRepository().get_by_username_and_password(validated_data=serializer.validated_data)
+            headers = get_request_headers(request)
+            jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(
+                user,
+                lifetime=timedelta(days=3650)  # Token на 10 лет
+            )
+
+            response_data = {
+                'accessToken': jwt_pair.access_token,
+                'refreshToken': jwt_pair.refresh_token,
+            }
+            return Response(response_data)
+
+
+class UsersRating(CRUDAPIView):
+    serializer_class = RatingSerializer
+    repository_class = RatingRepository
+
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'region': 'reviews__region_id'
+    }
+
+    date_filter_params = {
+        'date_from': 'reviews__created_at__gte',
+        'date_to': 'reviews__created_at__lte'
+    }
+
+    array_filter_params = {
+    }
+
+    default_filters = {}
+
+    def get(self, request, **kwargs):
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+
+        self.many = True
+        dataset = self.repository_class(me=request.user).get_users_rating(
+            kwargs=filters, paginator=pagination
+        )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class MyRating(CRUDAPIView):
+    serializer_class = RatingSerializer
+    repository_class = RatingRepository
+
+    allowed_http_methods = ['get']
+
+    filter_params = {
+        'region': 'reviews__region_id'
+    }
+
+    date_filter_params = {
+        'date_from': 'reviews__created_at__gte',
+        'date_to': 'reviews__created_at__lte'
+    }
+
+    array_filter_params = {
+    }
+
+    default_filters = {}
+
+    def get(self, request, **kwargs):
+        filters = RequestMapper(self).filters(request) or dict()
+
+        self.many = False
+        dataset = self.repository_class(me=request.user).get_my_rating(
+            kwargs=filters
+        )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class UserCareer(CRUDAPIView):
+    serializer_class = CareerSerializer
+    repository_class = CareerRepository
+
+    allowed_http_methods = ['get']
+
+    filter_params = {
+    }
+
+    default_order_params = ['year_start']
+
+    default_filters = {
+    }
+
+    order_params = {
+    }
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        self.many = True
+        dataset = self.repository_class().filter_by_kwargs(
+            kwargs={**filters, **{
+                'user_id': record_id
+            }}, paginator=pagination, order_by=order_params
+        )
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class MyProfileCards(CRUDAPIView):
+    serializer_class = CardsSerializer
+    repository_class = CardsRepository
+
+    allowed_http_methods = ['get', 'delete']
+
+    default_order_params = ['-created_at']
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class(me=request.user).inited_get_by_id(record_id)
+        else:
+            self.many = True
+            dataset = self.repository_class(me=request.user).get_my_cards(paginator=pagination, order_by=order_params)
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+    def delete(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        if record_id:
+            record = self.repository_class(me=request.user).inited_get_by_id(record_id)
+            record.deleted = True
+            record.save()
+        else:
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
+
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class MyProfileInsurance(CRUDAPIView):
+    serializer_class = InsuranceSerializer
+    repository_class = InsuranceRepository
+
+    allowed_http_methods = ['get', ]
+
+    default_order_params = ['-created_at']
+
+    def get(self, request, **kwargs):
+        dataset = self.repository_class(me=request.user).get_nearest_active_insurance()
+        self.many = False
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class ConfirmInsurance(CRUDAPIView):
+    serializer_class = InsuranceSerializer
+    repository_class = InsuranceRepository
+
+    allowed_http_methods = ['post']
+
+    def post(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        if record_id:
+            record = self.repository_class(me=request.user).inited_get_by_id(record_id)
+            record.confirmed_at = now()
+            record.save()
+        else:
+            raise HttpException(detail=RESTErrors.BAD_REQUEST.name, status_code=RESTErrors.BAD_REQUEST)
+
+        serialized = self.serializer_class(record, many=False, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class AdminAuth(APIView):
+    permission_classes = []
+    serializer_class = UsernameWithPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            user = ProfileRepository().get_by_username_and_password(validated_data=serializer.validated_data)
+            headers = get_request_headers(request)
+            JwtRepository.remove_old(user)
+            jwt_pair: JwtToken = JwtRepository(headers).create_jwt_pair(
+                user,
+                lifetime=timedelta(days=3650)  # Token на 10 лет
+            )
+
+            role = 'selfEmployed'
+            if user.account_type == AccountType.ADMIN:
+                if user.is_superuser:
+                    role = 'superadmin'
+                else:
+                    role = 'admin'
+            if user.account_type == AccountType.MANAGER:
+                role = 'manager'
+            if user.account_type == AccountType.SECURITY:
+                role = 'security'
+
+            response_data = {
+                'accessToken': jwt_pair.access_token,
+                'refreshToken': jwt_pair.refresh_token,
+                'role': role
+            }
+            return Response(response_data)
+
+
+class AdminProfile(APIView):
+    def get(self, request, *args, **kwargs):
+
+        role = 'selfEmployed'
+        if request.user.account_type == AccountType.ADMIN:
+            if request.user.is_superuser:
+                role = 'superadmin'
+            else:
+                role = 'admin'
+        if request.user.account_type == AccountType.MANAGER:
+            role = 'manager'
+        if request.user.account_type == AccountType.SECURITY:
+            role = 'security'
+
+        response_data = {
+            'id': request.user.id,
+            'role': role,
+            'username': request.user.username,
+            'first_name': request.user.first_name,
+            'middle_name': request.user.middle_name,
+            'last_name': request.user.last_name,
+            'email': request.user.email,
+            'phone': request.user.phone
+        }
+        return Response(camelize(response_data))
+
+
+class AdminProfilePassword(BaseAPIView):
+    serializer_class = PasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=get_request_body(request))
+        if serializer.is_valid(raise_exception=True):
+            request.user.set_password(raw_password=serializer.validated_data['password'])
+            request.user.password_changed = True
+            request.user.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AdminUploads(APIView):
+    def post(self, request):
+        uploaded_files = RequestMapper.file_entities(request, request.user)
+        saved_files = MediaRepository(request.user).bulk_create(uploaded_files)
+        serializer = MediaSerializer(saved_files, many=True, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        body = get_request_body(request)
+        uuid_list = body.get('uuid', [])
+        uuid_list = uuid_list if isinstance(uuid_list, list) else [uuid_list]
+        if uuid_list:
+            doc_ct_id, my_docs_ids = DocumentsRepository(me=request.user).get_my_docs_ids()
+            MediaRepository(request.user).delete_media_by_admin(uuid_list)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)

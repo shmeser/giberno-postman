@@ -27,7 +27,7 @@ services:
     volumes:
       - ./data/postgisdb:/var/lib/postgresql/data
   api:
-    image: registry.appcraft.team:5005/giberno/giberno-server
+    image: registry.appcraft.team:5005/giberno/giberno-server:develop
     restart: always
     command: bash -c "python3 manage.py migrate && python3 manage.py seed && python3 manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p ${API_PORT} giberno.asgi:application"
     environment:
@@ -44,10 +44,13 @@ services:
       TELEGRAM_BOT_TOKEN: ${DEV_TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_PASSWORD: ${TELEGRAM_BOT_PASSWORD}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+      GOOGLE_CLOUD_API_KEY: ${GOOGLE_CLOUD_API_KEY}
       SECRET_KEY: ${SECRET_KEY}
       VK_APP_ID: ${DEV_VK_APP_ID}
       VK_APP_SECRET: ${DEV_VK_APP_SECRET}
       API_PORT: ${API_PORT}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER}
       DEBUG: ${DEBUG}
     ports:
       - "127.0.0.1:${API_PORT}:${API_PORT}"
@@ -59,7 +62,7 @@ services:
     volumes:
       - ./files:/code/files
   celery:
-    image: registry.appcraft.team:5005/giberno/giberno-server
+    image: registry.appcraft.team:5005/giberno/giberno-server:develop
     command: celery -A giberno worker -l info
     environment:
       REDIS_HOST: redis
@@ -70,6 +73,7 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       ENVIRONMENT: ${ENVIRONMENT}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+      GOOGLE_CLOUD_API_KEY: ${GOOGLE_CLOUD_API_KEY}
       SECRET_KEY: ${SECRET_KEY}
     depends_on:
       - db
@@ -79,7 +83,7 @@ services:
     volumes:
       - ./files:/code/files
   celery-beat:
-    image: registry.appcraft.team:5005/giberno/giberno-server
+    image: registry.appcraft.team:5005/giberno/giberno-server:develop
     command: celery -A giberno beat -l info
     environment:
       REDIS_HOST: redis
@@ -88,8 +92,10 @@ services:
       DB_NAME: ${POSTGRES_DB}
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
-      SUPERUSER_PASS: ${SUPERUSER_PASS}
       ENVIRONMENT: ${ENVIRONMENT}
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+      GOOGLE_CLOUD_API_KEY: ${GOOGLE_CLOUD_API_KEY}
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       - db
       - redis

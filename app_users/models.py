@@ -5,10 +5,12 @@ from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import ArrayField
 
+from app_feedback.models import Review
 from app_geo.models import Language, Country, City
+from app_market.enums import Currency
 from app_media.models import MediaModel
 from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction, \
-    Education, DocumentType, NotificationIcon
+    Education, DocumentType, NotificationIcon, CardType, CardPaymentNetwork, NalogUserStatus
 from backend.models import BaseModel
 from backend.utils import choices
 from giberno import settings
@@ -57,7 +59,9 @@ class UserProfile(AbstractUser, BaseModel):
     agreement_accepted = models.BooleanField(default=False, verbose_name='Пользовательское соглашение принято')
 
     verified = models.BooleanField(default=False, verbose_name='Профиль проверен')
-    bonus_balance = models.PositiveIntegerField(default=0, verbose_name='Очки славы')
+    bonuses_acquired = models.PositiveIntegerField(default=0, verbose_name='Всего получено очков славы')
+    rating_place = models.PositiveIntegerField(null=True, blank=True, verbose_name='Место в общем рейтинге')
+    rating_value = models.FloatField(null=True, blank=True, verbose_name='Общий рейтинг')
     favourite_vacancies_count = models.PositiveIntegerField(default=0, verbose_name='Количество избранных вакансий')
 
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
@@ -73,18 +77,20 @@ class UserProfile(AbstractUser, BaseModel):
 
     # использовано в формате app_label.ModelName из - за циркулярного импорта
     distributors = models.ManyToManyField(to='app_market.Distributor', blank=True, verbose_name='Торговая сеть',
-                                          related_name='distributors')
+                                          related_name='staff')
 
     location = models.PointField(srid=settings.SRID, blank=True, null=True, verbose_name='Геопозиция')
 
     password_changed = models.BooleanField(default=False)
 
-    # Конкретная Должность Пользователя со статусом manager
-    manager_position = models.CharField(null=True, blank=True, max_length=512)
+    nalog_status = models.IntegerField(
+        choices=NalogUserStatus.choices, default=NalogUserStatus.UNKNOWN, verbose_name='Статус самозанятого'
+    )
 
-    # конкретные магазины к которым прикреплен менеджер
-    manager_shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины',
-                                           related_name='manager_shops')
+    # конкретные магазины к которым прикреплен админ, менеджер или охранник
+    shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины', related_name='staff')
+
+    reviews = GenericRelation(Review, object_id_field='target_id', content_type_field='target_ct')
 
     @property
     def is_manager(self):
@@ -204,6 +210,8 @@ class Notification(BaseModel):
         choices=choices(NotificationIcon), default=NotificationIcon.DEFAULT, verbose_name='Тип иконки'
     )
 
+    sound_enabled = models.BooleanField(null=True, blank=True, verbose_name='Уведомление со звуком')
+
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
     def __str__(self):
@@ -218,6 +226,7 @@ class Notification(BaseModel):
 class NotificationsSettings(BaseModel):
     user = models.OneToOneField(UserProfile, on_delete=models.CASCADE, unique=True)
     enabled_types = ArrayField(models.IntegerField(choices=choices(NotificationType)), blank=True, null=True)
+    sound_enabled = models.BooleanField(default=True)
 
     def __str__(self):
         return f'{self.user.username}'
@@ -252,7 +261,7 @@ class UserCareer(BaseModel):
 
 
 class Document(BaseModel):
-    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='documents')
     type = models.IntegerField(choices=choices(DocumentType), default=DocumentType.OTHER)
     series = models.CharField(max_length=128, blank=True, null=True, verbose_name='Серия')
     number = models.CharField(max_length=128, blank=True, null=True, verbose_name='Номер')
@@ -261,6 +270,7 @@ class Document(BaseModel):
     issue_place = models.CharField(max_length=128, blank=True, null=True, verbose_name='Место выдачи')
     issue_date = models.DateTimeField(null=True, blank=True, verbose_name='Дата выдачи')
     expiration_date = models.DateTimeField(null=True, blank=True, verbose_name='Действителен до')
+    is_foreign = models.BooleanField(default=False, verbose_name='Иностранный документ')
 
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
@@ -271,3 +281,45 @@ class Document(BaseModel):
         db_table = 'app_users__documents'
         verbose_name = 'Документ'
         verbose_name_plural = 'Документы'
+
+
+class Card(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='cards')
+    type = models.IntegerField(choices=choices(CardType), default=CardType.DEBIT)
+    payment_network = models.IntegerField(
+        choices=choices(CardPaymentNetwork),
+        default=CardPaymentNetwork.UNKNOWN,
+        verbose_name='Платежная сеть'
+    )
+
+    pan = models.CharField(max_length=19, blank=True, null=True, verbose_name='Маскированный номер карты')
+    valid_through = models.CharField(max_length=5, blank=True, null=True, verbose_name='Действительна до')
+
+    issuer = models.CharField(max_length=128, blank=True, null=True, verbose_name='Эмитент карты')
+
+    media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
+
+    hash = models.CharField(max_length=128)
+    salt = models.CharField(max_length=128)
+
+    def __str__(self):
+        return f'{self.user.username}'
+
+    class Meta:
+        db_table = 'app_users__cards'
+        verbose_name = 'Банковская Карта'
+        verbose_name_plural = 'Банковские Карты'
+
+
+class UserMoney(BaseModel):
+    user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    currency = models.PositiveIntegerField(choices=choices(Currency), default=Currency.RUB.value)
+    amount = models.PositiveIntegerField(blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.user.first_name} {self.user.last_name} - {self.currency} {self.amount}'
+
+    class Meta:
+        db_table = 'app_users__profile_money'
+        verbose_name = 'Деньги пользователя'
+        verbose_name_plural = 'Деньги пользователей'

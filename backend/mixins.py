@@ -1,19 +1,26 @@
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis import admin
 from django.contrib.gis.db import models
-from django.contrib.postgres.fields import JSONField, ArrayField, HStoreField
+from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.fields import JSONField, HStoreField
+from django.db.models import Count, Sum, FloatField, ExpressionWrapper, Subquery, OuterRef
 from django.db.models import UUIDField
 from django.forms import TextInput, Textarea
+from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize
 from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from app_feedback.models import Review
+from app_geo.models import Region
 from app_media.enums import MimeTypes
 from backend.entity import Error
-from backend.enums import Platform
-from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException, CustomException
+from backend.errors.enums import ErrorsCodes
+from backend.errors.enums import RESTErrors
+from backend.errors.http_exceptions import CustomException
+from backend.errors.http_exceptions import HttpException
 from backend.mappers import RequestMapper
 from backend.permissions import AbbleToPerform
 from backend.repositories import BaseRepository
@@ -39,27 +46,49 @@ class CRUDSerializer(serializers.ModelSerializer):
     def process_validation_errors(self, errors):
         errors_processed = []
         for k, e in errors.items():
-            if ErrorsCodes.has_key(e[0].code):
-                errors_processed.append(dict(Error(ErrorsCodes[e[0].code])))
+            er = e[0]
+            if isinstance(er, list):
+                for e_val in er:
+                    code = ErrorsCodes.VALIDATION_ERROR.name
+                    detail = ErrorsCodes.VALIDATION_ERROR.value
+
+                    if e_val.code == 'unique':
+                        if k == 'email':  # Конкретная проверка на уникальность имейла в бд
+                            code = ErrorsCodes.EMAIL_IS_USED.name
+                        detail = e_val
+
+                    if e_val.code in ['required', 'invalid_choice']:
+                        detail = k + ' - ' + e_val
+
+                    # Добавляем в массив кастомных ошибок
+                    errors_processed.append(
+                        dict(Error(**{
+                            'code': code,
+                            'detail': detail
+                        }))
+                    )
             else:
-                code = ErrorsCodes.VALIDATION_ERROR.name
-                detail = ErrorsCodes.VALIDATION_ERROR.value
+                if ErrorsCodes.has_key(e[0].code):
+                    errors_processed.append(dict(Error(ErrorsCodes[e[0].code])))
+                else:
+                    code = ErrorsCodes.VALIDATION_ERROR.name
+                    detail = ErrorsCodes.VALIDATION_ERROR.value
 
-                if e[0].code == 'unique':
-                    if k == 'email':  # Конкретная проверка на уникальность имейла в бд
-                        code = ErrorsCodes.EMAIL_IS_USED.name
-                    detail = e[0]
+                    if er.code == 'unique':
+                        if k == 'email':  # Конкретная проверка на уникальность имейла в бд
+                            code = ErrorsCodes.EMAIL_IS_USED.name
+                        detail = er
 
-                if e[0].code == 'required':
-                    detail = k + ' - ' + e[0]
+                    if er.code in ['required', 'invalid_choice']:
+                        detail = k + ' - ' + er
 
-                # Добавляем в массив кастомных ошибок
-                errors_processed.append(
-                    dict(Error(**{
-                        'code': code,
-                        'detail': detail
-                    }))
-                )
+                    # Добавляем в массив кастомных ошибок
+                    errors_processed.append(
+                        dict(Error(**{
+                            'code': code,
+                            'detail': detail
+                        }))
+                    )
         return errors_processed
 
     def is_valid(self, raise_exception=False):
@@ -91,6 +120,73 @@ class MasterRepository(BaseRepository):
 
     def __init__(self):
         super().__init__(self.model)
+
+
+class MakeReviewMethodProviderRepository(MasterRepository):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    def make_review(self, record_id, text, value, shift=None, point=None):
+        # TODO добавить загрузку attachments
+        owner_content_type = ContentType.objects.get_for_model(self.me)
+        owner_ct_id = owner_content_type.id
+        owner_ct_name = owner_content_type.model
+        owner_id = self.me.id
+
+        target_content_type = ContentType.objects.get_for_model(self.model)
+        target_ct_id = target_content_type.id
+        target_ct_name = target_content_type.model
+        target_id = record_id
+
+        region = Region.objects.filter(boundary__covers=point).first() if point else None
+
+        if not Review.objects.filter(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                shift_id=shift,
+                deleted=False
+        ).exists():
+            Review.objects.create(
+                owner_ct_id=owner_ct_id,
+                owner_id=owner_id,
+                owner_ct_name=owner_ct_name,
+
+                target_ct_id=target_ct_id,
+                target_id=target_id,
+                target_ct_name=target_ct_name,
+
+                value=value,
+                text=text,
+                region=region,
+                shift_id=shift
+            )
+
+            # Пересчитываем количество оценок и рейтинг
+            self.model.objects.filter(pk=record_id).update(
+                # в update нельзя использовать результаты annotate
+                # используем annotate в Subquery
+                rating=Subquery(
+                    self.model.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rating=ExpressionWrapper(
+                            Sum('reviews__value') / Count('reviews'),
+                            output_field=FloatField()
+                        )
+                    ).values('calculated_rating')[:1]
+                ),
+                rates_count=Subquery(
+                    self.model.objects.filter(
+                        id=OuterRef('id')
+                    ).annotate(
+                        calculated_rates_count=Count('reviews'),
+                    ).values('calculated_rates_count')[:1]
+                ),
+                updated_at=now()
+            )
 
 
 class CRUDAPIView(APIView):

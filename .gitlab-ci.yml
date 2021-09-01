@@ -19,8 +19,8 @@ before_script:
 build:
   stage: build
   script:
-    - docker build -t registry.appcraft.team:5005/giberno/giberno-server .
-    - docker push registry.appcraft.team:5005/giberno/giberno-server
+    - docker build -t registry.appcraft.team:5005/giberno/giberno-server:develop .
+    - docker push registry.appcraft.team:5005/giberno/giberno-server:develop
   only:
     - develop
   tags:
@@ -56,7 +56,11 @@ deploy:
     - echo DEV_VK_APP_ID="$DEV_VK_APP_ID" | tr -d '\r' >> .env
     - echo DEV_VK_APP_SECRET="$DEV_VK_APP_SECRET" | tr -d '\r' >> .env
 
+    - echo EMAIL_HOST_USER="$EMAIL_HOST_USER" | tr -d '\r' >> .env
+    - echo EMAIL_HOST_PASSWORD="$EMAIL_HOST_PASSWORD" | tr -d '\r' >> .env
+
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
+    - echo GOOGLE_CLOUD_API_KEY="$GOOGLE_CLOUD_API_KEY" | tr -d '\r' >> .env
     - echo SECRET_KEY="$SECRET_KEY" | tr -d '\r' >> .env
     - echo DEBUG="DEBUG" | tr -d '\r' >> .env
 
@@ -66,7 +70,7 @@ deploy:
   script:
     - docker-compose stop
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.appcraft.team:5005
-    - docker pull registry.appcraft.team:5005/giberno/giberno-server:latest
+    - docker pull registry.appcraft.team:5005/giberno/giberno-server:develop
     - docker-compose up -d
   only:
     - develop
@@ -76,8 +80,8 @@ deploy:
 build_stage:
   stage: build_stage
   script:
-    - docker build -t registry.appcraft.team:5005/giberno/giberno-server .
-    - docker push registry.appcraft.team:5005/giberno/giberno-server
+    - docker build -t registry.appcraft.team:5005/giberno/giberno-server:stage .
+    - docker push registry.appcraft.team:5005/giberno/giberno-server:stage
   only:
     - stage
   tags:
@@ -107,13 +111,17 @@ deploy_stage:
     - echo ST_SUPERUSER_PASS="$ST_SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo ST_ENVIRONMENT="$ST_ENVIRONMENT" | tr -d '\r' >> .env
 
-    - echo TELEGRAM_BOT_TOKEN="$DEV_TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
+    - echo ST_TELEGRAM_BOT_TOKEN="$DEV_TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
     - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
 
     - echo DEV_VK_APP_ID="$DEV_VK_APP_ID" | tr -d '\r' >> .env
     - echo DEV_VK_APP_SECRET="$DEV_VK_APP_SECRET" | tr -d '\r' >> .env
 
+    - echo EMAIL_HOST_USER="$EMAIL_HOST_USER" | tr -d '\r' >> .env
+    - echo EMAIL_HOST_PASSWORD="$EMAIL_HOST_PASSWORD" | tr -d '\r' >> .env
+
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
+    - echo GOOGLE_CLOUD_API_KEY="$GOOGLE_CLOUD_API_KEY" | tr -d '\r' >> .env
     - echo ST_SECRET_KEY="$ST_SECRET_KEY" | tr -d '\r' >> .env
     - echo DEBUG="DEBUG" | tr -d '\r' >> .env
 
@@ -123,7 +131,7 @@ deploy_stage:
   script:
     - docker-compose stop
     - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.appcraft.team:5005
-    - docker pull registry.appcraft.team:5005/giberno/giberno-server:latest
+    - docker pull registry.appcraft.team:5005/giberno/giberno-server:stage
     - docker-compose up -d
   only:
     - stage
@@ -163,12 +171,16 @@ deploy_release:
     - echo RL_SUPERUSER_PASS="$RL_SUPERUSER_PASS" | tr -d '\r' >> .env
     - echo RL_ENVIRONMENT="$RL_ENVIRONMENT" | tr -d '\r' >> .env
 
-    - echo TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
+    - echo RL_TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" | tr -d '\r' >> .env
     - echo TELEGRAM_BOT_PASSWORD="$TELEGRAM_BOT_PASSWORD" | tr -d '\r' >> .env
     - echo VK_APP_ID="$VK_APP_ID" | tr -d '\r' >> .env
     - echo VK_APP_SECRET="$VK_APP_SECRET" | tr -d '\r' >> .env
 
+    - echo EMAIL_HOST_USER="$EMAIL_HOST_USER" | tr -d '\r' >> .env
+    - echo EMAIL_HOST_PASSWORD="$EMAIL_HOST_PASSWORD" | tr -d '\r' >> .env
+
     - echo FCM_SERVER_KEY="$FCM_SERVER_KEY" | tr -d '\r' >> .env
+    - echo GOOGLE_CLOUD_API_KEY="$GOOGLE_CLOUD_API_KEY" | tr -d '\r' >> .env
     - echo RL_SECRET_KEY="$RL_SECRET_KEY" | tr -d '\r' >> .env
 
     - sudo rm -f "$(pwd -P)"/docker-compose.yml

@@ -1,5 +1,6 @@
 import itertools
 import operator
+from datetime import timedelta
 
 import inflection
 from django.contrib.gis.geos import GEOSGeometry
@@ -12,8 +13,8 @@ from app_media.forms import FileForm
 from app_media.mappers import MediaMapper
 from backend.entity import Pagination, Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exception import HttpException, CustomException
-from backend.utils import timestamp_to_datetime as t2d, CP, chained_get, timestamp_to_datetime, get_request_body
+from backend.errors.http_exceptions import HttpException, CustomException
+from backend.utils import timestamp_to_datetime as t2d, chained_get, timestamp_to_datetime, get_request_body
 from giberno import settings
 
 
@@ -53,12 +54,12 @@ class RequestMapper:
                 pagination.offset = 0
 
         if request.GET.get('limit') is None:
-            pagination.limit = 10
+            pagination.limit = 30
         else:
             try:
                 pagination.limit = pagination.offset + int(request.GET.get('limit'))
             except Exception:
-                pagination.limit = 10
+                pagination.limit = 30
 
         return pagination
 
@@ -95,8 +96,11 @@ class RequestMapper:
         all_params = {
             **self.filter_params, **self.date_filter_params, **self.bool_filter_params, **self.array_filter_params
         }
-        kwargs = {all_params[param]: filter_values.get(param) for param in all_params if filter_values.get(param)}
-        return {**kwargs, **self.default_filters}
+        kwargs = {
+            all_params[param]: filter_values.get(param) for param in all_params if filter_values.get(param) is not None
+        }
+
+        return {**self.default_filters, **kwargs}
 
     def order(self, request):
         if not self.order_params:
@@ -113,9 +117,17 @@ class RequestMapper:
 
         django_order_params = []
         for field, order in zip(fields, order):
-            if inflection.underscore(field) in self.order_params:
+            _field = inflection.underscore(field)
+            # Удаляем сортировку по умолчанию, если сортировка по тому же полю
+            if _field in self.default_order_params:
+                self.default_order_params.remove(_field)
+            if f'-{_field}' in self.default_order_params:
+                self.default_order_params.remove(f'-{_field}')
+            ###
+
+            if _field in self.order_params:
                 django_order = '' if order == 'asc' else '-'
-                django_field = self.order_params[inflection.underscore(field)]
+                django_field = self.order_params[_field]
 
                 django_order_params.append(f'{django_order}{django_field}')
 
@@ -208,6 +220,28 @@ class RequestMapper:
                 range_from = timestamp_to_datetime(float(_range_from_ts))
                 range_to = timestamp_to_datetime(float(_range_to_ts))
                 return range_from, range_to
+            if raise_exception:
+                raise CustomException(errors=[
+                    dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),
+                ])
+            return None, None
+        except Exception as e:
+            logger.error(e)
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),
+            ])
+
+    # проверяем валидность заданной даты
+    @classmethod
+    def current_date_range(cls, request, raise_exception=False):
+        try:
+            query_params = underscoreize(request.query_params)
+            _current_date_ts = chained_get(query_params, 'current_date')
+            if _current_date_ts is not None:
+                current_date = timestamp_to_datetime(float(_current_date_ts))
+                next_day = current_date + timedelta(days=1)
+                next_day = next_day.replace(hour=0, minute=0, second=0)
+                return current_date, next_day
             if raise_exception:
                 raise CustomException(errors=[
                     dict(Error(ErrorsCodes.INVALID_DATE_RANGE)),

@@ -33,6 +33,32 @@ class ErrorsCodes(EnumM):
 
     WRONG_PASSWORD = 'Неверный пароль'
 
+    APPEAL_EXISTS = 'Вы уже откликнулись на эту смену'
+    APPEALS_LIMIT_REACHED = 'Слишком много откликов на смены с пересекающимся временем'
+    SHIFT_WITHOUT_TIME = 'У cмены нет времени начала и окончания'
+    SHIFT_OVERDUE = 'Просроченная смена'
+
+    VACANCY_OR_SHOP_CHAT_IS_BLOCKED = 'Вы были заблокированы и не можете подать заявку на эту вакансию'
+
+    APPEAL_ALREADY_COMPLETED = 'Эта смена уже завершена'
+    APPEAL_ALREADY_CANCELLED = 'Эта смена уже закрыта'
+    INCONVENIENT_JOB_STATUS = 'Для выполнения данного действия статус работы должен быть другим'
+
+    TOO_MANY_REVIEWS = 'Слишком много отзывов'
+
+    NO_SUITABLE_COUPON = 'Нет подходящего купона для данной операции'
+    YOU_HAVE_THIS_COUPON_ALREADY = 'Вы уже получали такой купон'
+
+    NOT_ENOUGH_BONUS_BALANCE = 'Недостаточно бонусов для данной операции'
+
+    CARD_ALREADY_USED_IN_OTHER_ACCOUNT = 'Карта уже используется в другом аккаунте'
+
+    MAX_PREFERRED_PRIZES_AMOUNT_EXCEEDED = 'Превышено число предпочитаемых товаров данного уровня'
+
+    NO_ACTIVE_INSURANCE = 'Нет оформленной страховки'
+
+    PRIZE_CARD_WAS_NOT_BEEN_ISSUED = 'Новая карточка Вам еще не выдавалась'
+
 
 class SocketErrors(IntEnumM):
     # Диапазон 3000-4999

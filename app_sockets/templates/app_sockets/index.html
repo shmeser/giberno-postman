@@ -10,25 +10,39 @@
             <label for="jwt-token">
                 JWT
             </label>
-            <input
-                    placeholder="Token"
-                    value="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjE2MDU4MjUwLCJqdGkiOiJjNTkwNzg4MDVhNzI0M2JlODNmYmY5Zjk5Mjc4NThmOSIsInVzZXJfaWQiOjEzfQ.sAPyHybXiyoGb1NGA5KqIFfxwFRvEZGpfHlBpsZlhdQ"
-                    id="jwt-token" type="text" required="required"
-            />
+            <div class="flex flex-row w-100 jc-around">
+                <input
+                        placeholder="JWT Token (сохраняется в LocalStorage при успешном соединении)"
+                        id="jwt-token" type="text"
+                />
+                <select
+                        class="select-users"
+                        aria-label=""
+                        id="saved-jwt"
+                        onchange="changeJwt()"
+                >
+                    <option disabled="true" selected="true">Saved JWT</option>
+                </select>
+                <button class="clear-jwt" id="clear-jwt" onclick="clearJWT()">✖</button>
+            </div>
             <label for="sockets-route">
                 SOCKET ROUTE
             </label>
             <div class="routes-block">
                 <input
-                        placeholder="/sockets/chats/1"
-                        value="/sockets"
+                        placeholder="/v1.0/sockets или /v1.0/sockets/chats/1"
+                        value=""
                         id="sockets-route" type="text" required="required"
                 />
-                <input type="button" value="add connection" id="connect-button">
+                <button class="clear-route" id="clear-route" onclick="clearRoute()">✖</button>
+                <button type="button" id="connect-button">Add Connection</button>
             </div>
         </div>
 
-        <div class="connections-container" id="connections"></div>
+        <div class="connections-container-scroll">
+            <div class="connections-container" id="connections"></div>
+        </div>
+
     </div>
 
 {% endblock %}
@@ -39,10 +53,136 @@
         let protocol = 'ws://';
         protocol = '{{ ws_protocol }}';
 
+        const _EVENT_TYPES = {
+            'LEAVE_TOPIC': 0,
+            'JOIN_TOPIC': 1,
+            'NEW_MESSAGE_TO_CHAT': 2,
+            'READ_MESSAGE_IN_CHAT': 3,
+            'NEW_COMMENT_TO_VACANCY': 4,
+            'SELECT_CHAT_BOT_INTENT': 5,
+            'LOCATION': 10,
+            'MANAGER_LEAVE_CHAT': 30,
+            'MANAGER_JOIN_CHAT': 31,
+            'SERVER_SYSTEM_MESSAGE': 100,
+            'SERVER_PROFILE_UPDATED': 101,
+            'SERVER_NEW_MESSAGE_IN_CHAT': 102,
+            'SERVER_MESSAGE_IN_CHAT_UPDATED': 103,
+            'SERVER_CHAT_UPDATED': 104,
+            'SERVER_CHAT_LAST_MESSAGE_UPDATED': 105,
+            'SERVER_CHAT_USER_STATUS_UPDATED': 106,
+            'SERVER_CHAT_USER_JOINED': 107,
+            'SERVER_CHAT_USER_LEAVED': 108,
+            'SERVER_CHAT_STATE_UPDATED': 109,
+            'SERVER_CHAT_BOT_INTENT_ACCEPTED': 110,
+            'SERVER_COUNTERS_UPDATE': 120,
+            'NOTIFICATION': 200,
+            'TOPIC_LEAVED': 300,
+            'TOPIC_JOINED': 301,
+            'ERROR': 400
+        };
+
         let socket;
 
         let socketConnections = []; // Массив подключенных сокетов
 
+        const uuidV4 = () => {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        };
+
+        const clearJWT = () => {
+            document.getElementById('jwt-token').value = '';
+            document.getElementById('clear-jwt').blur();
+            localStorage.removeItem('socket-jwt');
+            localStorage.removeItem('saved-jwt');
+            rebuildSavedJwtOptions();
+        };
+
+        const updateJwtForUser = (userId) => {
+            let currentJwt = localStorage.getItem('socket-jwt');
+            let savedJwtArray = JSON.parse(localStorage.getItem('saved-jwt') || '[]');
+            savedJwtArray = savedJwtArray.filter(e => e.userId !== userId);
+            savedJwtArray.push({
+                userId,
+                jwt: currentJwt
+            });
+
+            let savedJwtArrayString = JSON.stringify(savedJwtArray);
+            localStorage.setItem('saved-jwt', savedJwtArrayString);
+
+            rebuildSavedJwtOptions(savedJwtArray, currentJwt);
+
+        };
+
+        const updateConnectionForUser = (connectionId, userId) => {
+            document.getElementById('userFor' + connectionId).innerText = 'User ID:' + userId;
+            document.getElementById(connectionId).dataset.user = userId;
+        };
+
+        const rebuildSavedJwtOptions = (savedJwt = [], curJwt = null) => {
+            let selectObject = document.getElementById('saved-jwt');
+
+            let options = selectObject.options;
+            options.length = 0;
+
+            let baseOpt = document.createElement('option');
+            baseOpt.innerHTML = 'Saved JWT';
+            baseOpt.setAttribute('disabled', 'true');
+            if (!savedJwt.length) {
+                baseOpt.setAttribute('selected', 'true');
+            }
+            selectObject.appendChild(baseOpt);
+
+            for (let obj of savedJwt) {
+                let opt = document.createElement('option');
+                opt.value = obj.jwt;
+                opt.innerHTML = 'User ID' + obj.userId;
+                if (obj.jwt === curJwt) {
+                    opt.setAttribute('selected', 'true');
+                }
+                selectObject.appendChild(opt);
+            }
+
+        };
+
+        const getUsers = () => {
+            let currentJwt = localStorage.getItem('socket-jwt');
+            let savedJwtArray = JSON.parse(localStorage.getItem('saved-jwt') || '[]');
+            rebuildSavedJwtOptions(savedJwtArray, currentJwt);
+        };
+
+        const changeJwt = () => {
+            let selectObject = document.getElementById('saved-jwt');
+            document.getElementById('jwt-token').value = selectObject.value;
+            localStorage.setItem('socket-jwt', selectObject.value);
+
+        };
+
+        const getJWT = () => {
+            document.getElementById('jwt-token').value = localStorage.getItem('socket-jwt');
+        };
+
+        const setJWT = () => {
+            const jwt = document.getElementById('jwt-token').value;
+            localStorage.setItem('socket-jwt', jwt);
+        };
+
+        const clearRoute = () => {
+            document.getElementById('sockets-route').value = '';
+            document.getElementById('clear-route').blur();
+            localStorage.removeItem('sockets-route');
+        };
+
+        const getRoute = () => {
+            document.getElementById('sockets-route').value = localStorage.getItem('sockets-route');
+        };
+
+        const setRoute = () => {
+            const jwt = document.getElementById('sockets-route').value;
+            localStorage.setItem('sockets-route', jwt);
+        };
 
         const disconnect = (connectionId) => {
             const connection = socketConnections.find(e => e.id === connectionId); // Ищем нужное соединение
@@ -69,18 +209,29 @@
 
             sendEvent(connectionId, data); // Отправляем
 
+            let messageBody = document.getElementById(`message-${connectionId}`);
+
+            // Меняем uuid на новый в блоке сообщения, если он есть
+            let messageData = JSON.parse( // Парсим полученную JSON-строку из поля ввода тела сообщения
+                messageBody.value
+            );
+
+            if (messageData.uuid) {
+                messageData.uuid = uuidV4()
+            }
+            messageBody.value = JSON.stringify(messageData, undefined, 4);
         };
 
         const disableConnectionBlock = (connectionId) => {
             // Отключение кнопок при отсоединении от сокетов
             let connectionBlock = document.getElementById(`${connectionId}`);
-            let disconnectButton = document.getElementById(`disconnect-${connectionId}`);
+            connectionBlock.classList.add('closed');
 
             let button = document.getElementById(`action-${connectionId}`);
             button.setAttribute('disabled', 'disabled');
 
-            disconnectButton.value = 'Remove Block';
-            connectionBlock.classList.add('closed')
+            let disconnectButton = document.getElementById(`disconnect-${connectionId}`);
+            disconnectButton.innerText = 'Remove Block';
         };
 
         const addMessageToHistory = (id, data, className = 'system') => {
@@ -111,12 +262,24 @@
             connection.socket.send(data) // Отправляем данные
         };
 
-
         const formatMessage = (connectionId, eventType) => {
             let messageBody = document.getElementById(`message-${connectionId}`);
 
             //eventType из енума SocketEventType
-            if (eventType === 1) {
+            if (eventType === _EVENT_TYPES.JOIN_TOPIC) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "topic": 'chats1'
+                }, undefined, 4);
+            }
+            if (eventType === _EVENT_TYPES.LEAVE_TOPIC) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "topic": 'vacancies2'
+                }, undefined, 4);
+            }
+
+            if (eventType === _EVENT_TYPES.LOCATION) {
                 messageBody.value = JSON.stringify({
                     "eventType": eventType,
                     "lat": 55,
@@ -124,39 +287,136 @@
                 }, undefined, 4);
             }
 
-
-            if (eventType === 2) {
+            if (eventType === _EVENT_TYPES.NEW_MESSAGE_TO_CHAT) {
                 messageBody.value = JSON.stringify({
                     "eventType": eventType,
-                    "attachmentType": null, // 1 - image, 2 - audio, 3 - video
-                    "attachmentPreviewUrl": "/media/preview/sample.jpeg",
-                    "attachmentUrl": "/media/sample.jpeg",
+                    "messageType": 1,
+                    "chatId": 1,
+                    "uuid": uuidV4(),
                     "text": "тестовое сообщение",
+                    "attachments": [
+                        '73f39c0e-9e5f-4f26-a15f-5eb7f6547b36',
+                        'a2f2dce9-0e7e-4947-a0a3-775e74a97daa',
+                        '4ad0c744-b8d0-4bcf-8705-e0930641fdeb'
+                    ],
+                    "commandData": {
+                        "acceptDocs": [
+                            '73f39c0e-9e5f-4f26-a15f-5eb7f6547b36',
+                            'a2f2dce9-0e7e-4947-a0a3-775e74a97daa',
+                            '4ad0c744-b8d0-4bcf-8705-e0930641fdeb'
+                        ]
+                    }
+                }, undefined, 4);
+            }
+
+            if (eventType === _EVENT_TYPES.READ_MESSAGE_IN_CHAT) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "chatId": 1,
+                    "uuid": uuidV4()
+                }, undefined, 4);
+            }
+
+            if (eventType === _EVENT_TYPES.MANAGER_LEAVE_CHAT) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "chatId": 1,
+                }, undefined, 4);
+            }
+
+            if (eventType === _EVENT_TYPES.MANAGER_JOIN_CHAT) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "chatId": 1,
+                }, undefined, 4);
+            }
+
+             if (eventType === _EVENT_TYPES.SELECT_CHAT_BOT_INTENT) {
+                messageBody.value = JSON.stringify({
+                    "eventType": eventType,
+                    "chatId": 1,
+                    "intent": 1,
                 }, undefined, 4);
             }
 
         };
 
-
         const addConnectionBlock = (connectionId, jwt, route) => {
             $('#connections').prepend(
-                `<div class="connection mb-10" id="${connectionId}">
+                `<div class="connection mb-10 mr-10" id="${connectionId}">
                     <div class="dashboard">
-                        <div class="connection-status mb-10 pb-10">
-                            <div class="jwt">${jwt}</div>
-                            <label class="connection-route" for="disconnect-button">${route}</label>
-                            <input id="disconnect-${connectionId}" type="button" class="connection-button disconnect-button" value="Disconnect" onclick="disconnect(${connectionId});">
+                        <div class="flex jc-center">
+                            <label class="connection-route" for="disconnect-button"><span class="jwt-user" id="userFor${connectionId}"></span> ${route}</label>
                         </div>
-                        <div class="event-options mb-10">
-                            <button class="message-type-button" onclick="formatMessage(${connectionId}, 1)">Location</button>
-                            <button class="message-type-button" onclick="formatMessage(${connectionId}, 2)">Message</button>
+                        <div class="flex h-fit flex-row">
+                            <div class="flex-1 h-auto flex-column">
+                                <div class="connection-status mb-10 pb-10">
+                                    <div class="jwt">${jwt}</div>
+                                </div>
+                                <div class="event-options mb-10 oy-scroll">
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.JOIN_TOPIC})">Join Topic</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.LEAVE_TOPIC})">Leave Topic</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.LOCATION})">Location</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.NEW_MESSAGE_TO_CHAT})">Message</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.READ_MESSAGE_IN_CHAT})">Read Message</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.MANAGER_JOIN_CHAT})">Manager join chat</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.MANAGER_LEAVE_CHAT})">Manager leave chat</button>
+                                    <button class="message-type-button" onclick="formatMessage(${connectionId}, ${_EVENT_TYPES.SELECT_CHAT_BOT_INTENT})"> Select Intent</button>
+                                </div>
+                                <button id="disconnect-${connectionId}" type="button" class="connection-button disconnect-button" onclick="disconnect(${connectionId});">Disconnect</button>
+                            </div>
+                            <div class="flex-2 h-auto flex-column">
+                                <textarea rows="10" id="message-${connectionId}">{}</textarea>
+                                <button class="action-button connection-button" id="action-${connectionId}" onclick=sendMessage(${connectionId})>Send Data</button>
+                            </div>
                         </div>
-                        <textarea rows="10" id="message-${connectionId}"/>
-                        <button class="action-button connection-button" id="action-${connectionId}" onclick=sendMessage(${connectionId})>Send Data</button>
                     </div>
-                    <div class="messages" id="messages-history-${connectionId}"></div>
+                    <div class="events">
+                        <div class="messages" id="messages-history-${connectionId}"></div>
+                        <div class="chat d-none" id="chat-history-${connectionId}"></div>
+                    </div
                 </div>`
             )
+        };
+
+        const addChat = (connectionId) => {
+            let chatBlock = document.getElementById(`chat-history-${connectionId}`);
+            chatBlock.classList.remove('d-none');
+            chatBlock.innerHTML = '';
+        };
+
+        const removeChat = (connectionId) => {
+            let chatBlock = document.getElementById(`chat-history-${connectionId}`);
+            chatBlock.classList.add('d-none');
+            chatBlock.innerHTML = '';
+        };
+
+        const addMessageToChat = (id, message) => {
+            let chatMessagesHistoryEl = document.getElementById(`chat-history-${id}`); // Блок истории сообщений
+
+            // Создаем элемент с данными сообщения
+            let messageHTML = document.createElement('pre');
+
+            let userInConnection = document.getElementById(id).dataset.user;
+
+
+            messageHTML.className = message.userId === +userInConnection ? 'outcomming' : 'incomming';
+            messageHTML.innerHTML = message.text;
+            // Создаем элемент для времени и даты
+            let messageDateTime = document.createElement('p');
+            messageDateTime.appendChild(document.createTextNode((new Date(message.createdAt)).toISOString()));
+            messageDateTime.className = 'message-datetime';
+            // Создаем блок-контейнер для сообщения
+            let messageBlock = document.createElement('div');
+            messageBlock.className = 'message-block';
+
+            messageBlock.appendChild(messageDateTime);
+            messageBlock.appendChild(messageHTML);
+
+            chatMessagesHistoryEl.append(messageBlock); // Добавляем блок в историю
+
+            chatMessagesHistoryEl.scrollTop = chatMessagesHistoryEl.scrollHeight - chatMessagesHistoryEl.clientHeight;
+
         };
 
 
@@ -169,6 +429,8 @@
             );
 
             socket.onopen = (event) => {
+                setJWT(); // Сохраняем JWT при успешном соединении
+                setRoute(); // Сохраняем route при успешном соединении
                 console.log('Connected to socket', event);
             };
             socket.onclose = (event) => {
@@ -198,10 +460,25 @@
 
             socket.onmessage = function (message) {
                 let data = JSON.parse(message.data);
-                console.log(data);
                 // Handle errors
                 if (data.error) {
                     console.log(data.error);
+                }
+
+                if (data.eventType === _EVENT_TYPES.SERVER_COUNTERS_UPDATE) {
+                    updateJwtForUser(data.userId);
+                    updateConnectionForUser(id, data.userId);
+                }
+
+                if (data.eventType === _EVENT_TYPES.TOPIC_JOINED && data.topic.includes('chats')) {
+                    addChat(id, data.userId);
+                }
+                if (data.eventType === _EVENT_TYPES.TOPIC_LEAVED && data.topic.includes('chats')) {
+                    removeChat(id, data.userId);
+                }
+
+                if (data.eventType === _EVENT_TYPES.SERVER_NEW_MESSAGE_IN_CHAT) {
+                    addMessageToChat(id, data.message);
                 }
 
                 data = JSON.stringify(data, undefined, 4);
@@ -223,5 +500,11 @@
             );
             return false;
         };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            getJWT();
+            getUsers();
+            getRoute();
+        });
     </script>
 {% endblock %}

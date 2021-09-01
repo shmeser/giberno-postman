@@ -22,6 +22,17 @@ class MediaType(IntEnumM):
     BANNER = 9
     MAP = 10
     NOTIFICATION_ICON = 11
+    ATTACHMENT = 12
+    RULES_AND_ARTICLES = 13  # Уставы, правила, техники безопасности эксплуатации и т.д.
+    ACHIEVEMENT_ICON = 14
+    PROMO_TERMS = 15  # Условия акций
+    PARTNERS_SHOP_TERMS = 16  # Документ для "магазина репутация"
+    MARKETING_POLICY = 17  # Маркетинговая политика
+    PRIZE_IMAGE = 18  # Изображение приза
+    VACCINATION_CERTIFICATE = 19  # Сертификат о вакцинации
+    VISA = 20  # Виза
+    RESIDENT_CARD = 21  # Вид на жительство
+    MIGRATION_CARD = 22  # Миграционная карта
 
 
 class FileDownloadStatus(IntEnumM):

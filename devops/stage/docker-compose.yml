@@ -23,7 +23,7 @@ services:
     volumes:
       - ./data/postgisdb:/var/lib/postgresql/data
   api:
-    image: registry.appcraft.team:5005/giberno/giberno-server
+    image: registry.appcraft.team:5005/giberno/giberno-server:stage
     restart: always
     command: bash -c "python3 manage.py migrate && python3 manage.py seed && python3 manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p ${ST_API_PORT} giberno.asgi:application"
     environment:
@@ -37,13 +37,16 @@ services:
       DB_PASSWORD: ${ST_POSTGRES_PASSWORD}
       SUPERUSER_PASS: ${ST_SUPERUSER_PASS}
       ENVIRONMENT: ${ST_ENVIRONMENT}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_TOKEN: ${ST_TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_PASSWORD: ${TELEGRAM_BOT_PASSWORD}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+      GOOGLE_CLOUD_API_KEY: ${GOOGLE_CLOUD_API_KEY}
       SECRET_KEY: ${ST_SECRET_KEY}
       VK_APP_ID: ${DEV_VK_APP_ID}
       VK_APP_SECRET: ${DEV_VK_APP_SECRET}
       API_PORT: ${ST_API_PORT}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER}
       DEBUG: ${DEBUG}
     ports:
       - "127.0.0.1:${ST_API_PORT}:${ST_API_PORT}"
@@ -55,7 +58,7 @@ services:
     volumes:
       - ./files:/code/files
   celery:
-    image: registry.appcraft.team:5005/giberno/giberno-server
+    image: registry.appcraft.team:5005/giberno/giberno-server:stage
     command: celery -A giberno worker -l info
     environment:
       REDIS_HOST: redis
@@ -67,6 +70,7 @@ services:
       SUPERUSER_PASS: ${ST_SUPERUSER_PASS}
       ENVIRONMENT: ${ST_ENVIRONMENT}
       FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+      GOOGLE_CLOUD_API_KEY: ${GOOGLE_CLOUD_API_KEY}
       SECRET_KEY: ${ST_SECRET_KEY}
     depends_on:
       - db
@@ -76,7 +80,7 @@ services:
     volumes:
       - ./files:/code/files
   celery-beat:
-    image: registry.appcraft.team:5005/giberno/giberno-server
+    image: registry.appcraft.team:5005/giberno/giberno-server:stage
     command: celery -A giberno beat -l info
     environment:
       REDIS_HOST: redis
@@ -87,6 +91,9 @@ services:
       DB_PASSWORD: ${ST_POSTGRES_PASSWORD}
       SUPERUSER_PASS: ${ST_SUPERUSER_PASS}
       ENVIRONMENT: ${ST_ENVIRONMENT}
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+      GOOGLE_CLOUD_API_KEY: ${GOOGLE_CLOUD_API_KEY}
+      SECRET_KEY: ${ST_SECRET_KEY}
     depends_on:
       - db
       - redis

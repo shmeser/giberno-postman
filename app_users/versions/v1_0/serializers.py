@@ -1,31 +1,36 @@
+import re
 import string
 
+import luhn
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
 from rest_framework import serializers
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from app_feedback.models import Review
 from app_geo.models import City, Country
 from app_geo.versions.v1_0.repositories import CountriesRepository
 from app_geo.versions.v1_0.serializers import LanguageSerializer, CountrySerializer, CitySerializer
-from app_market.models import UserProfession, Profession, UserSkill, Skill
-from app_market.versions.v1_0.serializers import ProfessionSerializer, SkillSerializer
+from app_market.enums import ShiftAppealStatus
+from app_market.models import UserProfession, Profession, UserSkill, Skill, ShiftAppealInsurance
+from app_market.versions.v1_0.serializers import SkillSerializer, DistributorsSerializer, \
+    ProfessionInProfileSerializer
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
-from app_users.enums import LanguageProficiency, AccountType
+from app_users.enums import LanguageProficiency, CardType, CardPaymentNetwork, DocumentType
 from app_users.models import UserProfile, SocialModel, UserLanguage, UserNationality, Notification, \
-    NotificationsSettings, UserCity, UserCareer, Document
-from app_users.utils import generate_username
+    NotificationsSettings, UserCity, UserCareer, Document, Card, UserMoney
 from app_users.versions.v1_0.repositories import ProfileRepository, SocialsRepository, NotificationsRepository, \
     CareerRepository, DocumentsRepository
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
-from backend.errors.http_exception import CustomException
+from backend.errors.http_exceptions import CustomException
 from backend.fields import DateTimeField
 from backend.mixins import CRUDSerializer
+from backend.utils import choices, credit_regex
 
 
 class RefreshTokenSerializer(serializers.Serializer):
@@ -57,10 +62,12 @@ class RefreshTokenSerializer(serializers.Serializer):
 class ProfileSerializer(CRUDSerializer):
     repository = ProfileRepository
 
+    has_insurance = serializers.SerializerMethodField(read_only=True)
+    has_vaccination = serializers.SerializerMethodField(read_only=True)
+
     account_type = serializers.SerializerMethodField(read_only=True)
     birth_date = DateTimeField(required=False)
     avatar = serializers.SerializerMethodField(read_only=True)
-    documents = serializers.SerializerMethodField(read_only=True)
     languages = serializers.SerializerMethodField()
     professions = serializers.SerializerMethodField()
     skills = serializers.SerializerMethodField()
@@ -72,8 +79,9 @@ class ProfileSerializer(CRUDSerializer):
 
     registration_completed = serializers.SerializerMethodField()
 
-    rating_place = serializers.SerializerMethodField(read_only=True)
     notifications_count = serializers.SerializerMethodField(read_only=True)
+
+    distributors = serializers.SerializerMethodField(read_only=True)
 
     def validate(self, attrs):
         errors = []
@@ -207,9 +215,9 @@ class ProfileSerializer(CRUDSerializer):
     def update_professions(self, data, errors):
         professions = data.pop('professions', None)
         if professions is not None and isinstance(professions, list):  # Обрабатываем только массив
-            # Удаляем языки
+            # Удаляем професии
             self.instance.userprofession_set.all().update(deleted=True)
-            # Добавляем или обновляем языки пользователя
+            # Добавляем или професии
             for p in professions:
                 profession_id = p.get('id', None) if isinstance(p, dict) else p
                 if profession_id is None:
@@ -290,6 +298,7 @@ class ProfileSerializer(CRUDSerializer):
         return profile.account_type
 
     def get_avatar(self, profile: UserProfile):
+        # TODO префетчить
         avatar = MediaRepository().filter_by_kwargs({
             'owner_id': profile.id,
             'owner_ct_id': ContentType.objects.get_for_model(profile).id,
@@ -300,23 +309,8 @@ class ProfileSerializer(CRUDSerializer):
             return MediaSerializer(avatar, many=False).data
         return None
 
-    def get_documents(self, profile):
-        documents = MediaRepository().filter_by_kwargs({
-            'owner_id': profile.id,
-            'owner_ct_id': ContentType.objects.get_for_model(profile).id,
-            'type__in': [
-                MediaType.PASSPORT.value,
-                MediaType.INN.value,
-                MediaType.SNILS.value,
-                MediaType.MEDICAL_BOOK.value,
-                MediaType.DRIVER_LICENCE.value,
-            ],
-            'format__in': [MediaFormat.IMAGE.value, MediaFormat.DOCUMENT.value]
-        }, order_by=['-created_at'])
-
-        return MediaSerializer(documents, many=True).data
-
     def get_socials(self, profile: UserProfile):
+        # TODO префетчить
         socials = SocialsRepository().filter_by_kwargs({
             'user': profile,
             'deleted': False
@@ -325,6 +319,7 @@ class ProfileSerializer(CRUDSerializer):
         return SocialSerializer(socials, many=True).data
 
     def get_languages(self, profile: UserProfile):
+        # TODO префетчить
         return LanguageSerializer(
             profile.languages.filter(userlanguage__deleted=False), many=True,
             context={
@@ -334,6 +329,7 @@ class ProfileSerializer(CRUDSerializer):
         ).data
 
     def get_nationalities(self, profile: UserProfile):
+        # TODO префетчить
         return CountrySerializer(
             CountriesRepository().fast_related_loading(
                 profile.nationalities.filter(usernationality__deleted=False),
@@ -345,7 +341,8 @@ class ProfileSerializer(CRUDSerializer):
         ).data
 
     def get_professions(self, profile: UserProfile):
-        return ProfessionSerializer(
+        # TODO префетчить
+        return ProfessionInProfileSerializer(
             Profession.objects.filter(userprofession__user=profile, userprofession__deleted=False, deleted=False),
             many=True, context={
                 'me': self.me,
@@ -354,6 +351,7 @@ class ProfileSerializer(CRUDSerializer):
         ).data
 
     def get_skills(self, profile: UserProfile):
+        # TODO префетчить
         return SkillSerializer(
             Skill.objects.filter(userskill__user=profile, userskill__deleted=False, deleted=False),
             many=True, context={
@@ -363,15 +361,14 @@ class ProfileSerializer(CRUDSerializer):
         ).data
 
     def get_cities(self, profile: UserProfile):
+        # TODO префетчить
         return CitySerializer(profile.cities.filter(usercity__deleted=False), many=True, context={
             'me': self.me,
             'headers': self.headers
         }).data
 
-    def get_rating_place(self, profile: UserProfile):
-        return None
-
     def get_notifications_count(self, profile: UserProfile):
+        # TODO переделать на вычисление в annotate для ускорения
         return profile.notification_set.filter(read_at__isnull=True, deleted=False).count()
 
     def get_registration_completed(self, profile: UserProfile):
@@ -383,10 +380,32 @@ class ProfileSerializer(CRUDSerializer):
             return True
         return False
 
+    @staticmethod
+    def get_distributors(instance):
+        # TODO префетчить
+        return DistributorsSerializer(instance=instance.distributors.all(), many=True).data
+
+    @staticmethod
+    def get_has_insurance(instance):
+        return ShiftAppealInsurance.objects.filter(
+            appeal__applier=instance,
+            appeal__status=ShiftAppealStatus.CONFIRMED.value,
+            deleted=False,
+        ).exists()
+
+    @staticmethod
+    def get_has_vaccination(instance):
+        return Document.objects.filter(
+            type=DocumentType.VACCINATION_CERTIFICATE.value,
+            user=instance,
+            deleted=False
+        ).exists()
+
     class Meta:
         model = UserProfile
         fields = [
             'id',
+            'username',
             'account_type',
             'first_name',
             'last_name',
@@ -401,7 +420,6 @@ class ProfileSerializer(CRUDSerializer):
             'agreement_accepted',
             'registration_completed',
             'verified',
-            'bonus_balance',
             'rating_place',
             'notifications_count',
             'favourite_vacancies_count',
@@ -410,8 +428,13 @@ class ProfileSerializer(CRUDSerializer):
             'instagram_link',
             'education',
 
+            'has_insurance',
+            'has_vaccination',
+
+            'nalog_status',
+
+
             'avatar',
-            'documents',
             'socials',
             'languages',
             'nationalities',
@@ -419,16 +442,16 @@ class ProfileSerializer(CRUDSerializer):
             'cities',
             'skills',
 
-            'manager_position',
             'distributors',
-            'manager_shops'
+            'shops',
         ]
 
         extra_kwargs = {
             'phone': {'read_only': True},
             'verified': {'read_only': True},
-            'bonus_balance': {'read_only': True},
-            'favourite_vacancies_count': {'read_only': True}
+            'bonuses_acquired': {'read_only': True},
+            'favourite_vacancies_count': {'read_only': True},
+            'nalog_status': {'read_only': True}
         }
 
 
@@ -461,7 +484,7 @@ class NotificationSerializer(CRUDSerializer):
     icon = serializers.SerializerMethodField()
 
     def get_icon(self, prefetched_data):
-        return MediaController(self.instance).get_related_image(prefetched_data, MediaType.NOTIFICATION_ICON.value)
+        return MediaController(self.instance).get_related_images(prefetched_data, MediaType.NOTIFICATION_ICON.value)
 
     class Meta:
         model = Notification
@@ -485,6 +508,7 @@ class NotificationsSettingsSerializer(serializers.ModelSerializer):
         model = NotificationsSettings
         fields = [
             'enabled_types',
+            'sound_enabled',
         ]
 
 
@@ -570,8 +594,8 @@ class DocumentSerializer(CRUDSerializer):
     repository = DocumentsRepository
 
     media = serializers.SerializerMethodField()
-    expiration_date = DateTimeField()
-    issue_date = DateTimeField()
+    expiration_date = DateTimeField(required=False)
+    issue_date = DateTimeField(required=False)
     created_at = DateTimeField(read_only=True)
 
     def to_internal_value(self, data):
@@ -584,8 +608,9 @@ class DocumentSerializer(CRUDSerializer):
 
         return ret
 
-    def get_media(self, document: Document):
-        return MediaSerializer(document.media.all(), many=True).data
+    def get_media(self, prefetched_data):
+        return MediaController(self.instance).get_related_media(prefetched_data, multiple=True)
+        # return MediaSerializer(prefetched_data.medias, many=True).data
 
     class Meta:
         model = Document
@@ -598,6 +623,7 @@ class DocumentSerializer(CRUDSerializer):
             'department_code',
             'issue_place',
             'issue_date',
+            'is_foreign',
             'expiration_date',
             'created_at',
             'media'
@@ -615,19 +641,8 @@ class CreateManagerByAdminSerializer(serializers.ModelSerializer):
             'middle_name',
             'last_name',
             'distributors',
-            'manager_shops'
+            'shops'
         ]
-
-    def validate(self, attrs):
-        username = generate_username()
-
-        default_data = {
-            'username': username,
-            'account_type': AccountType.MANAGER,
-            'reg_reference': self.context['request'].user
-        }
-        attrs.update(default_data)
-        return attrs
 
 
 class UsernameSerializer(serializers.Serializer):
@@ -675,20 +690,103 @@ class EditManagerProfileSerializer(serializers.ModelSerializer):
             'last_name',
         ]
 
-    # SERIALIZERS ONLY FOR SWAGGER
 
-
+# SERIALIZERS ONLY FOR SWAGGER
 class FirebaseAuthRequestDescriptor(serializers.Serializer):
     firebase_token = serializers.CharField()
 
 
-class FirebaseAuthResponseDescriptor(serializers.Serializer):
-    refresh_token = serializers.CharField(max_length=255)
-    access_token = serializers.CharField(max_length=255)
+# ### SERIALIZERS ONLY FOR SWAGGER
 
 
-class ManagerAuthenticateResponseForSwagger(serializers.Serializer):
-    accessToken = serializers.CharField()
-    refreshToken = serializers.CharField()
-    password_changed = serializers.BooleanField()
-# SERIALIZERS ONLY FOR SWAGGER
+class CreateSecurityByAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = [
+            'distributors',
+            'shops'
+        ]
+
+
+class UserInReviewSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField(read_only=True)
+
+    def get_avatar(self, prefetched_data):
+        return MediaController(self.instance).get_related_images(
+            prefetched_data, MediaType.AVATAR.value, only_prefetched=False
+        )
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            'id',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'avatar',
+        ]
+
+
+class RatingSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
+    place = serializers.SerializerMethodField()
+
+    def get_place(self, instance):
+        return instance.place
+
+    def get_rating(self, instance):
+        return instance.total_rating
+
+    def get_user(self, instance):
+        return UserInReviewSerializer(instance, many=False).data
+
+    class Meta:
+        model = Review
+        fields = [
+            'place',
+            'rating',
+            'user'
+        ]
+
+
+class CardsValidator(serializers.Serializer):
+    pan = serializers.CharField(max_length=19, min_length=14)
+    valid_through = serializers.CharField(min_length=5, max_length=5)
+    type = serializers.ChoiceField(choices=choices(CardType))
+    payment_network = serializers.ChoiceField(choices=choices(CardPaymentNetwork))
+    issuer = serializers.CharField(required=False, min_length=3)
+
+    def validate_pan(self, value):
+        if not luhn.verify(value):
+            raise serializers.ValidationError("Invalid PAN")
+
+        return credit_regex().sub(r'****\8', value)  # r'\2********\8'
+
+    def validate_valid_through(self, value):
+        if not re.match(r"(0[1-9]|1[0-2])\/?([0-9]{4}|[0-9]{2})", value):
+            raise serializers.ValidationError("Invalid date for validThrough")
+        return value
+
+
+class CardsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Card
+        fields = [
+            'id',
+            'pan',
+            'valid_through',
+            'type',
+            'payment_network',
+            'issuer',
+        ]
+
+
+class MoneySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserMoney
+        fields = [
+            'id',
+            'currency',
+            'amount',
+        ]

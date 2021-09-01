@@ -8,7 +8,7 @@ from app_users.models import UserProfile
 from app_users.versions.v1_0.repositories import SocialsRepository, AuthRepository
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
-from backend.errors.http_exception import CustomException
+from backend.errors.http_exceptions import CustomException
 
 
 def exchange_access_token(backend, details, response, *args, **kwargs):

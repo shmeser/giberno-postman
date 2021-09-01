@@ -1,20 +1,47 @@
-import base64
-import os
+from loguru import logger
 
-import segno
+from app_sockets.controllers import SocketController
 
 
 class QRHandler:
-    def __init__(self, user_shift_model_instance):
-        user = user_shift_model_instance.user
-        shift = user_shift_model_instance.shift
-        self.info_to_encode = f"""{user} : {user.id}, {shift} : {shift.id}"""
-        self.qr_image_name = 'qr.png'
-        self.qr = segno.make(self.info_to_encode)
-        self.qr.save(self.qr_image_name)
+    def __init__(self, appeal):
+        self.appeal = appeal
 
-    def to_bas64(self):
-        return base64.b64encode(open(self.qr_image_name, "rb").read())
+    def create_qr_data(self):
+        return f'''userId={self.appeal.applier.id}&appealId={self.appeal.id}'''
 
-    def remove(self):
-        os.remove(self.qr_image_name)
+
+def send_socket_event_on_appeal_statuses(appeal, applier_sockets, managers_sockets):
+    # Только самозанятому
+    logger.info({
+        'type': 'appeal_job_status_updated',
+        'prepared_data': {
+            'id': appeal.id,
+            'jobStatus': appeal.job_status,
+        }
+    })
+
+    SocketController.send_message_to_many_connections(applier_sockets, {
+        'type': 'appeal_job_status_updated',
+        'prepared_data': {
+            'id': appeal.id,
+            'jobStatus': appeal.job_status,
+        }
+    })
+
+    # И самозанятому и менеджерам релевантным
+    sockets = applier_sockets + managers_sockets
+    logger.info({
+        'type': 'appeal_status_updated',
+        'prepared_data': {
+            'id': appeal.id,
+            'status': appeal.status,
+        }
+    })
+    SocketController.send_message_to_many_connections(sockets, {
+        'type': 'appeal_status_updated',
+        'prepared_data': {
+            'id': appeal.id,
+            'status': appeal.status,
+        }
+    })

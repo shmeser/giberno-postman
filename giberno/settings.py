@@ -4,6 +4,8 @@ from datetime import timedelta, datetime
 
 from celery.schedules import crontab
 
+from giberno.settings_vars.celery_beat_schedule import celery_beat_schedule
+
 SECRET_KEY = os.getenv('SECRET_KEY', 'TeStSeCrEtKeY')
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -15,15 +17,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'debug_toolbar',
     'django.contrib.gis',
     'django.contrib.postgres',
     'rest_framework',
     'rest_framework_simplejwt',
     'fcm_django',
-    'drf_yasg',
     'celery',
     'constance',
+    'corsheaders',
     'social_django',
     'backend.apps.BackendConfig',
     'app_seeds.apps.AppSeedsConfig',
@@ -34,6 +35,8 @@ INSTALLED_APPS = [
     'app_market.apps.AppMarketConfig',
     'app_feedback.apps.AppFeedbackConfig',
     'app_sockets.apps.AppSocketsConfig',
+    'app_chats.apps.AppChatsConfig',
+    'app_games.apps.AppGamesConfig',
 ]
 
 CHANNEL_LAYERS = {
@@ -53,14 +56,26 @@ CELERY_RESULT_SERIALIZER = 'json'
 WORKER_MAX_MEMORY_PER_CHILD = 200000
 
 MIDDLEWARE = [
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'backend.middlewares.UpdateUserLastLoginDT',
+    'backend.middlewares.UpdateRequestGeoByIP',
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "https://smz.giberno.ru:30002",
+    "https://smz.giberno.ru:20002",
+    "http://localhost:3000",
+]
+
+CORS_EXPOSE_HEADERS = [
+    'Total-Count'
 ]
 
 INTERNAL_IPS = ("127.0.0.1",)  # DebugToolbar
@@ -84,7 +99,7 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = 'giberno.routing.application'
+ASGI_APPLICATION = 'giberno.asgi.application'
 WSGI_APPLICATION = 'giberno.wsgi.application'
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -115,16 +130,7 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'backend.errors.handlers.custom_exception_handler'
 }
 
-CELERY_BEAT_SCHEDULE = {
-    # 'check_subscription': {
-    #     'task': 'subscriptions.tasks.check_subscription',
-    #     'schedule': crontab(hour='*', minute='0', day_of_week='*')
-    # },
-    'set_qr_code_to_user_shifts': {
-        'task': 'app_market.tasks.set_qr_code_to_user_shifts',
-        'schedule': crontab(minute='*')
-    }
-}
+CELERY_BEAT_SCHEDULE = celery_beat_schedule
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
@@ -201,6 +207,10 @@ VIDEO_MIME_TYPES = [
     'video/mpeg'
 ]
 
+# PRIZES
+BONUS_PROGRESS_STEP_VALUE = 500  # Шаг в накоплении бонусов для получения новых карточек с "осколками"
+MAX_AMOUNT_FOR_PREFERRED_DEFAULT_GRADE_PRIZES = 3  # Макс количество приоритетных призов обычного уровня
+
 # Устанавливаем единственный обработчик для загрузки файлов - через временные файлы на диске
 FILE_UPLOAD_HANDLERS = [
     "django.core.files.uploadhandler.TemporaryFileUploadHandler"
@@ -266,7 +276,7 @@ LOGGING = {
     'handlers': {
         'telegram_log': {
             'level': 'ERROR',
-            'class': 'app_bot.controllers.BotLogger',
+            'class': 'app_bot.controllers.TelegramBotLogger',
         },
         'file_log': {
             'level': 'ERROR',
@@ -284,6 +294,8 @@ LOGGING = {
         },
     },
 }
+
+AUTO_SWITCH_TO_BOT_MIN = 15
 
 # POSTGIS ###
 SRID = 4326  # WGS 84 -- WGS84 - World Geodetic System 1984, used in GPS
@@ -320,7 +332,7 @@ CONSTANCE_CONFIG = {
 }
 
 DEBUG = True if os.getenv('DEBUG', False) in ['True', 'true', 'TRUE', True] else False
-DEBUG=True
+
 if DEBUG is not False:
     SWAGGER_SETTINGS = {
         'SECURITY_DEFINITIONS': {
@@ -357,6 +369,16 @@ DATABASES = {
     },
 }
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', True)
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', False)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = os.getenv('EMAIL_PORT', 587)
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'test@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'test')
+
+GOOGLE_CLOUD_API_KEY = os.getenv('GOOGLE_CLOUD_API_KEY', '')
+
 try:
     from giberno.environment.local_settings import \
         TELEGRAM_BOT_TOKEN, \
@@ -370,17 +392,8 @@ try:
         CONSTANCE_CONFIG, \
         LOGGING, \
         SOCIAL_AUTH_VK_OAUTH2_KEY, \
-        DEBUG_TOOLBAR_PANELS
+        EMAIL_HOST_USER, \
+        GOOGLE_CLOUD_API_KEY, \
+        EMAIL_HOST_PASSWORD
 except ImportError as e:
     pass
-
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', True)
-EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', False)
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = os.getenv('EMAIL_PORT', 587)
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'gibernoappcraft@gmail.com')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '11random11')
-
-INTERNAL_IPS = [
-    '127.0.0.1',
-]

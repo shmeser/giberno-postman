@@ -9,7 +9,7 @@ from app_geo.models import Language, Country, City, Region
 from app_media.enums import MediaType, MediaFormat
 from app_media.models import MediaModel
 from backend.errors.enums import RESTErrors
-from backend.errors.http_exception import HttpException
+from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
 from giberno import settings
 from giberno.settings import NEAREST_POINT_DISTANCE_MAX, CLUSTER_MIN_POINTS_COUNT, CLUSTER_NESTED_ITEMS_COUNT
@@ -47,6 +47,7 @@ class CountriesRepository(MasterRepository):
             Prefetch(
                 'media',
                 queryset=MediaModel.objects.filter(
+                    deleted=False,
                     owner_ct_id=country_ct,
                     type=MediaType.FLAG.value,
                     format=MediaFormat.IMAGE.value,
@@ -143,10 +144,6 @@ class CitiesRepository(MasterRepository):
         queryset = self.filter_by_kwargs(kwargs, paginator, order_by, prefetch=False)
 
         return self.clustering(queryset)
-        # return self.fast_related_loading(  # Предзагрузка связанных сущностей
-        #     queryset=self.clustering(queryset),
-        #     point=self.point
-        # )
 
     def clustering(self, queryset):
         """
