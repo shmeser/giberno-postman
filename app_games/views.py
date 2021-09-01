@@ -118,7 +118,7 @@ class AdminPrize(AdminPrizes):
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['games_1_0']:
-            return v1_0.AdminPrize().patch(request, **kwargs)
+            return v1_0.AdminPrize().delete(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
@@ -156,7 +156,7 @@ class AdminTask(AdminTasks):
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['games_1_0']:
-            return v1_0.AdminTask().patch(request, **kwargs)
+            return v1_0.AdminTask().delete(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
