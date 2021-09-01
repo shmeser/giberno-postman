@@ -1921,7 +1921,7 @@ class AdminStructure(AdminStructures):
 
     def delete(self, request, **kwargs):
         record_id = kwargs.get(self.urlpattern_record_id_name)
-        instance = self.repository_class(me=request.user).admin_get_by_id(record_id)
+        instance = self.repository_class(me=request.user).get_by_id(record_id)
         instance.deleted = True
         instance.save()
 

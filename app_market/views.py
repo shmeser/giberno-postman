@@ -719,7 +719,7 @@ class AdminShop(APIView):
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
-            return v1_0.AdminShop().patch(request, **kwargs)
+            return v1_0.AdminShop().delete(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
