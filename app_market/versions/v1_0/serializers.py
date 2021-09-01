@@ -681,9 +681,9 @@ class VacanciesSerializerAdmin(VacanciesSerializer):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
-                current_model=self.me.__meta.model,
+                current_model=self.me._meta.model,
                 current_owner_id=self.me.id,
-                target_model=instance.__meta.model,
+                target_model=instance._meta.model,
                 target_owner_id=instance.id
             )
 
@@ -1392,9 +1392,9 @@ class PositionsSerializerAdmin(CRUDSerializer):
         if files:
             MediaRepository().reattach_files(
                 uuids=files,
-                current_model=self.me.__meta.model,
+                current_model=self.me._meta.model,
                 current_owner_id=self.me.id,
-                target_model=instance.__meta.model,
+                target_model=instance._meta.model,
                 target_owner_id=instance.id
             )
 
