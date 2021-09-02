@@ -19,7 +19,7 @@ from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shi
     Position
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository, ShopsRepository, StructuresRepository, PositionsRepository, \
-    CouponsRepository
+    CouponsRepository, CategoriesRepository, PartnersRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -50,6 +50,16 @@ def map_status_for_required_docs(required_docs, user_docs):
 
 
 class CategoriesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = [
+            'id', 'title'
+        ]
+
+
+class CategoriesSerializerAdmin(CRUDSerializer):
+    repository = CategoriesRepository
+
     class Meta:
         model = Category
         fields = [
@@ -1220,12 +1230,53 @@ class ShiftsSerializer(CRUDSerializer):
 
 class ShiftsSerializerAdmin(ShiftsSerializer):
     vacancy = serializers.SerializerMethodField()
+    shop = serializers.SerializerMethodField(read_only=True)
 
     def get_vacancy(self, data):
         return data.vacancy_id
 
     def get_shop(self, data):
         return data.vacancy.shop_id
+
+    def update_vacancy(self, ret, data, errors):
+        shop_id = data.pop('shop', None)
+        if shop_id is not None:
+            shop = Shop.objects.filter(pk=shop_id, deleted=False).first()
+            if shop is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {Shop._meta.verbose_name} с ID={shop_id} не найден'))
+                )
+            else:
+                ret['shop_id'] = shop_id
+
+    def check_vacancy(self, data):
+        vacancy_id = data.pop('vacancy', None)
+        vacancy = Vacancy.objects.filter(pk=vacancy_id, deleted=False).first()
+        if vacancy is None:
+            raise CustomException(errors=dict(Error(
+                code=ErrorsCodes.VALIDATION_ERROR.name,
+                detail=f'Объект {Vacancy._meta.verbose_name} с ID={vacancy_id} не найден'))
+            )
+        return vacancy_id, vacancy.shop_id
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+
+        if self.instance:
+            # Проверяем fk поля
+            self.update_vacancy(ret, data, errors)
+
+            # Проверяем m2m поля
+        else:
+            ret['vacancy_id'], ret['shop_id'] = self.check_vacancy(data)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
 
     class Meta:
         model = Shift
@@ -1327,12 +1378,13 @@ class PositionsSerializerAdmin(CRUDSerializer):
     professions = serializers.SerializerMethodField()
 
     def get_professions(self, prefetched_data):
-        return ProfessionInProfileSerializer(prefetched_data.professions, many=True).data
+        return prefetched_data.professions.values_list('id', flat=True)
+        # return ProfessionInProfileSerializer(prefetched_data.professions, many=True).data
 
     def update_professions(self, data, errors):
         professions = data.pop('professions', None)
         if professions is not None and isinstance(professions, list):  # Обрабатываем только массив
-            # Удаляем категории
+            # Удаляем профессии
             self.instance.professions.clear()  # Очищаем стандартную промежуточную таблицу для m2m
             # Добавляем или обновляем языки пользователя
             for item in professions:
@@ -1679,6 +1731,28 @@ class PartnersSerializer(serializers.ModelSerializer):
         ]
 
 
+class PartnersSerializerAdmin(CRUDSerializer):
+    repository = PartnersRepository
+
+    title = serializers.SerializerMethodField(read_only=True)
+    distributor = serializers.SerializerMethodField()
+
+    def get_title(self, data):
+        return data.distributor.title if data.distributor else None
+
+    def get_distributor(self, data):
+        return data.distributor_id
+
+    class Meta:
+        model = Partner
+        fields = [
+            'id',
+            'title',
+            'color',
+            'distributor'
+        ]
+
+
 class AchievementsSerializer(serializers.ModelSerializer):
     icon = serializers.SerializerMethodField()
     completed_at = serializers.SerializerMethodField()
@@ -1774,6 +1848,61 @@ class CouponsSerializer(CRUDSerializer):
 
 
 class CouponsSerializerAdmin(CouponsSerializer):
+    partner = serializers.SerializerMethodField()
+
+    def get_partner(self, data):
+        return data.partner_id
+
+    def update_partner(self, ret, data, errors):
+        partner_id = data.pop('partner', None)
+        if partner_id is not None:
+            partner = Partner.objects.filter(pk=partner_id, deleted=False).first()
+            if partner is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {Partner._meta.verbose_name} с ID={partner_id} не найден'))
+                )
+            else:
+                ret['partner_id'] = partner_id
+
+    def add_partner(self, instance, partner_id):
+        partner = Partner.objects.filter(pk=partner_id, deleted=False).first()
+        if partner is None:
+            raise CustomException(errors=dict(Error(
+                code=ErrorsCodes.VALIDATION_ERROR.name,
+                detail=f'Объект {Partner._meta.verbose_name} с ID={partner_id} не найден'))
+            )
+        instance.partner = partner
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+
+        if self.instance:
+            # Проверяем fk поля
+            self.update_partner(ret, data, errors)
+
+            # Проверяем m2m поля
+        else:
+            ret['partner'] = data.pop('partner', None)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def create(self, validated_data):
+        partner = validated_data.pop('partner', None)
+
+        instance = super().create(validated_data)
+        if partner:
+            self.add_partner(instance, partner)
+
+        instance.save()
+
+        return instance
+
     class Meta:
         model = Coupon
         fields = [

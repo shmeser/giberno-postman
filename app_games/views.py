@@ -100,7 +100,7 @@ class AdminPrizes(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class AdminPrize(AdminPrizes):
+class AdminPrize(APIView):
     permission_classes = [IsAdminOrManager]
 
     @staticmethod
@@ -122,6 +122,44 @@ class AdminPrize(AdminPrizes):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
+class AdminGoodsCategories(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminGoodsCategories().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminGoodsCategories().post(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
+class AdminGoodsCategory(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminGoodsCategory().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def put(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminGoodsCategory().put(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['games_1_0']:
+            return v1_0.AdminGoodsCategory().delete(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+
+
 class AdminTasks(APIView):
     permission_classes = [IsAdminOrManager]
 
@@ -138,7 +176,7 @@ class AdminTasks(APIView):
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
 
 
-class AdminTask(AdminTasks):
+class AdminTask(APIView):
     permission_classes = [IsAdminOrManager]
 
     @staticmethod
