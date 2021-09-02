@@ -2931,7 +2931,7 @@ class PartnersRepository(MasterRepository):
                 ),
                 to_attr='medias'
             )
-        )
+        ).select_related('distributor')
 
         return queryset
 

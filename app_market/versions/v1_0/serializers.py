@@ -1238,7 +1238,6 @@ class ShiftsSerializerAdmin(ShiftsSerializer):
     def get_shop(self, data):
         return data.vacancy.shop_id
 
-
     def update_vacancy(self, ret, data, errors):
         shop_id = data.pop('shop', None)
         if shop_id is not None:
@@ -1272,7 +1271,7 @@ class ShiftsSerializerAdmin(ShiftsSerializer):
 
             # Проверяем m2m поля
         else:
-            ret['vacancy_id'],ret['shop_id'] = self.check_vacancy(data)
+            ret['vacancy_id'], ret['shop_id'] = self.check_vacancy(data)
 
         if errors:
             raise CustomException(errors=errors)
@@ -1734,17 +1733,21 @@ class PartnersSerializer(serializers.ModelSerializer):
 
 class PartnersSerializerAdmin(CRUDSerializer):
     repository = PartnersRepository
+
+    title = serializers.SerializerMethodField(read_only=True)
     distributor = serializers.SerializerMethodField()
 
+    def get_title(self, data):
+        return data.distributor.title if data.distributor else None
+
     def get_distributor(self, data):
-        if data.distributor:
-            return DistributorInPartnerSerializer(data.distributor).data
-        return None
+        return data.distributor_id
 
     class Meta:
         model = Partner
         fields = [
             'id',
+            'title',
             'color',
             'distributor'
         ]
@@ -1845,6 +1848,61 @@ class CouponsSerializer(CRUDSerializer):
 
 
 class CouponsSerializerAdmin(CouponsSerializer):
+    partner = serializers.SerializerMethodField()
+
+    def get_partner(self, data):
+        return data.partner_id
+
+    def update_partner(self, ret, data, errors):
+        partner_id = data.pop('partner', None)
+        if partner_id is not None:
+            partner = Partner.objects.filter(pk=partner_id, deleted=False).first()
+            if partner is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {Partner._meta.verbose_name} с ID={partner_id} не найден'))
+                )
+            else:
+                ret['partner_id'] = partner_id
+
+    def add_partner(self, instance, partner_id):
+        partner = Partner.objects.filter(pk=partner_id, deleted=False).first()
+        if partner is None:
+            raise CustomException(errors=dict(Error(
+                code=ErrorsCodes.VALIDATION_ERROR.name,
+                detail=f'Объект {Partner._meta.verbose_name} с ID={partner_id} не найден'))
+            )
+        instance.partner = partner
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+
+        if self.instance:
+            # Проверяем fk поля
+            self.update_partner(ret, data, errors)
+
+            # Проверяем m2m поля
+        else:
+            ret['partner'] = data.pop('partner', None)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
+
+    def create(self, validated_data):
+        partner = validated_data.pop('partner', None)
+
+        instance = super().create(validated_data)
+        if partner:
+            self.add_partner(instance, partner)
+
+        instance.save()
+
+        return instance
+
     class Meta:
         model = Coupon
         fields = [
