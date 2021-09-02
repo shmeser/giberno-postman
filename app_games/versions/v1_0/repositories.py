@@ -7,7 +7,8 @@ from django.db.models.functions import Coalesce, Trunc
 from django.utils.timezone import now
 
 from app_games.enums import Grade, TaskKind, TaskPeriod
-from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress, PrizeCardsHistory, PrizeCard, UserTask
+from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress, PrizeCardsHistory, PrizeCard, UserTask, \
+    GoodsCategory
 from app_market.enums import Currency
 from app_market.versions.v1_0.repositories import ShiftAppealsRepository
 from app_media.enums import MediaType, MediaFormat
@@ -433,6 +434,35 @@ class PrizesRepository(MasterRepository):
     def admin_get_by_id(self, record_id):
         base_query = self.model.objects.annotate(available_count=self.available_count_expression)
         records = self.fast_related_loading(base_query.filter(pk=record_id).exclude(deleted=True))
+        record = records.first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден'
+            )
+        return record
+
+
+class GoodsCategoriesRepository(MasterRepository):
+    model = GoodsCategory
+
+    def __init__(self, me=None) -> None:
+        super().__init__()
+        self.me = me
+
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            records = self.model.objects.order_by(*order_by).exclude(deleted=True).filter(**kwargs).distinct()
+        else:
+            records = self.model.objects.exclude(deleted=True).filter(**kwargs).distinct()
+
+        count = records.count()
+        result = records[paginator.offset:paginator.limit] if paginator else records
+
+        return result, count
+
+    def admin_get_by_id(self, record_id):
+        records = self.model.objects.filter(pk=record_id).exclude(deleted=True)
         record = records.first()
         if not record:
             raise HttpException(
