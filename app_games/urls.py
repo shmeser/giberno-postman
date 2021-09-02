@@ -1,6 +1,7 @@
 from django.urls import path
 
 from app_games import views
+
 urlpatterns = [
 
     # Призы
@@ -25,6 +26,8 @@ urlpatterns = [
 admin_panel = [
     path('admin/games/tasks', views.AdminTasks.as_view()),
     path('admin/games/tasks/<int:record_id>', views.AdminTask.as_view()),
+    path('admin/games/prizes/categories', views.AdminGoodsCategories.as_view()),
+    path('admin/games/prizes/categories/<int:record_id>', views.AdminGoodsCategory.as_view()),
     path('admin/games/prizes', views.AdminPrizes.as_view()),
     path('admin/games/prizes/<int:record_id>', views.AdminPrize.as_view()),
     path('admin/games/bonuses', views.AdminUsersBonuses.as_view()),

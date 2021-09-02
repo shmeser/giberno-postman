@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from app_games.models import Prize, PrizeCard, GoodsCategory, Task
-from app_games.versions.v1_0.repositories import PrizesRepository
+from app_games.versions.v1_0.repositories import PrizesRepository, GoodsCategoriesRepository
 from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -12,6 +12,17 @@ from backend.utils import filter_valid_uuids
 
 
 class GoodsCategoriesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GoodsCategory
+        fields = [
+            'id',
+            'title'
+        ]
+
+
+class GoodsCategoriesSerializerAdmin(CRUDSerializer):
+    repository = GoodsCategoriesRepository
+
     class Meta:
         model = GoodsCategory
         fields = [

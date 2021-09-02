@@ -129,6 +129,8 @@ admin_panel = [
 
     path('admin/market/distributors', views.AdminDistributors.as_view()),
     path('admin/market/distributors/<int:record_id>', views.AdminDistributor.as_view()),
+    path('admin/market/distributors/categories', views.AdminDistributorCategories.as_view()),
+    path('admin/market/distributors/categories/<int:record_id>', views.AdminDistributorCategory.as_view()),
 
     path('admin/market/structures', views.AdminStructures.as_view()),
     path('admin/market/structures/<int:record_id>', views.AdminStructure.as_view()),
@@ -153,6 +155,9 @@ admin_panel = [
 
     path('admin/market/coupons', views.AdminCoupons.as_view()),
     path('admin/market/coupons/<int:record_id>', views.AdminCoupon.as_view()),
+
+    path('admin/market/partners', views.AdminPartners.as_view()),
+    path('admin/market/partners/<int:record_id>', views.AdminPartner.as_view()),
 
 ]
 

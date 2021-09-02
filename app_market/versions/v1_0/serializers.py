@@ -19,7 +19,7 @@ from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shi
     Position
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository, ShopsRepository, StructuresRepository, PositionsRepository, \
-    CouponsRepository
+    CouponsRepository, CategoriesRepository, PartnersRepository
 from app_media.enums import MediaType, MediaFormat
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
@@ -50,6 +50,16 @@ def map_status_for_required_docs(required_docs, user_docs):
 
 
 class CategoriesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = [
+            'id', 'title'
+        ]
+
+
+class CategoriesSerializerAdmin(CRUDSerializer):
+    repository = CategoriesRepository
+
     class Meta:
         model = Category
         fields = [
@@ -1663,6 +1673,24 @@ class DistributorInPartnerSerializer(DistributorsSerializer):
 
 
 class PartnersSerializer(serializers.ModelSerializer):
+    distributor = serializers.SerializerMethodField()
+
+    def get_distributor(self, data):
+        if data.distributor:
+            return DistributorInPartnerSerializer(data.distributor).data
+        return None
+
+    class Meta:
+        model = Partner
+        fields = [
+            'id',
+            'color',
+            'distributor'
+        ]
+
+
+class PartnersSerializerAdmin(CRUDSerializer):
+    repository = PartnersRepository
     distributor = serializers.SerializerMethodField()
 
     def get_distributor(self, data):
