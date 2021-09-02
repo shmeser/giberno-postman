@@ -1230,12 +1230,54 @@ class ShiftsSerializer(CRUDSerializer):
 
 class ShiftsSerializerAdmin(ShiftsSerializer):
     vacancy = serializers.SerializerMethodField()
+    shop = serializers.SerializerMethodField(read_only=True)
 
     def get_vacancy(self, data):
         return data.vacancy_id
 
     def get_shop(self, data):
         return data.vacancy.shop_id
+
+
+    def update_vacancy(self, ret, data, errors):
+        shop_id = data.pop('shop', None)
+        if shop_id is not None:
+            shop = Shop.objects.filter(pk=shop_id, deleted=False).first()
+            if shop is None:
+                errors.append(
+                    dict(Error(
+                        code=ErrorsCodes.VALIDATION_ERROR.name,
+                        detail=f'Объект {Shop._meta.verbose_name} с ID={shop_id} не найден'))
+                )
+            else:
+                ret['shop_id'] = shop_id
+
+    def check_vacancy(self, data):
+        vacancy_id = data.pop('vacancy', None)
+        vacancy = Vacancy.objects.filter(pk=vacancy_id, deleted=False).first()
+        if vacancy is None:
+            raise CustomException(errors=dict(Error(
+                code=ErrorsCodes.VALIDATION_ERROR.name,
+                detail=f'Объект {Vacancy._meta.verbose_name} с ID={vacancy_id} не найден'))
+            )
+        return vacancy_id, vacancy.shop_id
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        errors = []
+
+        if self.instance:
+            # Проверяем fk поля
+            self.update_vacancy(ret, data, errors)
+
+            # Проверяем m2m поля
+        else:
+            ret['vacancy_id'],ret['shop_id'] = self.check_vacancy(data)
+
+        if errors:
+            raise CustomException(errors=errors)
+
+        return ret
 
     class Meta:
         model = Shift
@@ -1337,7 +1379,8 @@ class PositionsSerializerAdmin(CRUDSerializer):
     professions = serializers.SerializerMethodField()
 
     def get_professions(self, prefetched_data):
-        return ProfessionInProfileSerializer(prefetched_data.professions, many=True).data
+        return prefetched_data.professions.values_list('id', flat=True)
+        # return ProfessionInProfileSerializer(prefetched_data.professions, many=True).data
 
     def update_professions(self, data, errors):
         professions = data.pop('professions', None)
