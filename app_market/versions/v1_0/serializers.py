@@ -1385,7 +1385,7 @@ class PositionsSerializerAdmin(CRUDSerializer):
     def update_professions(self, data, errors):
         professions = data.pop('professions', None)
         if professions is not None and isinstance(professions, list):  # Обрабатываем только массив
-            # Удаляем категории
+            # Удаляем профессии
             self.instance.professions.clear()  # Очищаем стандартную промежуточную таблицу для m2m
             # Добавляем или обновляем языки пользователя
             for item in professions:

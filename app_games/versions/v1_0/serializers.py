@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from rest_framework import serializers
 
 from app_games.models import Prize, PrizeCard, GoodsCategory, Task
@@ -6,6 +7,8 @@ from app_media.enums import MediaType
 from app_media.versions.v1_0.controllers import MediaController
 from app_media.versions.v1_0.repositories import MediaRepository
 from app_users.models import UserProfile
+from backend.entity import Error
+from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exceptions import CustomException
 from backend.mixins import CRUDSerializer
 from backend.utils import filter_valid_uuids
@@ -88,7 +91,44 @@ class PrizesSerializerAdmin(CRUDSerializer):
         )
 
     def get_categories(self, instance):
-        return GoodsCategoriesSerializer(instance.categories, many=True).data
+        return instance.categories.values_list('id', flat=True)
+
+    def update_categories(self, data, errors):
+        categories = data.pop('categories', None)
+        if categories is not None and isinstance(categories, list):  # Обрабатываем только массив
+            # Удаляем профессии
+            self.instance.categories.clear()  # Очищаем стандартную промежуточную таблицу для m2m
+            # Добавляем или обновляем языки пользователя
+            for item in categories:
+                category_id = item.get('id', None) if isinstance(item, dict) else item
+                if category_id is None:
+                    errors.append(
+                        dict(Error(
+                            code=ErrorsCodes.VALIDATION_ERROR.name,
+                            detail='Невалидные данные в поле categories'))
+                    )
+                else:
+                    try:
+                        self.instance.categories.add(category_id)
+                    except IntegrityError:
+                        errors.append(
+                            dict(Error(
+                                code=ErrorsCodes.VALIDATION_ERROR.name,
+                                detail='Указан неправильный id категории товаров'))
+                        )
+
+    def add_categories(self, data):
+        categories = data.pop('categories', None)
+        categories_ids = []
+        result = []
+        if categories is not None and isinstance(categories, list):  # Обрабатываем только массив
+            for item in categories:
+                category_id = item.get('id', None) if isinstance(item, dict) else item
+                categories_ids.append(category_id)
+
+            # получаем ид категорий
+            result = GoodsCategory.objects.filter(id__in=categories_ids, deleted=False).values_list('id', flat=True)
+        return result
 
     def reattach_files(self, files):
         if files:
@@ -109,9 +149,11 @@ class PrizesSerializerAdmin(CRUDSerializer):
             # Проверяем fk поля
 
             # Проверяем m2m поля
+            self.update_categories(data, errors)
             self.reattach_files(files)
         else:
             ret['files'] = filter_valid_uuids(uuids_list=files)
+            ret['categories'] = self.add_categories(data)
 
         if errors:
             raise CustomException(errors=errors)
@@ -212,6 +254,7 @@ class TasksSerializerAdmin(serializers.ModelSerializer):
             'bonus_value',
             'period',
             'type',
+            'kind',
         ]
 
 
