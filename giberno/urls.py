@@ -37,6 +37,8 @@ v1_0_urls = [
     path(v1_0, include(('app_market.urls', 'market_1_0'))),
     path(v1_0, include(('app_chats.urls', 'chats_1_0'))),
     path(v1_0, include(('app_games.urls', 'games_1_0'))),
+
+    path(v1_0, include(('app_admin.urls', 'admin_1_0'))),
 ]
 
 urlpatterns += social_web_auth

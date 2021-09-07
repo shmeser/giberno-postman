@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'app_sockets.apps.AppSocketsConfig',
     'app_chats.apps.AppChatsConfig',
     'app_games.apps.AppGamesConfig',
+    'app_admin.apps.AppAdminConfig',
 ]
 
 CHANNEL_LAYERS = {
