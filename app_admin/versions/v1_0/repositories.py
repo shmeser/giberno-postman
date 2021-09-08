@@ -119,3 +119,16 @@ class UserAccessRepository(MasterRepository):
         result = staff[paginator.offset:paginator.limit] if paginator else staff
         count = staff.count()
         return result, count
+
+    def get_staff_member(self, record_id):
+        results = UserProfile.objects.filter(id=record_id).exclude(
+            deleted=True, account_type=AccountType.SELF_EMPLOYED.value
+        )
+
+        result = results.first()
+        if not result:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {UserProfile._meta.verbose_name} с ID={record_id} не найден'
+            )
+        return result

@@ -40,6 +40,7 @@ class ContentTypeSerializer(serializers.ModelSerializer):
         model = ContentType
         fields = [
             'id',
+            'name',
             'model',
         ]
 

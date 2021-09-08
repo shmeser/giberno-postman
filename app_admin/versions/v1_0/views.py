@@ -20,6 +20,35 @@ class Staff(APIView):
         serialized = StaffSerializer(data, many=True)
         return Response(camelize(serialized.data), headers={'total-count': count})
 
+    @staticmethod
+    def post(request, **kwargs):
+        body = get_request_body(request)
+        UserAccessRepository.add_access(body)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class StaffMember(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        data = UserAccessRepository().get_staff_member(kwargs.get('record_id'))
+        serialized = StaffSerializer(data, many=False)
+        return Response(camelize(serialized.data))
+
+    @staticmethod
+    def put(request, **kwargs):
+        data = UserAccessRepository().get_by_id(kwargs.get('record_id'))
+        serialized = AccessSerializer(data, many=False)
+        return Response(camelize(serialized.data))
+
+    @staticmethod
+    def delete(request, **kwargs):
+        data = UserAccessRepository().get_by_id(kwargs.get('record_id'))
+        data.deleted = True
+        data.save()
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
 
 class AccessContentTypes(APIView):
     permission_classes = [IsAdminOrManager]
