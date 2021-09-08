@@ -113,7 +113,9 @@ class UserAccessRepository(MasterRepository):
 
     @staticmethod
     def get_staff(paginator):
-        staff = UserProfile.objects.filter(deleted=False).exclude(account_type=AccountType.SELF_EMPLOYED.value)
+        staff = UserProfile.objects.filter(
+            deleted=False
+        ).exclude(account_type=AccountType.SELF_EMPLOYED.value).exclude(is_superuser=True)
         result = staff[paginator.offset:paginator.limit] if paginator else staff
         count = staff.count()
         return result, count
