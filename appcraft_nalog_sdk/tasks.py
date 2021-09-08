@@ -6,7 +6,7 @@ from appcraft_nalog_sdk.sdk import NalogSdk
 from giberno.celery import app
 
 
-@app.task
+@app.task(bind=True)
 def update_processing_statuses(self):
     """
     Обновить все запросы по message_id, у которых статус В процессе
@@ -20,7 +20,7 @@ def update_processing_statuses(self):
         raise self.retry(exc=ex)
 
 
-@app.task
+@app.task(bind=True)
 def get_newly_unbound_taxpayers_request(self):
     """
     Запросить всех отвязанных от партнера людей за прошедшие сутки
@@ -38,7 +38,7 @@ def get_newly_unbound_taxpayers_request(self):
         raise self.retry(exc=ex)
 
 
-@app.task
+@app.task(bind=True)
 def get_income_request(self):
     """
     Запросить все регистрации доходов за прошедшие сутки
@@ -57,7 +57,7 @@ def get_income_request(self):
         raise self.retry(exc=ex)
 
 
-@app.task
+@app.task(bind=True)
 def get_granted_permissions_request(self):
     """
     Обновить статусы и разрешения всех самозанятых
@@ -74,7 +74,7 @@ def get_granted_permissions_request(self):
         raise self.retry(exc=ex)
 
 
-@app.task
+@app.task(bind=True)
 def get_payment_documents_request(self):
     """
     Получение платежных документов для уплаты налогов
