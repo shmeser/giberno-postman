@@ -31,6 +31,7 @@ defusedxml==0.7.1
 Django==3.1.4
 django-constance==2.8.0
 django-cors-headers==3.7.0
+django-filter==2.4.0
 djangorestframework==3.12.4
 djangorestframework-camel-case==1.2.0
 djangorestframework-simplejwt==4.6.0
@@ -63,6 +64,7 @@ kombu==5.1.0
 llvmlite==0.36.0
 loguru==0.5.3
 luhn==0.2.0
+lxml==4.6.3
 maxminddb==2.0.3
 msgpack==1.0.2
 multidict==5.1.0
@@ -110,6 +112,7 @@ vine==5.0.0
 wcwidth==0.2.5
 webencodings==0.5.1
 win32-setctime==1.0.3
+xmltodict==0.12.0
 yarl==1.6.3
 zipp==3.5.0
 zope.event==4.5.0

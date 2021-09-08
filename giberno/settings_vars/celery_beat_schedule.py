@@ -20,5 +20,9 @@ celery_beat_schedule = {
     'check_users_daily_tasks_on_completed_shifts': {
         'task': 'app_games.tasks.check_users_daily_tasks_on_completed_shifts',
         'schedule': crontab(minute='*/3')
-    }
+    },
+    'update_processing_statuses': {
+        'task': 'appcraft_nalog_sdk.tasks.update_processing_statuses',
+        'schedule': crontab(minute='*')
+    },
 }
