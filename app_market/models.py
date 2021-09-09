@@ -97,6 +97,26 @@ class DistributorCategory(BaseModel):
         verbose_name_plural = 'Категории торговых сетей'
 
 
+class Organization(BaseModel):
+    type = models.CharField(max_length=50, null=True, blank=True)
+    title = models.CharField(max_length=512, null=True, blank=True)
+    short_name = models.CharField(max_length=512, null=True, blank=True)
+    full_name = models.CharField(max_length=512, null=True, blank=True)
+    inn = models.CharField(max_length=12, null=True, blank=True)
+    kpp = models.CharField(max_length=12, null=True, blank=True)
+    ogrn = models.CharField(max_length=20, null=True, blank=True)
+    address = models.CharField(max_length=512, null=True, blank=True)
+    distributor = models.ForeignKey(Distributor, on_delete=models.SET_NULL, blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.title}'
+
+    class Meta:
+        db_table = 'app_market__organizations'
+        verbose_name = 'Организация'
+        verbose_name_plural = 'Организации'
+
+
 class Shop(BaseModel):
     distributor = models.ForeignKey(Distributor, on_delete=models.SET_NULL, null=True, blank=True)
     title = models.CharField(max_length=1024, null=True, blank=True)

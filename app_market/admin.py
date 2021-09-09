@@ -2,7 +2,7 @@ from django.contrib.gis import admin
 
 from app_market.models import Distributor, Shop, Vacancy, Shift, Order, Transaction, Coupon, Profession, \
     UserProfession, DistributorCategory, Category, ShiftAppeal, Partner, Achievement, AchievementProgress, \
-    Advertisement, UserCode, Code, ShiftAppealInsurance, Skill, UserSkill, Structure, DistributorStructure
+    Advertisement, UserCode, Code, ShiftAppealInsurance, Skill, UserSkill, Structure, DistributorStructure, Organization
 from backend.mixins import FormattedAdmin
 
 _ITEMS_PER_ITERATION = 5
@@ -11,6 +11,11 @@ _ITEMS_PER_ITERATION = 5
 @admin.register(Distributor)
 class DistributorAdmin(FormattedAdmin):
     list_display = ['id', 'title', 'description', 'required_docs']
+
+
+@admin.register(Organization)
+class OrganizationAdmin(FormattedAdmin):
+    list_display = ['id', 'title', 'short_name', 'full_name']
 
 
 @admin.register(Partner)

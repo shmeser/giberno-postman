@@ -37,6 +37,10 @@ INSTALLED_APPS = [
     'app_sockets.apps.AppSocketsConfig',
     'app_chats.apps.AppChatsConfig',
     'app_games.apps.AppGamesConfig',
+    'app_admin.apps.AppAdminConfig',
+    'django_filters',
+    'appcraft_nalog_sdk',
+    # 'django_celery_beat',
 ]
 
 CHANNEL_LAYERS = {
@@ -99,6 +103,8 @@ TEMPLATES = [
     },
 ]
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 ASGI_APPLICATION = 'giberno.asgi.application'
 WSGI_APPLICATION = 'giberno.wsgi.application'
 
@@ -124,6 +130,16 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_RENDERER_CLASSES': (
+        'djangorestframework_camel_case.render.CamelCaseJSONRenderer',
+        'djangorestframework_camel_case.render.CamelCaseBrowsableAPIRenderer',
+    ),
+    'DEFAULT_PARSER_CLASSES': (
+        'djangorestframework_camel_case.parser.CamelCaseFormParser',
+        'djangorestframework_camel_case.parser.CamelCaseMultiPartParser',
+        'djangorestframework_camel_case.parser.CamelCaseJSONParser',
+    ),
+
     'UNAUTHENTICATED_USER': None,
     'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
 
