@@ -84,17 +84,17 @@ class NalogNotificationModel(NalogBaseModel):
 
     @classmethod
     def create(cls, inn, notification_id, title, message, status, created_at, updated_at):
-        notification = cls.objects.get_or_create(
+        notification, created = cls.objects.get_or_create(
             user=NalogUser.get_or_create(inn),
             notification_id=notification_id,
             title=title,
             message=message
-        )[0]
-
+        )
         notification.status = status
         notification.updated_at = updated_at
         notification.created_at = created_at
         notification.save()
+        return notification, created
 
     @classmethod
     def get_unread_notifications(cls, inn):

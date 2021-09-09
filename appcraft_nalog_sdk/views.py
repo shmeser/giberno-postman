@@ -17,7 +17,7 @@ class UpdateStatuses(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        tasks.update_processing_statuses(self)
+        tasks.update_processing_statuses()
         return JsonResponse({})
 
 
@@ -85,7 +85,7 @@ class PostIncomeView(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        tasks.get_income_request(self)
+        tasks.get_income_request()
         return JsonResponse({})
 
     def post(self, request):
@@ -133,7 +133,7 @@ class GrantedPermissionsView(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        tasks.get_granted_permissions_request(self)
+        tasks.get_granted_permissions_request()
 
         return JsonResponse({})
 
@@ -162,7 +162,7 @@ class GetNewlyUnboundTaxpayersRequest(APIView):
     permission_classes = (AllowAny,)
 
     def post(self, request):
-        tasks.get_newly_unbound_taxpayers_request(self)
+        tasks.get_newly_unbound_taxpayers_request()
         return JsonResponse({})
 
 
@@ -170,5 +170,5 @@ class GetPaymentDocumentsRequest(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        tasks.get_payment_documents_request(self)
+        tasks.get_payment_documents_request()
         return JsonResponse({})

@@ -25,7 +25,7 @@ from app_sockets.controllers import SocketController
 from app_sockets.enums import AvailableVersion
 from app_users.controllers import FirebaseController
 from app_users.entities import TokenEntity, SocialEntity
-from app_users.enums import NotificationType, AccountType
+from app_users.enums import NotificationType, AccountType, DocumentType
 from app_users.mappers import TokensMapper, SocialDataMapper
 from app_users.models import JwtToken
 from app_users.versions.v1_0.repositories import AuthRepository, JwtRepository, UsersRepository, ProfileRepository, \
@@ -35,6 +35,8 @@ from app_users.versions.v1_0.serializers import RefreshTokenSerializer, ProfileS
     NotificationsSettingsSerializer, NotificationSerializer, CareerSerializer, DocumentSerializer, \
     CreateManagerByAdminSerializer, UsernameSerializer, UsernameWithPasswordSerializer, \
     PasswordSerializer, EditManagerProfileSerializer, CreateSecurityByAdminSerializer, RatingSerializer, CardsSerializer
+from appcraft_nalog_sdk.models import NalogUser
+from appcraft_nalog_sdk.sdk import NalogSdk
 from backend.api_views import BaseAPIView
 from backend.entity import Error
 from backend.enums import Platform
@@ -298,6 +300,10 @@ class Notifications(CRUDAPIView):
         'message': 'message__istartswith',
     }
 
+    array_filter_params = {
+        'type': 'type__in'
+    }
+
     default_order_params = ['-created_at']
 
     default_filters = {
@@ -499,6 +505,16 @@ class MyProfileDocuments(CRUDAPIView):
         serialized.is_valid(raise_exception=True)
 
         document = serialized.save()
+        if document.type == DocumentType.INN.value and document.identifier:
+            # Создать налогового пользователя по инн и получить по нему статус
+            nalog_sdk = NalogSdk()
+            nalog_sdk.get_status(inn=document.identifier)
+            nalog_sdk.update_processing_statuses()
+
+            nalog_user = NalogUser.get_or_create(inn=document.identifier)
+            request.user.nalog_user = nalog_user
+            request.user.save()
+
         self.repository_class.update_media(document, body.pop('attach_files', None), request.user)
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
@@ -531,6 +547,11 @@ class MyProfileDocument(MyProfileDocuments):
         if record_id:
             record = self.repository_class(me=request.user).inited_get_by_id(record_id)
             if record:
+                if record.type == DocumentType.INN.value and request.user.nalog_user and request.user.nalog_user.inn == record.identifier:
+                    # Отвязать налогового пользователя
+                    request.user.nalog_user = None
+                    request.user.save()
+
                 record.deleted = True
                 record.save()
         else:

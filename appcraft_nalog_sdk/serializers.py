@@ -14,7 +14,8 @@ class NalogUserSerializer(serializers.ModelSerializer):
     bind_request = serializers.SerializerMethodField()
 
     def get_bind_request(self, user: NalogUser):
-        return NalogBindPartnerRequestSerializer(user.nalogbindpartnerrequestmodel_set.last()).data
+        last_bind_request = user.nalogbindpartnerrequestmodel_set.last()
+        return NalogBindPartnerRequestSerializer(last_bind_request).data if last_bind_request else None
 
     class Meta:
         model = NalogUser

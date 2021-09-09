@@ -1,5 +1,9 @@
+import uuid
+
 import xmltodict
 
+from app_users.enums import NotificationType, NotificationIcon, NotificationAction
+from app_users.models import Notification
 from appcraft_nalog_sdk import request_fabric
 from appcraft_nalog_sdk.enums import NalogUserStatus
 from appcraft_nalog_sdk.errors import ErrorController, TaxpayerUnregisteredException, TaxpayerUnboundException, \
@@ -7,6 +11,7 @@ from appcraft_nalog_sdk.errors import ErrorController, TaxpayerUnregisteredExcep
     DuplicateException, PermissionNotGrantedException, AlreadyDeletedException, ReceiptIdNotFoundException
 from appcraft_nalog_sdk.models import NalogRequestModel, NalogBindPartnerRequestModel, NalogNotificationModel, \
     NalogIncomeRequestModel, NalogUser, NalogIncomeCancelReasonModel, NalogDocumentModel
+from backend.controllers import PushController
 
 
 class ResponseRouter:
@@ -94,9 +99,9 @@ class ResponseRouter:
             self.request_model.user.set_error(error.detail)
 
     def get_bind_partner_status_response(self):
+        nalog_bind_partner_request_model = NalogBindPartnerRequestModel.objects.filter(
+            user=self.request_model.user).last()
         try:
-            nalog_bind_partner_request_model = NalogBindPartnerRequestModel.objects.filter(
-                user=self.request_model.user).last()
             if nalog_bind_partner_request_model is None:
                 return False
             ErrorController.check_error(self.message)
@@ -193,8 +198,24 @@ class ResponseRouter:
         try:
             ErrorController.check_error(self.message, self.request_model.user)
             if 'GetNotificationsResponse' in self.message:
+
+                notifications_links = []
+
+                profile = None
+
+                message = None
+                title = None
+                notification_uuid = uuid.uuid4()
+
+                subject_id = None
+                notification_type = NotificationType.NALOG.value
+                action = NotificationAction.APP.value
+                icon_type = NotificationIcon.DEFAULT.value
+                is_sound_enabled = True
+
                 for notification in self.message['GetNotificationsResponse']['notificationsResponse']['notif']:
-                    NalogNotificationModel.create(
+
+                    n, created = NalogNotificationModel.create(
                         inn=self.message['GetNotificationsResponse']['notificationsResponse']['inn'],
                         notification_id=notification['id'],
                         title=notification['title'],
@@ -203,6 +224,48 @@ class ResponseRouter:
                         created_at=notification['createdAt'],
                         updated_at=notification['updatedAt']
                     )
+                    # дублируем оповещения налоговой из sdk в основную таблицу
+                    if created:
+                        profile = n.user.profiles.last()  # Берем последнего привязанного пользователя из основной бд
+
+                        title = notification['title']
+                        message = notification['message']
+                        notification_uuid = uuid.uuid4()
+
+                        if profile:
+                            notifications_links.append(
+                                Notification(
+                                    uuid=notification_uuid,
+                                    user_id=profile.id,
+                                    subject_id=subject_id,
+                                    title=title,
+                                    message=message,
+                                    type=notification_type,
+                                    action=action,
+                                    push_tokens_android=[],
+                                    push_tokens_ios=[],
+                                    icon_type=icon_type,
+                                    sound_enabled=is_sound_enabled,
+                                )
+                            )
+
+                Notification.objects.bulk_create(notifications_links)  # Массовое создание уведомлений
+
+                if notifications_links:
+                    # Отправляем только 1 пуш последний, чтобы не отправить лавину пушей при первом переносе уведомлений
+                    # Сами записи в бд создадутся на все перенесенные
+                    PushController().send_message(
+                        uuid=notification_uuid,
+                        users_to_send=[profile],
+                        title=title,
+                        message=message,
+                        common_uuid=notification_uuid,
+                        action=action,
+                        subject_id=subject_id,
+                        notification_type=notification_type,
+                        icon_type=icon_type
+                    )
+
         except RequestValidationException:
             pass
         except TaxpayerUnboundException:

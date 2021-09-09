@@ -11,6 +11,7 @@ from app_market.enums import Currency
 from app_media.models import MediaModel
 from app_users.enums import Gender, Status, AccountType, LanguageProficiency, NotificationType, NotificationAction, \
     Education, DocumentType, NotificationIcon, CardType, CardPaymentNetwork, NalogUserStatus
+from appcraft_nalog_sdk.models import NalogUser, NalogNotificationModel
 from backend.models import BaseModel
 from backend.utils import choices
 from giberno import settings
@@ -86,6 +87,8 @@ class UserProfile(AbstractUser, BaseModel):
     nalog_status = models.IntegerField(
         choices=NalogUserStatus.choices, default=NalogUserStatus.UNKNOWN, verbose_name='Статус самозанятого'
     )
+    # Привязываем к налоговому пользователю в sdk
+    nalog_user = models.ForeignKey(NalogUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='profiles')
 
     # конкретные магазины к которым прикреплен админ, менеджер или охранник
     shops = models.ManyToManyField(to='app_market.Shop', blank=True, verbose_name='Магазины', related_name='staff')
@@ -192,7 +195,7 @@ class Notification(BaseModel):
 
     subject_id = models.IntegerField(blank=True, null=True, verbose_name='ID сущности в уведомлении')
     title = models.CharField(max_length=255, blank=True, null=True, verbose_name='Заголовок')
-    message = models.CharField(max_length=255, blank=True, null=True, verbose_name='Сообщение')
+    message = models.TextField(blank=True, null=True, verbose_name='Сообщение')
 
     type = models.IntegerField(
         choices=choices(NotificationType), default=NotificationType.SYSTEM, verbose_name='Тип отправителя уведомления'
@@ -211,6 +214,8 @@ class Notification(BaseModel):
     )
 
     sound_enabled = models.BooleanField(null=True, blank=True, verbose_name='Уведомление со звуком')
+
+    nalog_notification = models.ForeignKey(NalogNotificationModel, on_delete=models.SET_NULL, null=True, blank=True)
 
     media = GenericRelation(MediaModel, object_id_field='owner_id', content_type_field='owner_ct')
 
@@ -263,6 +268,7 @@ class UserCareer(BaseModel):
 class Document(BaseModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='documents')
     type = models.IntegerField(choices=choices(DocumentType), default=DocumentType.OTHER)
+    identifier = models.CharField(max_length=128, blank=True, null=True, verbose_name='Идентификатор')
     series = models.CharField(max_length=128, blank=True, null=True, verbose_name='Серия')
     number = models.CharField(max_length=128, blank=True, null=True, verbose_name='Номер')
     category = models.CharField(max_length=128, blank=True, null=True, verbose_name='Категория')

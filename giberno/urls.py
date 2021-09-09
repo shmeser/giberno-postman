@@ -48,5 +48,6 @@ urlpatterns += v1_0_urls
 if settings.DEBUG:
     test_urls = [
         path('test/', include('app_tests.urls')),
+        path('nalog-sdk/', include('appcraft_nalog_sdk.urls')),
     ]
     urlpatterns += test_urls

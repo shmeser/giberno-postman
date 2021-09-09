@@ -33,6 +33,7 @@ class NotificationType(IntEnumM):
     # Для настроек получения уведомлений
     SYSTEM = 0  # Системные уведомления
     CHAT = 1  # Сообщения в чатах
+    NALOG = 2  # Сообщения от налоговой
 
 
 class NotificationChannelFromAndroid8(EnumM):
@@ -48,6 +49,10 @@ class NotificationChannelFromAndroid8(EnumM):
     # Сообщения в чатах
     CHAT = 'chat_channel'
     CHAT_SOUNDLESS = 'chat_channel_soundless'  # без звука
+
+    # Сообщения от налоговой
+    NALOG = 'nalog_channel'
+    NALOG_SOUNDLESS = 'nalog_channel_soundless'  # без звука
 
 
 class NotificationAction(IntEnumM):
