@@ -246,11 +246,12 @@ class ResponseRouter:
                                     push_tokens_ios=[],
                                     icon_type=icon_type,
                                     sound_enabled=is_sound_enabled,
+                                    nalog_notification=n
                                 )
                             )
 
                 Notification.objects.bulk_create(notifications_links)  # Массовое создание уведомлений
-
+                # TODO Переделать на отправку 3-5 уведомлений последних, отсортировать по nalog notification_id
                 if notifications_links:
                     # Отправляем только 1 пуш последний, чтобы не отправить лавину пушей при первом переносе уведомлений
                     # Сами записи в бд создадутся на все перенесенные

@@ -182,6 +182,13 @@ class MyProfile(CRUDAPIView):
         })
         if request.user.account_type == AccountType.SELF_EMPLOYED.value:
             check_everyday_tasks_for_user.s(user_id=request.user.id, kind=TaskKind.OPEN_APP.value).apply_async()
+        else:
+            # Если не самозанятый
+            if request.user.nalog_user:  # Если есть привязанный налоговый пользователь с инн
+                nalog_sdk = NalogSdk()
+                # Делаем запрос на получение списка оповещений в налоговую
+                nalog_sdk.get_notifications(inn=request.user.nalog_user.inn)
+
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
     def patch(self, request, **kwargs):
