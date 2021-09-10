@@ -27,7 +27,13 @@ from giberno.settings import MAX_AMOUNT_FOR_PREFERRED_DEFAULT_GRADE_PRIZES
 class UserAccessRepository(MasterRepository):
     model = AccessUnit
 
-    def get_by_id(self, record_id):
+    def __init__(self, me=None) -> None:
+        super().__init__()
+
+        self.me = me
+
+    def get_access(self, record_id):
+        # TODO проверять разрешения
         results = self.model.objects.filter(id=record_id).exclude(deleted=True)
         result = results.first()
         if not result:
@@ -110,6 +116,17 @@ class UserAccessRepository(MasterRepository):
         if access_right and not created:
             unit.deleted = False
             unit.save()
+
+    @staticmethod
+    def add_access_right(instance, data):
+        if data and instance:
+            AccessRight.objects.create(
+                unit=instance,
+                user=instance.user,
+                **data
+            )
+            instance.deleted = False
+            instance.save()
 
     @staticmethod
     def get_staff(paginator):

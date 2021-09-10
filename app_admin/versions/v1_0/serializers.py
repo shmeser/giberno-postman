@@ -21,7 +21,10 @@ class AccessSerializer(serializers.ModelSerializer):
     access_right = serializers.SerializerMethodField()
 
     def get_access_right(self, data):
-        return AccessRightSerializer(data.access_right, many=False).data
+        if hasattr(data, 'access_right'):
+            return AccessRightSerializer(data.access_right, many=False).data
+        else:
+            return None
 
     class Meta:
         model = AccessUnit
