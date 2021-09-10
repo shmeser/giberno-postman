@@ -569,13 +569,26 @@ class MyProfileDocument(MyProfileDocuments):
 
 @api_view(['POST'])
 def read_notification(request, **kwargs):
-    NotificationsRepository().filter_by_kwargs({
+    notification = NotificationsRepository().filter_by_kwargs({
         'id': kwargs.get('record_id'),
+        'user_id': request.user.id,
         'read_at__isnull': True
-    }).update(
-        read_at=now(),
-        updated_at=now(),
-    )
+    }).first()
+
+    if notification:
+        notification.read_at = now()
+        notification.save()
+
+        # Если не смз
+        # Если привязан налоговый пользователь
+        # Если есть оповещение от налоговой
+        # Статус оповещения от налговой не подтвержден
+        if request.user.account_type != AccountType.SELF_EMPLOYED.value and \
+                request.user.nalog_user and \
+                notification.nalog_notification and \
+                notification.nalog_notification.status != 'ACKNOWLEDGED':
+            nalog_sdk = NalogSdk()
+            nalog_sdk.read_notifications(request.user.nalog_user.inn, [notification.nalog_notification.notification_id])
 
     indicators_dict = {
         'newNotifications': NotificationsRepository(me=request.user).get_unread_notifications_count(),
