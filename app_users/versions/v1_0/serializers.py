@@ -83,6 +83,8 @@ class ProfileSerializer(CRUDSerializer):
 
     distributors = serializers.SerializerMethodField(read_only=True)
 
+    nalog_status = serializers.SerializerMethodField(read_only=True)
+
     def validate(self, attrs):
         errors = []
 
@@ -297,6 +299,11 @@ class ProfileSerializer(CRUDSerializer):
     def get_account_type(self, profile):
         return profile.account_type
 
+    def get_nalog_status(self, profile):
+        # TODO для тестов используется profile.nalog_status, редактируемый из админки
+        #  убрать его в релизе
+        return profile.nalog_user.status if profile.nalog_user else profile.nalog_status
+
     def get_avatar(self, profile: UserProfile):
         # TODO префетчить
         avatar = MediaRepository().filter_by_kwargs({
@@ -433,7 +440,6 @@ class ProfileSerializer(CRUDSerializer):
 
             'nalog_status',
 
-
             'avatar',
             'socials',
             'languages',
@@ -451,7 +457,6 @@ class ProfileSerializer(CRUDSerializer):
             'verified': {'read_only': True},
             'bonuses_acquired': {'read_only': True},
             'favourite_vacancies_count': {'read_only': True},
-            'nalog_status': {'read_only': True}
         }
 
 
@@ -617,6 +622,7 @@ class DocumentSerializer(CRUDSerializer):
         fields = [
             'id',
             'type',
+            'identifier',
             'series',
             'number',
             'category',
@@ -628,6 +634,9 @@ class DocumentSerializer(CRUDSerializer):
             'created_at',
             'media'
         ]
+        extra_kwargs = {
+            'type': {'required': True},
+        }
 
 
 ######################################################################
