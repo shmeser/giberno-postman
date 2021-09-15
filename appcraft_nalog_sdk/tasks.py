@@ -21,6 +21,20 @@ def update_processing_statuses(self):
 
 
 @app.task(bind=True)
+def update_offline_keys(self):
+    """
+    Обновить все оффлайн ключи для регистрации дохода
+    :param self:
+    :return:
+    """
+    try:
+        NalogSdk().update_keys()
+    except Exception as ex:
+        logger.debug(ex)
+        raise self.retry(exc=ex)
+
+
+@app.task(bind=True)
 def get_newly_unbound_taxpayers_request(self):
     """
     Запросить всех отвязанных от партнера людей за прошедшие сутки

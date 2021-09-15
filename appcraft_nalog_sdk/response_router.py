@@ -10,7 +10,7 @@ from appcraft_nalog_sdk.errors import ErrorController, TaxpayerUnregisteredExcep
     MessageIdNotFoundException, TaxpayerAlreadyBoundException, PartnerDenyException, RequestValidationException, \
     DuplicateException, PermissionNotGrantedException, AlreadyDeletedException, ReceiptIdNotFoundException
 from appcraft_nalog_sdk.models import NalogRequestModel, NalogBindPartnerRequestModel, NalogNotificationModel, \
-    NalogIncomeRequestModel, NalogUser, NalogIncomeCancelReasonModel, NalogDocumentModel
+    NalogIncomeRequestModel, NalogUser, NalogIncomeCancelReasonModel, NalogDocumentModel, NalogOfflineKeyModel
 from backend.controllers import PushController
 
 
@@ -62,6 +62,9 @@ class ResponseRouter:
 
         if self.request_model.name == NalogRequestModel.RequestNameChoice.GET_PAYMENT_DOCUMENTS_REQUEST:
             return self.get_payment_documents_response()
+
+        if self.request_model.name == NalogRequestModel.RequestNameChoice.GET_KEYS_REQUEST:
+            return self.get_keys_response()
 
     def get_status_response(self, ):
         try:
@@ -359,6 +362,26 @@ class ResponseRouter:
                         self.__save_document(inn, user['DocumentList'])
         except RequestValidationException:
             return False
+
+    def get_keys_response(self):
+        try:
+            ErrorController.check_error(self.message, self.request_model.user)
+            if 'GetKeysResponse' in self.message:
+                for key in self.message['GetKeysResponse']:
+                    for key_record in key:
+                        if 'SequenceNumber' not in key_record:
+                            continue
+
+                        NalogOfflineKeyModel.create(
+                            inn=key['inn'],
+                            sequence_number=key_record['SequenceNumber'],
+                            base64_key=key_record['Base64Key'],
+                            expire_time=key_record['ExpireTime']
+                        )
+        except RequestValidationException:
+            pass
+        except TaxpayerUnboundException:
+            pass
 
     def __save_document(self, inn, document):
         nalog_user = NalogUser.get_or_create(inn)
