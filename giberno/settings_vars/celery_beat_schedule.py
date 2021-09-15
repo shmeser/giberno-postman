@@ -25,8 +25,4 @@ celery_beat_schedule = {
         'task': 'appcraft_nalog_sdk.tasks.update_processing_statuses',
         'schedule': crontab(minute='*')
     },
-    'update_offline_keys': {
-        'task': 'appcraft_nalog_sdk.tasks.update_offline_keys',
-        'schedule': crontab(minute='*')
-    },
 }

@@ -7,6 +7,7 @@ import numpy as np
 import requests
 import xmltodict
 from django.db import transaction
+from loguru import logger
 from lxml import etree
 
 from appcraft_nalog_sdk import request_fabric, settings
@@ -270,9 +271,9 @@ class NalogSdk:
 
         return f'{settings.INCOME_RECEIPT_URL}/{inn}/{receipt_id}{receipt_hash}/print'
 
-
     def update_processing_statuses(self):
         for request in NalogRequestModel.get_processing_requests():
+            logger.debug(request)
             with transaction.atomic():
                 message_request = self.__get_message_request(request.message_id)
                 message = xmltodict.parse(message_request)

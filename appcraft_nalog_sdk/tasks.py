@@ -15,6 +15,9 @@ def update_processing_statuses(self):
     """
     try:
         NalogSdk().update_processing_statuses()
+        # Отдельным task не запускаем, т.к. не успевает проставляться message_id
+        # для запросов в таске update_processing_statuses при одновременном запуске
+        NalogSdk().update_keys()
     except Exception as ex:
         logger.debug(ex)
         raise self.retry(exc=ex)

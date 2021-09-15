@@ -70,7 +70,7 @@ class NalogUser(NalogBaseModel):
     def get_inn_with_no_keys(cls):
         return cls.objects.filter(status=NalogUserStatus.ATTACHED_TO_A_PARTNER).exclude(
             keys__is_used=False,
-            keys__expire_time_gt=timezone.now()
+            keys__expire_time__gt=timezone.now()
         ).values_list('inn', flat=True)
 
     def __str__(self):
@@ -151,7 +151,6 @@ class NalogOfflineKeyModel(NalogBaseModel):
         db_table = 'appcraft_nalog_offline_keys'
         verbose_name = 'Оффлайн ключ'
         verbose_name_plural = 'Оффлайн ключи'
-
 
 
 class NalogRequestModel(NalogBaseModel):

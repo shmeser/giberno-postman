@@ -1,6 +1,7 @@
 import uuid
 
 import xmltodict
+from loguru import logger
 
 from app_users.enums import NotificationType, NotificationIcon, NotificationAction
 from app_users.models import Notification
@@ -365,6 +366,7 @@ class ResponseRouter:
 
     def get_keys_response(self):
         try:
+            logger.debug(self.message)
             ErrorController.check_error(self.message, self.request_model.user)
             if 'GetKeysResponse' in self.message:
                 for key in self.message['GetKeysResponse']:
