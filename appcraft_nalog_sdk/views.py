@@ -86,6 +86,8 @@ class PostIncomeView(APIView):
 
     def get(self, request):
         tasks.get_income_request()
+        # Обновляем оффлайн ключи
+        tasks.update_offline_keys()
         return JsonResponse({})
 
     def post(self, request):
@@ -100,9 +102,13 @@ class PostIncomeView(APIView):
         longitude = data.get('longitude', None)
 
         nalog_sdk = NalogSdk()
-        nalog_income_request = NalogIncomeRequestModel.create(inn, amount, name, operation_time,
-                                                              request_time, latitude,
-                                                              longitude)
+        # Получаем ссылку на чек для оффлайн режима
+        link = nalog_sdk.make_offline_link(
+            inn, amount, operation_time, request_time
+        )
+        nalog_income_request = NalogIncomeRequestModel.create(
+            inn, amount, name, operation_time, request_time, latitude, longitude, link
+        )
 
         nalog_sdk.post_income_request(nalog_income_request)
         return JsonResponse({})

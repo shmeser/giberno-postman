@@ -626,6 +626,7 @@ class DocumentSerializer(CRUDSerializer):
             'series',
             'number',
             'category',
+            'text',
             'department_code',
             'issue_place',
             'issue_date',

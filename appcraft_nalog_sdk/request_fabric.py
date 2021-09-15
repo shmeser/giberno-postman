@@ -220,3 +220,17 @@ def get_payment_documents_request(inn_list: list):
     {inn_list_block}
 </GetPaymentDocumentsRequest>
 '''
+
+
+@send_message_request
+def get_keys_request(inn_list: list):
+    inn_list_block = ''
+
+    for inn in inn_list:
+        inn_list_block += f'<InnList>{inn}</InnList>'
+
+    return f'''
+<GetKeysRequest xmlns="urn://x-artefacts-gnivc-ru/ais3/SMZ/SmzPartnersIntegrationService/types/1.0">
+    {inn_list_block}
+</GetKeysRequest>
+'''
