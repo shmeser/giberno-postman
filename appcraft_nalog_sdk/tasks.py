@@ -15,6 +15,23 @@ def update_processing_statuses(self):
     """
     try:
         NalogSdk().update_processing_statuses()
+        # Отдельным task не запускаем, т.к. не успевает проставляться message_id
+        # для запросов в таске update_processing_statuses при одновременном запуске
+        NalogSdk().update_keys()
+    except Exception as ex:
+        logger.debug(ex)
+        raise self.retry(exc=ex)
+
+
+@app.task(bind=True)
+def update_offline_keys(self):
+    """
+    Обновить все оффлайн ключи для регистрации дохода
+    :param self:
+    :return:
+    """
+    try:
+        NalogSdk().update_keys()
     except Exception as ex:
         logger.debug(ex)
         raise self.retry(exc=ex)

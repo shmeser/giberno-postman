@@ -66,6 +66,13 @@ class NalogUser(NalogBaseModel):
         self.phone_number = phone_number
         self.save()
 
+    @classmethod
+    def get_inn_with_no_keys(cls):
+        return cls.objects.filter(status=NalogUserStatus.ATTACHED_TO_A_PARTNER).exclude(
+            keys__is_used=False,
+            keys__expire_time__gt=timezone.now()
+        ).values_list('inn', flat=True)
+
     def __str__(self):
         return self.inn
 
@@ -109,6 +116,43 @@ class NalogNotificationModel(NalogBaseModel):
         verbose_name_plural = 'Уведомления'
 
 
+class NalogOfflineKeyModel(NalogBaseModel):
+    user = models.ForeignKey(NalogUser, on_delete=models.CASCADE, verbose_name='Пользователь', related_name='keys')
+    sequence_number = models.IntegerField(verbose_name='Инкрементная часть чека')
+    base64_key = models.CharField(max_length=255, verbose_name='Ключ для формирования чека')
+    expire_time = models.DateTimeField(verbose_name='Срок валидности')
+    is_used = models.BooleanField(default=False, verbose_name='Использован')
+
+    @classmethod
+    def create(cls, inn, sequence_number, base64_key, expire_time):
+        offline_key = cls.objects.get_or_create(
+            user=NalogUser.get_or_create(inn),
+            sequence_number=sequence_number,
+            base64_key=base64_key,
+            expire_time=expire_time
+        )[0]
+
+        offline_key.save()
+
+    @classmethod
+    def delete_all_expired_unused_keys(cls):
+        cls.objects.filter(deleted_at__isnull=True, is_used=False, expire_time__gt=timezone.now()).update(
+            deleted_at=timezone.now()
+        )
+
+    @classmethod
+    def get_unused_key(cls, inn):
+        return cls.objects.filter(user__inn=inn, deleted_at__isnull=True, is_used=False).first()
+
+    def __str__(self):
+        return f'{self.user}: {self.base64_key}'
+
+    class Meta:
+        db_table = 'appcraft_nalog_offline_keys'
+        verbose_name = 'Оффлайн ключ'
+        verbose_name_plural = 'Оффлайн ключи'
+
+
 class NalogRequestModel(NalogBaseModel):
     class RequestNameChoice(models.TextChoices):
         AUTH_REQUEST = 'AuthRequest'
@@ -125,6 +169,7 @@ class NalogRequestModel(NalogBaseModel):
         GET_NEWLY_UNBOUND_TAXPAYERS_REQUEST = 'GetNewlyUnboundTaxpayersRequest'
         GET_INCOME_REQUEST_V2 = 'GetIncomeRequestV2'
         GET_PAYMENT_DOCUMENTS_REQUEST = 'GetPaymentDocumentsRequest'
+        GET_KEYS_REQUEST = 'GetKeysRequest'
 
     class StatusChoice(models.TextChoices):
         PROCESSING = 'PROCESSING', 'В процессе'
@@ -279,7 +324,7 @@ class NalogIncomeRequestModel(NalogBaseModel):
         return nalog_request_model
 
     @classmethod
-    def create(cls, inn, amount, name, operation_time, request_time, latitude=None, longitude=None):
+    def create(cls, inn, amount, name, operation_time, request_time, latitude=None, longitude=None, link=None):
         return cls.objects.create(
             uuid=uuid.uuid4(),
             user=NalogUser.get_or_create(inn),
@@ -288,7 +333,8 @@ class NalogIncomeRequestModel(NalogBaseModel):
             operation_time=operation_time,
             request_time=request_time,
             latitude=latitude,
-            longitude=longitude
+            longitude=longitude,
+            link=link
         )
 
     def update_receipt(self, receipt_id, link):
@@ -324,6 +370,7 @@ class NalogIncomeRequestModel(NalogBaseModel):
         db_table = 'appcraft_nalog_sdk_income_requests'
         verbose_name = 'Регистрация дохода'
         verbose_name_plural = 'Регистрация доходов'
+
 
 class NalogDocumentModel(NalogBaseModel):
     user = models.ForeignKey(NalogUser, on_delete=models.CASCADE, verbose_name='Пользователь')

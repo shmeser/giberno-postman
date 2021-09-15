@@ -1,10 +1,18 @@
+import base64
+import hashlib
+import hmac
+import struct
+import numpy as np
+
 import requests
 import xmltodict
 from django.db import transaction
+from loguru import logger
 from lxml import etree
 
 from appcraft_nalog_sdk import request_fabric, settings
-from appcraft_nalog_sdk.models import NalogRequestModel, NalogBindPartnerRequestModel, NalogIncomeRequestModel
+from appcraft_nalog_sdk.models import NalogRequestModel, NalogBindPartnerRequestModel, NalogIncomeRequestModel, \
+    NalogOfflineKeyModel, NalogUser
 from appcraft_nalog_sdk.response_router import ResponseRouter
 
 
@@ -208,8 +216,64 @@ class NalogSdk:
 
         return self.__send_request(request_name, request_data)
 
+    def get_keys_request(self, inn_list):
+        """
+        Получение ключей для формирований чеков в режиме оффлайн
+
+        :param inn_list: список инн
+        :return: message_id: идентификатор асинхронного запроса
+        """
+        request_name = NalogRequestModel.RequestNameChoice.GET_KEYS_REQUEST
+        request_data = request_fabric.get_keys_request(inn_list)
+
+        return self.__send_request(request_name, request_data)
+
+    def update_keys(self):
+        NalogOfflineKeyModel.delete_all_expired_unused_keys()
+        inn_list = NalogUser.get_inn_with_no_keys()
+        if inn_list:
+            self.get_keys_request(inn_list)
+
+    def make_offline_link(self, inn, amount, operation_time, request_time):
+        # Получаем оффлайновый ключ
+        offline_key = NalogOfflineKeyModel.get_unused_key(inn)
+        if not offline_key:
+            return None
+
+        source_device_id = '0'
+        buyer_inn = '0'
+        partner_code = '0'  # TODO узнать
+
+        key = base64.b64decode(offline_key.base64_key).hex()
+        receipt_id = np.base_repr(offline_key.sequence_number, 36).zfill(4)
+
+        mac = hmac.new(
+            key,
+            digestmod=hashlib.sha256
+        )
+
+        mac.update(inn.encode('utf8'))
+        mac.update(struct.pack('>Q', int(request_time.timestamp())))
+        mac.update(struct.pack('>Q', int(operation_time.timestamp())))
+        mac.update(buyer_inn.encode('utf8'))
+
+        amount = int(str(amount).replace('.', ''))
+        bytes_amount = amount.to_bytes((amount.bit_length() + 7) // 8, 'big') or b'\0'
+        mac.update(bytes_amount)
+
+        mac.update(partner_code.encode('utf8'))
+        mac.update(source_device_id.encode('utf8'))
+
+        digest = mac.hexdigest()
+
+        full_hash = np.base_repr(int(digest, 16), 36).lower()
+        receipt_hash = full_hash[- 6:]
+
+        return f'{settings.INCOME_RECEIPT_URL}/{inn}/{receipt_id}{receipt_hash}/print'
+
     def update_processing_statuses(self):
         for request in NalogRequestModel.get_processing_requests():
+            logger.debug(request)
             with transaction.atomic():
                 message_request = self.__get_message_request(request.message_id)
                 message = xmltodict.parse(message_request)

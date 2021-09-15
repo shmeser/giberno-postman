@@ -101,6 +101,10 @@ class DocumentType(IntEnumM):
     VISA = 7  # Виза
     RESIDENT_CARD = 8  # Вид на жительство
     MIGRATION_CARD = 9  # Миграционная карта
+    DIPLOMA = 10  # Диплом
+    CERTIFICATE = 11  # Сертификат
+    CARD = 12  # Удостоверение
+    BILL = 13  # Свидетельство
 
 
 REQUIRED_DOCS_FOR_CHOICES = [
