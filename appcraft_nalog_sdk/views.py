@@ -113,6 +113,7 @@ class PostIncomeView(APIView):
         link, receipt_id, receipt_hash = nalog_sdk.make_offline_link(
             inn, amount, operation_time, request_time
         )
+        nalog_sdk.generate_qrcode(link)
         nalog_income_request = NalogIncomeRequestModel.create(
             inn, amount, name, operation_time, request_time, latitude, longitude, link, receipt_id, receipt_hash
         )

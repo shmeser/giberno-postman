@@ -3825,3 +3825,36 @@ class InsuranceRepository(MasterRepository):
         if created:
             pass
             # TODO транзакция за страховку
+
+class ReceiptsRepository(MasterRepository):
+    model = Nalog
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.base_query = self.model.objects.annotate(timezone=F('appeal__shift__vacancy__timezone')).filter(
+            appeal__applier=self.me,
+            deleted=False
+        )
+
+    def inited_get_by_id(self, record_id):
+        records = self.base_query.filter(pk=record_id)
+        record = records.first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def get_nearest_active_insurance(self):
+        insurance = self.base_query.filter(
+            appeal__status=ShiftAppealStatus.CONFIRMED.value  # Страховка для подтвержденной заявки
+        ).order_by('appeal__time_start').first()
+
+        if not insurance:
+            raise CustomException(errors=[
+                dict(Error(ErrorsCodes.NO_ACTIVE_INSURANCE)),
+            ])
+
+        return insurance

@@ -539,6 +539,7 @@ class VacanciesClusteredMap(Vacancies):
         order_params = RequestMapper(self).order(request)
         point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
+        # TODO сериалайзер на координаты
         self.many = True
         clustered = self.repository_class(point, screen_diagonal_points).map(kwargs=filters, order_by=order_params)
 
@@ -1770,6 +1771,46 @@ def get_my_money(request):
     money_balances = MoneyRepository(me=request.user).get_my_money()
     serializer = MoneySerializer(money_balances, many=True, context={'me': request.user})
     return Response(camelize(serializer.data), status=status.HTTP_200_OK)
+
+
+class Receipts(CRUDAPIView):
+    serializer_class = ReceiptsSerializer
+    repository_class = ReceiptsRepository
+    allowed_http_methods = ['get']
+
+    order_params = {
+        'id': 'id',
+        'created_at': 'created_at'
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class().get_by_id(record_id)
+            # TODO генерация чека
+
+            return Response()
+        else:
+            dataset = self.repository_class().filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
 class AdminDistributors(CRUDAPIView):
