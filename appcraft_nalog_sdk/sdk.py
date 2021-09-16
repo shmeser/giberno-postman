@@ -238,14 +238,14 @@ class NalogSdk:
         # Получаем оффлайновый ключ
         offline_key = NalogOfflineKeyModel.get_unused_key(inn)
         if not offline_key:
-            return None
+            return None, None, None
 
         source_device_id = '0'
         buyer_inn = '0'
         partner_code = '0'  # TODO узнать
 
-        key = base64.b64decode(offline_key.base64_key).hex()
-        receipt_id = np.base_repr(offline_key.sequence_number, 36).zfill(4)
+        key = base64.b64decode(offline_key.base64_key)
+        seq_number = np.base_repr(offline_key.sequence_number, 36).zfill(4)
 
         mac = hmac.new(
             key,
@@ -269,13 +269,18 @@ class NalogSdk:
         full_hash = np.base_repr(int(digest, 16), 36).lower()
         receipt_hash = full_hash[- 6:]
 
-        return f'{settings.INCOME_RECEIPT_URL}/{inn}/{receipt_id}{receipt_hash}/print'
+        offline_key.set_is_used()
+
+        receipt_id = f'{seq_number}{receipt_hash}'
+
+        return f'{settings.INCOME_RECEIPT_URL}/{inn}/{receipt_id}/print', receipt_id, receipt_hash
 
     def update_processing_statuses(self):
         for request in NalogRequestModel.get_processing_requests():
             logger.debug(request)
             with transaction.atomic():
                 message_request = self.__get_message_request(request.message_id)
+                logger.debug(message_request)
                 message = xmltodict.parse(message_request)
                 _, status = request_fabric.get_message_response_and_status(message)
                 request.update_status(status, message_request)

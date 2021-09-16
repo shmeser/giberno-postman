@@ -136,13 +136,17 @@ class NalogOfflineKeyModel(NalogBaseModel):
 
     @classmethod
     def delete_all_expired_unused_keys(cls):
-        cls.objects.filter(deleted_at__isnull=True, is_used=False, expire_time__gt=timezone.now()).update(
+        cls.objects.filter(deleted_at__isnull=True, is_used=False, expire_time__lte=timezone.now()).update(
             deleted_at=timezone.now()
         )
 
     @classmethod
     def get_unused_key(cls, inn):
         return cls.objects.filter(user__inn=inn, deleted_at__isnull=True, is_used=False).first()
+
+    def set_is_used(self):
+        self.is_used = True
+        self.save()
 
     def __str__(self):
         return f'{self.user}: {self.base64_key}'
@@ -307,6 +311,7 @@ class NalogIncomeRequestModel(NalogBaseModel):
     amount = models.FloatField(verbose_name='Сумма дохода')
     name = models.CharField(max_length=255, verbose_name='Название дохода')
     receipt_id = models.CharField(max_length=255, null=True, blank=True, verbose_name='ID чека')
+    receipt_hash = models.CharField(max_length=255, null=True, blank=True, verbose_name='Фискальный признак чека')
     link = models.CharField(max_length=255, null=True, blank=True, verbose_name='Ссылка на чек')
     operation_time = models.DateTimeField(verbose_name='Дата совершение услуги')
     request_time = models.DateTimeField(verbose_name='Дата совершение услуги')
@@ -324,9 +329,12 @@ class NalogIncomeRequestModel(NalogBaseModel):
         return nalog_request_model
 
     @classmethod
-    def create(cls, inn, amount, name, operation_time, request_time, latitude=None, longitude=None, link=None):
+    def create(cls, inn, amount, name, operation_time, request_time, latitude=None, longitude=None, link=None,
+               receipt_id=None, receipt_hash=None):
         return cls.objects.create(
             uuid=uuid.uuid4(),
+            receipt_id=receipt_id,
+            receipt_hash=receipt_hash,
             user=NalogUser.get_or_create(inn),
             amount=amount,
             name=name,

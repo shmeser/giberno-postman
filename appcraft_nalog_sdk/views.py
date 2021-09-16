@@ -81,13 +81,20 @@ class BindView(APIView):
         return Response(NalogUserSerializer(user).data)
 
 
+class OfflineKeys(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        # Обновляем оффлайн ключи
+        tasks.update_offline_keys()
+        return JsonResponse({})
+
+
 class PostIncomeView(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request):
         tasks.get_income_request()
-        # Обновляем оффлайн ключи
-        tasks.update_offline_keys()
         return JsonResponse({})
 
     def post(self, request):
@@ -103,11 +110,11 @@ class PostIncomeView(APIView):
 
         nalog_sdk = NalogSdk()
         # Получаем ссылку на чек для оффлайн режима
-        link = nalog_sdk.make_offline_link(
+        link, receipt_id, receipt_hash = nalog_sdk.make_offline_link(
             inn, amount, operation_time, request_time
         )
         nalog_income_request = NalogIncomeRequestModel.create(
-            inn, amount, name, operation_time, request_time, latitude, longitude, link
+            inn, amount, name, operation_time, request_time, latitude, longitude, link, receipt_id, receipt_hash
         )
 
         nalog_sdk.post_income_request(nalog_income_request)
