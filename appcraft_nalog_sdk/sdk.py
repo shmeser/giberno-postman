@@ -2,8 +2,8 @@ import base64
 import hashlib
 import hmac
 import struct
-import numpy as np
 
+import numpy as np
 import requests
 import xmltodict
 from django.db import transaction
@@ -242,7 +242,8 @@ class NalogSdk:
 
         source_device_id = '0'
         buyer_inn = '0'
-        partner_code = '0'  # TODO узнать
+
+        partner_code = settings.PARTNER_ID
 
         key = base64.b64decode(offline_key.base64_key)
         seq_number = np.base_repr(offline_key.sequence_number, 36).zfill(4)
