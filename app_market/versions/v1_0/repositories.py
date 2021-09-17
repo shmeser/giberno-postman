@@ -35,6 +35,7 @@ from app_media.models import MediaModel
 from app_users.enums import AccountType, DocumentType
 from app_users.models import UserProfile, Document, UserMoney
 from app_users.utils import EmailSender
+from appcraft_nalog_sdk.models import NalogIncomeRequestModel, NalogRequestModel
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import ForbiddenException
@@ -3825,3 +3826,89 @@ class InsuranceRepository(MasterRepository):
         if created:
             pass
             # TODO транзакция за страховку
+
+
+class ReceiptsRepository(MasterRepository):
+    model = NalogIncomeRequestModel
+
+    def __init__(self, me=None):
+        super().__init__()
+        self.me = me
+
+        self.is_successful_expression = Case(
+            When(
+                Q(has_message_error=False, message_status='COMPLETED'),
+                then=True
+            ),
+            default=False,
+            output_field=BooleanField()
+        )
+
+        self.base_query = self.model.objects.annotate(
+            message_status=Subquery(
+                NalogRequestModel.objects.filter(
+                    message_id=OuterRef('message_id')
+                ).values('status')[:1],
+                output_field=CharField()
+            ),
+            has_message_error=Exists(
+                NalogRequestModel.objects.filter(
+                    message_id=OuterRef('message_id'),
+                    error_message__isnull=False  # TODO Error_message проставлять
+                ),
+                output_field=BooleanField()
+            ),
+        ).annotate(
+            is_successful=self.is_successful_expression
+        ).filter(is_successful=True)
+
+    def inited_get_by_id(self, record_id):
+        records = self.base_query.filter(pk=record_id, user__profiles__id=self.me.id).exclude(deleted_at__isnull=False)
+        record = records.first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    @staticmethod
+    def fast_related_loading(queryset):
+        return queryset.select_related('user')
+
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            result = self.base_query.filter(
+                **kwargs
+            ).exclude(deleted_at__isnull=False).order_by(*order_by)
+        else:
+            result = self.base_query.filter(
+                **kwargs
+            ).exclude(deleted_at__isnull=False)
+
+        count = result.count()
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=result[paginator.offset:paginator.limit] if paginator else result
+        ), count
+
+    def admin_get_by_id(self, record_id):
+        records = self.base_query.filter(pk=record_id).exclude(deleted_at__isnull=False)
+        records = self.fast_related_loading(records)
+        record = records.first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    def get_my_receipts(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            result = self.base_query.filter(
+                user__profiles__id=self.me.id
+            ).exclude(deleted_at__isnull=False).order_by(*order_by)
+        else:
+            result = self.base_query.filter(
+                user__profiles__id=self.me.id
+            ).exclude(deleted_at__isnull=False)
+
+        return result[paginator.offset:paginator.limit] if paginator else result

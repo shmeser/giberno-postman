@@ -21,7 +21,7 @@ from backend.errors.http_exceptions import HttpException
 def firebase_web_auth(request):
     if request.version in ['users_1_0']:
         return v1_0.firebase_web_auth(request._request)
-    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 @login_required
@@ -41,7 +41,7 @@ class AuthVk(BaseAPIView):
         if request.version in ['users_1_0']:
             return v1_0.AuthVk(request).post(request)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AuthFirebase(BaseAPIView):
@@ -53,7 +53,7 @@ class AuthFirebase(BaseAPIView):
         if request.version in ['users_1_0']:
             return v1_0.AuthFirebase.post(request)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AuthRefreshToken(BaseAPIView):
@@ -65,7 +65,7 @@ class AuthRefreshToken(BaseAPIView):
         if request.version in ['users_1_0']:
             return v1_0.AuthRefreshToken().post(request)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class ReferenceCode(APIView):
@@ -82,14 +82,14 @@ class ReferenceCode(APIView):
         if request.version in ['users_1_0']:
             return v1_0.ReferenceCode.post(request)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def get(request):
         if request.version in ['users_1_0']:
             return v1_0.ReferenceCode.get(request)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class Users(APIView):
@@ -98,7 +98,7 @@ class Users(APIView):
         if request.version in ['users_1_0']:
             return v1_0.Users().get(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class MyProfile(APIView):
@@ -106,13 +106,13 @@ class MyProfile(APIView):
     def get(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfile().get(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def patch(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfile().patch(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class MyProfileCareer(APIView):
@@ -120,25 +120,25 @@ class MyProfileCareer(APIView):
     def get(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileCareer().get(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileCareer().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def patch(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileCareer().patch(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileCareer().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class MyProfileUploads(APIView):
@@ -146,13 +146,13 @@ class MyProfileUploads(APIView):
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileUploads().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileUploads().delete(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class MyProfileSocials(APIView):
@@ -160,13 +160,13 @@ class MyProfileSocials(APIView):
     def get(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileSocials().get(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileSocials().delete(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class MyProfileDocuments(APIView):
@@ -174,13 +174,13 @@ class MyProfileDocuments(APIView):
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileDocuments().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileDocuments().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class MyProfileDocument(APIView):
@@ -188,19 +188,19 @@ class MyProfileDocument(APIView):
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileDocument().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def patch(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileDocument().patch(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileDocument().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class Notifications(APIView):
@@ -208,7 +208,7 @@ class Notifications(APIView):
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.Notifications().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class NotificationsSettings(APIView):
@@ -216,13 +216,13 @@ class NotificationsSettings(APIView):
     def get(request):
         if request.version in ['users_1_0']:
             return v1_0.NotificationsSettings().get(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request):
         if request.version in ['users_1_0']:
             return v1_0.NotificationsSettings().put(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 @api_view(['POST'])
@@ -230,7 +230,7 @@ class NotificationsSettings(APIView):
 def read_notification(request, **kwargs):
     if request.version in ['users_1_0']:
         return v1_0.read_notification(request._request, **kwargs)
-    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 # PUSH SUBSCRIBE
@@ -239,7 +239,7 @@ def push_subscribe(request, **kwargs):
     if request.version in ['users_1_0']:
         return v1_0.push_subscribe(request._request)
 
-    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 # PUSH UNSUBSCRIBE
@@ -251,7 +251,7 @@ class PushUnsubscribe(APIView):
         if request.version in ['users_1_0']:
             return v1_0.PushUnsubscribe.post(request)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 # MANAGERS RELATED VIEWS
@@ -268,7 +268,7 @@ class CreateManagerByAdminAPIView(BaseAPIView):
     def post(self, request, *args, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.CreateManagerByAdminAPIView().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class GetManagerByUsernameAPIView(BaseAPIView):
@@ -281,7 +281,7 @@ class GetManagerByUsernameAPIView(BaseAPIView):
     def post(self, request, *args, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.GetManagerByUsernameAPIView().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AuthenticateManagerAPIView(BaseAPIView):
@@ -295,7 +295,7 @@ class AuthenticateManagerAPIView(BaseAPIView):
     def post(self, request, *args, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.AuthenticateManagerAPIView().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class ChangeManagerPasswordAPIView(BaseAPIView):
@@ -308,7 +308,7 @@ class ChangeManagerPasswordAPIView(BaseAPIView):
     def post(self, request, *args, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.ChangeManagerPasswordAPIView().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class EditManagerProfileView(BaseAPIView):
@@ -321,7 +321,7 @@ class EditManagerProfileView(BaseAPIView):
     def patch(self, request, *args, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.EditManagerProfileView().patch(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 # SECURITY
@@ -335,7 +335,7 @@ class CreateSecurityByAdmin(BaseAPIView):
     def post(self, request, *args, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.CreateSecurityByAdmin().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AuthenticateSecurity(BaseAPIView):
@@ -348,7 +348,7 @@ class AuthenticateSecurity(BaseAPIView):
     def post(self, request, *args, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.AuthenticateSecurity().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 ####
@@ -358,7 +358,7 @@ class UsersRating(APIView):
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.UsersRating().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class MyRating(APIView):
@@ -366,7 +366,7 @@ class MyRating(APIView):
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyRating().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class UserCareer(APIView):
@@ -374,7 +374,7 @@ class UserCareer(APIView):
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.UserCareer().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class MyProfileCards(APIView):
@@ -382,13 +382,13 @@ class MyProfileCards(APIView):
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileCards().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileCards().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class MyProfileInsurance(APIView):
@@ -396,7 +396,7 @@ class MyProfileInsurance(APIView):
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.MyProfileInsurance().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class ConfirmInsurance(APIView):
@@ -404,7 +404,7 @@ class ConfirmInsurance(APIView):
     def post(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.ConfirmInsurance().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminAuth(APIView):
@@ -415,7 +415,7 @@ class AdminAuth(APIView):
     def post(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.AdminAuth().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminProfile(APIView):
@@ -424,7 +424,7 @@ class AdminProfile(APIView):
     def get(request, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.AdminProfile().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminProfilePassword(APIView):
@@ -435,7 +435,7 @@ class AdminProfilePassword(APIView):
     def post(self, request, *args, **kwargs):
         if request.version in ['users_1_0']:
             return v1_0.AdminProfilePassword().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminUploads(APIView):
@@ -444,10 +444,10 @@ class AdminUploads(APIView):
     def post(request):
         if request.version in ['users_1_0']:
             return v1_0.AdminUploads().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request):
         if request.version in ['users_1_0']:
             return v1_0.AdminUploads().delete(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)

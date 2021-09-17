@@ -8,6 +8,7 @@ urlpatterns = [
     path('notifications', views.NotificationsView.as_view()),
     path('bind', views.BindView.as_view()),
     path('income', views.PostIncomeView.as_view()),
+    path('keys', views.OfflineKeys.as_view()),
     path('cancel-reasons', views.CancelReasons.as_view()),
     path('granted-permissions', views.GrantedPermissionsView.as_view()),
     path('platform-registration', views.PlatformRegistrationView.as_view()),

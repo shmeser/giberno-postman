@@ -122,6 +122,7 @@ def post_income_request(nalog_request_model):
     return f'''
 <PostIncomeRequestV2 xmlns="urn://x-artefacts-gnivc-ru/ais3/SMZ/SmzPartnersIntegrationService/types/1.0">
     <Inn>{nalog_request_model.user.inn}</Inn>
+    <ReceiptId>{nalog_request_model.receipt_id}</ReceiptId>
     <RequestTime>{nalog_request_model.request_time.isoformat()}</RequestTime>
     <OperationTime>{nalog_request_model.operation_time.isoformat()}</OperationTime>
     <IncomeType>FROM_INDIVIDUAL</IncomeType>
@@ -131,6 +132,8 @@ def post_income_request(nalog_request_model):
         <Quantity>1</Quantity>
     </Services>
     <TotalAmount>{nalog_request_model.amount}</TotalAmount>
+    <IncomeHashCode>{nalog_request_model.receipt_hash}</IncomeHashCode>
+    <Link>{nalog_request_model.link}</Link>
     <OperationUniqueId>{nalog_request_model.uuid}</OperationUniqueId>
     {geo_info_block}
 </PostIncomeRequestV2>
@@ -227,7 +230,7 @@ def get_keys_request(inn_list: list):
     inn_list_block = ''
 
     for inn in inn_list:
-        inn_list_block += f'<InnList>{inn}</InnList>'
+        inn_list_block += f'<Inn>{inn}</Inn>'
 
     return f'''
 <GetKeysRequest xmlns="urn://x-artefacts-gnivc-ru/ais3/SMZ/SmzPartnersIntegrationService/types/1.0">

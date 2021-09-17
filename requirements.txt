@@ -117,3 +117,5 @@ yarl==1.6.3
 zipp==3.5.0
 zope.event==4.5.0
 zope.interface==5.4.0
+qrcode~=7.3
+html2image~=2.0.1

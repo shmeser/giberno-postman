@@ -366,20 +366,23 @@ class ResponseRouter:
 
     def get_keys_response(self):
         try:
-            logger.debug(self.message)
             ErrorController.check_error(self.message, self.request_model.user)
             if 'GetKeysResponse' in self.message:
-                for key in self.message['GetKeysResponse']:
-                    for key_record in key:
-                        if 'SequenceNumber' not in key_record:
+                for key, value in self.message['GetKeysResponse'].items():
+                    if isinstance(value, str):
+                        continue
+
+                    for k, v in value.items():
+                        if k == 'Inn':
                             continue
 
-                        NalogOfflineKeyModel.create(
-                            inn=key['inn'],
-                            sequence_number=key_record['SequenceNumber'],
-                            base64_key=key_record['Base64Key'],
-                            expire_time=key_record['ExpireTime']
-                        )
+                        for key_record in v:
+                            NalogOfflineKeyModel.create(
+                                inn=value['Inn'],
+                                sequence_number=key_record['SequenceNumber'],
+                                base64_key=key_record['Base64Key'],
+                                expire_time=key_record['ExpireTime']
+                            )
         except RequestValidationException:
             pass
         except TaxpayerUnboundException:
