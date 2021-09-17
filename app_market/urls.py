@@ -77,6 +77,8 @@ urlpatterns = [
     path('market/finances', views.Finances.as_view()),
     # Баланс по разным счетам
     path('market/finances/money', views.get_my_money),
+    path('market/finances/receipts', views.Receipts.as_view()),
+    path('market/finances/receipts/<int:record_id>', views.Receipts.as_view()),
 ]
 
 managers_urls = [
@@ -158,6 +160,9 @@ admin_panel = [
 
     path('admin/market/partners', views.AdminPartners.as_view()),
     path('admin/market/partners/<int:record_id>', views.AdminPartner.as_view()),
+
+    path('admin/market/finances/receipts', views.AdminReceipts.as_view()),
+    path('admin/market/finances/receipts/<int:record_id>', views.AdminReceipts.as_view()),
 
 ]
 

@@ -1,5 +1,6 @@
 import uuid
 
+from django.http import HttpResponse
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize, underscoreize
 from rest_framework import status
@@ -16,7 +17,8 @@ from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
     MarketDocumentsRepository, PartnersRepository, AchievementsRepository, AdvertisementsRepository, OrdersRepository, \
-    CouponsRepository, TransactionsRepository, StructuresRepository, PositionsRepository, CategoriesRepository
+    CouponsRepository, TransactionsRepository, StructuresRepository, PositionsRepository, CategoriesRepository, \
+    ReceiptsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
@@ -29,7 +31,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     FinancesValiadator, OrdersValiadator, BuyCouponsValidator, ShiftsSerializerAdmin, ShiftAppealsSerializerAdmin, \
     ProfessionSerializerAdmin, CouponsSerializerAdmin, DistributorsSerializerAdmin, ShopsSerializerAdmin, \
     VacanciesSerializerAdmin, StructuresSerializerAdmin, PositionsSerializerAdmin, CategoriesSerializerAdmin, \
-    PartnersSerializerAdmin
+    PartnersSerializerAdmin, ReceiptsSerializer, ReceiptsSerializerAdmin
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -37,6 +39,7 @@ from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
 from app_users.versions.v1_0.repositories import ProfileRepository, MoneyRepository
 from app_users.versions.v1_0.serializers import MoneySerializer
+from appcraft_nalog_sdk.sdk import NalogSdk
 from backend.api_views import BaseAPIView
 from backend.controllers import PushController
 from backend.entity import Error
@@ -539,6 +542,7 @@ class VacanciesClusteredMap(Vacancies):
         order_params = RequestMapper(self).order(request)
         point, screen_diagonal_points, radius = RequestMapper().geo(request)
 
+        # TODO сериалайзер на координаты
         self.many = True
         clustered = self.repository_class(point, screen_diagonal_points).map(kwargs=filters, order_by=order_params)
 
@@ -1772,6 +1776,48 @@ def get_my_money(request):
     return Response(camelize(serializer.data), status=status.HTTP_200_OK)
 
 
+class Receipts(CRUDAPIView):
+    serializer_class = ReceiptsSerializer
+    repository_class = ReceiptsRepository
+    allowed_http_methods = ['get']
+
+    order_params = {
+        'id': 'id',
+        'created_at': 'created_at'
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            receipt = self.repository_class(request.user).inited_get_by_id(record_id)
+            if not receipt.receipt_image:
+                raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail='Чек не сгенерирован')
+            response = HttpResponse(content=receipt.receipt_image.file.file.raw, content_type='image/png')
+            response['Content-Disposition'] = f'inline; filename=receipt_{receipt.receipt_id}.png'
+            return response
+        else:
+            dataset = self.repository_class(request.user).get_my_receipts(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
 class AdminDistributors(CRUDAPIView):
     serializer_class = DistributorsSerializerAdmin
     repository_class = DistributorsRepository
@@ -2725,3 +2771,42 @@ class AdminDistributorCategory(AdminDistributorCategories):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class AdminReceipts(CRUDAPIView):
+    serializer_class = ReceiptsSerializerAdmin
+    repository_class = ReceiptsRepository
+    allowed_http_methods = ['get']
+
+    order_params = {
+        'id': 'id',
+        'created_at': 'created_at'
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class(request.user).admin_get_by_id(record_id)
+            count = 1
+        else:
+            dataset, count = self.repository_class(request.user).admin_filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        
+        return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)

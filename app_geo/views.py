@@ -14,7 +14,7 @@ class Languages(APIView):
         if request.version in ['geo_1_0']:
             return v1_0.Languages().get(request, **kwargs)
 
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 @api_view(['GET'])
@@ -22,7 +22,7 @@ def custom_languages(request):
     if request.version in ['geo_1_0']:
         return v1_0.custom_languages(request._request)
 
-    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class Countries(APIView):
@@ -30,14 +30,14 @@ class Countries(APIView):
     def get(request, **kwargs):
         if request.version in ['geo_1_0']:
             return v1_0.Countries().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 @api_view(['GET'])
 def custom_countries(request):
     if request.version in ['geo_1_0']:
         return v1_0.custom_countries(request._request)
-    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class Cities(BaseAPIView):
@@ -47,7 +47,7 @@ class Cities(BaseAPIView):
     def get(request, **kwargs):
         if request.version in ['geo_1_0']:
             return v1_0.Cities().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class CitiesClusteredMap(BaseAPIView):
@@ -57,14 +57,14 @@ class CitiesClusteredMap(BaseAPIView):
     def get(request, **kwargs):
         if request.version in ['geo_1_0']:
             return v1_0.CitiesClusteredMap().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 @api_view(['GET'])
 def cities_suggestions(request):
     if request.version in ['geo_1_0']:
         return v1_0.cities_suggestions(request._request)
-    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+    raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class Geocode(APIView):
@@ -72,4 +72,4 @@ class Geocode(APIView):
     def get(request):
         if request.version in ['geo_1_0']:
             return v1_0.geocode(request._request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)

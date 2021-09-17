@@ -685,6 +685,15 @@ def get_my_money(request):
     raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
+class Receipts(APIView):
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.Receipts().get(request, **kwargs)
+
+        raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
 class AdminShops(APIView):
     permission_classes = [IsAdminOrManager]
 
@@ -692,13 +701,13 @@ class AdminShops(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShops().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShops().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminShop(APIView):
@@ -708,19 +717,19 @@ class AdminShop(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShop().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShop().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShop().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminVacancies(APIView):
@@ -730,13 +739,13 @@ class AdminVacancies(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminVacancies().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminVacancies().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminVacancy(APIView):
@@ -746,19 +755,19 @@ class AdminVacancy(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminVacancy().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminVacancy().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminVacancy().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminAppeals(APIView):
@@ -768,13 +777,13 @@ class AdminAppeals(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminAppeals().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminAppeals().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminAppeal(APIView):
@@ -784,19 +793,19 @@ class AdminAppeal(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminAppeal().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminAppeal().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminAppeal().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminShifts(APIView):
@@ -806,13 +815,13 @@ class AdminShifts(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShifts().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShifts().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminShift(APIView):
@@ -822,19 +831,19 @@ class AdminShift(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShift().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShift().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminShift().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminProfessions(APIView):
@@ -844,13 +853,13 @@ class AdminProfessions(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminProfessions().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminProfessions().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminProfession(APIView):
@@ -860,19 +869,19 @@ class AdminProfession(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminProfession().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminProfession().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminProfession().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminPositions(APIView):
@@ -882,13 +891,13 @@ class AdminPositions(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminPositions().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminPositions().post(request)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminPosition(APIView):
@@ -898,19 +907,19 @@ class AdminPosition(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminPosition().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminPosition().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminPosition().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminDistributors(APIView):
@@ -920,13 +929,13 @@ class AdminDistributors(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminDistributors().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminDistributors().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminDistributor(APIView):
@@ -936,19 +945,19 @@ class AdminDistributor(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminDistributor().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminDistributor().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminDistributor().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminStructures(APIView):
@@ -958,13 +967,13 @@ class AdminStructures(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminStructures().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminStructures().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminStructure(APIView):
@@ -974,19 +983,19 @@ class AdminStructure(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminStructure().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminStructure().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminStructure().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminCoupons(APIView):
@@ -996,13 +1005,13 @@ class AdminCoupons(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminCoupons().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminCoupons().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminCoupon(APIView):
@@ -1012,19 +1021,19 @@ class AdminCoupon(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminCoupon().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminCoupon().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminCoupon().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminDistributorCategories(APIView):
@@ -1034,13 +1043,13 @@ class AdminDistributorCategories(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminDistributorCategories().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminDistributorCategories().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminDistributorCategory(APIView):
@@ -1050,19 +1059,19 @@ class AdminDistributorCategory(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminDistributorCategory().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminDistributorCategory().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminDistributorCategory().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminPartners(APIView):
@@ -1072,13 +1081,13 @@ class AdminPartners(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminPartners().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminPartners().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AdminPartner(APIView):
@@ -1088,16 +1097,26 @@ class AdminPartner(APIView):
     def get(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminPartner().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminPartner().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['market_1_0']:
             return v1_0.AdminPartner().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class AdminReceipts(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['market_1_0']:
+            return v1_0.AdminReceipts().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)

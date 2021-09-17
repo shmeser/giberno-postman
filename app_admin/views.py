@@ -13,13 +13,13 @@ class Staff(APIView):
     def get(request, **kwargs):
         if request.version in ['admin_1_0']:
             return v1_0.Staff().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['admin_1_0']:
             return v1_0.Staff().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class StaffMember(APIView):
@@ -29,19 +29,19 @@ class StaffMember(APIView):
     def get(request, **kwargs):
         if request.version in ['admin_1_0']:
             return v1_0.StaffMember().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['admin_1_0']:
             return v1_0.StaffMember().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['admin_1_0']:
             return v1_0.StaffMember().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class AccessContentTypes(APIView):
@@ -51,7 +51,7 @@ class AccessContentTypes(APIView):
     def get(request, **kwargs):
         if request.version in ['admin_1_0']:
             return v1_0.AccessContentTypes().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class UsersAccess(APIView):
@@ -61,13 +61,13 @@ class UsersAccess(APIView):
     def get(request, **kwargs):
         if request.version in ['admin_1_0']:
             return v1_0.UsersAccess().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def post(request, **kwargs):
         if request.version in ['admin_1_0']:
             return v1_0.UsersAccess().post(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
 
 class UserAccess(APIView):
@@ -77,16 +77,16 @@ class UserAccess(APIView):
     def get(request, **kwargs):
         if request.version in ['admin_1_0']:
             return v1_0.UserAccess().get(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def put(request, **kwargs):
         if request.version in ['admin_1_0']:
             return v1_0.UserAccess().put(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
 
     @staticmethod
     def delete(request, **kwargs):
         if request.version in ['admin_1_0']:
             return v1_0.UserAccess().delete(request, **kwargs)
-        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
