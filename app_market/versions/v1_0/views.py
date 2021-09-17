@@ -1799,7 +1799,6 @@ class Receipts(CRUDAPIView):
 
         if record_id:
             receipt = self.repository_class(request.user).inited_get_by_id(record_id)
-            NalogSdk.generate_receipt_image(receipt)
             if not receipt.receipt_image:
                 raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail='Чек не сгенерирован')
             response = HttpResponse(content=receipt.receipt_image.file.file.raw, content_type='image/jpeg')
