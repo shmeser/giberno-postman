@@ -26,7 +26,8 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import REQUIRED_DOCS_DICT
 from app_users.models import UserProfile
-from appcraft_nalog_sdk.models import NalogIncomeRequestModel
+from appcraft_nalog_sdk.models import NalogIncomeRequestModel, NalogUser
+from appcraft_nalog_sdk.serializers import NalogUserSerializer
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exceptions import CustomException
@@ -2020,20 +2021,65 @@ class ReceiptsSerializer(serializers.ModelSerializer):
     created_at = DateTimeField()
     operation_time = DateTimeField()
     request_time = DateTimeField()
-    is_successful = serializers.SerializerMethodField()
 
-    def get_is_successful(self, data):
-        return data.is_successful is not None
+    # is_successful = serializers.SerializerMethodField()
+
+    # def get_is_successful(self, data):
+    #     return data.is_successful if hasattr(data, 'is_successful') else False
 
     class Meta:
         model = NalogIncomeRequestModel
         fields = [
             'id',
             'uuid',
+            'receipt_id',
             'amount',
+            'name',
+            'created_at',
+            'operation_time',
+            'request_time',
+            'is_canceled',
+        ]
+
+
+class NalogUserSerializerAdmin(serializers.ModelSerializer):
+    class Meta:
+        model = NalogUser
+        fields = [
+            'inn',
+            'first_name',
+            'second_name',
+            'patronymic',
+            'phone_number',
+            'is_tax_payment',
+            'status',
+            'added_to_registry',
+        ]
+
+
+class ReceiptsSerializerAdmin(ReceiptsSerializer):
+    is_successful = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
+
+    def get_is_successful(self, data):
+        return data.is_successful if hasattr(data, 'is_successful') else False
+
+    def get_user(self, data):
+        return NalogUserSerializerAdmin(data.user, many=False).data
+
+    class Meta:
+        model = NalogIncomeRequestModel
+        fields = [
+            'id',
+            'uuid',
+            'receipt_id',
+            'amount',
+            'name',
             'created_at',
             'operation_time',
             'request_time',
             'is_canceled',
             'is_successful',
+            'receipt_image',
+            'user',
         ]

@@ -31,7 +31,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     FinancesValiadator, OrdersValiadator, BuyCouponsValidator, ShiftsSerializerAdmin, ShiftAppealsSerializerAdmin, \
     ProfessionSerializerAdmin, CouponsSerializerAdmin, DistributorsSerializerAdmin, ShopsSerializerAdmin, \
     VacanciesSerializerAdmin, StructuresSerializerAdmin, PositionsSerializerAdmin, CategoriesSerializerAdmin, \
-    PartnersSerializerAdmin, ReceiptsSerializer
+    PartnersSerializerAdmin, ReceiptsSerializer, ReceiptsSerializerAdmin
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -1798,10 +1798,11 @@ class Receipts(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            data = self.repository_class(request.user).inited_get_by_id(record_id)
-            image = NalogSdk.generate_receipt_image(data)
-            response = HttpResponse(content=image.file.file.raw, content_type='image/png')
-            response['Content-Disposition'] = f'inline; filename=receipt_{data.receipt_id}.png'
+            receipt = self.repository_class(request.user).inited_get_by_id(record_id)
+            if not receipt.receipt_image:
+                raise HttpException(status_code=RESTErrors.NOT_FOUND.value, detail='Чек не сгенерирован')
+            response = HttpResponse(content=receipt.receipt_image.file.file.raw, content_type='image/png')
+            response['Content-Disposition'] = f'inline; filename=receipt_{receipt.receipt_id}.png'
             return response
         else:
             dataset = self.repository_class(request.user).get_my_receipts(
@@ -2770,3 +2771,42 @@ class AdminDistributorCategory(AdminDistributorCategories):
             'headers': get_request_headers(request),
         })
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
+class AdminReceipts(CRUDAPIView):
+    serializer_class = ReceiptsSerializerAdmin
+    repository_class = ReceiptsRepository
+    allowed_http_methods = ['get']
+
+    order_params = {
+        'id': 'id',
+        'created_at': 'created_at'
+    }
+
+    default_order_params = [
+        '-created_at'
+    ]
+
+    def get(self, request, **kwargs):
+        record_id = kwargs.get(self.urlpattern_record_id_name)
+
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+
+        if record_id:
+            dataset = self.repository_class(request.user).admin_get_by_id(record_id)
+            count = 1
+        else:
+            dataset, count = self.repository_class(request.user).admin_filter_by_kwargs(
+                kwargs=filters, order_by=order_params, paginator=pagination
+            )
+
+            self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        
+        return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)

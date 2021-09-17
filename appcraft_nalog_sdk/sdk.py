@@ -5,6 +5,7 @@ import struct
 from io import BytesIO
 
 import numpy as np
+import pytz
 import qrcode
 import qrcode.image.svg
 import requests
@@ -259,6 +260,7 @@ class NalogSdk:
 
     @classmethod
     def generate_receipt_image(cls, receipt: NalogIncomeRequestModel):
+        tz = pytz.timezone('Europe/Moscow')
         svg_qr_code = cls.generate_qrcode(receipt.link)
 
         css = """div{font-family: monospace; font-size: 18px; min-height: 50px; color: #5c6882; } 
@@ -275,8 +277,9 @@ class NalogSdk:
 
         html = f'''<div class="container"><div class="border-bottom w100">
         <div class="header">Чек №{receipt.receipt_id}</div> <div class="flex-row w100 justify-between">
-        <div class="date">{receipt.operation_time.strftime('%d.%m.%Y')}</div>
-        <div class="time">{receipt.operation_time.strftime('%H:%M')}({receipt.operation_time.strftime('%z')})</div>
+        <div class="date">{tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%d.%m.%Y')}</div>
+        <div class="time">{tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%H:%M')}
+        ({tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%z')})</div>
         </div></div><div class="border-bottom w100 smz flex align-center"> 
         {receipt.user.second_name} {receipt.user.first_name} {receipt.user.patronymic}</div>
         <div class="border-bottom w100 flex-row"> <div class="flex-column w50 align-start">
@@ -300,12 +303,11 @@ class NalogSdk:
 
         receipt.set_receipt_image()
 
-        return receipt.receipt_image
-
     def make_offline_link(self, inn, amount, operation_time, request_time):
         # Получаем оффлайновый ключ
         offline_key = NalogOfflineKeyModel.get_unused_key(inn)
         if not offline_key:
+            # TODO raise error не давать оформить вывод если нет ключа. Отложить на потом выплату когда появится ключ
             return None, None, None
 
         source_device_id = '0'

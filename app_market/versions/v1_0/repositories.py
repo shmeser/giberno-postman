@@ -3860,10 +3860,40 @@ class ReceiptsRepository(MasterRepository):
             ),
         ).annotate(
             is_successful=self.is_successful_expression
-        )
+        ).filter(is_successful=True)
 
     def inited_get_by_id(self, record_id):
         records = self.base_query.filter(pk=record_id, user__profiles__id=self.me.id).exclude(deleted_at__isnull=False)
+        record = records.first()
+        if not record:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
+        return record
+
+    @staticmethod
+    def fast_related_loading(queryset):
+        return queryset.select_related('user')
+
+    def admin_filter_by_kwargs(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            result = self.base_query.filter(
+                **kwargs
+            ).exclude(deleted_at__isnull=False).order_by(*order_by)
+        else:
+            result = self.base_query.filter(
+                **kwargs
+            ).exclude(deleted_at__isnull=False)
+
+        count = result.count()
+
+        return self.fast_related_loading(  # Предзагрузка связанных сущностей
+            queryset=result[paginator.offset:paginator.limit] if paginator else result
+        ), count
+
+    def admin_get_by_id(self, record_id):
+        records = self.base_query.filter(pk=record_id).exclude(deleted_at__isnull=False)
+        records = self.fast_related_loading(records)
         record = records.first()
         if not record:
             raise HttpException(

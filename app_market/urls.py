@@ -161,6 +161,9 @@ admin_panel = [
     path('admin/market/partners', views.AdminPartners.as_view()),
     path('admin/market/partners/<int:record_id>', views.AdminPartner.as_view()),
 
+    path('admin/market/finances/receipts', views.AdminReceipts.as_view()),
+    path('admin/market/finances/receipts/<int:record_id>', views.AdminReceipts.as_view()),
+
 ]
 
 urlpatterns += admin_panel
