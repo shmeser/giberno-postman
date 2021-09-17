@@ -320,6 +320,7 @@ class NalogIncomeRequestModel(NalogBaseModel):
     is_canceled = models.BooleanField(default=False, verbose_name='Отменен/Аннулирован')
     canceled_reason = models.ForeignKey(NalogIncomeCancelReasonModel, on_delete=models.PROTECT, null=True, blank=True,
                                         verbose_name='Причина аннулирования')
+    receipt_image = models.FileField(upload_to='receipts', null=True, blank=True, verbose_name='Изображение чека')
 
     @classmethod
     def get_by_id(cls, receipt_id):
@@ -363,6 +364,10 @@ class NalogIncomeRequestModel(NalogBaseModel):
         if self.message_id is None:
             self.message_id = message_id
             self.save()
+
+    def set_receipt_image(self):
+        self.receipt_image.name = f'receipts/{self.receipt_id}.png'
+        self.save()
 
     @classmethod
     def get_by_message_id(cls, message_id):

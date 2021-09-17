@@ -1,5 +1,6 @@
 import uuid
 
+from django.http import HttpResponse
 from django.utils.timezone import now
 from djangorestframework_camel_case.util import camelize, underscoreize
 from rest_framework import status
@@ -16,7 +17,8 @@ from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
     MarketDocumentsRepository, PartnersRepository, AchievementsRepository, AdvertisementsRepository, OrdersRepository, \
-    CouponsRepository, TransactionsRepository, StructuresRepository, PositionsRepository, CategoriesRepository
+    CouponsRepository, TransactionsRepository, StructuresRepository, PositionsRepository, CategoriesRepository, \
+    ReceiptsRepository
 from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClusterSerializer, \
     ShiftAppealsSerializer, VacanciesWithAppliersForManagerSerializer, ShiftAppealCreateSerializer, \
     ShiftsWithAppealsSerializer, ShiftConditionsSerializer, ShiftForManagersSerializer, \
@@ -29,7 +31,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     FinancesValiadator, OrdersValiadator, BuyCouponsValidator, ShiftsSerializerAdmin, ShiftAppealsSerializerAdmin, \
     ProfessionSerializerAdmin, CouponsSerializerAdmin, DistributorsSerializerAdmin, ShopsSerializerAdmin, \
     VacanciesSerializerAdmin, StructuresSerializerAdmin, PositionsSerializerAdmin, CategoriesSerializerAdmin, \
-    PartnersSerializerAdmin
+    PartnersSerializerAdmin, ReceiptsSerializer
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -37,6 +39,7 @@ from app_sockets.controllers import SocketController
 from app_users.enums import NotificationAction, NotificationType, NotificationIcon
 from app_users.versions.v1_0.repositories import ProfileRepository, MoneyRepository
 from app_users.versions.v1_0.serializers import MoneySerializer
+from appcraft_nalog_sdk.sdk import NalogSdk
 from backend.api_views import BaseAPIView
 from backend.controllers import PushController
 from backend.entity import Error
@@ -1795,12 +1798,13 @@ class Receipts(CRUDAPIView):
         order_params = RequestMapper(self).order(request)
 
         if record_id:
-            dataset = self.repository_class().get_by_id(record_id)
-            # TODO генерация чека
-
-            return Response()
+            data = self.repository_class(request.user).inited_get_by_id(record_id)
+            image = NalogSdk.generate_receipt_image(data)
+            response = HttpResponse(content=image.file.file.raw, content_type='image/png')
+            response['Content-Disposition'] = f'inline; filename=receipt_{data.receipt_id}.png'
+            return response
         else:
-            dataset = self.repository_class().filter_by_kwargs(
+            dataset = self.repository_class(request.user).get_my_receipts(
                 kwargs=filters, order_by=order_params, paginator=pagination
             )
 

@@ -26,6 +26,7 @@ from app_media.versions.v1_0.repositories import MediaRepository
 from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import REQUIRED_DOCS_DICT
 from app_users.models import UserProfile
+from appcraft_nalog_sdk.models import NalogIncomeRequestModel
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exceptions import CustomException
@@ -2012,4 +2013,27 @@ class InsuranceSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'deleted',
+        ]
+
+
+class ReceiptsSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+    operation_time = DateTimeField()
+    request_time = DateTimeField()
+    is_successful = serializers.SerializerMethodField()
+
+    def get_is_successful(self, data):
+        return data.is_successful is not None
+
+    class Meta:
+        model = NalogIncomeRequestModel
+        fields = [
+            'id',
+            'uuid',
+            'amount',
+            'created_at',
+            'operation_time',
+            'request_time',
+            'is_canceled',
+            'is_successful',
         ]

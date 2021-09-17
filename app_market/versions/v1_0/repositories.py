@@ -35,6 +35,7 @@ from app_media.models import MediaModel
 from app_users.enums import AccountType, DocumentType
 from app_users.models import UserProfile, Document, UserMoney
 from app_users.utils import EmailSender
+from appcraft_nalog_sdk.models import NalogIncomeRequestModel, NalogRequestModel
 from backend.entity import Error
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.exceptions import ForbiddenException
@@ -3826,20 +3827,43 @@ class InsuranceRepository(MasterRepository):
             pass
             # TODO транзакция за страховку
 
+
 class ReceiptsRepository(MasterRepository):
-    model = Nalog
+    model = NalogIncomeRequestModel
 
     def __init__(self, me=None):
         super().__init__()
         self.me = me
 
-        self.base_query = self.model.objects.annotate(timezone=F('appeal__shift__vacancy__timezone')).filter(
-            appeal__applier=self.me,
-            deleted=False
+        self.is_successful_expression = Case(
+            When(
+                Q(has_message_error=False, message_status='COMPLETED'),
+                then=True
+            ),
+            default=False,
+            output_field=BooleanField()
+        )
+
+        self.base_query = self.model.objects.annotate(
+            message_status=Subquery(
+                NalogRequestModel.objects.filter(
+                    message_id=OuterRef('message_id')
+                ).values('status')[:1],
+                output_field=CharField()
+            ),
+            has_message_error=Exists(
+                NalogRequestModel.objects.filter(
+                    message_id=OuterRef('message_id'),
+                    error_message__isnull=False  # TODO Error_message проставлять
+                ),
+                output_field=BooleanField()
+            ),
+        ).annotate(
+            is_successful=self.is_successful_expression
         )
 
     def inited_get_by_id(self, record_id):
-        records = self.base_query.filter(pk=record_id)
+        records = self.base_query.filter(pk=record_id, user__profiles__id=self.me.id).exclude(deleted_at__isnull=False)
         record = records.first()
         if not record:
             raise HttpException(
@@ -3847,14 +3871,14 @@ class ReceiptsRepository(MasterRepository):
                 detail=f'Объект {self.model._meta.verbose_name} с ID={record_id} не найден')
         return record
 
-    def get_nearest_active_insurance(self):
-        insurance = self.base_query.filter(
-            appeal__status=ShiftAppealStatus.CONFIRMED.value  # Страховка для подтвержденной заявки
-        ).order_by('appeal__time_start').first()
+    def get_my_receipts(self, kwargs, paginator=None, order_by: list = None):
+        if order_by:
+            result = self.base_query.filter(
+                user__profiles__id=self.me.id
+            ).exclude(deleted_at__isnull=False).order_by(*order_by)
+        else:
+            result = self.base_query.filter(
+                user__profiles__id=self.me.id
+            ).exclude(deleted_at__isnull=False)
 
-        if not insurance:
-            raise CustomException(errors=[
-                dict(Error(ErrorsCodes.NO_ACTIVE_INSURANCE)),
-            ])
-
-        return insurance
+        return result[paginator.offset:paginator.limit] if paginator else result
