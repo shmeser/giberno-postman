@@ -4,14 +4,15 @@ import hmac
 import struct
 from io import BytesIO
 
+import imgkit
 import numpy as np
 import pytz
 import qrcode
 import qrcode.image.svg
 import requests
 import xmltodict
+from django.core.files.base import File
 from django.db import transaction
-from html2image import Html2Image
 from loguru import logger
 from lxml import etree
 
@@ -19,7 +20,7 @@ from appcraft_nalog_sdk import request_fabric, settings
 from appcraft_nalog_sdk.models import NalogRequestModel, NalogBindPartnerRequestModel, NalogIncomeRequestModel, \
     NalogOfflineKeyModel, NalogUser
 from appcraft_nalog_sdk.response_router import ResponseRouter
-from giberno.settings import BASE_DIR
+from giberno.settings import BASE_DIR, IS_LINUX
 
 
 class NalogSdk:
@@ -263,45 +264,67 @@ class NalogSdk:
         tz = pytz.timezone('Europe/Moscow')
         svg_qr_code = cls.generate_qrcode(receipt.link)
 
-        css = """div{font-family: monospace; font-size: 18px; min-height: 50px; color: #5c6882; } 
-        .container{background:white; width: 330px; height: auto; min-height: 630px; padding: 30px; display: flex; 
-        flex-flow: column; 
-        justify-content: center; align-items: center; } .border-bottom{border-bottom: 1px solid #5c6882; } 
-        .flex-row{display: flex; flex-flow: row; } .flex-column{display: flex; flex-flow: column; } 
-        .justify-between{justify-content: space-between; } .justify-center{justify-content: center; } 
-        .w100{width: 100%; } .w50{width: 50%; } .justify-start{justify-content: 	flex-start; } 
-        .justify-end{justify-content: 	flex-end; } .align-start{align-items	: flex-start; } 
-        .align-center{align-items	: center; } .align-end{align-items: 	flex-end; } .flex{display: flex; } 
-        .header{font-weight: 600; font-size: 22px; } .smz{font-size: 20px; } .bold{font-weight: 600; } 
-        .total{font-size: 20px; font-weight: 600; } .h300p{height: 200px; }"""
+        html = f'''<html><head></head><body>
+            <div class="container">
+                <div class="border-bottom w100">
+                    <div class="header t-center"><p>Чек №{receipt.receipt_id}</p></div> 
+                    <div class="flex-row w100 justify-between">
+                        <div class="date"><p>{tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%d.%m.%Y')}</p></div>
+                        <div class="time"><p>{tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%H:%M')}({tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%z')})</p></div>
+                    </div>
+                </div>
+                <div class="border-bottom w100 smz flex align-center t-center justify-center"> 
+                    <p>{receipt.user.second_name} {receipt.user.first_name} {receipt.user.patronymic}</p>
+                </div>
+                <div class="border-bottom w100 flex-row"> 
+                    <div class="flex-column w50 align-start">
+                        <p class="bold">Наименование</p>
+                        <div><p>{receipt.name}</p></div>
+                    </div>
+                    <div class="flex-column w50 align-end t-right">
+                        <p class="bold">Сумма</p> 
+                        <div><p>{receipt.amount}</p></div>
+                    </div>
+                </div>
+                <div class="border-bottom w100 flex-row justify-between total">
+                    <div class="flex align-center"><p>Итого:</p></div>
+                    <div class="flex align-center"><p>{receipt.amount}</p></div>
+                </div>
+                <div class="border-bottom w100 flex-column">
+                    <div class="w100 flex-row justify-between">
+                        <div class="flex align-center"><p>Режим НО</p></div>
+                        <div class="flex align-center"><p>НПД</p></div>
+                    </div>
+                    <div class="w100 flex-row justify-between">
+                        <div class="flex align-center"><p>ИНН</p></div> 
+                        <div class="flex align-center"><p>{receipt.user.inn}</p></div>
+                    </div>
+                </div>
+                <div class="border-bottom w100 flex-column"> 
+                    <div class="w100 justify-between flex-row">
+                        <div class="flex align-center"><p>Чек сформировал</p></div> 
+                        <div class="flex align-center"><p>Гиберно</p></div>
+                    </div>
+                    <div class="w100 flex-row justify-between">
+                        <div class="flex align-center"><p>ИНН</p></div>
+                        <div class="flex align-center"><p>{settings.PARTNER_INN}</p></div>
+                    </div>
+                </div>
+                <div class="w100 t-center h300p">{svg_qr_code}</div>
+            </div>
+        </body></html>'''
 
-        html = f'''<div class="container"><div class="border-bottom w100">
-        <div class="header">Чек №{receipt.receipt_id}</div> <div class="flex-row w100 justify-between">
-        <div class="date">{tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%d.%m.%Y')}</div>
-        <div class="time">{tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%H:%M')}
-        ({tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%z')})</div>
-        </div></div><div class="border-bottom w100 smz flex align-center"> 
-        {receipt.user.second_name} {receipt.user.first_name} {receipt.user.patronymic}</div>
-        <div class="border-bottom w100 flex-row"> <div class="flex-column w50 align-start">
-        <p class="bold">Наименование</p><div>{receipt.name}</div></div><div class="flex-column w50 align-end">
-        <p class="bold">Сумма</p> <div>{receipt.amount}</div></div></div>
-        <div class="border-bottom w100 flex-row justify-between total"><div class="flex align-center">Итого:</div>
-        <div class="flex align-center">{receipt.amount}</div> </div> <div class="border-bottom w100 flex-column">
-        <div class="w100 flex justify-between"> <div class="flex align-center">Режим НО</div>
-        <div class="flex align-center">НПД</div> </div> <div class="w100 flex justify-between">
-        <div class="flex align-center">ИНН</div> <div class="flex align-center">{receipt.user.inn}</div></div></div>
-        <div class="border-bottom w100 flex-column"> <div class="w100 flex justify-between">
-        <div class="flex align-center">Чек сформировал</div> <div class="flex align-center">Гиберно</div></div>
-        <div class="w100 flex justify-between"> <div class="flex align-center">ИНН</div>
-        <div class="flex align-center">{settings.PARTNER_INN}</div></div></div>
-        <div class="w100 flex justify-center align-center h300p">{svg_qr_code}</div></div>'''
+        options = {
+            'width': 410,
+            'format': 'jpeg',
+            'quality': '70',
+            'disable-smart-width': '',
+        }
+        if IS_LINUX:
+            options['xvfb'] = ''
 
-        hti = Html2Image(
-            output_path=f'{BASE_DIR}/files/media/receipts/'
-        )
-        hti.screenshot(html_str=html, css_str=css, size=(410, 900), save_as=f'{receipt.receipt_id}.png')
-
-        receipt.set_receipt_image()
+        image_bytes = imgkit.from_string(html, False, css=f'{BASE_DIR}/static/css/receipt.css', options=options)
+        receipt.set_receipt_image(File(BytesIO(image_bytes)))
 
     def make_offline_link(self, inn, amount, operation_time, request_time):
         # Получаем оффлайновый ключ

@@ -365,8 +365,8 @@ class NalogIncomeRequestModel(NalogBaseModel):
             self.message_id = message_id
             self.save()
 
-    def set_receipt_image(self):
-        self.receipt_image.name = f'receipts/{self.receipt_id}.png'
+    def set_receipt_image(self, file):
+        self.receipt_image.save(f'{self.receipt_id}.jpg', file)
         self.save()
 
     @classmethod

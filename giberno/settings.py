@@ -312,12 +312,13 @@ LOGGING = {
 }
 
 AUTO_SWITCH_TO_BOT_MIN = 15
+IS_LINUX = True
 
 # POSTGIS ###
 SRID = 4326  # WGS 84 -- WGS84 - World Geodetic System 1984, used in GPS
 if os.name == 'nt':
     import platform
-
+    IS_LINUX = False
     OSGEO4W = r"C:\OSGeo4W"
     if '64' in platform.architecture()[0]:
         OSGEO4W += "64"
