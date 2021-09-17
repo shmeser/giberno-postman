@@ -1,0 +1,114 @@
+div {
+    font-family: monospace;
+    font-size: 18px;
+    min-height: 50px;
+    color: #5c6882;
+}
+
+.container {
+    background: white;
+    width: 330px;
+    height: auto;
+    min-height: 630px;
+    padding: 30px;
+    display: -webkit-flex;
+    display: flex;
+    flex-flow: column;
+    justify-content: center;
+    align-items: center;
+}
+.t-center{
+    text-align: center;
+}
+.t-right{
+    text-align: right;
+}
+svg{
+    margin-top: 20px;
+}
+
+.border-bottom {
+    border-bottom: 1px solid #5c6882;
+    margin-bottom: 20px;
+}
+
+.border{
+    border: 3px solid darkorchid;
+}
+
+.flex-row {
+    display: flex;
+    flex-flow: row;
+    display: -webkit-box; /* wkhtmltopdf uses this one */
+}
+
+.flex-column {
+    display: -webkit-flex;
+    display: flex;
+    flex-flow: column;
+}
+
+.justify-between {
+    -webkit-box-pack: justify;
+    justify-content: space-between;
+}
+
+.justify-center {
+    -webkit-box-pack: center; /* wkhtmltopdf uses this one */
+    justify-content: center;
+}
+
+.w100 {
+    width: 100%;
+}
+
+.w50 {
+    width: 50%;
+}
+
+.justify-start {
+    justify-content: flex-start;
+}
+
+.justify-end {
+    justify-content: flex-end;
+}
+
+.align-start {
+    align-items: flex-start;
+}
+
+.align-center {
+    align-items: center;
+}
+
+.align-end {
+    align-items: flex-end;
+}
+
+.flex {
+    display: -webkit-flex;
+    display: flex;
+}
+
+.header {
+    font-weight: 600;
+    font-size: 22px;
+}
+
+.smz {
+    font-size: 20px;
+}
+
+.bold {
+    font-weight: 600;
+}
+
+.total {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.h300p {
+    height: 200px;
+}
