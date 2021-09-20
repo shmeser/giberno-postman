@@ -2,25 +2,19 @@ import base64
 import hashlib
 import hmac
 import struct
-from io import BytesIO
 
-import imgkit
 import numpy as np
-import pytz
-import qrcode
-import qrcode.image.svg
 import requests
 import xmltodict
-from django.core.files.base import File
 from django.db import transaction
 from loguru import logger
 from lxml import etree
 
 from appcraft_nalog_sdk import request_fabric, settings
+from appcraft_nalog_sdk.errors import ErrorController, AlreadyDeletedException, InvalidHashException
 from appcraft_nalog_sdk.models import NalogRequestModel, NalogBindPartnerRequestModel, NalogIncomeRequestModel, \
     NalogOfflineKeyModel, NalogUser
 from appcraft_nalog_sdk.response_router import ResponseRouter
-from giberno.settings import BASE_DIR, IS_LINUX
 
 
 class NalogSdk:
@@ -110,12 +104,16 @@ class NalogSdk:
         :return: message_id: идентификатор асинхронного запроса
 
         """
-        nalog_request_model = NalogIncomeRequestModel.get_by_id(receipt_id)
-        nalog_request_model.set_canceled_reason(reason_code)
+        nalog_income_request_model = NalogIncomeRequestModel.get_by_id(receipt_id)
+        nalog_income_request_model.set_canceled_reason(reason_code)
         request_name = NalogRequestModel.RequestNameChoice.POST_CANCEL_RECEIPT_REQUEST_V2
-        request_data = request_fabric.post_cancel_receipt_request(nalog_request_model.user.inn, receipt_id, reason_code)
+        request_data = request_fabric.post_cancel_receipt_request(
+            nalog_income_request_model.user.inn, receipt_id, reason_code
+        )
 
-        return self.__send_request(request_name, request_data, nalog_request_model.user.inn)
+        message_id = self.__send_request(request_name, request_data, nalog_income_request_model.user.inn)
+        nalog_income_request_model.set_cancel_message_id(message_id)
+        return message_id
 
     def get_cancel_income_reasons_list_request(self) -> str:
         """
@@ -241,91 +239,6 @@ class NalogSdk:
         if inn_list:
             self.get_keys_request(inn_list)
 
-    @staticmethod
-    def generate_qrcode(link):
-        factory = qrcode.image.svg.SvgPathImage
-        qr = qrcode.QRCode(
-            version=4,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=4,
-            image_factory=factory
-        )
-        qr.add_data(link)
-        qr.make(fit=True)
-        img = qr.make_image()  # fill_color="black", back_color="white"
-        stream = BytesIO()
-        img.save(stream)
-        result = stream.getvalue().decode()
-        return result
-
-    @classmethod
-    def generate_receipt_image(cls, receipt: NalogIncomeRequestModel):
-        tz = pytz.timezone('Europe/Moscow')
-        svg_qr_code = cls.generate_qrcode(receipt.link)
-
-        html = f'''<html><head></head><body>
-            <div class="container">
-                <div class="border-bottom w100">
-                    <div class="header t-center"><p>Чек №{receipt.receipt_id}</p></div> 
-                    <div class="flex-row w100 justify-between">
-                        <div class="date"><p>{tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%d.%m.%Y')}</p></div>
-                        <div class="time"><p>{tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%H:%M')}({tz.normalize(receipt.operation_time.replace(tzinfo=tz)).strftime('%z')})</p></div>
-                    </div>
-                </div>
-                <div class="border-bottom w100 smz flex align-center t-center justify-center"> 
-                    <p>{receipt.user.second_name} {receipt.user.first_name} {receipt.user.patronymic}</p>
-                </div>
-                <div class="border-bottom w100 flex-row"> 
-                    <div class="flex-column w50 align-start">
-                        <p class="bold">Наименование</p>
-                        <div><p>{receipt.name}</p></div>
-                    </div>
-                    <div class="flex-column w50 align-end t-right">
-                        <p class="bold">Сумма</p> 
-                        <div><p>{receipt.amount}</p></div>
-                    </div>
-                </div>
-                <div class="border-bottom w100 flex-row justify-between total">
-                    <div class="flex align-center"><p>Итого:</p></div>
-                    <div class="flex align-center"><p>{receipt.amount}</p></div>
-                </div>
-                <div class="border-bottom w100 flex-column">
-                    <div class="w100 flex-row justify-between">
-                        <div class="flex align-center"><p>Режим НО</p></div>
-                        <div class="flex align-center"><p>НПД</p></div>
-                    </div>
-                    <div class="w100 flex-row justify-between">
-                        <div class="flex align-center"><p>ИНН</p></div> 
-                        <div class="flex align-center"><p>{receipt.user.inn}</p></div>
-                    </div>
-                </div>
-                <div class="border-bottom w100 flex-column"> 
-                    <div class="w100 justify-between flex-row">
-                        <div class="flex align-center"><p>Чек сформировал</p></div> 
-                        <div class="flex align-center"><p>Гиберно</p></div>
-                    </div>
-                    <div class="w100 flex-row justify-between">
-                        <div class="flex align-center"><p>ИНН</p></div>
-                        <div class="flex align-center"><p>{settings.PARTNER_INN}</p></div>
-                    </div>
-                </div>
-                <div class="w100 t-center h300p">{svg_qr_code}</div>
-            </div>
-        </body></html>'''
-
-        options = {
-            'width': 410,
-            'format': 'jpeg',
-            'quality': '70',
-            'disable-smart-width': '',
-        }
-        if IS_LINUX:
-            options['xvfb'] = ''
-
-        image_bytes = imgkit.from_string(html, False, css=f'{BASE_DIR}/static/css/receipt.css', options=options)
-        receipt.set_receipt_image(File(BytesIO(image_bytes)))
-
     def make_offline_link(self, inn, amount, operation_time, request_time):
         # Получаем оффлайновый ключ
         offline_key = NalogOfflineKeyModel.get_unused_key(inn)
@@ -374,12 +287,18 @@ class NalogSdk:
             logger.debug(request)
             with transaction.atomic():
                 message_request = self.__get_message_request(request.message_id)
-                logger.debug(message_request)
                 message = xmltodict.parse(message_request)
                 _, status = request_fabric.get_message_response_and_status(message)
                 request.update_status(status, message_request)
                 if status == NalogRequestModel.StatusChoice.COMPLETED:
                     self.__save_result(request.message_id)
+                try:
+                    ErrorController.check_error(message)
+                except AlreadyDeletedException as e:
+                    request.set_error(e.detail)
+                except InvalidHashException as e:
+                    request.set_error(e.detail)
+                    pass
 
     def __get_message_request(self, message_id):
         request_data = request_fabric.get_message_body(message_id)

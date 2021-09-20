@@ -12,7 +12,7 @@ from app_feedback.versions.v1_0.repositories import ReviewsRepository
 from app_feedback.versions.v1_0.serializers import POSTReviewSerializer, ReviewModelSerializer, \
     POSTReviewByManagerSerializer, POSTShopReviewSerializer, DistributorReviewsSerializer, \
     VacancyReviewsSerializer, ShopVacanciesReviewsSerializer
-from app_market.enums import AppealCancelReason, ShiftAppealStatus, NotificationTitle, OrderType
+from app_market.enums import AppealCancelReason, ShiftAppealStatus, NotificationTitle, OrderType, ReceiptCancelReason
 from app_market.utils import QRHandler, send_socket_event_on_appeal_statuses
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShopsRepository, ShiftsRepository, ShiftAppealsRepository, \
@@ -31,7 +31,7 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     FinancesValiadator, OrdersValiadator, BuyCouponsValidator, ShiftsSerializerAdmin, ShiftAppealsSerializerAdmin, \
     ProfessionSerializerAdmin, CouponsSerializerAdmin, DistributorsSerializerAdmin, ShopsSerializerAdmin, \
     VacanciesSerializerAdmin, StructuresSerializerAdmin, PositionsSerializerAdmin, CategoriesSerializerAdmin, \
-    PartnersSerializerAdmin, ReceiptsSerializer, ReceiptsSerializerAdmin
+    PartnersSerializerAdmin, ReceiptsSerializer, ReceiptsSerializerAdmin, ReceiptCancelValidator
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -1818,6 +1818,18 @@ class Receipts(CRUDAPIView):
         return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
+@api_view(['POST'])
+def cancel_receipt(request, **kwargs):
+    body = get_request_body(request)
+    validator = ReceiptCancelValidator(data=body)
+    if validator.is_valid(raise_exception=True):
+        receipt = ReceiptsRepository(request.user).get_by_id(kwargs.get('record_id'))
+        NalogSdk().post_cancel_receipt_request(
+            receipt_id=receipt.receipt_id, reason_code=ReceiptCancelReason(body.get('reason')).name
+        )
+    return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
 class AdminDistributors(CRUDAPIView):
     serializer_class = DistributorsSerializerAdmin
     repository_class = DistributorsRepository
@@ -2808,5 +2820,5 @@ class AdminReceipts(CRUDAPIView):
             'me': request.user,
             'headers': get_request_headers(request),
         })
-        
+
         return Response(camelize(serialized.data), headers={'total-count': count}, status=status.HTTP_200_OK)

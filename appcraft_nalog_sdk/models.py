@@ -1,10 +1,18 @@
 import uuid
+from io import BytesIO
 
+import imgkit
+import pytz
+import qrcode
+import qrcode.image.svg
+from django.core.files.base import File
 from django.db import models
 from django.utils import timezone
 
+from appcraft_nalog_sdk import settings
 from appcraft_nalog_sdk.enums import NalogUserStatus
 from appcraft_nalog_sdk.errors import OrderIdNotFoundException, MessageIdNotFoundException, ReceiptIdNotFoundException
+from giberno.settings import IS_LINUX, BASE_DIR
 
 
 class NalogBaseModel(models.Model):
@@ -307,6 +315,8 @@ class NalogIncomeCancelReasonModel(NalogBaseModel):
 class NalogIncomeRequestModel(NalogBaseModel):
     uuid = models.UUIDField(verbose_name='Уникальный идентификатор операции')
     message_id = models.CharField(max_length=255, null=True, blank=True, verbose_name='MessageID')
+    cancel_message_id = models.CharField(max_length=255, null=True, blank=True,
+                                         verbose_name='MessageID запроса на отмену дохода')
     user = models.ForeignKey(NalogUser, on_delete=models.CASCADE, verbose_name='Пользователь')
     amount = models.FloatField(verbose_name='Сумма дохода')
     name = models.CharField(max_length=255, verbose_name='Название дохода')
@@ -365,6 +375,11 @@ class NalogIncomeRequestModel(NalogBaseModel):
             self.message_id = message_id
             self.save()
 
+    def set_cancel_message_id(self, cancel_message_id):
+        if self.cancel_message_id is None:
+            self.cancel_message_id = cancel_message_id
+            self.save()
+
     def set_receipt_image(self, file):
         self.receipt_image.save(f'{self.receipt_id}.jpg', file)
         self.save()
@@ -375,6 +390,115 @@ class NalogIncomeRequestModel(NalogBaseModel):
         if nalog_request_model is None:
             raise MessageIdNotFoundException()
         return nalog_request_model
+
+    @classmethod
+    def get_by_cancel_message_id(cls, cancel_message_id):
+        result = cls.objects.filter(cancel_message_id=cancel_message_id).last()
+        if result is None:
+            raise MessageIdNotFoundException()
+        return result
+
+    @staticmethod
+    def generate_qrcode(link):
+        factory = qrcode.image.svg.SvgPathImage
+        qr = qrcode.QRCode(
+            version=4,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+            image_factory=factory
+        )
+        qr.add_data(link)
+        qr.make(fit=True)
+        img = qr.make_image()  # fill_color="black", back_color="white"
+        stream = BytesIO()
+        img.save(stream)
+        result = stream.getvalue().decode()
+        return result
+
+    def generate_receipt_image(self):
+        tz = pytz.timezone('Europe/Moscow')
+        svg_qr_code = self.generate_qrcode(self.link)
+
+        cancel_block = f''''''
+
+        if self.is_canceled:
+            cancel_block = f'''
+                <div class="border-bottom w100">
+                    <div class="header t-center"><p>Аннулирован</p></div> 
+                    <div class="flex-row w100 justify-between">
+                        <div class="date"><p>Дата:</p></div>
+                        <div class="time"><p>{tz.normalize(self.operation_time.replace(tzinfo=tz)).strftime('%d.%m.%Y')}</p></div>
+                    </div>
+                    <div class="flex-row w100 justify-between">
+                        <div class="date"><p>Причина:</p></div>
+                        <div class="time"><p>{self.canceled_reason.code}</p></div>
+                    </div>
+                </div>
+            '''
+
+        html = f'''<html><head></head><body>
+                <div class="container">
+                    <div class="border-bottom w100">
+                        <div class="header t-center"><p>Чек №{self.receipt_id}</p></div> 
+                        <div class="flex-row w100 justify-between">
+                            <div class="date"><p>{tz.normalize(self.operation_time.replace(tzinfo=tz)).strftime('%d.%m.%Y')}</p></div>
+                            <div class="time"><p>{tz.normalize(self.operation_time.replace(tzinfo=tz)).strftime('%H:%M')}({tz.normalize(self.operation_time.replace(tzinfo=tz)).strftime('%z')})</p></div>
+                        </div>
+                    </div>
+                    {cancel_block}
+                    <div class="border-bottom w100 smz flex align-center t-center justify-center"> 
+                        <p>{self.user.second_name} {self.user.first_name} {self.user.patronymic}</p>
+                    </div>
+                    <div class="border-bottom w100 flex-row"> 
+                        <div class="flex-column w50 align-start">
+                            <p class="bold">Наименование</p>
+                            <div><p>{self.name}</p></div>
+                        </div>
+                        <div class="flex-column w50 align-end t-right">
+                            <p class="bold">Сумма</p> 
+                            <div><p>{self.amount}</p></div>
+                        </div>
+                    </div>
+                    <div class="border-bottom w100 flex-row justify-between total">
+                        <div class="flex align-center"><p>Итого:</p></div>
+                        <div class="flex align-center"><p>{self.amount}</p></div>
+                    </div>
+                    <div class="border-bottom w100 flex-column">
+                        <div class="w100 flex-row justify-between">
+                            <div class="flex align-center"><p>Режим НО</p></div>
+                            <div class="flex align-center"><p>НПД</p></div>
+                        </div>
+                        <div class="w100 flex-row justify-between">
+                            <div class="flex align-center"><p>ИНН</p></div> 
+                            <div class="flex align-center"><p>{self.user.inn}</p></div>
+                        </div>
+                    </div>
+                    <div class="border-bottom w100 flex-column"> 
+                        <div class="w100 justify-between flex-row">
+                            <div class="flex align-center"><p>Чек сформировал</p></div> 
+                            <div class="flex align-center"><p>Гиберно</p></div>
+                        </div>
+                        <div class="w100 flex-row justify-between">
+                            <div class="flex align-center"><p>ИНН</p></div>
+                            <div class="flex align-center"><p>{settings.PARTNER_INN}</p></div>
+                        </div>
+                    </div>
+                    <div class="w100 t-center h300p">{svg_qr_code}</div>
+                </div>
+            </body></html>'''
+
+        options = {
+            'width': 410,
+            'format': 'jpeg',
+            'quality': '70',
+            'disable-smart-width': '',
+        }
+        if IS_LINUX:
+            options['xvfb'] = ''
+
+        image_bytes = imgkit.from_string(html, False, css=f'{BASE_DIR}/static/css/receipt.css', options=options)
+        self.set_receipt_image(File(BytesIO(image_bytes)))
 
     def __str__(self):
         return f'{self.user}, {self.receipt_id}, {self.link}'

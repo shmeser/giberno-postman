@@ -1,7 +1,6 @@
 import uuid
 
 import xmltodict
-from loguru import logger
 
 from app_users.enums import NotificationType, NotificationIcon, NotificationAction
 from app_users.models import Notification
@@ -9,7 +8,8 @@ from appcraft_nalog_sdk import request_fabric
 from appcraft_nalog_sdk.enums import NalogUserStatus
 from appcraft_nalog_sdk.errors import ErrorController, TaxpayerUnregisteredException, TaxpayerUnboundException, \
     MessageIdNotFoundException, TaxpayerAlreadyBoundException, PartnerDenyException, RequestValidationException, \
-    DuplicateException, PermissionNotGrantedException, AlreadyDeletedException, ReceiptIdNotFoundException
+    DuplicateException, PermissionNotGrantedException, AlreadyDeletedException, ReceiptIdNotFoundException, \
+    InvalidHashException
 from appcraft_nalog_sdk.models import NalogRequestModel, NalogBindPartnerRequestModel, NalogNotificationModel, \
     NalogIncomeRequestModel, NalogUser, NalogIncomeCancelReasonModel, NalogDocumentModel, NalogOfflineKeyModel
 from backend.controllers import PushController
@@ -143,15 +143,19 @@ class ResponseRouter:
             nalog_request_model.set_error(e.detail)
         except RequestValidationException as e:
             nalog_request_model.set_error(e.detail)
+        except InvalidHashException as e:
+            nalog_request_model.set_error(e.detail)
 
     def post_cancel_receipt_response(self):
         nalog_request_model = NalogRequestModel.get_by_message_id(self.request_model.message_id)
+        nalog_income_request_model = NalogIncomeRequestModel.get_by_cancel_message_id(self.request_model.message_id)
 
         try:
             ErrorController.check_error(self.message, self.request_model.user)
             if 'PostCancelReceiptResponseV2' in self.message \
                     and self.message['PostCancelReceiptResponseV2']['RequestResult'] == 'DELETED':
-                nalog_request_model.cancel()
+                nalog_income_request_model.cancel()
+                nalog_income_request_model.generate_receipt_image()
                 return True
         except TaxpayerUnregisteredException as e:
             nalog_request_model.set_error(e.detail)
@@ -161,6 +165,7 @@ class ResponseRouter:
             pass
         except AlreadyDeletedException as e:
             nalog_request_model.set_error(e.detail)
+            nalog_income_request_model.set_error(e.detail)
             pass
         except RequestValidationException as e:
             nalog_request_model.set_error(e.detail)
