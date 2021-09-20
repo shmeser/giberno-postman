@@ -93,6 +93,10 @@ class AlreadyDeletedException(NalogException):
     pass
 
 
+class InvalidHashException(NalogException):
+    pass
+
+
 class ErrorController:
     @staticmethod
     def check_error(response, user=None) -> None:
@@ -142,3 +146,6 @@ class ErrorController:
 
         if error == NalogErrorEnum.ALREADY_DELETED:
             raise AlreadyDeletedException(reason=message)
+
+        if error == NalogErrorEnum.INVALID_HASH:
+            raise InvalidHashException(reason=message)
