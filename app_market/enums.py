@@ -169,3 +169,8 @@ class NotificationTitle(EnumM):
     WORKER_LEFT_SHOP_AREA_TITLE = 'Покидание территории магазина во время смены'
     WORKER_CANCELED_APPEAL_TITLE = 'Самозанятый отказался от вакансии'
     MANAGER_REJECTED_APPEAL_TITLE = 'Отклик отклонён'
+
+
+class ReceiptCancelReason(IntEnumM):
+    REFUND = 1  # Возврат средств
+    REGISTRATION_MISTAKE = 2  # Чек сформирован ошибочно

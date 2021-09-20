@@ -116,7 +116,7 @@ class PostIncomeView(APIView):
         nalog_income_request = NalogIncomeRequestModel.create(
             inn, amount, name, operation_time, request_time, latitude, longitude, link, receipt_id, receipt_hash
         )
-        nalog_sdk.generate_receipt_image(nalog_income_request)
+        nalog_income_request.generate_receipt_image()
 
         nalog_sdk.post_income_request(nalog_income_request)
         return JsonResponse({})
