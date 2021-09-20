@@ -13,7 +13,7 @@ from rest_framework import serializers
 
 from app_geo.models import City
 from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, SecurityPassRefuseReason, \
-    FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency, OrderType
+    FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency, OrderType, ReceiptCancelReason
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
     Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance, DistributorCategory, Structure, \
     Position
@@ -27,7 +27,6 @@ from app_media.versions.v1_0.serializers import MediaSerializer
 from app_users.enums import REQUIRED_DOCS_DICT
 from app_users.models import UserProfile
 from appcraft_nalog_sdk.models import NalogIncomeRequestModel, NalogUser
-from appcraft_nalog_sdk.serializers import NalogUserSerializer
 from backend.entity import Error
 from backend.errors.enums import ErrorsCodes
 from backend.errors.http_exceptions import CustomException
@@ -2083,3 +2082,7 @@ class ReceiptsSerializerAdmin(ReceiptsSerializer):
             'receipt_image',
             'user',
         ]
+
+
+class ReceiptCancelValidator(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=choices(ReceiptCancelReason), allow_null=False)
