@@ -31,7 +31,7 @@ class TelegramBotView(View):
 
     def post(self, request, *args, **kwargs):
         t_data = get_request_body(request)
-        # logger.debug(t_data)
+        logger.debug(t_data)
 
         if TelegramBotMessageType.PRIVATE.value in t_data:
             message_type = TelegramBotMessageType.PRIVATE.value

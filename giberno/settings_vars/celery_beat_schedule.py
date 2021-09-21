@@ -25,4 +25,12 @@ celery_beat_schedule = {
         'task': 'appcraft_nalog_sdk.tasks.update_processing_statuses',
         'schedule': crontab(minute='*')
     },
+    'check_canceled_receipts': {
+        'task': 'appcraft_nalog_sdk.tasks.get_income_request',
+        'schedule': crontab(hour='*')
+    },
+    'update_offline_keys': {
+        'task': 'appcraft_nalog_sdk.tasks.update_offline_keys',
+        'schedule': crontab(day_of_week='*')
+    },
 }

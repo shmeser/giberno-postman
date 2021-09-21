@@ -276,7 +276,9 @@ class NalogSdk:
         full_hash = np.base_repr(int(digest, 16), 36).lower()
         receipt_hash = full_hash[- 6:]
 
-        offline_key.set_is_used()
+        offline_key.set_is_used()  # Проставляем ключу статус "использован"
+        if NalogOfflineKeyModel.should_get_offline_keys(inn):
+            self.get_keys_request([inn])
 
         receipt_id = f'{seq_number}{receipt_hash}'
 
