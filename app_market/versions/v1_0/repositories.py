@@ -3,7 +3,7 @@ from datetime import timedelta, datetime
 import pytz
 from channels.db import database_sync_to_async
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.db.models import GeometryField, CharField, Window
+from django.contrib.gis.db.models import GeometryField, CharField, Window, prefetch_related_objects
 from django.contrib.gis.db.models.functions import Distance, Envelope
 from django.contrib.gis.geos import MultiPoint
 from django.contrib.postgres.aggregates import BoolOr, ArrayAgg
@@ -3530,6 +3530,59 @@ class TransactionsRepository(MasterRepository):
                 output_field=IntegerField()
             ),
         )
+
+    def get_my_transactions(self, kwargs, order_by, currency=None, paginator=None):
+        if order_by:
+            result = self.base_query.filter(
+                **kwargs
+            ).order_by(*order_by)
+        else:
+            result = self.base_query.filter(
+                **kwargs
+            )
+        if currency is not None:
+            result = result.filter(
+                Q(from_currency=currency) |
+                Q(to_currency=currency)
+            )
+        # Префетчим логотипы торговых сетей для target, который Generic Relation
+        vacancy_ct = ContentType.objects.get_for_model(Vacancy)
+        user_ct = ContentType.objects.get_for_model(UserProfile)
+        # Интересует только вакансия в from_ct_id, так как платить самозанятому будем с нее
+        transactions_from_vacancies = [item for item in result if item.from_ct_id == vacancy_ct.id]
+        transactions_to_vacancies = [item for item in result if item.to_ct_id == vacancy_ct.id]
+        transactions_from_user = [item for item in result if item.from_ct_id == user_ct.id]
+        transactions_to_user = [item for item in result if item.to_ct_id == user_ct.id]
+        if transactions_from_vacancies:
+            prefetch_related_objects(transactions_from_vacancies, Prefetch(
+                "_from__shop__distributor__media",
+                queryset=MediaModel.objects.filter(
+                    deleted=False,
+                    type=MediaType.LOGO.value,
+                    owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
+                    format=MediaFormat.IMAGE.value
+                ).order_by('-created_at'),  # Сортировка по дате обязательно
+                to_attr='medias'
+            ))
+
+        if transactions_to_vacancies:
+            prefetch_related_objects(transactions_to_vacancies, Prefetch(
+                "_to__shop__distributor__media",
+                queryset=MediaModel.objects.filter(
+                    deleted=False,
+                    type=MediaType.LOGO.value,
+                    owner_ct_id=ContentType.objects.get_for_model(Distributor).id,
+                    format=MediaFormat.IMAGE.value
+                ).order_by('-created_at'),  # Сортировка по дате обязательно
+                to_attr='medias'
+            ))
+
+        if transactions_from_user:
+            prefetch_related_objects(transactions_from_user, '_from')
+        if transactions_to_user:
+            prefetch_related_objects(transactions_to_user, '_to')
+
+        return result[paginator.offset:paginator.limit] if paginator else result
 
     def get_grouped_stats(self, interval, currency, paginator=None, timezone_name='UTC'):
         interval_name = FinancesInterval(interval).name.lower()

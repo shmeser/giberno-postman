@@ -75,6 +75,7 @@ urlpatterns = [
 
     # Финансы с группировками по дням, месяцам, годам
     path('market/finances', views.Finances.as_view()),
+    path('market/finances/transactions', views.Transactions.as_view()),
     # Баланс по разным счетам
     path('market/finances/money', views.get_my_money),
     path('market/finances/receipts', views.Receipts.as_view()),

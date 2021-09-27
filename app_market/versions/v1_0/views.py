@@ -31,7 +31,8 @@ from app_market.versions.v1_0.serializers import QRCodeSerializer, VacanciesClus
     FinancesValiadator, OrdersValiadator, BuyCouponsValidator, ShiftsSerializerAdmin, ShiftAppealsSerializerAdmin, \
     ProfessionSerializerAdmin, CouponsSerializerAdmin, DistributorsSerializerAdmin, ShopsSerializerAdmin, \
     VacanciesSerializerAdmin, StructuresSerializerAdmin, PositionsSerializerAdmin, CategoriesSerializerAdmin, \
-    PartnersSerializerAdmin, ReceiptsSerializer, ReceiptsSerializerAdmin, ReceiptCancelValidator
+    PartnersSerializerAdmin, ReceiptsSerializer, ReceiptsSerializerAdmin, ReceiptCancelValidator, TransactionSerializer, \
+    TransactionsValiadator
 from app_market.versions.v1_0.serializers import VacancySerializer, ProfessionSerializer, SkillSerializer, \
     DistributorsSerializer, ShopSerializer, VacanciesSerializer, ShiftsSerializer
 from app_media.versions.v1_0.serializers import MediaSerializer
@@ -1769,6 +1770,44 @@ class Finances(CRUDAPIView):
             return Response(camelize(serialized.data), status=status.HTTP_200_OK)
 
 
+class Transactions(CRUDAPIView):
+    serializer_class = TransactionSerializer
+    repository_class = TransactionsRepository
+    allowed_http_methods = ['get']
+
+    date_filter_params = {
+        'date_from': 'created_at__gte',
+        'date_to': 'created_at__lte',
+    }
+
+    default_order_params = {
+        '-id'
+    }
+
+    def get(self, request, **kwargs):
+        filters = RequestMapper(self).filters(request) or dict()
+        pagination = RequestMapper.pagination(request)
+        order_params = RequestMapper(self).order(request)
+        point, *_ = RequestMapper().geo(request)  # *_  - все ненужные распакованные переменные
+
+        validator = TransactionsValiadator(data=request.query_params)
+        validator.is_valid(raise_exception=True)
+        dataset = self.repository_class(me=request.user).get_my_transactions(
+            currency=validator.validated_data.get('currency'),
+            kwargs=filters,
+            order_by=order_params,
+            paginator=pagination
+        )
+
+        self.many = True
+
+        serialized = self.serializer_class(dataset, many=self.many, context={
+            'me': request.user,
+            'headers': get_request_headers(request),
+        })
+        return Response(camelize(serialized.data), status=status.HTTP_200_OK)
+
+
 @api_view(['GET'])
 def get_my_money(request):
     money_balances = MoneyRepository(me=request.user).get_my_money()
@@ -1780,6 +1819,11 @@ class Receipts(CRUDAPIView):
     serializer_class = ReceiptsSerializer
     repository_class = ReceiptsRepository
     allowed_http_methods = ['get']
+
+    date_filter_params = {
+        'date_from': 'reviews__created_at__gte',
+        'date_to': 'reviews__created_at__lte'
+    }
 
     order_params = {
         'id': 'id',
