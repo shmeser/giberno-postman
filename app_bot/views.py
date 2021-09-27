@@ -7,7 +7,7 @@ from .versions.v1_0 import views as v1_0
 
 class TelegramBotView(View):
     @staticmethod
-    def get(request, **kwargs):
+    def post(request, **kwargs):
         return v1_0.TelegramBotView().post(request, **kwargs)
 
 

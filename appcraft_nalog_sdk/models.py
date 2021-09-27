@@ -152,6 +152,10 @@ class NalogOfflineKeyModel(NalogBaseModel):
     def get_unused_key(cls, inn):
         return cls.objects.filter(user__inn=inn, deleted_at__isnull=True, is_used=False).first()
 
+    @classmethod
+    def should_get_offline_keys(cls, inn):
+        return cls.objects.filter(user__inn=inn, deleted_at__isnull=True, is_used=False).count() < 2
+
     def set_is_used(self):
         self.is_used = True
         self.save()

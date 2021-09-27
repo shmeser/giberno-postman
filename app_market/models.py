@@ -17,6 +17,7 @@ from app_market.enums import Currency, TransactionType, TransactionStatus, Vacan
 from app_media.models import MediaModel
 from app_users.enums import REQUIRED_DOCS_FOR_CHOICES
 from app_users.models import UserProfile
+from appcraft_nalog_sdk.models import NalogIncomeRequestModel
 from backend.models import BaseModel
 from backend.utils import choices
 from giberno import settings
@@ -102,10 +103,22 @@ class Organization(BaseModel):
     title = models.CharField(max_length=512, null=True, blank=True)
     short_name = models.CharField(max_length=512, null=True, blank=True)
     full_name = models.CharField(max_length=512, null=True, blank=True)
-    inn = models.CharField(max_length=12, null=True, blank=True)
-    kpp = models.CharField(max_length=12, null=True, blank=True)
-    ogrn = models.CharField(max_length=20, null=True, blank=True)
-    address = models.CharField(max_length=512, null=True, blank=True)
+    legal_inn = models.CharField(max_length=12, null=True, blank=True)
+    legal_kpp = models.CharField(max_length=12, null=True, blank=True)
+    legal_ogrn = models.CharField(max_length=20, null=True, blank=True)
+    legal_ogrn_date = models.DateTimeField(null=True, blank=True)
+    legal_form = models.CharField(max_length=50, null=True, blank=True)
+    legal_form_id = models.PositiveIntegerField(null=True, blank=True)
+    address_legal = models.CharField(max_length=512, null=True, blank=True)
+    address_post = models.CharField(max_length=512, null=True, blank=True)
+
+    bank_inn = models.CharField(max_length=12, null=True, blank=True)
+    bank_kpp = models.CharField(max_length=12, null=True, blank=True)
+    bank_bik = models.CharField(max_length=128, null=True, blank=True)
+    bank_account = models.CharField(max_length=128, null=True, blank=True)
+    bank_korr_account = models.CharField(max_length=128, null=True, blank=True)
+    bank_name = models.CharField(max_length=128, null=True, blank=True)
+
     distributor = models.ForeignKey(Distributor, on_delete=models.SET_NULL, blank=True, null=True)
 
     def __str__(self):
@@ -497,6 +510,8 @@ class Transaction(BaseModel):
     kind = models.PositiveIntegerField(
         null=True, blank=True, choices=choices(TransactionKind), verbose_name='Вид транзакции'
     )
+
+    receipt = models.ForeignKey(NalogIncomeRequestModel, null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return f'{self.uuid}'

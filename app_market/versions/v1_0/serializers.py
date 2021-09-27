@@ -1927,6 +1927,10 @@ class FinancesValiadator(serializers.Serializer):
         return FinancesInterval(data.interval).name.lower()
 
 
+class TransactionsValiadator(serializers.Serializer):
+    currency = serializers.ChoiceField(choices=choices(Currency))
+
+
 class OrdersValiadator(serializers.Serializer):
     type = serializers.ChoiceField(choices=choices(OrderType))
     amount = serializers.IntegerField(min_value=0)
@@ -2086,3 +2090,40 @@ class ReceiptsSerializerAdmin(ReceiptsSerializer):
 
 class ReceiptCancelValidator(serializers.Serializer):
     reason = serializers.ChoiceField(choices=choices(ReceiptCancelReason), allow_null=False)
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+    amount = serializers.SerializerMethodField()
+    vacancy = serializers.SerializerMethodField()
+
+    def get_vacancy(self, data):
+        if data._from and data._from._meta.model_name == 'vacancy':
+            return {
+                'id': data._from.id,
+                'title': data._from.title,
+                'logo': MediaController(Distributor).get_related_images(data._from.shop.distributor,
+                                                                        MediaType.LOGO.value)
+            }
+        if data._to and data._to._meta.model_name == 'vacancy':
+            return {
+                'id': data._to.id,
+                'title': data._to.title,
+                'logo': MediaController(Distributor).get_related_images(data._to.shop.distributor, MediaType.LOGO.value)
+            }
+        return None
+
+    def get_amount(self, data):
+        return data.signed_amount
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'id',
+            'kind',
+            'comment',
+            'receipt_id',
+            'vacancy',
+            'amount',
+            'created_at',
+        ]
