@@ -1,27 +1,14 @@
-from datetime import timedelta
+from django.contrib.contenttypes.models import ContentType
 
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Prefetch, ExpressionWrapper, Exists, OuterRef, BooleanField, Subquery, Count, Window, Max, \
-    F, IntegerField, Case, When, DateField
-from django.db.models.functions import Coalesce, Trunc
-from django.utils.timezone import now
 
-from app_admin.models import AccessUnit, AccessRight
-from app_games.enums import Grade, TaskKind, TaskPeriod
-from app_games.models import Prize, Task, UserFavouritePrize, UserPrizeProgress, PrizeCardsHistory, PrizeCard, UserTask, \
-    GoodsCategory
-from app_market.enums import Currency
+from app_admin.models import AccessUnit, AccessRight, ApiKeyToken
 from app_market.models import Structure, Distributor, Shop, Vacancy, Shift, ShiftAppeal, Organization
-from app_market.versions.v1_0.repositories import ShiftAppealsRepository
-from app_media.enums import MediaType, MediaFormat
-from app_media.models import MediaModel
 from app_users.enums import AccountType
-from app_users.models import UserMoney, UserProfile
-from backend.entity import Error
-from backend.errors.enums import RESTErrors, ErrorsCodes
-from backend.errors.http_exceptions import HttpException, CustomException
+from app_users.models import UserProfile
+from backend.errors.enums import RESTErrors
+from backend.errors.http_exceptions import HttpException
 from backend.mixins import MasterRepository
-from giberno.settings import MAX_AMOUNT_FOR_PREFERRED_DEFAULT_GRADE_PRIZES
 
 
 class UserAccessRepository(MasterRepository):
@@ -147,5 +134,51 @@ class UserAccessRepository(MasterRepository):
             raise HttpException(
                 status_code=RESTErrors.NOT_FOUND.value,
                 detail=f'Объект {UserProfile._meta.verbose_name} с ID={record_id} не найден'
+            )
+        return result
+
+
+class ApiKeysRepository(MasterRepository):
+    model = ApiKeyToken
+
+    def __init__(self, me=None) -> None:
+        super().__init__()
+
+        self.me = me
+
+    def get_keys(self, kwargs, order, paginator):
+        records = ApiKeyToken.objects.filter(**kwargs)
+        if order:
+            records = records.order_by(order)
+        count = records.count()
+        result = records[paginator.offset:paginator.limit] if paginator else records
+        return result, count
+
+    @staticmethod
+    def add_key(data):
+        organization = Organization.objects.filter(id=data.get('organization')).first()
+        if not organization:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {Organization._meta.verbose_name} с ID={data.get("organization")} не найден'
+            )
+
+        api_key, created = ApiKeyToken.objects.get_or_create(
+            organization=organization,
+            deleted=False
+        )
+        return api_key
+
+    @staticmethod
+    def get_key(record_id):
+        results = ApiKeyToken.objects.filter(id=record_id).exclude(
+            deleted=True
+        )
+
+        result = results.first()
+        if not result:
+            raise HttpException(
+                status_code=RESTErrors.NOT_FOUND.value,
+                detail=f'Объект {ApiKeyToken._meta.verbose_name} с ID={record_id} не найден'
             )
         return result

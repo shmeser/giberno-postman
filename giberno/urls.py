@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import path, include
 
+from app_market.views import Contractors, Appeals
 from app_users.views import social_web_auth, login
 from frontend.views import PolicyView, AgreementView, DocumentsView, TermsView
 from giberno import settings
@@ -28,6 +29,9 @@ service_urls = [
     path('agreement', AgreementView.as_view()),
     path('bot/', include('app_bot.urls')),
     path('sockets/', include('app_sockets.urls')),
+
+    path('api/contractors', Contractors.as_view()),
+    path('api/appeals', Appeals.as_view()),
 ]
 
 v1_0 = 'v1.0/'

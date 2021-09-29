@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from app_admin.versions.v1_0.repositories import UserAccessRepository
+from app_admin.versions.v1_0.repositories import UserAccessRepository, ApiKeysRepository
 from app_admin.versions.v1_0.serializers import AccessSerializer, ContentTypeSerializer, StaffSerializer, \
     AccessRightSerializer
 from app_users.permissions import IsAdminOrManager
@@ -103,6 +103,44 @@ class UserAccess(APIView):
         else:
             UserAccessRepository(request.user).add_access_right(instance, body.get('access_right'))
 
+        return Response(camelize(serialized.data))
+
+    @staticmethod
+    def delete(request, **kwargs):
+        data = UserAccessRepository(request.user).get_access(kwargs.get('record_id'))
+        data.deleted = True
+        data.save()
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class ApiKeys(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+
+        paginator = RequestMapper.pagination(request)
+        filters = RequestMapper().filters(request)
+        order_params = RequestMapper().order(request)
+
+        data, count = ApiKeysRepository(request.user).get_keys(kwargs=filters, order=order_params,filpaginator=paginator)
+        serialized = AccessSerializer(data, many=True)
+        return Response(camelize(serialized.data))
+
+    @staticmethod
+    def post(request, **kwargs):
+        body = get_request_body(request)
+        UserAccessRepository.add_access(body)
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+
+class ApiKey(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        data = UserAccessRepository(request.user).get_access(kwargs.get('record_id'))
+        serialized = AccessSerializer(data, many=False)
         return Response(camelize(serialized.data))
 
     @staticmethod

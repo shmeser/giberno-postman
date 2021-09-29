@@ -90,3 +90,35 @@ class UserAccess(APIView):
         if request.version in ['admin_1_0']:
             return v1_0.UserAccess().delete(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class ApiKeys(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['admin_1_0']:
+            return v1_0.ApiKeys().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+    @staticmethod
+    def post(request, **kwargs):
+        if request.version in ['admin_1_0']:
+            return v1_0.ApiKeys().post(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class ApiKey(APIView):
+    permission_classes = [IsAdminOrManager]
+
+    @staticmethod
+    def get(request, **kwargs):
+        if request.version in ['admin_1_0']:
+            return v1_0.ApiKey().get(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+    @staticmethod
+    def delete(request, **kwargs):
+        if request.version in ['admin_1_0']:
+            return v1_0.ApiKey().delete(request, **kwargs)
+        raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)

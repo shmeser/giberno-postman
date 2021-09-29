@@ -1,10 +1,16 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import api_view
+from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
+from app_market.models import Organization, ShiftAppeal
+from app_market.versions.v1_0 import serializers as serializers_v1_0
 from app_market.versions.v1_0 import views as v1_0
 from app_users.permissions import IsManager, IsSelfEmployed, IsAdminOrManager, IsSecurity
 from backend.api_views import BaseAPIView
+from backend.authentication import ApiKeyAuthentication
 from backend.errors.enums import RESTErrors, ErrorsCodes
 from backend.errors.http_exceptions import HttpException
 
@@ -1138,3 +1144,22 @@ class AdminReceipts(APIView):
         if request.version in ['market_1_0']:
             return v1_0.AdminReceipts().get(request, **kwargs)
         raise HttpException(status_code=RESTErrors.NOT_FOUND, detail=ErrorsCodes.METHOD_NOT_FOUND.value)
+
+
+class Contractors(ListAPIView):
+    authentication_classes = [ApiKeyAuthentication]
+    serializer_class = serializers_v1_0.ContractorSerializer
+
+    def get_queryset(self):
+        return Organization.objects.all()
+
+
+class Appeals(ListAPIView):
+    authentication_classes = [ApiKeyAuthentication]
+    serializer_class = serializers_v1_0.CompletedAppealsSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ['account_type']
+    ordering_fields = ['id']
+
+    def get_queryset(self):
+        return ShiftAppeal.objects.all()  # TODO отфильтровать для контрагента

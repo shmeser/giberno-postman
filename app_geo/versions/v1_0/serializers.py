@@ -124,7 +124,7 @@ class CitySerializer(CRUDSerializer):
 
     def get_name(self, city: City):
         # TODO для локализации выводить соответствующее название
-        return city.names.get(DEFAULT_LANGUAGE, None)
+        return city.names.get(DEFAULT_LANGUAGE, city.native) if city.names else city.native
 
     def get_country(self, city: City):
         if city.country:

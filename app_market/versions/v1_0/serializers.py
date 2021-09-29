@@ -16,7 +16,7 @@ from app_market.enums import ShiftAppealStatus, ManagerAppealCancelReason, Secur
     FireByManagerReason, AppealCompleteReason, FinancesInterval, Currency, OrderType, ReceiptCancelReason
 from app_market.models import Vacancy, Profession, Skill, Distributor, Shop, Shift, Category, ShiftAppeal, Partner, \
     Achievement, Advertisement, Order, Coupon, Transaction, ShiftAppealInsurance, DistributorCategory, Structure, \
-    Position
+    Position, Organization
 from app_market.versions.v1_0.repositories import VacanciesRepository, ProfessionsRepository, SkillsRepository, \
     DistributorsRepository, ShiftsRepository, ShopsRepository, StructuresRepository, PositionsRepository, \
     CouponsRepository, CategoriesRepository, PartnersRepository
@@ -2127,3 +2127,22 @@ class TransactionSerializer(serializers.ModelSerializer):
             'amount',
             'created_at',
         ]
+
+
+class ContractorSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+    updated_at = DateTimeField()
+    legal_ogrn_date = DateTimeField()
+
+    class Meta:
+        model = Organization
+        fields = '__all__'
+
+
+class CompletedAppealsSerializer(serializers.ModelSerializer):
+    created_at = DateTimeField()
+    updated_at = DateTimeField()
+
+    class Meta:
+        model = ShiftAppeal
+        fields = '__all__'

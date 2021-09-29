@@ -1,9 +1,34 @@
+import binascii
+import os
+
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 
+from app_market.models import Organization
 from app_users import models as users_models
 from backend.models import BaseModel
+
+
+class ApiKeyToken(BaseModel):
+    key = models.CharField(max_length=40, primary_key=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = self.generate_key()
+        return super(ApiKeyToken, self).save(*args, **kwargs)
+
+    def generate_key(self):
+        return binascii.hexlify(os.urandom(20)).decode()
+
+    def __unicode__(self):
+        return self.key
+
+    class Meta:
+        db_table = 'app_admin__api_keys'
+        verbose_name = 'API Ключ для организации'
+        verbose_name_plural = 'API Ключи для организаций'
 
 
 class AccessUnit(BaseModel):
@@ -34,7 +59,6 @@ class AccessRight(BaseModel):
         db_table = 'app_admin__access_rights'
         verbose_name = 'Право доступа пользователя'
         verbose_name_plural = 'Права доступа пользователей'
-
 
 
 '''
